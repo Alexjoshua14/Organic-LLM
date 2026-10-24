@@ -1,4 +1,6 @@
-import { afterEach, describe, expect, mock, test } from "bun:test";
+import { afterAll, afterEach, describe, expect, mock, test } from "bun:test";
+
+import { mockModulePreservingReal } from "../helpers/module-mock";
 
 const consumeStreamMock = mock(async () => {});
 const saveChatMock = mock(async () => ({ data: null, error: null }));
@@ -9,33 +11,38 @@ const createResumableStreamContextMock = mock(() => ({
 const connectRedisMock = mock(async () => {});
 const disconnectRedisMock = mock(async () => {});
 
+// Real modules are captured first so afterAll can put them back: mock.module is process-wide, and
+// a stub left behind here changes `ai`, `next/server` and `chat-store` for every later test file.
 const realAi = await import("ai");
+const realNextServer = await import("next/server");
+const realChatStore = await import("@/lib/chat/chat-store");
+const realResumableStream = await import("resumable-stream");
+const realRedis = await import("redis");
 
-mock.module("ai", () => ({
-  ...realAi,
-  generateId: () => "stream-test-id",
-  consumeStream: consumeStreamMock,
-}));
-
-mock.module("next/server", () => ({
-  after: (promise: Promise<unknown>) => promise,
-}));
-
-mock.module("@/lib/chat/chat-store", () => ({
-  saveChat: saveChatMock,
-}));
-
-mock.module("resumable-stream", () => ({
-  createResumableStreamContext: createResumableStreamContextMock,
-}));
-
-mock.module("redis", () => ({
-  createClient: () => ({
-    on: () => {},
-    connect: connectRedisMock,
-    disconnect: disconnectRedisMock,
+const restores = [
+  mockModulePreservingReal("ai", realAi, {
+    generateId: () => "stream-test-id",
+    consumeStream: consumeStreamMock,
   }),
-}));
+  mockModulePreservingReal("next/server", realNextServer, {
+    after: (promise: Promise<unknown>) => promise,
+  }),
+  mockModulePreservingReal("@/lib/chat/chat-store", realChatStore, { saveChat: saveChatMock }),
+  mockModulePreservingReal("resumable-stream", realResumableStream, {
+    createResumableStreamContext: createResumableStreamContextMock,
+  }),
+  mockModulePreservingReal("redis", realRedis, {
+    createClient: () => ({
+      on: () => {},
+      connect: connectRedisMock,
+      disconnect: disconnectRedisMock,
+    }),
+  }),
+] as unknown as Array<() => void>;
+
+afterAll(() => {
+  for (const restore of restores) restore();
+});
 
 const { consumeChatSseStream } = await import("@/lib/chat/resumable-sse-stream");
 const { createLogger } = await import("@/lib/logger");

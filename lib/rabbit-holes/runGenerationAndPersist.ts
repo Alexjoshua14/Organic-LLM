@@ -4,6 +4,7 @@ import { runOneGenerationStep } from "./runOneGenerationStep";
 
 import {
   advanceGenerationStep,
+  getRabbitHoleSessionOwnerId,
   getSessionById,
   saveSession,
   type RabbitHolesSupabaseClient,
@@ -80,6 +81,8 @@ export async function runGenerationAndPersist(sessionId: string, nodeId: string)
     return;
   }
 
+  const ownerId = await getRabbitHoleSessionOwnerId(sessionId, admin);
+
   try {
     let step: GenerationStep | null = session.generationStep ?? "sources";
 
@@ -101,7 +104,7 @@ export async function runGenerationAndPersist(sessionId: string, nodeId: string)
       ) {
         sessionToSave = session;
       } else {
-        const result = await runOneGenerationStep(session, nodeId, step);
+        const result = await runOneGenerationStep(session, nodeId, step, { ownerId });
 
         if (result.error || !result.data) {
           logger.error("runGenerationAndPersist", `Step ${step} failed`, result.error);

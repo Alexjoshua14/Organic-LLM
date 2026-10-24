@@ -1,4 +1,3 @@
-import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import { openai } from "@ai-sdk/openai";
 import {
   streamText,
@@ -8,6 +7,8 @@ import {
   LanguageModel,
   smoothStream,
 } from "ai";
+
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 
 // import systemPrompt from "@/lib/system-prompt";
 import { saveChat } from "@/lib/chat/chat-store";

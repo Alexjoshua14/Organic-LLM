@@ -103,8 +103,9 @@ describe("SidebarChats", () => {
 
     expect(view.getByText("Pinned")).toBeDefined();
     expect(view.getByText("All Threads")).toBeDefined();
-    expect(view.getAllByText("Pinned Chat")).toHaveLength(1);
-    expect(view.getAllByText("Regular Chat")).toHaveLength(1);
+    // Count actionable rows, not both the visual title and its screen-reader copy.
+    expect(view.getAllByRole("button", { name: "Open Pinned Chat" })).toHaveLength(1);
+    expect(view.getAllByRole("button", { name: "Open Regular Chat" })).toHaveLength(1);
   });
 
   test("renders the server-filtered list as given (scope filtering is server-side)", () => {
@@ -115,7 +116,7 @@ describe("SidebarChats", () => {
       ],
     });
 
-    expect(view.getAllByText("Arcadia Chat")).toHaveLength(1);
+    expect(view.getAllByRole("button", { name: "Open Arcadia Chat" })).toHaveLength(1);
   });
 
   test("loads the next page when the end of the list scrolls into view", () => {
@@ -142,7 +143,7 @@ describe("SidebarChats", () => {
         loadMoreSidebarChats: loadMore,
       });
 
-      expect(view.getByText("Thread")).toBeDefined();
+      expect(view.getByRole("button", { name: "Open Thread" })).toBeDefined();
       expect(view.queryByRole("status")).toBeNull();
       expect(observers).toHaveLength(1);
 

@@ -1,5 +1,9 @@
 import { HomePageRouter } from "./home-page-router";
 
-export default function Home() {
-  return <HomePageRouter />;
+type HomeProps = {
+  initialSignedOut?: boolean;
+};
+
+export default function Home({ initialSignedOut }: HomeProps) {
+  return <HomePageRouter initialSignedOut={initialSignedOut} />;
 }

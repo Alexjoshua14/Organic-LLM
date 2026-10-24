@@ -139,6 +139,34 @@ export async function advanceGenerationStep(
 }
 
 /**
+ * Mark a node as the in-flight generation target so a later `after()` or resume
+ * can advance `generation_step`. Safe to call with the admin client when the
+ * user JWT is gone.
+ */
+export async function claimRabbitHoleGeneration(
+  sessionId: string,
+  nodeId: string,
+  step: GenerationStepType,
+  client?: RabbitHolesSupabaseClient
+): Promise<void> {
+  const supabase = client ?? (await supabaseServer());
+  const { error } = await supabase
+    .from("rabbit_hole_sessions")
+    .update({
+      generating_node_id: nodeId,
+      generation_step: step,
+      active_node_id: nodeId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("session_id", sessionId);
+
+  if (error) {
+    logger.error("claimRabbitHoleGeneration", error.message);
+    throw error;
+  }
+}
+
+/**
  * Fetch a full session by ID
  */
 export async function getSessionById(

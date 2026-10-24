@@ -497,33 +497,33 @@ describe("buildAmbientContext", () => {
     expect(context.body).toContain("Comparing flat and conical burr grinders for home espresso.");
   });
 
-  test("asks the data layer for only a handful of recent messages", async () => {
-    let requested: number | undefined;
+  test("reads the chat in one call, checking ownership first, for only a handful of messages", async () => {
+    const calls: Array<{ expectedOwnerId: string; messageLimit: number }> = [];
 
     await buildAmbientContext(
       { ownerId: OWNER, surface: { kind: "chat", id: CHAT_THREAD_ID } },
       deps({
-        getNMessages: async (_id: string, limit?: number) => {
-          requested = limit;
+        getThreadScreen: async (
+          _id: string,
+          options: { expectedOwnerId: string; messageLimit: number }
+        ) => {
+          calls.push(options);
 
-          return { data: [], error: null };
+          return { data: { title: null, messages: [], summary: null }, error: null };
         },
       } as Partial<AmbientContextDeps>)
     );
 
-    expect(requested).toBeGreaterThan(0);
-    expect(requested).toBeLessThanOrEqual(10);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.expectedOwnerId).toBe(OWNER);
+    expect(calls[0]!.messageLimit).toBeGreaterThan(0);
+    expect(calls[0]!.messageLimit).toBeLessThanOrEqual(10);
   });
 
   test("returns nothing for a chat the caller does not own, and says why", async () => {
     const context = await buildAmbientContext(
       { ownerId: OWNER, surface: { kind: "chat", id: CHAT_THREAD_ID } },
-      deps({
-        getThreadOwnerContext: async () => ({
-          data: { threadId: CHAT_THREAD_ID, ownerId: OTHER },
-          error: null,
-        }),
-      } as Partial<AmbientContextDeps>)
+      speakAmbientDeps({ chat: () => ({ ...chatThreadFixture(), ownerId: OTHER }) })
     );
 
     expect(context).toEqual({ body: "", label: "Chat", reason: "not-owner" });
@@ -533,11 +533,22 @@ describe("buildAmbientContext", () => {
     const context = await buildAmbientContext(
       { ownerId: OWNER, surface: { kind: "chat", id: CHAT_THREAD_ID } },
       deps({
-        getThreadOwnerContext: async () => ({ data: null, error: new Error("Thread not found") }),
+        getThreadScreen: async () => ({ data: null, error: "not-found" as const }),
       } as Partial<AmbientContextDeps>)
     );
 
-    expect(context.reason).toBe("not-found");
+    expect(context).toEqual({ body: "", label: "Chat", reason: "not-found" });
+  });
+
+  test("a failed thread read is reported as an error, not as a missing chat", async () => {
+    const context = await buildAmbientContext(
+      { ownerId: OWNER, surface: { kind: "chat", id: CHAT_THREAD_ID } },
+      deps({
+        getThreadScreen: async () => ({ data: null, error: "error" as const }),
+      } as Partial<AmbientContextDeps>)
+    );
+
+    expect(context.reason).toBe("error");
   });
 
   test("returns nothing for a Strata page the caller does not own", async () => {

@@ -2,6 +2,7 @@ import "server-only";
 
 import type { HealthCheckResult } from "@/lib/health/types";
 
+import { describeThrownError } from "@/lib/health/describe-failure";
 import { HEALTH_CHECK_TIMEOUT_MS, withTimeout } from "@/lib/health/with-timeout";
 import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
 
@@ -56,8 +57,7 @@ export async function checkSupabase(): Promise<HealthCheckResult> {
             ...base,
             status: "down",
             latencyMs,
-            summary: error.message.length > 80 ? `${error.message.slice(0, 77)}…` : error.message,
-            message: error.message,
+            ...describeThrownError(error),
           };
         }
 
@@ -69,14 +69,12 @@ export async function checkSupabase(): Promise<HealthCheckResult> {
         };
       } catch (error) {
         const latencyMs = Math.round(performance.now() - start);
-        const message = error instanceof Error ? error.message : String(error);
 
         return {
           ...base,
           status: "down",
           latencyMs,
-          summary: message.length > 80 ? `${message.slice(0, 77)}…` : message,
-          message,
+          ...describeThrownError(error),
         };
       }
     },

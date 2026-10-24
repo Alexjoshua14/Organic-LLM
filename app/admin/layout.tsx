@@ -1,5 +1,5 @@
-import { notFound } from "next/navigation";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 
 import { requireAdmin } from "@/lib/admin/require-admin";
 
@@ -24,6 +24,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           >
             <Link className="hover:text-foreground" href="/admin/usage">
               Usage ledger
+            </Link>
+            <Link className="hover:text-foreground" href="/admin/thread-reference-performance">
+              Thread performance
             </Link>
             <Link
               className="text-xs text-muted-foreground hover:text-foreground transition-colors"

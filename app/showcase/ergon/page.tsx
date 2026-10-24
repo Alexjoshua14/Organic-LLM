@@ -4,6 +4,7 @@ import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
 import { ErgonShowcaseStage } from "@/components/showcase/ergon/ErgonShowcaseStage";
 import { ShowcaseHero } from "@/components/showcase/ShowcaseHero";
 import Page from "@/components/layout/page";
+import { PublicSiteHeader } from "@/components/layout/public-site-header";
 import { PageContentFrame, PageNavBack } from "@/components/layout/page-content-frame";
 import { tabTitleMetadata } from "@/lib/metadata/tab-title";
 
@@ -19,13 +20,15 @@ const THESIS =
 export default function ErgonShowcasePage() {
   return (
     <Page
+      chrome="full-bleed"
       liquidChromeBackground
       transparentBackground
       className="items-stretch justify-start overflow-hidden"
     >
       <AdaptiveLiquidChrome dimIntensity={0.45} />
       <div className="relative z-10 h-full min-h-0 w-full overflow-y-auto pb-16">
-        <PageContentFrame maxWidth="7xl">
+        <PublicSiteHeader className="text-foreground" />
+        <PageContentFrame maxWidth="7xl" className="pt-8 sm:pt-12" clearNavChrome={false}>
           <PageNavBack href="/showcase">← Showcase</PageNavBack>
 
           <ShowcaseHero thesis={THESIS} title="Ergon live board" />

@@ -49,6 +49,7 @@ export function FirstSessionSheet() {
 
     toastShownRef.current = true;
     toast("New here?", {
+      className: "first-session-toast",
       description: "Open First steps for a quick tour.",
       duration: 8_000,
       action: {
@@ -81,6 +82,7 @@ export function FirstSessionSheet() {
     typeof document !== "undefined"
       ? createPortal(
           <div
+            data-onboarding-chrome="first-steps"
             className={cn(
               "pointer-events-auto fixed z-[35]",
               "bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2",

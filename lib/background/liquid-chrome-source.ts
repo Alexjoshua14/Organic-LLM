@@ -18,6 +18,8 @@ export type LiquidChromeUniforms = {
   /** Device pixels; `[width, height, aspect]`. */
   uResolution: VectorUniform;
   uBaseColor: VectorUniform;
+  uPaperInk: NumberUniform;
+  uPixelRatio: NumberUniform;
   uAmplitude: NumberUniform;
   uFrequencyX: NumberUniform;
   uFrequencyY: NumberUniform;

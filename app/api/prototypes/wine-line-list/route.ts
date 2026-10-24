@@ -1,4 +1,3 @@
-import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import { randomUUID } from "crypto";
 
 import { auth } from "@clerk/nextjs/server";
@@ -11,6 +10,7 @@ import {
 } from "ai";
 import { openai } from "@ai-sdk/openai";
 
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import { loadChat, saveChat } from "@/lib/chat/chat-store";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";

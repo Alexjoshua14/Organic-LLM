@@ -5,6 +5,10 @@ import {
   DEFAULT_BACKGROUND_ACTIVITY_MODE,
 } from "@/lib/background-activity";
 import { ContextEffortLevelSchema, DEFAULT_CONTEXT_EFFORT } from "@/lib/memory/context-effort";
+import {
+  defaultUserConnectorsProfile,
+  UserConnectorsProfileSchema,
+} from "@/lib/schemas/user-connectors";
 
 /**
  * Client-side user settings schema.
@@ -32,6 +36,8 @@ export const UserSettingsSchema = z.object({
   replayFeatureHints: z.boolean().default(false),
   /** Settings → AI: cadence of in-view background probes (Arcadia subagent heartbeat). */
   backgroundActivity: BackgroundActivityModeSchema.default(DEFAULT_BACKGROUND_ACTIVITY_MODE),
+  /** Settings → Connectors: private profile connectors & personal dossier. */
+  connectors: UserConnectorsProfileSchema.default(defaultUserConnectorsProfile),
 });
 
 export type UserSettings = z.infer<typeof UserSettingsSchema>;
@@ -48,4 +54,5 @@ export const defaultUserSettings = (): UserSettings => ({
   ergonLiquidChrome: true,
   replayFeatureHints: false,
   backgroundActivity: DEFAULT_BACKGROUND_ACTIVITY_MODE,
+  connectors: defaultUserConnectorsProfile(),
 });

@@ -105,6 +105,21 @@ When `chatStyle === "ergon"`, the model drives a **live** kanban board over a tr
 When `chatStyle === "ergon"`, the model can create, update, read, and open **durable markdown documents** linked to kanban ticket ids. Bodies persist in Supabase `ergon_documents` (encrypted, RLS). Create/update also emits a client-only `LINK_DOCUMENT` on `data-kanban` so ticket cards show doc chips. The in-thread viewer stays expanded while its message is the latest; after the next turn it collapses to a chip.
 
 - Implementation: [`createErgonDocumentTool`](../lib/llm/ergon-document-tool.ts) · [`lib/schemas/ergon-documents.ts`](../lib/schemas/ergon-documents.ts) · [`docs/ergon/README.md`](./ergon/README.md)
+### Connected Ergon engineering tickets (`ergon_*` ticket tools)
+
+An optional connection to a separate Ergon engineering workspace adds `ergon_list_issues`,
+`ergon_get_issue`, `ergon_save_issue`, `ergon_save_comment`, `ergon_list_projects`,
+`ergon_list_issue_statuses`, and `ergon_list_issue_labels` to main chat. Connect with
+**per-user MCP OAuth** in Settings → Connectors (`Connect with Ergon`; AuthKit / WorkOS Connect
+PKCE). Access and refresh tokens stay server-side only. Tools call Ergon over MCP
+(`callErgonTool` / `@ai-sdk/mcp`) when the connection includes Organic `write` scope. Optional
+server-only `ERGON_URL` / `ERGON_TOKEN` / `ERGON_OWNER_PROFILE_ID` stay an admin REST fallback
+for one Supabase profile. Paste-token connect is not the product UX (`PUT` returns 405).
+Other users cannot select another profile through tool arguments. The personal todo tool
+remains independent. Operational notes: [`docs/ergon/README.md`](./ergon/README.md).
+Implementation: [`ergon-ticket-tools.ts`](../lib/llm/ergon-ticket-tools.ts) ·
+[`ergon-mcp-client.ts`](../lib/llm/ergon-mcp-client.ts) ·
+[`ergonConfigForUser`](../lib/llm/ergon-config.ts).
 
 ### `manage_tasks` (durable Ergon todos)
 
@@ -142,6 +157,51 @@ Always on in the **Remy** route (`/api/ai/remy`); in Arcadia it's the **Remy** c
 
 - Implementation: [`createMisePlanTool` / `createFetchRecipeTool`](../lib/llm/mise-tool.ts) · [`lib/schemas/mise`](../lib/schemas/mise/) · [`data/supabase/mise.ts`](../data/supabase/mise.ts) · store [`lib/mise/store.ts`](../lib/mise/store.ts)
 - Requires the migration [`docs/migrations/mise_tables.sql`](./migrations/mise_tables.sql) applied and `lib/supabase/types.ts` regenerated.
+
+---
+
+## Connected-app tools (hard-set tool policy)
+
+These are registered only when a hard-set subagent's tool policy forces them on, in its shell, its
+queued sends and its dispatched worker runs. They are never composer toggles. Chronos remains
+owner-gated via env. Mira uses the user's Ergon MCP OAuth connection when it includes `agents`
+scope; admin `ERGON_AGENT_TOKEN` remains a REST fallback. Main chat loads write ticket tools
+whenever the user is connected with Organic `write` scope (or the env owner bridge). Mira's turns
+skip that write set.
+
+### `chronos_list_repos` + `chronos_git` (Reed, `tools.chronos`)
+
+Read-only git over the owner's local repositories, through Chronos's MCP endpoint (Streamable HTTP,
+via `@ai-sdk/mcp`). Each call opens one short-lived MCP session. Chronos runs an exact-token
+allowlist of subcommands and flags with no shell, so `branch` and `tag` only list and commands that
+print file contents are off unless Chronos enables them. Results carry HEAD's SHA and branch, the
+exit code and a truncation flag. Configure `CHRONOS_MCP_URL`, `CHRONOS_MCP_TOKEN` and
+`CHRONOS_OWNER_PROFILE_ID`. A deployed Organic cannot reach `localhost`, so it needs a tunnel.
+
+- Implementation: [`createChronosTools`](../lib/llm/chronos-mcp-tools.ts)
+
+### `ergon_*` agent tools (Mira, `tools.ergon`)
+
+Mira owns Ergon docs / agent-run representation (`tools.ergon`) — there is no second hard-set
+agent for that surface. Through Ergon MCP (same OAuth session as ticket tools) she can
+list/search vault docs, read a doc (content capped at 12,000 characters, clauses complete),
+resolve clauses, list open questions, read issue briefs, hooks and agent runs, and start an
+agent run. She uses a per-user MCP OAuth connection with `agents` scope, or `ERGON_AGENT_TOKEN`
+as admin REST fallback. Her turns skip the write connected-ticket tools. Starts are never
+retried automatically.
+
+- Implementation: [`createErgonAgentTools`](../lib/llm/ergon-agent-tools.ts) ·
+  [`ergon-mcp-client.ts`](../lib/llm/ergon-mcp-client.ts) ·
+  [`ergonConfigForUser`](../lib/llm/ergon-config.ts)
+
+### `ergon_*` ticket tools (main chat)
+
+Write ticket tools register for main chat when the user (or admin `ERGON_TOKEN` REST fallback) is
+connected with Organic `write` scope. There is no second Ergon hard-set ticket-steward — Mira owns
+Ergon representation (`tools.ergon`); Aion uses ticket tools directly in chat when connected.
+
+- Implementation: [`createErgonTicketTools`](../lib/llm/ergon-ticket-tools.ts) ·
+  [`ergonConfigForUser`](../lib/llm/ergon-config.ts)
 
 ---
 

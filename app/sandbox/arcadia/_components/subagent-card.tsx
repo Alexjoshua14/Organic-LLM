@@ -5,7 +5,6 @@ import type { ArcadiaSpeakSessionPhase } from "@/lib/arcadia/multitask/speak-ses
 import type { LiveVoicePhase } from "@/hooks/use-realtime-voice";
 
 import Link from "next/link";
-
 import { Radio } from "lucide-react";
 
 import { SubagentSpeakGlassBar } from "./subagent-speak-glass-bar";
@@ -129,22 +128,26 @@ export function SubagentCard({
         </div>
       </button>
       <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-stretch">
-        {agent.threadId ? <Link
-          href={`/sandbox/arcadia/${agent.threadId}`}
-          className="select-none rounded-lg border border-border/60 bg-background/50 px-2.5 py-1.5 text-center text-xs font-medium hover:bg-background-secondary focus-visible:outline focus-visible:outline-2"
-        >
-          Open thread
-        </Link> : <button
-          className={cn(
-            "select-none rounded-lg border border-border/60 bg-background/50 px-2.5 py-1.5 text-xs font-medium",
-            "hover:bg-background-secondary transition-colors sm:w-auto sm:shrink-0",
-            selected && "border-amber-800/30"
-          )}
-          type="button"
-          onClick={onSelect}
-        >
-          View agent
-        </button>}
+        {agent.threadId ? (
+          <Link
+            href={`/sandbox/arcadia/${agent.threadId}`}
+            className="select-none rounded-lg border border-border/60 bg-background/50 px-2.5 py-1.5 text-center text-xs font-medium hover:bg-background-secondary focus-visible:outline focus-visible:outline-2"
+          >
+            Open thread
+          </Link>
+        ) : (
+          <button
+            className={cn(
+              "select-none rounded-lg border border-border/60 bg-background/50 px-2.5 py-1.5 text-xs font-medium",
+              "hover:bg-background-secondary transition-colors sm:w-auto sm:shrink-0",
+              selected && "border-amber-800/30"
+            )}
+            type="button"
+            onClick={onSelect}
+          >
+            View agent
+          </button>
+        )}
         <div className="min-w-0 flex-1">
           <SubagentSpeakGlassBar
             agentName={agent.name}

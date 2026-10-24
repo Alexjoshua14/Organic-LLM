@@ -1,6 +1,9 @@
 "use client";
 
+import { motion } from "framer-motion";
+
 import { WelcomeHighlightRow } from "./welcome-highlight-row";
+import { useWelcomeMotion } from "./welcome-motion";
 
 import { welcomeCopy } from "@/lib/welcome/copy";
 import { cn } from "@/lib/utils";
@@ -10,6 +13,8 @@ type WelcomeHighlightsProps = {
 };
 
 export function WelcomeHighlights({ className }: WelcomeHighlightsProps) {
+  const { inViewGroup, staggerItem } = useWelcomeMotion();
+
   return (
     <section
       aria-labelledby="welcome-highlights-heading"
@@ -19,17 +24,21 @@ export function WelcomeHighlights({ className }: WelcomeHighlightsProps) {
       )}
     >
       <div className="mx-auto w-full max-w-6xl px-5 sm:px-8 lg:px-12">
-        <header className="mb-12 max-w-xl text-left">
+        <motion.header className="mb-12 max-w-xl text-left" {...inViewGroup} variants={staggerItem}>
           <h2
-            className="font-commissioner text-2xl font-light tracking-tight text-foreground sm:text-3xl"
+            className="cursor-auto select-text font-commissioner text-2xl font-light tracking-tight text-foreground sm:text-3xl"
             id="welcome-highlights-heading"
           >
             {welcomeCopy.highlights.intro}
           </h2>
-        </header>
+        </motion.header>
         <div className="flex flex-col gap-16 sm:gap-20">
-          {welcomeCopy.highlights.items.map((item) => (
-            <WelcomeHighlightRow key={item.id} item={item} />
+          {welcomeCopy.highlights.items.map((item, index) => (
+            <WelcomeHighlightRow
+              key={item.id}
+              enterFrom={index % 2 === 0 ? "left" : "right"}
+              item={item}
+            />
           ))}
         </div>
       </div>
