@@ -8,6 +8,12 @@ import {
   defaultUserSettings,
   type UserSettings,
 } from "@/lib/schemas/userSettings";
+import {
+  defaultUserConnectorsProfile,
+  normalizeUserConnectorsProfile,
+  type UserConnectorsProfile,
+  type UserConnectorsProfileInput,
+} from "@/lib/schemas/user-connectors";
 import { writeErgonLiquidChromeCookie } from "@/lib/ergon/liquid-chrome-cookie";
 
 const USER_SETTINGS_STORAGE_KEY = "organic-llm-user-settings";
@@ -73,6 +79,29 @@ export function setSettings(partial: Partial<UserSettings>): UserSettings {
 
   // Notify listeners in the same tab (storage event doesn't fire in the same document).
   window.dispatchEvent(new Event("organic-llm-settings"));
+
+  return next;
+}
+
+/** Read the user's private connectors & personal dossier from local settings. */
+export function getUserConnectors(): UserConnectorsProfile {
+  return getSettings().connectors ?? defaultUserConnectorsProfile();
+}
+
+/** Update and normalize the user's private connectors & personal dossier in local settings. */
+export function setUserConnectors(
+  partial: Partial<UserConnectorsProfileInput>
+): UserConnectorsProfile {
+  const current = getUserConnectors();
+  const next = normalizeUserConnectorsProfile(
+    {
+      ...partial,
+      updatedAt: partial.updatedAt ?? new Date().toISOString(),
+    },
+    current
+  );
+
+  setSettings({ connectors: next });
 
   return next;
 }

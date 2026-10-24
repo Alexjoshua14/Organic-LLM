@@ -10,6 +10,7 @@ const mockRunOneGenerationStep = mock(async () => ({
   data: null,
   error: new Error("Step failed"),
 }));
+const mockGetRabbitHoleSessionOwnerId = mock(async () => "owner-1");
 
 let updatePayload: Record<string, unknown> | null = null;
 let eqColumn: string | null = null;
@@ -60,6 +61,7 @@ mock.module("@/data/supabase/rabbitholes", () => ({
   getSessionById: mockGetSessionById,
   saveSession: mockSaveSession,
   advanceGenerationStep: mockAdvanceGenerationStep,
+  getRabbitHoleSessionOwnerId: mockGetRabbitHoleSessionOwnerId,
 }));
 mock.module("@/lib/supabase/supabase-admin", () => ({
   supabaseAdmin: createSupabaseMock(),
@@ -86,6 +88,8 @@ describe("with mocked rabbitholes", () => {
     mockAdvanceGenerationStep.mockReset();
     mockAdvanceGenerationStep.mockResolvedValue({ updated: true });
     mockRunOneGenerationStep.mockReset();
+    mockGetRabbitHoleSessionOwnerId.mockReset();
+    mockGetRabbitHoleSessionOwnerId.mockResolvedValue("owner-1");
   });
 
   afterEach(() => {
@@ -283,6 +287,9 @@ describe("with mocked rabbitholes", () => {
         SESSION_ID
       );
       expect(mockRunOneGenerationStep.mock.calls.length).toBe(3);
+      expect(
+        (mockRunOneGenerationStep.mock.calls as unknown as Array<[unknown, string, string, unknown]>)[0]?.[3]
+      ).toEqual({ ownerId: "owner-1" });
       expect(mockSaveSession.mock.calls.length).toBe(3);
       expect(mockAdvanceGenerationStep.mock.calls.length).toBe(3);
       const advanceCalls = mockAdvanceGenerationStep.mock.calls as unknown as Array<

@@ -1,3 +1,4 @@
+import { cloudflareAccessHeaders } from "@/lib/cloudflare-access";
 import { createLogger } from "@/lib/logger";
 
 const logger = createLogger("lib/ollama/client");
@@ -18,6 +19,18 @@ export function getOllamaPlanModel(): string {
   return process.env.OLLAMA_PLAN_MODEL ?? getOllamaConfig().model;
 }
 
+function ollamaRequestHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...cloudflareAccessHeaders("ollama"),
+  };
+  const apiKey = process.env.OLLAMA_API_KEY?.trim();
+
+  if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+
+  return headers;
+}
+
 type OllamaChatResponse = {
   message?: { content?: string };
 };
@@ -36,7 +49,7 @@ export async function ollamaChatJson(params: {
 
   const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: ollamaRequestHeaders(),
     body: JSON.stringify({
       model,
       stream: false,

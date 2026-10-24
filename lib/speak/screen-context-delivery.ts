@@ -118,7 +118,10 @@ export function createScreenContextDelivery({
 
       // Add before delete, so there is never a moment with no screen item at all.
       transport.send(
-        buildAmbientContextItem(body, { itemId: next, eventId: `${AMBIENT_EVENT_PREFIX}add_${seq}` })!
+        buildAmbientContextItem(body, {
+          itemId: next,
+          eventId: `${AMBIENT_EVENT_PREFIX}add_${seq}`,
+        })!
       );
       itemId = next;
 

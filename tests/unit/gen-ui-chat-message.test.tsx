@@ -200,6 +200,57 @@ describe("ChatMessage reasoning", () => {
   });
 });
 
+describe("ChatMessage OrganicToolCallPresence", () => {
+  test("renders visual OrganicActivityMark presence for subagent dispatch, worktable, and rabbit hole tools", () => {
+    const message: UIMessage = {
+      id: "msg-organic-tools",
+      role: "assistant",
+      parts: [
+        {
+          type: "dynamic-tool",
+          toolName: "dispatch_subagent",
+          toolCallId: "tc-dispatch-lyra",
+          state: "output-available",
+          input: {
+            agentId: "subagent-researcher",
+            brief: "Synthesize speculative decoding benchmarks",
+          },
+          output: {
+            success: true,
+            agentId: "subagent-researcher",
+            name: "Lyra",
+            goalId: "goal-1",
+          },
+        },
+        {
+          type: "dynamic-tool",
+          toolName: "worktable",
+          toolCallId: "tc-worktable",
+          state: "output-available",
+          input: { op: "bundle" },
+          output: { summary: "Packed 3 node summaries into worktable" },
+        },
+        {
+          type: "dynamic-tool",
+          toolName: "navigate_rabbit_hole_node",
+          toolCallId: "tc-nav-node",
+          state: "input-available",
+          input: { title: "Tree Attention Verification" },
+        },
+      ],
+    };
+
+    const { getByText, container } = render(<ChatMessage message={message} />);
+
+    expect(getByText("Dispatched to Lyra")).toBeTruthy();
+    expect(getByText("Synthesize speculative decoding benchmarks")).toBeTruthy();
+    expect(getByText("Crafting context bundle")).toBeTruthy();
+    expect(getByText("Navigating branch…")).toBeTruthy();
+    expect(container.querySelectorAll("[data-organic-tool-presence]")).toHaveLength(3);
+    expect(container.querySelectorAll('[role="img"][data-activity-state]')).toHaveLength(3);
+  });
+});
+
 function webSearchPart(state: "input-available" | "output-available") {
   return {
     type: "dynamic-tool" as const,

@@ -1,8 +1,8 @@
-import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import type { Result } from "@/types";
 
 import { generateText } from "ai";
 
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import { KNOWLEDGE_GATEWAY_PROVIDER_OPTIONS } from "@/lib/knowledge/gateway-options";
 import { createLogger } from "@/lib/logger";
 import { recordLlmCall } from "@/lib/llm/metrics";

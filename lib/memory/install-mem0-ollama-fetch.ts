@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cloudflareAccessHeaders } from "../cloudflare-access";
+
 let installed = false;
 
 function readOllamaUrl(): string {
@@ -16,12 +18,14 @@ function requestUrl(input: RequestInfo | URL): string {
 /**
  * Mem0's Ollama embedder uses the `ollama` npm client, which does not read
  * `OLLAMA_API_KEY`. When Ollama is behind the authenticated tunnel, inject the
- * bearer token on fetch calls to `OLLAMA_URL` before Mem0 is constructed.
+ * bearer token and any Cloudflare Access service-token headers on fetch calls to `OLLAMA_URL`
+ * before Mem0 is constructed.
  */
 export function installMem0OllamaFetch(): void {
   const apiKey = process.env.OLLAMA_API_KEY?.trim();
+  const accessHeaders = cloudflareAccessHeaders("ollama");
 
-  if (installed || !apiKey) {
+  if (installed || (!apiKey && Object.keys(accessHeaders).length === 0)) {
     return;
   }
 
@@ -43,8 +47,12 @@ export function installMem0OllamaFetch(): void {
         init?.headers ?? (input instanceof Request ? input.headers : undefined)
       );
 
-      if (!headers.has("Authorization")) {
+      if (apiKey && !headers.has("Authorization")) {
         headers.set("Authorization", `Bearer ${apiKey}`);
+      }
+
+      for (const [name, value] of Object.entries(accessHeaders)) {
+        if (!headers.has(name)) headers.set(name, value);
       }
 
       return originalFetch(input, { ...init, headers });

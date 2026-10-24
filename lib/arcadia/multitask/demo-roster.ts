@@ -2,6 +2,8 @@ import type { ArcadiaSubagent } from "@/lib/arcadia/multitask/types";
 
 import { createSubagentActivitySeed } from "./activity-seed";
 
+import { coderSubagent } from "@/lib/llm/subagents/hard-set/agents/coder";
+import { plannerSubagent } from "@/lib/llm/subagents/hard-set/agents/planner";
 import { researcherSubagent } from "@/lib/llm/subagents/hard-set/agents/researcher";
 import { assignDistinctVoices } from "@/lib/arcadia/multitask/voice-assignment";
 
@@ -26,9 +28,9 @@ const DEMO_SEEDS: Array<
   },
   {
     id: "agent-coder",
-    name: "Reed",
-    role: "coder",
-    blurb: "Implements the thin vertical slice.",
+    name: coderSubagent.name,
+    role: coderSubagent.role,
+    blurb: coderSubagent.blurb,
     goal: "Awaiting assignment.",
     progress: "Idle — no live run yet.",
     progressPct: 0,
@@ -36,9 +38,9 @@ const DEMO_SEEDS: Array<
   },
   {
     id: "agent-planner",
-    name: "Mira",
-    role: "planner",
-    blurb: "Keeps the board honest about scope.",
+    name: plannerSubagent.name,
+    role: plannerSubagent.role,
+    blurb: plannerSubagent.blurb,
     goal: "Awaiting assignment.",
     progress: "Idle — no live run yet.",
     progressPct: 0,

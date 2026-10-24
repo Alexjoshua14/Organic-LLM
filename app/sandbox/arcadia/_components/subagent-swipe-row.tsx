@@ -180,6 +180,7 @@ export function SubagentSwipeRow({
     (agent) => agent.status === "working" || agent.status === "blocked"
   ).length;
   const speaking = agents.find((agent) => ["live", "connecting"].includes(speakPhaseFor(agent.id)));
+
   if (agents.length === 0) return null;
 
   return (

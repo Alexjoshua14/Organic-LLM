@@ -180,11 +180,22 @@ export const MemorySearchToolResultCard = memo(function MemorySearchToolResultCa
             {memories.length === 0 ? (
               <p>No memories matched this query.</p>
             ) : (
-              <ul className="memory-search-result__matches">
-                {memories.map((m) => (
-                  <li key={m.id}>{m.memory}</li>
-                ))}
-              </ul>
+              <>
+                {/* eslint-disable jsx-a11y/no-noninteractive-tabindex -- Named scroll region needs keyboard focus for native scrolling (MDN CSS overflow accessibility). */}
+                <div
+                  aria-label="Retrieved memories"
+                  className="memory-search-result__viewport"
+                  role="region"
+                  tabIndex={0}
+                >
+                  <ul className="memory-search-result__matches">
+                    {memories.map((m) => (
+                      <li key={m.id}>{m.memory}</li>
+                    ))}
+                  </ul>
+                </div>
+                {/* eslint-enable jsx-a11y/no-noninteractive-tabindex */}
+              </>
             )}
           </div>
         ) : null}

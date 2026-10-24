@@ -58,6 +58,10 @@ The query and result count are independent from the tool label. The complete que
 available; opening the row reveals full memory text. The disclosure exposes `aria-expanded`
 and its controlled details ID. Pinning does not change its open state. Empty and failed
 searches retain the same structure with explicit status text.
+Expanded results preserve native list semantics inside a named scroll region with its own
+keyboard focus target and visible outline. Tab, Enter and Space are covered by the
+disclosure-and-pin regression test. The scoped lint exception permits focus on that overflow
+region, following [MDN's keyboard-scrolling guidance](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/overflow#accessibility).
 
 ## What is streamed
 
