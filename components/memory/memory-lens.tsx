@@ -3,7 +3,7 @@
 import type { SearchResult } from "mem0ai/oss";
 import type { MemoryLensProps, SortOption } from "@/types/memory-lens";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { MemoryLensContent } from "./MemoryLensContent";
 import { clearMemoryLensOverviewClientCache } from "./MemoryLensPageOverview";
@@ -35,11 +35,15 @@ export function MemoryLens({
   const [sortBy, setSortBy] = useState<SortOption>("recently-added");
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(10);
+  const requestVersion = useRef(0);
+  const deletedIds = useRef(new Set<string>());
 
   const effectiveQuery = searchQuery !== undefined ? searchQuery : debouncedSearch.trim() || null;
   const hasSearch = effectiveQuery !== null && effectiveQuery.length > 0;
 
   const load = useCallback(async () => {
+    const version = ++requestVersion.current;
+
     setLoading(true);
     setError(null);
     try {
@@ -50,6 +54,7 @@ export function MemoryLens({
           )
         : await getCurrentUserMemories();
 
+      if (version !== requestVersion.current) return;
       if (!res || typeof res !== "object") {
         setError("Memory service may be unavailable.");
         setResult(null);
@@ -60,37 +65,50 @@ export function MemoryLens({
         if (showPageOverview) {
           clearMemoryLensOverviewClientCache();
         }
-        setResult(res.data ?? null);
+        setResult(
+          res.data
+            ? {
+                ...res.data,
+                results: res.data.results.filter((memory) => !deletedIds.current.has(memory.id)),
+              }
+            : null
+        );
       }
     } catch {
+      if (version !== requestVersion.current) return;
       setError("Memory service may be unavailable.");
       setResult(null);
     } finally {
-      setLoading(false);
+      if (version === requestVersion.current) setLoading(false);
     }
   }, [hasSearch, effectiveQuery, searchQuery, searchLimit, showPageOverview]);
 
   useEffect(() => {
-    if (searchQuery !== undefined) {
-      load();
-
-      return;
-    }
+    if (searchQuery !== undefined) return;
     const t = setTimeout(() => {
       setDebouncedSearch(searchInput.trim());
     }, SEARCH_DEBOUNCE_MS);
 
     return () => clearTimeout(t);
-  }, [searchQuery, searchInput, load]);
+  }, [searchQuery, searchInput]);
 
   useEffect(() => {
-    if (searchQuery === undefined) {
-      load();
-    }
-  }, [debouncedSearch, searchQuery, load]);
+    void load();
+
+    // Server actions cannot be aborted; invalidate their results on query change/unmount.
+    return () => {
+      requestVersion.current += 1;
+    };
+  }, [load]);
+
+  useEffect(() => {
+    setPageIndex(0);
+  }, [effectiveQuery, sortBy]);
 
   const handleDeleted = useCallback(
     (id: string) => {
+      // An in-flight refresh may still include a memory whose deletion just succeeded.
+      deletedIds.current.add(id);
       if (showPageOverview) {
         clearMemoryLensOverviewClientCache();
       }

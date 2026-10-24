@@ -20,6 +20,8 @@ const GATED =
   /requireLlmChatActor\((?!\{ planBudget: false \})|requirePlanBudget|getPlanBudgetForUser|requireTtsActor|checkSpeakRealtimeSessionStart|assertSpeakBudgetOrClose|createAion(Event)?Handler/;
 
 const EXEMPT: Record<string, string> = {
+  "app/api/memory/feedback/route.ts":
+    "Reads the signed-in owner's saved feedback or history; no model call.",
   "app/api/profile/connectors/ergon/route.ts":
     "Reads or disconnects an owned Ergon connection; no model call.",
   "app/api/profile/connectors/ergon/oauth/callback/route.ts":

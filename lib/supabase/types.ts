@@ -151,6 +151,8 @@ export type Database = {
           created_at: string;
           id: string;
           memory_id: string;
+          memory_ciphertext: string | null;
+          memory_shared_at: string | null;
           note_approved_at: string | null;
           note_ciphertext: string | null;
           revision: number;
@@ -163,6 +165,8 @@ export type Database = {
           created_at?: string;
           id?: string;
           memory_id: string;
+          memory_ciphertext?: string | null;
+          memory_shared_at?: string | null;
           note_approved_at?: string | null;
           note_ciphertext?: string | null;
           revision?: number;
@@ -175,6 +179,8 @@ export type Database = {
           created_at?: string;
           id?: string;
           memory_id?: string;
+          memory_ciphertext?: string | null;
+          memory_shared_at?: string | null;
           note_approved_at?: string | null;
           note_ciphertext?: string | null;
           revision?: number;
