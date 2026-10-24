@@ -6,6 +6,7 @@ import { getPrototypeHref, type PrototypeEntry } from "../_config/prototypes";
 
 import ShinyText from "@/components/ShinyText";
 import { glassFrost } from "@/components/design-system/primitives";
+import { threadEntryPrefetch } from "@/lib/chat/thread-entry-navigation";
 import { cn } from "@/lib/utils";
 
 export type PrototypeCardVariant = "spotlight" | "hero" | "featured" | "compact";
@@ -96,6 +97,7 @@ export function PrototypeCard({
   const shell = VARIANT_SHELL[variant];
   const isCompact = variant === "compact";
   const isSpotlight = variant === "spotlight";
+  const href = getPrototypeHref(prototype.slug);
 
   return (
     <Link
@@ -106,7 +108,8 @@ export function PrototypeCard({
         "focus-visible:ring-2 focus-visible:ring-accent/70",
         className
       )}
-      href={getPrototypeHref(prototype.slug)}
+      href={href}
+      prefetch={threadEntryPrefetch(href)}
       style={{ "--prototype-enter-delay": `${enterDelayMs}ms` } as CSSProperties}
     >
       {/* Hover bloom: deeper shadow + warm lumen underlight, crossfaded via opacity so the

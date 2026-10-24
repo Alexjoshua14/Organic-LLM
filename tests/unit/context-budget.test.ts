@@ -8,6 +8,7 @@ import {
   composeContextBudget,
   computeContextBudget,
   computeNewThreadDefaultBudget,
+  estimateDraftTokens,
   estimateTokenCountSync,
   ESTIMATED_SYSTEM_PROMPT_TOKENS,
   finalizeContextBudget,
@@ -323,6 +324,41 @@ describe("estimateTokenCount shared encoder", () => {
     const fresh = encodingForModel("gpt-5").encode(sample.trim()).length;
 
     expect(sync).toBe(fresh);
+  });
+});
+
+describe("estimateDraftTokens", () => {
+  test("an empty or whitespace-only draft adds nothing", () => {
+    expect(estimateDraftTokens("")).toBe(0);
+    expect(estimateDraftTokens("   \n\t ")).toBe(0);
+  });
+
+  test("counts the draft as a user turn, ignoring surrounding whitespace", () => {
+    expect(estimateDraftTokens("  What is next?  ")).toBe(
+      estimateTokenCountSync("user: What is next?")
+    );
+  });
+
+  test("agrees with the draft segment both budget paths report", () => {
+    const draftText = "Summarize the thread so far, then list open questions.";
+    const composed = composeContextBudget({
+      scaffold: fixtureScaffold(),
+      threadMessages: [userMessage("Hello there")],
+      draftText,
+      modelId: "openai/gpt-6-sol",
+    });
+    const computed = computeContextBudget({
+      modelId: "openai/gpt-6-sol",
+      threadMessages: [userMessage("Hello there")],
+      draftText,
+    });
+
+    expect(composed.segments.find((s) => s.id === "draft")?.tokens).toBe(
+      estimateDraftTokens(draftText)
+    );
+    expect(computed.segments.find((s) => s.id === "draft")?.tokens).toBe(
+      estimateDraftTokens(draftText)
+    );
   });
 });
 

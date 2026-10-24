@@ -7,15 +7,15 @@ export function sortMemories(memories: MemoryItem[], sortBy: SortOption): Memory
 
   if (sortBy === "recently-added") {
     copy.sort((a, b) => {
-      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      const aTime = (a.createdAt ? Date.parse(a.createdAt) : 0) || 0;
+      const bTime = (b.createdAt ? Date.parse(b.createdAt) : 0) || 0;
 
       return bTime - aTime;
     });
   } else {
     copy.sort((a, b) => {
-      const aScore = typeof a.score === "number" ? a.score : -1;
-      const bScore = typeof b.score === "number" ? b.score : -1;
+      const aScore = typeof a.score === "number" && Number.isFinite(a.score) ? a.score : -1;
+      const bScore = typeof b.score === "number" && Number.isFinite(b.score) ? b.score : -1;
 
       return bScore - aScore;
     });

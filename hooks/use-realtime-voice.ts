@@ -583,6 +583,12 @@ export function useRealtimeVoice({
         let transport: VoiceTransport;
 
         for (let attempt = 0; ; attempt++) {
+          transport = transportFactoryRef.current();
+          transportRef.current = transport;
+          // Unsupported origins and denied microphones must not mint or reserve a session.
+          await transport.prepare?.();
+          if (transportRef.current !== transport) return;
+
           const mintRes = await fetch("/api/ai/speak/realtime/session", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -602,6 +608,19 @@ export function useRealtimeVoice({
           });
 
           mint = (await mintRes.json()) as SessionMintResponse;
+
+          if (transportRef.current !== transport) {
+            // The user ended the attempt while minting. Release only that late session.
+            if (mint.sessionId) {
+              void fetch("/api/ai/speak/realtime/end", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ sessionId: mint.sessionId }),
+              }).catch(() => undefined);
+            }
+
+            return;
+          }
 
           if (!mintRes.ok || !mint.clientSecret || !mint.sessionId) {
             throw new Error(mint.error ?? "Failed to start Realtime session");
@@ -626,9 +645,6 @@ export function useRealtimeVoice({
 
           audioEl.autoplay = true;
           audioElRef.current = audioEl;
-
-          transport = transportFactoryRef.current();
-          transportRef.current = transport;
 
           try {
             await transport.connect(

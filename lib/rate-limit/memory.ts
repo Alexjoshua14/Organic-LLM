@@ -3,6 +3,7 @@ import { Ratelimit } from "@upstash/ratelimit";
 import { redis } from "@/lib/redis/redis";
 import {
   MEMORY_ADD_RATE_LIMIT,
+  MEMORY_FEEDBACK_RATE_LIMIT,
   MEMORY_DELETE_RATE_LIMIT,
   MEMORY_LIST_RATE_LIMIT,
   MEMORY_SEARCH_RATE_LIMIT,
@@ -41,6 +42,21 @@ const memoryAddLimiter = new Ratelimit({
   limiter: Ratelimit.slidingWindow(MEMORY_ADD_RATE_LIMIT.cap, MEMORY_ADD_RATE_LIMIT.window),
   prefix: MEMORY_ADD_RATE_LIMIT.prefix,
 });
+
+const memoryFeedbackLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(
+    MEMORY_FEEDBACK_RATE_LIMIT.cap,
+    MEMORY_FEEDBACK_RATE_LIMIT.window
+  ),
+  prefix: MEMORY_FEEDBACK_RATE_LIMIT.prefix,
+});
+
+export async function checkMemoryFeedbackLimit(userId: string): Promise<RateLimitResult> {
+  return runMemoryLimit("checkMemoryFeedbackLimit", MEMORY_FEEDBACK_RATE_LIMIT, () =>
+    memoryFeedbackLimiter.limit(userId)
+  );
+}
 
 export type RateLimitResult = {
   success: boolean;

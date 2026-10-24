@@ -1,9 +1,9 @@
 import { z } from "zod";
 
-export const MemoryFeedbackSignalSchema = z.enum(["up", "down", "flag_review", "flag_followup"]);
+export const MemoryFeedbackSignalSchema = z.enum(["up", "down"]);
 export type MemoryFeedbackSignal = z.infer<typeof MemoryFeedbackSignalSchema>;
 
-export const MemoryFeedbackSourceSchema = z.enum(["memory_lens", "memory_ingest", "delphi_tool"]);
+export const MemoryFeedbackSourceSchema = z.enum(["memory_lens", "memory_ingest"]);
 export type MemoryFeedbackSource = z.infer<typeof MemoryFeedbackSourceSchema>;
 
 export const MemoryQualityEventTypeSchema = z.enum(["ingest", "delete", "feedback", "eval_run"]);
@@ -24,9 +24,13 @@ export const MemoryFeedbackRowSchema = z.object({
   memory_id: z.string(),
   signal: MemoryFeedbackSignalSchema,
   source: MemoryFeedbackSourceSchema,
-  chat_id: z.string().nullable().optional(),
-  note: z.string().nullable().optional(),
+  note: z.string().nullable(),
+  note_approved_at: z.string().nullable(),
+  shared_memory: z.string().nullable(),
+  memory_shared_at: z.string().nullable(),
   created_at: z.string(),
+  updated_at: z.string(),
+  revision: z.number().int().positive(),
 });
 
 export type MemoryFeedbackRow = z.infer<typeof MemoryFeedbackRowSchema>;
@@ -50,12 +54,64 @@ export const MemoryQualityDailyRowSchema = z.object({
 
 export type MemoryQualityDailyRow = z.infer<typeof MemoryQualityDailyRowSchema>;
 
-export const RecordMemoryFeedbackInputSchema = z.object({
-  memoryId: z.string().min(1).max(256),
-  signal: MemoryFeedbackSignalSchema,
-  source: MemoryFeedbackSourceSchema,
-  chatId: z.string().max(256).optional(),
-  note: z.string().max(500).optional(),
-});
+export const RecordMemoryFeedbackInputSchema = z
+  .object({
+    memoryId: z.string().min(1).max(256),
+    signal: MemoryFeedbackSignalSchema,
+    source: MemoryFeedbackSourceSchema,
+  })
+  .strict();
 
 export type RecordMemoryFeedbackInput = z.infer<typeof RecordMemoryFeedbackInputSchema>;
+
+export const FeedbackNoteInputSchema = z
+  .object({
+    feedbackId: z.string().uuid(),
+    memoryId: z.string().min(1).max(256),
+    revision: z.number().int().positive(),
+    note: z.string().trim().min(1).max(2000),
+    approved: z.literal(true),
+  })
+  .strict();
+
+export type FeedbackNoteInput = z.infer<typeof FeedbackNoteInputSchema>;
+
+export const FeedbackMutationInputSchema = FeedbackNoteInputSchema.pick({
+  feedbackId: true,
+  memoryId: true,
+  revision: true,
+});
+export type FeedbackMutationInput = z.infer<typeof FeedbackMutationInputSchema>;
+
+// Preserve the exact preview, including whitespace; never silently truncate a shared memory.
+export const SharedFeedbackMemoryTextSchema = z.string().min(1).max(16000);
+export const ShareFeedbackMemoryInputSchema = FeedbackMutationInputSchema.extend({
+  memoryText: SharedFeedbackMemoryTextSchema,
+  approved: z.literal(true),
+}).strict();
+export type ShareFeedbackMemoryInput = z.infer<typeof ShareFeedbackMemoryInputSchema>;
+
+export const FeedbackDraftInputSchema = FeedbackMutationInputSchema.extend({
+  messages: z
+    .array(
+      z
+        .object({
+          role: z.enum(["user", "assistant"]),
+          content: z.string().trim().min(1).max(3000),
+        })
+        .strict()
+    )
+    .min(1)
+    .max(20),
+})
+  .strict()
+  .refine((input) => input.messages.at(-1)?.role === "user", {
+    message: "A user message is required",
+  });
+export type FeedbackDraftInput = z.infer<typeof FeedbackDraftInputSchema>;
+
+export const FeedbackDraftResultSchema = z.object({
+  reply: z.string().min(1).max(1500),
+  summary: z.string().min(1).max(2000).nullable(),
+});
+export type FeedbackDraftResult = z.infer<typeof FeedbackDraftResultSchema>;
