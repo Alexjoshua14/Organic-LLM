@@ -82,9 +82,7 @@ function compareSemverDesc(a: string, b: string): number {
  * Discover app versions from package.json history (and annotated/lightweight tags).
  * Returns unique versions newest-first, each pinned to the commit that introduced that version string.
  */
-export async function discoverAppVersions(
-  git: GitRunner = defaultGit
-): Promise<ResolvedVersion[]> {
+export async function discoverAppVersions(git: GitRunner = defaultGit): Promise<ResolvedVersion[]> {
   const byVersion = new Map<string, string>();
 
   try {
@@ -183,10 +181,7 @@ export async function buildVersionCatalog(
       : [];
 
   // Ensure current version appears even if only HEAD resolved it.
-  if (
-    currentSha &&
-    !ordered.some((v) => v.version === currentVersion)
-  ) {
+  if (currentSha && !ordered.some((v) => v.version === currentVersion)) {
     ordered.unshift({ version: currentVersion, sha: currentSha });
     ordered.sort((a, b) => compareSemverDesc(a.version, b.version));
   }

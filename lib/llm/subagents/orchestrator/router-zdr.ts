@@ -1,7 +1,7 @@
 import type { GatewayProviderOptions } from "@ai-sdk/gateway";
+import type { ChatModel } from "@/lib/schemas/chat-models";
 
 import { models } from "@/lib/schemas/chat-models";
-import type { ChatModel } from "@/lib/schemas/chat-models";
 
 /**
  * Mandatory zero-data-retention for the multi-thought orchestrator router.

@@ -3,6 +3,7 @@
 import type { AgentDotState } from "./agent-dot-grid";
 import type { ActivityGlassByState } from "./activity-mark-glass";
 import type { GlassDistortionSettings } from "@/components/design-system/glass-backdrop";
+import type { LlmProcessingIntensityTier } from "@/lib/usage/processing-intensity";
 
 import { useRef } from "react";
 
@@ -12,6 +13,7 @@ import { activityGlassForState } from "./activity-mark-glass";
 import { activityBackgroundFilter, MorphActivityGlass } from "./morph-activity-glass";
 
 import { GlassBackdrop } from "@/components/design-system/glass-backdrop";
+import { resolveIntensityTierFromScore } from "@/lib/usage/processing-intensity";
 import { cn } from "@/lib/utils";
 
 export type OrganicActivityMarkProps = {
@@ -20,6 +22,10 @@ export type OrganicActivityMarkProps = {
   seed?: string;
   label?: string;
   className?: string;
+  /** Optional normalized processing intensity (0..1) that modulates glass and spring cadence. */
+  intensity?: number;
+  /** Optional explicit intensity tier for data-intensity-tier attribute. */
+  intensityTier?: LlmProcessingIntensityTier;
   /** Select the original grid for comparisons; auto keeps all adaptive safeguards. */
   renderer?: "auto" | "v0";
   /** Per-state material tuning; the glass always follows the same state as the dots. */
@@ -43,6 +49,8 @@ export function OrganicActivityMark({
   seed,
   label,
   className,
+  intensity,
+  intensityTier,
   renderer = "auto",
   glassByState,
   glassDistortion = true,
@@ -50,7 +58,16 @@ export function OrganicActivityMark({
   performanceId,
   imageUrl,
 }: OrganicActivityMarkProps) {
-  const appearance = activityGlassForState(state, glassByState);
+  const normalizedIntensity =
+    intensity !== undefined && Number.isFinite(intensity)
+      ? Math.max(0, Math.min(1, Number(intensity.toFixed(3))))
+      : undefined;
+  const resolvedTier =
+    intensityTier ??
+    (normalizedIntensity !== undefined
+      ? resolveIntensityTierFromScore(normalizedIntensity, { isWorking: state === "working" })
+      : undefined);
+  const appearance = activityGlassForState(state, glassByState, normalizedIntensity);
   const backdropRef = useRef<HTMLDivElement>(null);
   // Keep React's baseline stable while the cover writes the live spring pose.
   const initialAppearance = useRef(appearance).current;
@@ -58,6 +75,8 @@ export function OrganicActivityMark({
   return (
     <div
       data-activity-state={state}
+      data-intensity={normalizedIntensity !== undefined ? String(normalizedIntensity) : undefined}
+      data-intensity-tier={resolvedTier}
       aria-hidden={label ? undefined : true}
       aria-label={label}
       className={cn(
@@ -86,9 +105,14 @@ export function OrganicActivityMark({
             // eslint-disable-next-line @next/next/no-img-element -- may be file://, data:, or remote
             <img alt="" className="size-full object-cover" src={imageUrl} />
           ) : renderer === "v0" ? (
-            <AgentDotGrid seed={seed} state={state} />
+            <AgentDotGrid intensity={normalizedIntensity} seed={seed} state={state} />
           ) : (
-            <AdaptiveAgentDotGrid performanceId={performanceId} seed={seed} state={state} />
+            <AdaptiveAgentDotGrid
+              intensity={normalizedIntensity}
+              performanceId={performanceId}
+              seed={seed}
+              state={state}
+            />
           )}
         </GlassBackdrop>
         <div

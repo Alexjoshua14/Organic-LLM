@@ -26,7 +26,7 @@ Never commit secrets or production credentials to this repository, including:
 | Database | `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, connection strings with passwords |
 | Encryption | `ORGANIC_LLM_ROOT_SECRET`, `ORGANIC_LLM_KEY_REGISTRY_JSON`, `MEMORY_ENCRYPTION_*` |
 | APIs | `OPENAI_API_KEY`, `EXA_API_KEY`, `ELEVENLABS_API_KEY`, `MEMORY_API_SECRET` |
-| Infra | `UPSTASH_REDIS_REST_TOKEN`, `CRON_SECRET`, `OLLAMA_API_KEY` |
+| Infra | `UPSTASH_REDIS_REST_TOKEN`, `CRON_SECRET`, `OLLAMA_API_KEY`, `MEMORY_CF_ACCESS_CLIENT_SECRET`, `OLLAMA_CF_ACCESS_CLIENT_SECRET` |
 | Local | `.env.local`, `.env*.local`, `.local-profile-overrides.ts` |
 
 Use `.env.local` (gitignored) for local development. See `.env.example` for variable names only—no real values.

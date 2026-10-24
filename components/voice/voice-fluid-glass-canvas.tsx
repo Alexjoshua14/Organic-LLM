@@ -97,6 +97,8 @@ type MirrorUniforms = {
   uTime: THREE.IUniform<number>;
   uResolution: THREE.IUniform<THREE.Vector3>;
   uBaseColor: THREE.IUniform<THREE.Vector3>;
+  uPaperInk: THREE.IUniform<number>;
+  uPixelRatio: THREE.IUniform<number>;
   uAmplitude: THREE.IUniform<number>;
   uFrequencyX: THREE.IUniform<number>;
   uFrequencyY: THREE.IUniform<number>;
@@ -114,6 +116,8 @@ function createMirrorUniforms(): MirrorUniforms {
     uTime: { value: 0 },
     uResolution: { value: new THREE.Vector3(1, 1, 1) },
     uBaseColor: { value: new THREE.Vector3() },
+    uPaperInk: { value: 0 },
+    uPixelRatio: { value: 1 },
     uAmplitude: { value: 0 },
     uFrequencyX: { value: 0 },
     uFrequencyY: { value: 0 },
@@ -172,6 +176,8 @@ function syncMirror(
     live.uBaseColor.value[2]!
   );
   uniforms.uAmplitude.value = live.uAmplitude.value;
+  uniforms.uPaperInk.value = live.uPaperInk.value;
+  uniforms.uPixelRatio.value = live.uPixelRatio.value;
   uniforms.uFrequencyX.value = live.uFrequencyX.value;
   uniforms.uFrequencyY.value = live.uFrequencyY.value;
   uniforms.uMouse.value.set(live.uMouse.value[0]!, live.uMouse.value[1]!);

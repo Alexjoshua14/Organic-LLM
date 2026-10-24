@@ -11,6 +11,7 @@ import { mark, startJourney } from "@/lib/perf/trace-store";
 import { createChat } from "@/lib/chat/chat-store";
 import { createArcadiaThreadAction } from "@/lib/chat/create-arcadia-thread";
 import { useSharedChatContext } from "@/lib/context/chat-context";
+import { threadEntryPrefetch } from "@/lib/chat/thread-entry-navigation";
 import { cn } from "@/lib/utils";
 
 const logger = new Logger(`components/sidebar/sidebar-experience-rail.tsx`);
@@ -65,6 +66,13 @@ const RAIL_ROWS: RailItem[][] = [
     },
   ],
   [
+    {
+      id: "stage",
+      label: "Stage",
+      type: "link",
+      href: "/stage",
+      match: (p) => p === "/stage",
+    },
     {
       id: "speak",
       label: "Speak",
@@ -157,6 +165,7 @@ export function SidebarExperienceRail() {
         className={cn(segmentClass, "inline-flex items-center justify-center no-underline")}
         data-active={active}
         href={item.href}
+        prefetch={threadEntryPrefetch(item.href)}
       >
         {item.label}
       </Link>

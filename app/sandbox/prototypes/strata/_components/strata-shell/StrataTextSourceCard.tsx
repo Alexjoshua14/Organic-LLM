@@ -80,6 +80,7 @@ export function StrataTextSourceCard({
 
       <div
         className="flex items-center justify-end gap-0.5 border-t border-border/50 pt-2"
+        role="presentation"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.stopPropagation()}
       >

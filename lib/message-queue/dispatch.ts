@@ -135,15 +135,25 @@ export async function tryDispatchThreadQueue(args: {
           );
 
           const reservation = { ownerId, threadId, streamId: `queue:${claimed.id}` };
+
           if (!(await reserveThreadStream(reservation))) {
-            await releaseClaimedMessage({ id: claimed.id, status: "blocked_streaming", holdReason: "Thread is busy" });
+            await releaseClaimedMessage({
+              id: claimed.id,
+              status: "blocked_streaming",
+              holdReason: "Thread is busy",
+            });
+
             return { dispatched: false, holdReason: "Thread is busy" };
           }
           let turnResult: Awaited<ReturnType<typeof runQueuedChatTurn>>;
+
           try {
             turnResult = await runQueuedChatTurn({ item: claimed, sbUserId: ownerId, clerkUserId });
           } catch (error) {
-            turnResult = { ok: false, error: error instanceof Error ? error.message : "Background turn failed" };
+            turnResult = {
+              ok: false,
+              error: error instanceof Error ? error.message : "Background turn failed",
+            };
           } finally {
             await releaseThreadStream(reservation);
           }

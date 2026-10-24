@@ -1,10 +1,10 @@
-import { createHash } from "crypto";
-
 import type { LanguageModelUsage, UIMessage } from "ai";
 import type {
   SubagentThreadRow,
   SubagentThreadSnapshot,
 } from "@/lib/llm/subagents/threads/snapshot";
+
+import { createHash } from "crypto";
 
 import {
   buildHeartbeatSystemMessage,
@@ -33,10 +33,18 @@ export type SubagentHeartbeatDeps = {
   } | null>;
   /** Timestamp compare-and-set; a crashed evaluation is retried after the lease expires. */
   claim(args: { previousAt: string | null; at: string }): Promise<boolean>;
-  complete(args: { at: string; digest: string; baseline?: SubagentThreadSnapshot[] }): Promise<void>;
+  complete(args: {
+    at: string;
+    digest: string;
+    baseline?: SubagentThreadSnapshot[];
+  }): Promise<void>;
   enqueueReply(message: UIMessage): Promise<void>;
   appendSystemMessage(message: UIMessage): Promise<boolean>;
-  recordUsage(args: { modelId: string; usage?: LanguageModelUsage; providerMetadata?: unknown }): void;
+  recordUsage(args: {
+    modelId: string;
+    usage?: LanguageModelUsage;
+    providerMetadata?: unknown;
+  }): void;
   evaluate?: typeof evaluateSubagentHeartbeat;
 };
 
@@ -106,15 +114,19 @@ export async function runSubagentHeartbeat(args: {
 
     if (!result.decision.notable) {
       await deps.complete({ at, digest });
+
       return { status: "quiet" };
     }
 
     // Stable across retries: neither a failed write nor a crashed request duplicates notices/replies.
-    const hex = createHash("sha256").update(JSON.stringify([ownerId, state.digest, digest])).digest("hex");
+    const hex = createHash("sha256")
+      .update(JSON.stringify([ownerId, state.digest, digest]))
+      .digest("hex");
     const id = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-a${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
     const message = buildHeartbeatSystemMessage({ events: result.decision.events, at: now(), id });
 
-    if (!(await deps.appendSystemMessage(message))) throw new Error("Could not save heartbeat notice");
+    if (!(await deps.appendSystemMessage(message)))
+      throw new Error("Could not save heartbeat notice");
     await deps.enqueueReply(message);
     await deps.complete({ at, digest, baseline: current });
 

@@ -1,3 +1,5 @@
+import type { createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
+
 import { randomUUID } from "crypto";
 
 import {
@@ -25,7 +27,6 @@ import { setArchetypeStateTool, viewArchetypeTool } from "@/lib/llm/archetype";
 import { getStrataPageById } from "@/data/supabase/strata";
 import { buildStrataSystemSuffix } from "@/lib/llm/strata-chat-augmentation";
 import { createStrataHubAssistantTools } from "@/lib/llm/strata-assistant-tools";
-import type { createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
 
 const logger = createLogger("lib/api/aion-handler.ts");
 

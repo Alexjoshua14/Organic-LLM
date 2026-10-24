@@ -158,7 +158,7 @@ export default function PrivacyAndSecurityPage() {
               <li>
                 <strong>Analytics</strong>: We will never sell or share your data for ads, and we do
                 not include your conversation content in analytics. We use analytics only for
-                product improvement—things like page views and performance metrics—and we're
+                product improvement—things like page views and performance metrics—and we&apos;re
                 transparent about that.
               </li>
             </ul>

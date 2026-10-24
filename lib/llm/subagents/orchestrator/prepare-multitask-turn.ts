@@ -2,12 +2,17 @@ import type { LanguageModelUsage, UIMessage, UIMessageStreamWriter } from "ai";
 import type { ChatUIMessage } from "@/types/ai";
 import type { ArcadiaMultitaskSendTargetParsed } from "@/lib/schemas/arcadia-multitask-send-target";
 import type { WorkerGoal } from "@/lib/schemas/subagent-runtime";
+import type { UserConnectorsProfile } from "@/lib/schemas/user-connectors";
 import type {
   SubagentThreadRow,
   SubagentThreadSnapshot,
 } from "@/lib/llm/subagents/threads/snapshot";
 import type { SubagentThreadStatus } from "@/lib/llm/subagents/threads/status";
 import type { WorktableSession, WorktableStore } from "@/lib/llm/subagents/worktable/session";
+import type {
+  WorkerInputRequest,
+  WorkerInputInspection,
+} from "@/lib/llm/subagents/worker/prepare-input";
 
 import { resolveMultitaskSendTarget } from "@/lib/schemas/arcadia-multitask-send-target";
 import { createDemoSubagents } from "@/lib/arcadia/multitask/demo-roster";
@@ -18,10 +23,15 @@ import {
 import {
   isOrchestratorDispatchEnabled,
   ORCHESTRATOR_MAX_AUTONOMOUS_DISPATCHES,
+  RABBIT_HOLE_MAX_DISPATCHES_PER_TURN,
 } from "@/lib/llm/subagents/orchestrator/constants";
 import { dispatchMultitaskInbound } from "@/lib/llm/subagents/orchestrator/dispatch-inbound";
 import { formatOrchestratorFragment } from "@/lib/llm/subagents/orchestrator/format-orchestrator-fragment";
-import { selectSubagentModel } from "@/lib/llm/subagents/orchestrator/cost-policy";
+import {
+  createSubagentBudgetPolicy,
+  selectSubagentModel,
+  type SubagentPlanBudgetInput,
+} from "@/lib/llm/subagents/orchestrator/cost-policy";
 import { countAutonomousDispatchesSinceUser } from "@/lib/llm/subagents/orchestrator/orchestrator-tools";
 import { formatMultitaskRoutingSystemFragment } from "@/lib/llm/subagents/orchestrator/format-routing-fragment";
 import {
@@ -72,6 +82,7 @@ export type MultitaskTurnDeps = {
     title: string;
   }): Promise<string | null>;
   loadMessages(threadId: string, limit: number): Promise<UIMessage[]>;
+  inspectWorkerInput?(input: WorkerInputRequest): Promise<WorkerInputInspection>;
   appendMessages(threadId: string, messages: UIMessage[]): Promise<boolean>;
   setStatus(threadId: string, status: SubagentThreadStatus): Promise<void>;
   recordUsage(args: {
@@ -107,11 +118,23 @@ export type PrepareMultitaskTurnInput = {
   autonomous?: boolean;
   /** Orchestrator-authored dispatch (COA-258). Defaults to the env kill switch. */
   orchestratorDispatch?: boolean;
+  /** When true (e.g. Rabbit Hole sessions), enable orchestration without checking threads.arcadia_multitask_enabled. */
+  forceOrchestrator?: boolean;
+  /** Optional user plan budget snapshot for self-managed budget prompt & gating. */
+  planBudget?: SubagentPlanBudgetInput | null;
+  /** Optional turn hard limit USD override. */
+  hardLimitUsd?: number;
+  /** Optional max parallel dispatches per turn override (e.g. 4 in Rabbit Hole). */
+  maxDispatchesPerTurn?: number;
+  /** Private connectors profile, so the orchestrator can route grounding to Reed, Lyra, and Archer. */
+  userConnectors?: UserConnectorsProfile | null;
   now?: () => number;
 };
 
 export type PrepareMultitaskTurnResult = {
   role: "orchestrator" | "subagent";
+  /** Set only for an owned child, not a standalone persona shell. */
+  parentThreadId?: string;
   /** Appended to the turn's system prompt, in order. */
   systemFragments: string[];
   /** True when this orchestrator has at least one subagent thread (gates the reader tool). */
@@ -201,6 +224,7 @@ export async function prepareArcadiaMultitaskTurn(
 
       return {
         role: "subagent",
+        parentThreadId: link.parentThreadId,
         systemFragments: [
           locked
             ? formatLockedSubagentThreadFragment(locked)
@@ -228,7 +252,7 @@ export async function prepareArcadiaMultitaskTurn(
       };
     }
 
-    if (!(await deps.isMultitaskEnabled(chatId))) return null;
+    if (!input.forceOrchestrator && !(await deps.isMultitaskEnabled(chatId))) return null;
 
     const children = await deps.listChildren(chatId);
     const snapshots = await Promise.all(
@@ -277,8 +301,25 @@ export async function prepareArcadiaMultitaskTurn(
         autonomousRemaining = Math.max(0, ORCHESTRATOR_MAX_AUTONOMOUS_DISPATCHES - used);
       }
 
+      const budgetSnapshot =
+        input.planBudget !== undefined || input.hardLimitUsd !== undefined
+          ? createSubagentBudgetPolicy({
+              planBudget: input.planBudget,
+              hardLimitUsd: input.hardLimitUsd,
+              maxParallelDispatches: input.maxDispatchesPerTurn,
+              zeroDataRetention: input.zeroDataRetention,
+            }).snapshot()
+          : undefined;
+
       systemFragments.push(
-        formatOrchestratorFragment({ snapshots, autonomous, autonomousRemaining }),
+        formatOrchestratorFragment({
+          snapshots,
+          autonomous,
+          autonomousRemaining,
+          budget: budgetSnapshot,
+          maxDispatchesPerTurn: input.maxDispatchesPerTurn,
+          connectors: input.userConnectors,
+        }),
         formatWorktableFragment(table)
       );
     }
@@ -453,6 +494,21 @@ export async function prepareArcadiaMultitaskTurn(
 
     return null;
   }
+}
+
+/**
+ * Prepare a Rabbit Hole chat turn as a subagent mesh orchestrator with parallel delegation
+ * (`maxDispatchesPerTurn = 4`) and live plan budget awareness.
+ */
+export async function prepareRabbitHoleMultitaskTurn(
+  input: Omit<PrepareMultitaskTurnInput, "forceOrchestrator">
+): Promise<PrepareMultitaskTurnResult | null> {
+  return prepareArcadiaMultitaskTurn({
+    ...input,
+    forceOrchestrator: true,
+    orchestratorDispatch: input.orchestratorDispatch ?? true,
+    maxDispatchesPerTurn: input.maxDispatchesPerTurn ?? RABBIT_HOLE_MAX_DISPATCHES_PER_TURN,
+  });
 }
 
 function upsertWorkingSnapshot(

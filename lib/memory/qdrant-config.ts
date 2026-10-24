@@ -1,5 +1,6 @@
 import { QdrantClient } from "@qdrant/js-client-rest";
 
+import { cloudflareAccessHeaders } from "@/lib/cloudflare-access";
 import { createLogger } from "@/lib/logger";
 
 const logger = createLogger("lib/memory/qdrant-config.ts");
@@ -64,7 +65,13 @@ export function resolveMemoryApiEnv(): MemoryApiEnv {
 export function createQdrantClient(): QdrantClient {
   const { host, port, apiKey, https } = resolveMemoryApiEnv();
 
-  return new QdrantClient({ host, port, https, apiKey });
+  return new QdrantClient({
+    host,
+    port,
+    https,
+    apiKey,
+    headers: cloudflareAccessHeaders("memory"),
+  });
 }
 
 /** True when `MEMORY_API_SECRET` is set to a non-empty value. */

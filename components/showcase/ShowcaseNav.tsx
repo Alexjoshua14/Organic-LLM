@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { SignInButton, useAuth } from "@clerk/nextjs";
 import { ArrowUpRight, Code2 } from "lucide-react";
 
 import { ThemeSwitch } from "@/components/shared/theme-switch";
 
 export function ShowcaseNav() {
   const pathname = usePathname();
+  const { isSignedIn } = useAuth();
   const inShowcase = pathname === "/showcase" || pathname?.startsWith("/showcase/");
 
   return (
@@ -34,9 +36,17 @@ export function ShowcaseNav() {
           <Code2 aria-hidden size={18} />
         </a>
         <ThemeSwitch className="size-11" variant="compact" />
-        <Link className="showcase-app-link" href="/chat">
-          Open app <ArrowUpRight aria-hidden size={15} />
-        </Link>
+        {isSignedIn ? (
+          <Link className="showcase-app-link" href="/chat" prefetch={false}>
+            Open app <ArrowUpRight aria-hidden size={15} />
+          </Link>
+        ) : (
+          <SignInButton mode="modal">
+            <button className="showcase-app-link" type="button">
+              Sign in
+            </button>
+          </SignInButton>
+        )}
       </nav>
     </header>
   );

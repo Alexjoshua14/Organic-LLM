@@ -4,7 +4,7 @@ import type { AionEvent } from "@/lib/schemas/aion-presence";
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, lastAssistantMessageIsCompleteWithToolCalls } from "ai";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 
 import { Conversation, ConversationScrollButton } from "../third-party/ai-elements/conversation";
 
@@ -17,6 +17,7 @@ import { getSettings } from "@/lib/user-settings";
 import { createLogger } from "@/lib/logger";
 import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
 import { useArchetypeContext } from "@/lib/context/archetype-context";
+import { coreInputScopes } from "@/lib/core-input/scopes";
 
 const logger = createLogger("components/chat/aionChat");
 
@@ -37,6 +38,12 @@ export const AionChat: React.FC<AionChatProps> = ({
   const selectedModelRef = useRef<ChatModel>(DEFAULT_CHAT_MODEL);
   const useWebSearchRef = useRef<boolean>(false);
   const useMemoriesRef = useRef<boolean>(false);
+  const aionThreadId = chatData?.thread.id;
+  const coreInputScope = useMemo(
+    () =>
+      aionThreadId ? coreInputScopes.thread("aion", aionThreadId) : coreInputScopes.area("aion"),
+    [aionThreadId]
+  );
   const usePersistedSchemas = useRef<boolean>(persona === "aion");
   const triggerRef = useRef<AionEvent | null>(null);
 
@@ -241,6 +248,7 @@ export const AionChat: React.FC<AionChatProps> = ({
         className="absolute bottom-8 md:bottom-4 px-4 sm:px-7 w-full"
         modelRef={selectedModelRef}
         sendMessage={sendMessage}
+        snapshotScope={coreInputScope}
         status={status}
         stop={handleStop}
         useMemoriesRef={useMemoriesRef}

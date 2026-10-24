@@ -18,6 +18,7 @@ export async function recordGatewayCallUsage(args: {
   route?: string;
 }): Promise<void> {
   const billedCost = readGatewayBilledCostUsd(args.providerMetadata);
+
   if (!args.usage && billedCost === undefined) return;
 
   await insertLlmUsageEvent({

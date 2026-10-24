@@ -25,6 +25,12 @@ import {
 import { createWorktableSession, type WorktableStore } from "@/lib/llm/subagents/worktable/session";
 import { emptyWorktable } from "@/lib/llm/subagents/worktable/types";
 import { models } from "@/lib/schemas/chat-models";
+import {
+  normalizeUserConnectorsProfile,
+  type UserConnectorsProfile,
+} from "@/lib/schemas/user-connectors";
+import { estimateWorkerInput, workerModelMessages } from "@/lib/llm/subagents/worker/prepare-input";
+import { readSubagentContext } from "@/lib/llm/subagents/threads/context-items";
 
 const ORCH = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const CODER_THREAD = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
@@ -67,6 +73,8 @@ function harness(
     autonomous?: boolean;
     autonomousRemaining?: number;
     worktable?: "memory" | "none";
+    userConnectors?: UserConnectorsProfile | null;
+    loadUserConnectors?: () => Promise<UserConnectorsProfile | null>;
   } = {}
 ) {
   const threads = new Map<string, UIMessage[]>([
@@ -78,6 +86,14 @@ function harness(
     listChildren: mock(async () => children.map((c) => ({ ...c }))),
     loadMessages: mock(async (threadId: string, limit: number) =>
       (threads.get(threadId) ?? []).slice(-limit)
+    ),
+    inspectWorkerInput: mock(async (input) =>
+      estimateWorkerInput({
+        instructions: "worker",
+        toolSchemaText: "[]",
+        messages: await workerModelMessages(input.history, input.assignment),
+        modelId: input.modelId,
+      })
     ),
     ensureChild: mock(async ({ agentId }: { agentId: string }) => {
       const threadId =
@@ -113,6 +129,8 @@ function harness(
     currentUserMessage: { id: "u2", text: "Have someone review it before we ship." },
     writer,
     now: () => Date.parse(NOW),
+    userConnectors: options.userConnectors,
+    loadUserConnectors: options.loadUserConnectors,
   };
   let tools = createOrchestratorTools(toolInput);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -218,8 +236,9 @@ describe("dispatch_subagent", () => {
     expect(text.startsWith("From the orchestrator:\nImplement a streaming CSV exporter")).toBe(
       true
     );
-    expect(text).toContain("[The user's words]\nit must  stream — files can be 2 GB");
-    expect(text).toContain("[Memory]\nThe user prefers small PRs.");
+    expect(text).toContain("[The user's words]");
+    expect(text).toContain('"content":"it must  stream — files can be 2 GB"');
+    expect(text).toContain('"content":"The user prefers small PRs."');
     expect(subagentGoalBrief(assignment)).toBe(
       "Implement a streaming CSV exporter for the reports page."
     );
@@ -284,18 +303,16 @@ describe("dispatch_subagent", () => {
       additionalDispatchReason: "The user explicitly requested an independent streaming review.",
     });
     expect(uiMessageText(lastMessage(threads, CRITIC_THREAD))).toContain(
-      "[Reed (coder) — latest output]\nDraft 1: buffered export."
+      '"content":"Draft 1: buffered export."'
     );
 
-    threads
-      .get(CODER_THREAD)!
-      .push(
-        buildSubagentReplyMessage({
-          text: "Draft 2: streams in chunks.",
-          goalId: "g2",
-          modelId: "m",
-        })
-      );
+    threads.get(CODER_THREAD)!.push(
+      buildSubagentReplyMessage({
+        text: "Draft 2: streams in chunks.",
+        goalId: "g2",
+        modelId: "m",
+      })
+    );
     await deps.setStatus(CRITIC_THREAD, "done");
     nextTurn();
     await run("dispatch_subagent", {
@@ -322,6 +339,153 @@ describe("dispatch_subagent", () => {
 
     expect(result.success).toBe(false);
     expect(deps.ensureChild).not.toHaveBeenCalled();
+  });
+
+  test("selected items and message excerpts produce an inspectable, scoped assignment", async () => {
+    const { run, threads, memory } = harness();
+    await run("worktable", {
+      action: "create",
+      name: "Kit",
+      instructions: "Keep citations.",
+      items: [
+        { kind: "note", text: "unrelated" },
+        { kind: "note", text: "prefix-needed-tail" },
+      ],
+    });
+    const id = memory.current().bundles[0]!.items[1]!.id;
+    const result = await run("dispatch_subagent", {
+      agent: "coder",
+      brief: "Check the requirement.",
+      history: "fresh",
+      bundles: [{ bundle: "Kit", items: [{ itemId: id, offset: 7, limit: 6 }] }],
+      items: [{ kind: "user_message", messageId: "u1", offset: 6, limit: 3 }],
+    });
+    expect(result.success).toBe(true);
+    const context = readSubagentContext(lastMessage(threads, CODER_THREAD))!;
+    expect(context.items.map((item) => item.text)).toEqual(["needed", "the"]);
+    expect(result.manifest).toMatchObject({
+      omittedBundleItems: 1,
+      history: { mode: "fresh", messageIds: [] },
+      items: [
+        { originalChars: 6, deliveredChars: 6, bundleItemId: id },
+        { originalChars: 3, sourceMessageId: "u1" },
+      ],
+    });
+    expect(uiMessageText(lastMessage(threads, CODER_THREAD))).not.toContain("unrelated");
+    expect(memory.current().bundles[0]!.items[1]!.text).toBe("prefix-needed-tail");
+  });
+
+  test("large originals survive dispatch; only bounded, marked previews reach the worker", async () => {
+    const { run, threads } = harness();
+    const original = "full source 😀 ".repeat(2_000);
+    const result = await run("dispatch_subagent", {
+      agent: "coder",
+      brief: "Review the source.",
+      items: [{ kind: "note", text: original }],
+    });
+    expect(result.success).toBe(true);
+    const assignment = lastMessage(threads, CODER_THREAD);
+    expect(readSubagentContext(assignment)!.items[0]!.text).toBe(original);
+    expect(result.manifest).toMatchObject({
+      items: [{ originalChars: original.length, deliveredChars: 6_000, truncated: true }],
+    });
+    expect(uiMessageText(assignment)).toContain("[TRUNCATED: showing 6000");
+    expect(uiMessageText(assignment).length).toBeLessThan(original.length);
+  });
+
+  test("dry runs make no writes, consume no dispatch, and retain prefix order for selected history", async () => {
+    const { run, deps, children, threads } = harness();
+    children.push({
+      threadId: CODER_THREAD,
+      agentId: "agent-coder",
+      status: "idle",
+      statusAt: NOW,
+    });
+    threads.set(CODER_THREAD, [userMessage("old-1", "first"), userMessage("old-2", "second")]);
+    const result = await run("dispatch_subagent", {
+      agent: "coder",
+      brief: "Continue",
+      dryRun: true,
+      historyMessageIds: ["old-2", "old-1"],
+    });
+    expect(result).toMatchObject({
+      success: true,
+      dryRun: true,
+      manifest: { history: { mode: "selected", messageIds: ["old-1", "old-2"] } },
+    });
+    expect(deps.ensureChild).not.toHaveBeenCalled();
+    expect(deps.appendMessages).not.toHaveBeenCalled();
+    expect(deps.enqueueWorker).not.toHaveBeenCalled();
+    expect((await run("dispatch_subagent", { agent: "coder", brief: "Continue" })).success).toBe(
+      true
+    );
+  });
+
+  test("continue mode windows oversized history; selecting that history explicitly is rejected", async () => {
+    const continued = harness();
+
+    continued.children.push({
+      threadId: CODER_THREAD,
+      agentId: "agent-coder",
+      status: "idle",
+      statusAt: NOW,
+    });
+    continued.threads.set(CODER_THREAD, [
+      userMessage("large-old", "captured evidence ".repeat(50_000)),
+    ]);
+    const windowed = await continued.run("dispatch_subagent", {
+      agent: "coder",
+      brief: "Say hello.",
+    });
+
+    expect(windowed.success).toBe(true);
+    expect(windowed.manifest).toMatchObject({
+      history: { mode: "continue", messageIds: [] },
+    });
+
+    const { run, deps, children, threads } = harness();
+
+    children.push({
+      threadId: CODER_THREAD,
+      agentId: "agent-coder",
+      status: "idle",
+      statusAt: NOW,
+    });
+    threads.set(CODER_THREAD, [userMessage("large-old", "captured evidence ".repeat(50_000))]);
+    const rejected = await run("dispatch_subagent", {
+      agent: "coder",
+      brief: "Say hello.",
+      historyMessageIds: ["large-old"],
+    });
+
+    expect(rejected.success).toBe(false);
+    expect(rejected.error).toContain("retained history");
+    expect(deps.appendMessages).not.toHaveBeenCalled();
+    expect(deps.enqueueWorker).not.toHaveBeenCalled();
+    expect(
+      (await run("dispatch_subagent", { agent: "coder", brief: "Say hello.", history: "fresh" }))
+        .success
+    ).toBe(true);
+    expect(readSubagentContext(lastMessage(threads, CODER_THREAD))?.history.messageIds).toEqual([]);
+  });
+
+  test("history IDs cannot cross subagent boundaries", async () => {
+    const { run, deps, children, threads } = harness();
+    children.push({
+      threadId: CODER_THREAD,
+      agentId: "agent-coder",
+      status: "idle",
+      statusAt: NOW,
+    });
+    threads.set(CRITIC_THREAD, [userMessage("sibling-id", "private sibling context")]);
+    const rejected = await run("dispatch_subagent", {
+      agent: "coder",
+      brief: "Inspect",
+      historyMessageIds: ["sibling-id"],
+    });
+    expect(rejected.success).toBe(false);
+    expect(deps.loadMessages.mock.calls.every(([id]) => id !== CRITIC_THREAD)).toBe(true);
+    expect(deps.enqueueWorker).not.toHaveBeenCalled();
   });
 
   test("subagent_output only reads this orchestrator's own children", async () => {
@@ -473,13 +637,13 @@ describe("dispatch_subagent", () => {
   });
 
   test("automatic dispatches are counted from heartbeat replies since the user last spoke", () => {
-    const dispatchPart = (success: boolean) =>
+    const dispatchPart = (success: boolean, dryRun = false) =>
       ({
         type: "tool-dispatch_subagent",
         toolCallId: `t-${Math.random()}`,
         state: "output-available",
         input: {},
-        output: { success },
+        output: { success, ...(dryRun ? { dryRun: true } : {}) },
       }) as unknown as UIMessage["parts"][number];
     const assistant = (id: string, parts: UIMessage["parts"]): UIMessage => ({
       id,
@@ -499,7 +663,7 @@ describe("dispatch_subagent", () => {
       // The user's own turn: not automatic.
       assistant("a1", [dispatchPart(true)]),
       heartbeat("h1"),
-      assistant("a2", [dispatchPart(true), dispatchPart(false)]),
+      assistant("a2", [dispatchPart(true), dispatchPart(false), dispatchPart(true, true)]),
       heartbeat("h2"),
       assistant("a3", [dispatchPart(true), { type: "text", text: "Started Reed." }]),
     ];
@@ -530,5 +694,124 @@ describe("goal briefs downstream", () => {
 
     expect(message.metadata).toEqual({ source: "orchestrator", goalId: "g1" });
     expect(subagentGoalBrief(message)).toBe("Do the thing.");
+  });
+});
+
+describe("connector shorthand routing", () => {
+  const profile = normalizeUserConnectorsProfile({
+    githubUrl: "https://github.com/Alexjoshua14/",
+    linkedinUrl: "https://www.linkedin.com/in/alex",
+    educationAndTranscripts: "Williams College CS and Studio Art",
+    careerHistory: "Built Organic LLM and multi-agent orchestration",
+    resumeText: "Engineer, 2020–2026",
+    workingPreferences: "MacBook plus aetherion, a Raspberry Pi 5. TypeScript and Bun.",
+    autoShareWithSubagents: true,
+    cachedGithubSnapshot: {
+      username: "Alexjoshua14",
+      profileUrl: "https://github.com/Alexjoshua14",
+      fetchedAt: NOW,
+      profile: {
+        login: "Alexjoshua14",
+        name: "Alex",
+        bio: "Design lab",
+        html_url: "https://github.com/Alexjoshua14",
+        public_repos: 2,
+        followers: 1,
+        company: null,
+        location: null,
+        blog: null,
+      },
+      repos: [
+        {
+          name: "organic-llm",
+          description: "A design lab",
+          language: "TypeScript",
+          html_url: "https://github.com/Alexjoshua14/organic-llm",
+          updated_at: "2026-10-01T00:00:00Z",
+          stargazers_count: 1,
+          fork: false,
+          topics: ["llm"],
+        },
+      ],
+    },
+  });
+
+  test("expands connector slices onto the worktable and into Lyra and Reed assignments", async () => {
+    const { run, threads } = harness({ userConnectors: profile });
+    const created = await run("worktable", {
+      action: "create",
+      name: "Grounding",
+      shorthand: [
+        "connector:github",
+        "connector:education",
+        "connector:career",
+        "connector:resume",
+      ],
+    });
+
+    expect(created.success).toBe(true);
+    const items = (created.bundle as { items: Array<{ sourceRef?: string; text: string }> }).items;
+
+    expect(items.map((item) => item.sourceRef)).toEqual([
+      "connector:github",
+      "connector:education",
+      "connector:career",
+      "connector:resume",
+    ]);
+    expect(items[0]?.text).toContain("@Alexjoshua14");
+    expect(items[0]?.text).toContain("organic-llm");
+    expect(items[0]?.text).toContain("Reed");
+    expect(items[1]?.text).toContain("Williams College");
+
+    const lyra = await run("dispatch_subagent", {
+      agent: "Lyra",
+      brief: "Ground this research question in the user's coursework and career.",
+      shorthand: ["connector:education", "connector:career", "connector:resume"],
+    });
+
+    expect(lyra).toMatchObject({ success: true, agentId: "agent-researcher" });
+    const lyraText = uiMessageText(threads.get("thread-agent-researcher")!.at(-1)!);
+
+    expect(lyraText).toContain("Williams College");
+    expect(lyraText).toContain("multi-agent orchestration");
+    expect(lyraText).toContain("Engineer, 2020–2026");
+
+    const reed = await run("dispatch_subagent", {
+      agent: "Reed",
+      brief: "Inspect the user's public repositories and say where a new service fits.",
+      shorthand: ["connector:github"],
+      additionalDispatchReason:
+        "Independent repository inspection alongside Lyra's career synthesis.",
+    });
+
+    expect(reed).toMatchObject({ success: true, agentId: "agent-coder" });
+    const reedText = uiMessageText(threads.get(CODER_THREAD)!.at(-1)!);
+
+    expect(reedText).toContain("organic-llm");
+    expect(reedText).toContain("TypeScript");
+  });
+
+  test("loads connectors lazily and blocks shorthand when automatic sharing is off", async () => {
+    const lazy = harness({ loadUserConnectors: async () => profile });
+    const created = await lazy.run("worktable", {
+      action: "create",
+      name: "Lazy GitHub",
+      shorthand: ["connector:github"],
+    });
+
+    expect(created.success).toBe(true);
+    expect(JSON.stringify(created.bundle)).toContain("Alexjoshua14");
+
+    const blocked = harness({
+      userConnectors: { ...profile, autoShareWithSubagents: false },
+    });
+    const denied = await blocked.run("worktable", {
+      action: "create",
+      name: "Blocked",
+      shorthand: ["connector:preferences"],
+    });
+
+    expect(denied.success).toBe(false);
+    expect(String(denied.error)).toContain("automatic subagent connector sharing is disabled");
   });
 });
