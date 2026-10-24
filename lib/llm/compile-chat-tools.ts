@@ -15,6 +15,8 @@ import {
 } from "@/lib/chat/chat-experience";
 import { createKanbanBoardTool, type KanbanStreamWriter } from "@/lib/llm/kanban-tool";
 import { KANBAN_TOOL_INSTRUCTIONS } from "@/lib/system-prompt/kanban";
+import { createErgonDocumentTool } from "@/lib/llm/ergon-document-tool";
+import { ERGON_DOCUMENT_TOOL_INSTRUCTIONS } from "@/lib/system-prompt/ergon-documents";
 import { createManageTasksTool } from "@/lib/llm/ergon-tasks-tool";
 import { createErgonTicketTools, ERGON_TICKET_INSTRUCTIONS } from "@/lib/llm/ergon-ticket-tools";
 import { createChronosTools, CHRONOS_TOOL_INSTRUCTIONS } from "@/lib/llm/chronos-mcp-tools";
@@ -355,6 +357,14 @@ async function compileBaseChatTools({
         writer: writer as unknown as KanbanStreamWriter,
       });
       toolInstructions += `${KANBAN_TOOL_INSTRUCTIONS}\n`;
+
+      if (chatId) {
+        tools["ergon_document"] = createErgonDocumentTool({
+          writer: writer as unknown as KanbanStreamWriter,
+          threadId: chatId,
+        });
+        toolInstructions += `${ERGON_DOCUMENT_TOOL_INSTRUCTIONS}\n`;
+      }
     }
 
     if (chatStyle === "remy") {

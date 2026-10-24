@@ -183,6 +183,7 @@ export const ChatThread: FC<ChatThreadProps> = ({
                           : undefined
                       }
                       chatId={chatId}
+                      isLastMessage={index === lastMessageIndex}
                       isLatestArcadiaHelp={
                         isArcadiaHelpMessage(message) ? isLatestArcadiaHelp : undefined
                       }

@@ -108,6 +108,11 @@ When `chatStyle === "ergon"`, the model drives a **live** kanban board over a tr
 - Implementation: [`createKanbanBoardTool`](../lib/llm/kanban-tool.ts) · [`lib/schemas/kanban`](../lib/schemas/kanban) · UI [`components/chat/kanban/KanbanView.tsx`](../components/chat/kanban/KanbanView.tsx)
 - Public scripted demo (zero live API): [`/showcase/ergon`](https://organic.coalescencelabs.app/showcase/ergon)
 
+### `ergon_document` (Ergon linked documents)
+
+When `chatStyle === "ergon"`, the model can create, update, read, and open **durable markdown documents** linked to kanban ticket ids. Bodies persist in Supabase `ergon_documents` (encrypted, RLS). Create/update also emits a client-only `LINK_DOCUMENT` on `data-kanban` so ticket cards show doc chips. The in-thread viewer stays expanded while its message is the latest; after the next turn it collapses to a chip.
+
+- Implementation: [`createErgonDocumentTool`](../lib/llm/ergon-document-tool.ts) · [`lib/schemas/ergon-documents.ts`](../lib/schemas/ergon-documents.ts) · [`docs/ergon/README.md`](./ergon/README.md)
 ### Connected Ergon engineering tickets (`ergon_*` ticket tools)
 
 An optional connection to a separate Ergon engineering workspace adds `ergon_list_issues`,
