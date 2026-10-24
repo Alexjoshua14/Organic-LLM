@@ -54,6 +54,8 @@ Today:
 ```
 app/remy/page.tsx                 — dashboard shell (Week | Library | Shopping)
 components/remy/RemyPageClient.tsx — mounts RemyChatDock (Ask Remy passes date/slot/title)
+components/remy/RemyWeekGrid.tsx   — week board (stacked days below lg; 7-col grid at lg+)
+lib/remy/remy-layout.ts           — week-grid breakpoint (`REMY_WEEK_GRID_MIN_WIDTH_PX`)
 components/remy/RemyChatDock.tsx  — right-side Chat dock (`persona="remy"`)
 app/remy/[slug]/page.tsx          — full-page Remy thread (`persona="remy"`)
 app/remy/tmp/page.tsx             — temporary chat
@@ -87,8 +89,9 @@ those migrations, run `bun run supabase:types` to regenerate it. Until then,
 ## Intended (not all exist yet)
 
 Dashboard shell, library, shopping, leftovers, and dock are in place. Still open:
-mobile layout, pantry inventory, drag-and-drop, multi-recipe slots. Event mise
-recipes are **not** auto-imported into the prep library.
+pantry inventory, drag-and-drop, multi-recipe slots. Event mise recipes are
+**not** auto-imported into the prep library. Mobile week board: days stack below
+`lg` (see `lib/remy/remy-layout.ts`); the 7-day grid stays at wide widths.
 
 Shopping **recomputes from cook placements** (ignore leftover-of rows). The week is not
 owned by a chat thread — tools persist, the page reads the same tables.

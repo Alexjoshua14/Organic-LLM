@@ -16,14 +16,14 @@ export default function ErgonPrototypePage() {
     <Page liquidChromeBackground transparentBackground className="overflow-hidden">
       <AdaptiveLiquidChrome dimIntensity={0.45} />
       <PageContentFrame
-        className="relative z-10 flex h-full flex-col overflow-hidden pb-0"
+        className="relative z-10 flex h-full min-w-0 flex-col overflow-hidden pb-0"
         maxWidth="7xl"
       >
-        <div className="min-h-0 flex-1 overflow-y-auto pb-16">
+        <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto pb-[max(4rem,env(safe-area-inset-bottom,0px))]">
           <PageNavBack href="/sandbox/prototypes">← Prototypes</PageNavBack>
 
-          <header className="mb-6 max-w-2xl space-y-1.5">
-            <h1 className="font-commissioner text-3xl font-light tracking-tight text-foreground">
+          <header className="mb-6 max-w-2xl space-y-1.5 max-[720px]:mb-4">
+            <h1 className="font-commissioner text-3xl font-light tracking-tight text-foreground max-[720px]:text-2xl">
               Ergon living board
             </h1>
             <p className="text-sm leading-relaxed text-muted-foreground">

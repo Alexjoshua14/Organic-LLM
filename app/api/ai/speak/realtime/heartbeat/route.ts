@@ -53,11 +53,12 @@ export async function POST(req: Request) {
   const result = await assertSpeakBudgetOrClose({
     sessionId: parsed.data.sessionId,
     userId: sbUserIdResult.data,
+    clerkUserId: clerkUser.userId,
     usage: parsed.data.usage,
   });
 
   if (!result.ok || result.shouldClose) {
-    logger.log("POST", `Heartbeat closing session ${parsed.data.sessionId}: ${result.error}`);
+    logger.log("POST", `Heartbeat closing session: ${result.error}`);
 
     return NextResponse.json(
       {

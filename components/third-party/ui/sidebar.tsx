@@ -180,17 +180,28 @@ function Sidebar({
   side = "left",
   variant = "sidebar",
   collapsible = "offcanvas",
+  compactHeight = false,
+  compactMaxHeight,
   className,
+  style,
   children,
   ...props
 }: React.ComponentProps<"div"> & {
   side?: "left" | "right";
   variant?: "sidebar" | "floating" | "inset";
   collapsible?: "offcanvas" | "icon" | "none";
+  /**
+   * Tall / portrait desktops: float the rail and cap height instead of
+   * stretching `h-svh`. Pair with `variant="floating"`.
+   */
+  compactHeight?: boolean;
+  /** CSS length for `--sidebar-tall-max-height` when `compactHeight` is set. */
+  compactMaxHeight?: string;
 }) {
   const { isMobile, state, openMobile, setOpenMobile } = useSidebar();
   const [pointerInside, setPointerInside] = React.useState(false);
   const pointerContextValue = React.useMemo(() => ({ pointerInside }), [pointerInside]);
+  const useCompactHeight = compactHeight && variant === "floating";
 
   if (collapsible === "none") {
     return (
@@ -200,6 +211,7 @@ function Sidebar({
           className
         )}
         data-slot="sidebar"
+        style={style}
         {...props}
       >
         {children}
@@ -240,6 +252,7 @@ function Sidebar({
     <div
       className="group peer text-sidebar-foreground hidden md:block"
       data-collapsible={state === "collapsed" ? collapsible : ""}
+      data-compact-height={useCompactHeight ? "true" : undefined}
       data-side={side}
       data-slot="sidebar"
       data-state={state}
@@ -259,7 +272,10 @@ function Sidebar({
       />
       <div
         className={cn(
-          "fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-100 ease-linear md:flex",
+          "fixed z-10 hidden w-(--sidebar-width) transition-[left,right,width,max-height,top] duration-100 ease-linear md:flex",
+          useCompactHeight
+            ? "top-[max(0.5rem,env(safe-area-inset-top,0px))] bottom-auto h-auto max-h-(--sidebar-tall-max-height)"
+            : "inset-y-0 h-svh",
           side === "left"
             ? "left-0 group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]"
             : "right-0 group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)]",
@@ -270,10 +286,23 @@ function Sidebar({
           className
         )}
         data-slot="sidebar-container"
+        style={
+          {
+            ...(useCompactHeight
+              ? {
+                  "--sidebar-tall-max-height": compactMaxHeight ?? "88svh",
+                }
+              : null),
+            ...style,
+          } as React.CSSProperties
+        }
         {...props}
       >
         <div
-          className="bg-sidebar group-data-[variant=floating]:border-sidebar-border flex h-full w-full flex-col group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:shadow-sm"
+          className={cn(
+            "bg-sidebar group-data-[variant=floating]:border-sidebar-border flex w-full flex-col group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:shadow-sm",
+            useCompactHeight ? "h-auto max-h-[inherit] min-h-0 overflow-hidden" : "h-full"
+          )}
           data-sidebar="sidebar"
           data-slot="sidebar-inner"
           onPointerEnter={() => setPointerInside(true)}

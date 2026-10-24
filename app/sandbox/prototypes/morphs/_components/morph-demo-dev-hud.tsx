@@ -2,9 +2,10 @@
 
 import type { SpringConfig, Vector4 } from "@organic-llm/morph-physics";
 
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from "lucide-react";
 import { useCallback, useEffect, useId, useState } from "react";
 
+import { MORPH_DEMO_HUD_SIDE_MIN_WIDTH_PX, morphDemoHud } from "../_lib/morph-demo-layout";
 import { MORPH_DEMO_SPEEDS, type MorphDemoSpeedPercent } from "../_lib/morph-demo-spring-presets";
 
 import { glass } from "@/components/design-system/primitives";
@@ -23,6 +24,24 @@ function vecLine(label: string, v: Vector4 | null) {
   }
 
   return `${label}: x ${fmt(v.x)} · y ${fmt(v.y)} · w ${fmt(v.w)} · h ${fmt(v.h)}`;
+}
+
+function useHudSideDock(): boolean {
+  const [sideDock, setSideDock] = useState(false);
+
+  useEffect(() => {
+    const mql = window.matchMedia(`(min-width: ${MORPH_DEMO_HUD_SIDE_MIN_WIDTH_PX}px)`);
+    const sync = () => {
+      setSideDock(mql.matches);
+    };
+
+    sync();
+    mql.addEventListener("change", sync);
+
+    return () => mql.removeEventListener("change", sync);
+  }, []);
+
+  return sideDock;
 }
 
 export type MorphLiveMetrics = {
@@ -66,23 +85,34 @@ export function MorphDemoDevHud({
   onPanelOpenChange,
 }: MorphDemoDevHudProps) {
   const panelId = useId();
-  const [open, setOpen] = useState(true);
+  const sideDock = useHudSideDock();
+  const [open, setOpen] = useState(false);
+  const [storageReady, setStorageReady] = useState(false);
 
   useEffect(() => {
     try {
       const v = sessionStorage.getItem(HUD_STORAGE_KEY);
 
-      if (v === "0") {
+      if (v === "1") {
+        setOpen(true);
+      } else if (v === "0") {
         setOpen(false);
+      } else {
+        // Default: open on wide side-dock; collapsed on narrow so the stage stays usable.
+        setOpen(window.innerWidth >= MORPH_DEMO_HUD_SIDE_MIN_WIDTH_PX);
       }
     } catch {
-      // ignore
+      setOpen(
+        typeof window !== "undefined" && window.innerWidth >= MORPH_DEMO_HUD_SIDE_MIN_WIDTH_PX
+      );
     }
+    setStorageReady(true);
   }, []);
 
   useEffect(() => {
+    if (!storageReady) return;
     onPanelOpenChange?.(open);
-  }, [open, onPanelOpenChange]);
+  }, [open, onPanelOpenChange, storageReady]);
 
   const setOpenPersist = useCallback((next: boolean) => {
     setOpen(next);
@@ -102,7 +132,7 @@ export function MorphDemoDevHud({
         aria-label="Open morph debug metrics"
         className={cn(
           glass({ opaque: true }),
-          "pointer-events-auto fixed top-24 right-0 z-[60] flex w-9 flex-col items-center gap-1.5 rounded-l-lg border border-border/60 border-r-0 py-3 pl-1 pr-0.5 shadow-lg backdrop-blur-xl",
+          morphDemoHud.collapsedTab,
           "text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground"
         )}
         type="button"
@@ -110,9 +140,17 @@ export function MorphDemoDevHud({
           setOpenPersist(true);
         }}
       >
-        <ChevronLeft aria-hidden className="size-4 shrink-0" />
-        <span className="font-medium text-2xs text-foreground/80 uppercase tracking-widest [writing-mode:vertical-rl]">
-          Debug
+        <span className="hidden sm:contents">
+          <ChevronLeft aria-hidden className="size-4 shrink-0" />
+          <span className="font-medium text-2xs text-foreground/80 uppercase tracking-widest [writing-mode:vertical-rl]">
+            Debug
+          </span>
+        </span>
+        <span className="flex items-center gap-1 sm:hidden">
+          <ChevronDown aria-hidden className="size-3.5 shrink-0" />
+          <span className="font-medium text-2xs text-foreground/80 uppercase tracking-widest">
+            Debug
+          </span>
         </span>
       </button>
     );
@@ -122,10 +160,7 @@ export function MorphDemoDevHud({
     <aside
       id={panelId}
       aria-label="Morph demo developer HUD"
-      className={cn(
-        glass({ opaque: true }),
-        "pointer-events-auto fixed top-20 right-0 z-[60] max-w-[min(100vw-1rem,18rem)] rounded-l-xl rounded-r-none border border-border/60 border-r-0 p-2 shadow-lg backdrop-blur-xl sm:top-24"
-      )}
+      className={cn(glass({ opaque: true }), morphDemoHud.openPanel)}
     >
       <div className="flex items-start justify-between gap-2 border-border/40 border-b pb-2">
         <div className="min-w-0">
@@ -146,7 +181,11 @@ export function MorphDemoDevHud({
             setOpenPersist(false);
           }}
         >
-          <ChevronRight aria-hidden className="size-4" />
+          {sideDock ? (
+            <ChevronRight aria-hidden className="size-4" />
+          ) : (
+            <ChevronUp aria-hidden className="size-4" />
+          )}
         </Button>
       </div>
 

@@ -11,6 +11,7 @@ mapped to our production knobs.
 - CSS vars / keyframes: [`styles/ProcessingTextBurn.css`](../../styles/ProcessingTextBurn.css)
 - Component: [`components/chat/processing-text-burn.tsx`](../../components/chat/processing-text-burn.tsx)
 - Wrappers: `ChatThinking` / `ChatReasoning` / `ChatSearching` in [`components/chat/chat-loading.tsx`](../../components/chat/chat-loading.tsx)
+- Chat *route* loading (thread hydrate): [`lib/chat/chat-page-loading-timing.ts`](../../lib/chat/chat-page-loading-timing.ts) + [`styles/ChatPageLoading.css`](../../styles/ChatPageLoading.css) + [`components/chat/chat-page-loading.tsx`](../../components/chat/chat-page-loading.tsx)
 - Lab: `/sandbox/prototypes/llm-states` → **Processing burn (proto)**
 
 ---
@@ -116,6 +117,20 @@ For a ~25-character status label, total transition time should feel like **statu
 re-check against Carbon’s ~500ms *functional* choreography budget and NN/G’s “don’t make
 people wait” guidance — or justify the exception in this doc.
 
+### Chat route loading (thread hydrate)
+
+Full-page wait while `/chat/[slug]` loads — presentation only, not processing labels.
+
+| Token | Value | Rationale |
+|-------|-------|-----------|
+| Enter | **280ms** | Material short-enter; presence settles, frame is already there |
+| Breath | **3.6s** | Organic-presence idle band (2–5s); quiet sustain while hydrating |
+| Exit | **180ms** | Faster than enter (design backbone) |
+
+One soft accent presence on the same `Page` chrome as the thread. No spinner, no status copy.
+Honor `prefers-reduced-motion` with a static settle (no breath). Constants + CSS vars must stay
+in sync (`CHAT_PAGE_LOADING_*` ↔ `--cpl-*`).
+
 ### Message receipt (send acknowledgment)
 
 The first indication that the system has the user’s message must paint **on the client** as
@@ -159,6 +174,23 @@ After burn-in settles, sustain uses **`ShinyText`** at `5s` (`PROCESSING_TEXT_BU
 — the same primitive and speed as legacy `ChatThinking`. Burn chars settle on
 `--ptb-shine-dim` (`#b5b5b5`), matching ShinyText at `background-position: 100%`.
 
+### Title regeneration indication
+
+Sidebar and collapsed-thread titles stay in **one line box** (`thread-title` / `thread-title-line`).
+The box’s font, padding, truncation, and line-height do not change between states. Only the
+affected thread re-renders; regen does not update chat context.
+
+| State | What changes |
+|-------|----------------|
+| Stable | Current title styling, including the Arcadia gradient when that row uses it |
+| Regenerating | Same text node. A shine moves across it (`shine`, 5s). No entrance burn |
+| New title | One processing-label burn, old string out and new string in, inside the same line |
+| Landed | Back to stable on the new string. The plain text is held until the sidebar cache catches up so the line does not flash the old title |
+
+The burn reuses `ProcessingTextBurn` timing (`processingTextBurnSwapDurationMs`) and settles on
+the title’s own color, not the status-label gray. Reduced motion keeps the shimmer class inert
+and swaps the string without the character burn.
+
 ### Color burn (entry / swap)
 
 Per-character color animation (`--ptb-in-color-duration: 0.2s`): bright leading edge
@@ -192,6 +224,66 @@ Opt out of sustain with `sustainShimmer={false}`.
    `tests/unit/processing-text-burn-timing.test.ts`.
 
 ---
+
+## CoreInput layout continuity
+
+CoreInput fits its local container up to `max-w-4xl`; viewport-based width caps must not
+subtract a fixed sidebar width or introduce a width cliff at a breakpoint. The existing
+`useMorphFlip` wrapper preserves the last visible bottom-left anchor and width through
+window resize, CSS resize observations, and React layout commits. New targets retarget the
+running morph-physics spring with its velocity intact, so reversing a resize does not restart
+or snap the composer. One transform owns the wrapper; CSS owns the final layout. Height-only
+growth while typing updates the baseline without an animation.
+Height-only viewport changes also land immediately, keeping the composer docked when a
+mobile keyboard opens or closes.
+
+`COMPOSER_SHIFT_SPRING` in `lib/chat/composer-shift-spring.ts` uses stiffness 380, damping 36,
+and mass 1 for brief motion with little overshoot. Subpixel shifts below 1px do not start a
+spring. Reduced motion lands immediately and cancels any active spring. The wrapper keeps
+CoreInput mounted, including focus and an unsent draft. No View Transition snapshot or extra
+composer instance is needed.
+
+## Multiagent recipient disclosure
+
+The header's recipient pills use the shared `glass()` surface and Framer Motion to expand
+from and return to the same left edge. Their expanded roster slots remain fixed across
+selections. Measured layout
+offsets drive transforms; active styling keeps font weight and padding unchanged so
+pill widths stay fixed. Expanded pills highlight their background and border on hover;
+the active pill retains its amber treatment. The thread and composer stay mounted throughout.
+
+Timing lives in `app/sandbox/arcadia/_components/send-target-picker-motion.ts`:
+**220ms enter / 160ms exit**, within the brief 160–240ms disclosure band. Reduced motion
+settles immediately. Escape and clicking outside collapse the picker; hidden recipients
+leave the tab order and accessibility tree.
+
+## Usage refresh indicator
+
+The Usage overlay keeps the small uppercase wordmark as `Organic • Usage`, with a 1px,
+128px silver line beneath it. A restrained glow uses the wordmark's neutral color. The
+line fills linearly toward the next refresh, giving a quiet timing cue without a countdown
+label or repeated shimmer. `USAGE_REFRESH_MS` in
+`components/usage/usage-refresh-progress.tsx` is 15 seconds; this reflects elapsed time,
+rather than a functional transition duration.
+
+The deadline starts after a request settles and resets on range changes, focus, or a return
+to a visible tab. Pending requests hold the line full and do not overlap. Hidden and closed
+panels skip polling. Reduced motion disables the continuous animation; progress and the
+accessible timing label update once per second within the indicator only.
+
+## Usage panel loading
+
+The Usage dialog holds a height of `min(92dvh, 780px)` before and after data arrives; its
+body scrolls independently and keeps a stable scrollbar gutter. Initial loads use a custom
+dashboard skeleton with the same card borders, responsive totals grid, 120px chart, and
+section spacing as the loaded panel. Totals share one card component with a fixed value
+line height, and the chart reserves its date-label row even for empty ranges.
+
+Placeholders use the existing neutral, two-second Tailwind opacity pulse and stop animating
+under reduced motion. They expose one loading announcement, with decorative placeholders
+hidden from assistive technology. They never show fabricated zero usage. Refreshes keep
+the previous dashboard mounted; a failed refresh uses an overlaid retry notice so it does
+not reflow the content. Initial failures retain the same dialog frame.
 
 ## Sources (for re-research)
 

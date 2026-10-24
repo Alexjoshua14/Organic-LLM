@@ -1,4 +1,5 @@
 import { JEV_INPUT_TOO_LARGE_MESSAGE } from "@/lib/arcadia/jev/constants";
+import { formatResetCountdown } from "@/lib/plans/budget-cycle";
 
 /**
  * User-facing messages keyed by HTTP status code.
@@ -58,13 +59,29 @@ function parseErrorBody(msg: string): { status?: number; error?: string } {
  * A JSON body whose status has no copy here (e.g. 409 on a stale Jev override) shows its own
  * `error` text, which the route writes for users, instead of the raw JSON.
  */
-export function getChatErrorMessage(error: unknown): string {
+export function getChatErrorMessage(error: unknown, now: Date = new Date()): string {
   const raw = error instanceof Error ? error.message : typeof error === "string" ? error : "";
   const msg = raw.trim();
   const body = parseErrorBody(msg);
 
-  if (body.status !== undefined && body.status in CHAT_ERROR_MESSAGES) {
-    return CHAT_ERROR_MESSAGES[body.status]!;
+  let status: number | undefined;
+
+  try {
+    const parsed = JSON.parse(msg) as {
+      status?: number;
+      code?: string;
+      error?: string;
+      resetAt?: string;
+      resetsRemaining?: number | null;
+    };
+
+    if (parsed && typeof parsed.status === "number") status = parsed.status;
+    if (parsed?.code === "plan_limit") return planLimitMessage(parsed, now);
+  } catch {
+    // not JSON, fall through to pattern matching
+  }
+  if (status !== undefined && status in CHAT_ERROR_MESSAGES) {
+    return CHAT_ERROR_MESSAGES[status]!;
   }
 
   for (const { patterns, status: s } of MESSAGE_PATTERNS) {
@@ -76,4 +93,23 @@ export function getChatErrorMessage(error: unknown): string {
   }
 
   return body.error ?? (msg || "Something went wrong. Please try again.");
+}
+
+/** A spent weekly plan budget: why, when it resets, and whether a reset is available. */
+function planLimitMessage(
+  body: { error?: string; resetAt?: string; resetsRemaining?: number | null },
+  now: Date
+): string {
+  const parts = [body.error?.trim() || "You've reached this week's plan limit."];
+  const resetAt = body.resetAt ? Date.parse(body.resetAt) : Number.NaN;
+
+  if (Number.isFinite(resetAt))
+    parts.push(`It resets in ${formatResetCountdown(resetAt - now.getTime())}.`);
+  if (typeof body.resetsRemaining === "number" && body.resetsRemaining > 0) {
+    parts.push(
+      `You can start a fresh window now from Usage (${body.resetsRemaining} reset${body.resetsRemaining === 1 ? "" : "s"} left).`
+    );
+  }
+
+  return parts.join(" ");
 }

@@ -1,13 +1,17 @@
 import type { ReactNode } from "react";
 
-import { afterAll, afterEach, beforeAll, describe, expect, mock, test } from "bun:test";
-import { cleanup, waitFor, within } from "@testing-library/react";
+import { afterAll, afterEach, beforeAll, describe, expect, mock, spyOn, test } from "bun:test";
+import { act, cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+import { render } from "../helpers/render";
+
+import { CoreInput } from "@/components/chat/core-input";
+import { DEFAULT_COMPOSER_MODEL } from "@/lib/chat/composer-tool-defaults";
+import { coreInputScopes, type CoreInputScope } from "@/lib/core-input/scopes";
 import { FeatureHintRegistryProvider } from "@/lib/onboarding/feature-hint-context";
 import { ChatContext, type ChatContextValue } from "@/lib/context/chat-context";
 import { defaultUserSettings, type UserSettings } from "@/lib/schemas/userSettings";
-import { render } from "../helpers/render";
 
 // ---------------------------------------------------------------------------
 // Browser globals the shared jsdom install leaves out. Installed for this file only and
@@ -154,7 +158,12 @@ function registerUserSettingsMock() {
 registerUserSettingsMock();
 
 mock.module("@clerk/nextjs", () => ({
-  useAuth: () => ({ userId: "user_lab_test", isSignedIn: true, isLoaded: true }),
+  useAuth: () => ({
+    userId: "user_lab_test",
+    sessionId: "session_lab_test",
+    isSignedIn: true,
+    isLoaded: true,
+  }),
   useUser: () => ({ user: { id: "user_lab_test" }, isSignedIn: true, isLoaded: true }),
   ClerkProvider: ({ children }: { children?: ReactNode }) => <>{children}</>,
   SignedIn: ({ children }: { children?: ReactNode }) => <>{children}</>,
@@ -162,9 +171,9 @@ mock.module("@clerk/nextjs", () => ({
   UserButton: () => null,
 }));
 
-// "use server" module behind useIsAdmin; Bun cannot load it in tests.
-mock.module("@/data/supabase/profiles", () => ({
-  getShowSandboxGatewayForCurrentUser: async () => true,
+// The shared visibility query stays local to this test.
+mock.module("@/data/supabase/gateway-visibility", () => ({
+  getGatewayVisibilityForCurrentUser: async () => true,
 }));
 
 // `Page` needs the sidebar provider; the lab only needs a container here.
@@ -186,6 +195,13 @@ const chatContextValue = {
   isSidebarChatsLoading: false,
   sidebarChatsError: null,
   refreshSidebarChats: () => {},
+  titleRegenThreadIds: new Set<string>(),
+  isTitleRegenerating: () => false,
+  getTitleRegenBurnText: (_threadId: string, fallbackTitle: string) => fallbackTitle,
+  beginTitleRegen: () => {},
+  resolveTitleRegen: () => {},
+  isTitleRegenReadyToCommit: () => false,
+  finishTitleRegen: () => {},
 } satisfies ChatContextValue;
 
 function Providers({ children }: { children: ReactNode }) {
@@ -266,12 +282,14 @@ describe("CoreInput lab", () => {
     }
 
     // Focusing a card rewrites the URL; re-render to pick the new params up.
-    await userEvent.setup().click(
-      within(getByRole("heading", { name: "Send button" }).closest("section")!).getByRole(
-        "button",
-        { name: "Focus" }
-      )
-    );
+    await userEvent
+      .setup()
+      .click(
+        within(getByRole("heading", { name: "Send button" }).closest("section")!).getByRole(
+          "button",
+          { name: "Focus" }
+        )
+      );
     expect(search).toBe("view=focus&control=submit");
     rerenderLab();
 
@@ -298,5 +316,255 @@ describe("CoreInput lab", () => {
     // Pinned cells ignore clicks.
     await user.click(getAllByRole("button", { name: "Web search off" })[1]!);
     expect(getAllByRole("button", { name: "Web search off" })).toHaveLength(3);
+  });
+
+  test.each(["submitted", "streaming"] as const)(
+    "the shipped composer blocks Enter and direct form submission while %s without losing the draft",
+    async (status) => {
+      const sendMessage = mock(async () => {});
+      const stop = mock(async () => {});
+      const makeUi = (nextStatus: typeof status | "ready") => (
+        <Providers>
+          <CoreInput
+            modelRef={{ current: DEFAULT_COMPOSER_MODEL }}
+            useWebSearchRef={{ current: false }}
+            useMemoriesRef={{ current: false }}
+            sendMessage={sendMessage}
+            stop={stop}
+            status={nextStatus}
+            featureHints={false}
+            showContextBudget={false}
+          />
+        </Providers>
+      );
+      const view = render(makeUi(status));
+      const textarea = view.container.querySelector("textarea")!;
+      const user = userEvent.setup();
+
+      await user.type(textarea, "Keep this next draft");
+      await user.keyboard("{Enter}");
+      await act(async () => fireEvent.submit(textarea.form!));
+      expect(sendMessage).not.toHaveBeenCalled();
+      expect(textarea.value).toBe("Keep this next draft");
+      await user.click(view.getByRole("button", { name: "Abort" }));
+      expect(stop).toHaveBeenCalledTimes(1);
+      expect(sendMessage).not.toHaveBeenCalled();
+
+      view.rerender(makeUi("ready"));
+      await user.click(view.getByRole("button", { name: "Submit" }));
+      expect(sendMessage).toHaveBeenCalledTimes(1);
+      expect(sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ text: "Keep this next draft" })
+      );
+    }
+  );
+
+  test("the shipped composer blocks repeated submissions before the parent publishes a busy status", async () => {
+    let finish!: () => void;
+    const pending = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    const sendMessage = mock(() => pending);
+    const view = render(
+      <Providers>
+        <CoreInput
+          modelRef={{ current: DEFAULT_COMPOSER_MODEL }}
+          useWebSearchRef={{ current: false }}
+          useMemoriesRef={{ current: false }}
+          sendMessage={sendMessage}
+          stop={async () => {}}
+          status="ready"
+          featureHints={false}
+          showContextBudget={false}
+        />
+      </Providers>
+    );
+    const textarea = view.container.querySelector("textarea")!;
+
+    await userEvent.setup().type(textarea, "One turn");
+    await act(async () => {
+      fireEvent.submit(textarea.form!);
+      fireEvent.submit(textarea.form!);
+    });
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+    await userEvent.setup().type(textarea, "Next draft");
+    await act(async () => fireEvent.submit(textarea.form!));
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+    expect(textarea.value).toBe("Next draft");
+    await act(async () => finish());
+    await userEvent.setup().click(view.getByRole("button", { name: "Submit" }));
+    expect(sendMessage).toHaveBeenCalledTimes(2);
+  });
+
+  test("a disabled composer rejects direct form submission and retains its draft", async () => {
+    const sendMessage = mock(async () => {});
+    const view = render(
+      <Providers>
+        <CoreInput
+          modelRef={{ current: DEFAULT_COMPOSER_MODEL }}
+          useWebSearchRef={{ current: false }}
+          useMemoriesRef={{ current: false }}
+          sendMessage={sendMessage}
+          stop={async () => {}}
+          status="ready"
+          disabled
+          featureHints={false}
+          showContextBudget={false}
+        />
+      </Providers>
+    );
+    const textarea = view.container.querySelector("textarea")!;
+
+    await userEvent.setup().type(textarea, "Waiting for reconnection");
+    await act(async () => fireEvent.submit(textarea.form!));
+    expect(sendMessage).not.toHaveBeenCalled();
+    expect(textarea.value).toBe("Waiting for reconnection");
+  });
+
+  test("explicit queue mode can enqueue during streaming without invoking the live send handler", async () => {
+    const fetchSpy = spyOn(globalThis, "fetch").mockImplementation(async () =>
+      Response.json({ items: [], openQueue: [] })
+    );
+    const sendMessage = mock(async () => {});
+
+    try {
+      const view = render(
+        <Providers>
+          <CoreInput
+            modelRef={{ current: DEFAULT_COMPOSER_MODEL }}
+            useWebSearchRef={{ current: false }}
+            useMemoriesRef={{ current: false }}
+            sendMessage={sendMessage}
+            stop={async () => {}}
+            status="streaming"
+            chatId="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+            queueSendMode
+            featureHints={false}
+            showContextBudget={false}
+          />
+        </Providers>
+      );
+
+      await userEvent.setup().type(view.container.querySelector("textarea")!, "Queue this turn");
+      await userEvent.setup().click(view.getByRole("button", { name: "Submit" }));
+      expect(sendMessage).not.toHaveBeenCalled();
+      expect(fetchSpy.mock.calls.filter(([, options]) => options?.method === "POST")).toHaveLength(
+        1
+      );
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+});
+
+describe("CoreInput snapshot scopes", () => {
+  afterEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+    localStorage.clear();
+  });
+
+  const webSearchChip = (view: ReturnType<typeof render>) =>
+    view.getByRole("button", { name: /^web search (on|off)$/i });
+  /**
+   * Scope changes morph over ~400ms of real time; wait for the composer to settle. The /btw test
+   * waits three times and took 5.5s on the Linux runner against Bun's 5s default, so these tests
+   * carry an explicit limit, and a timed-out test no longer leaves work running into later files.
+   */
+  const SLOW_UI_TEST_MS = 30_000;
+  const settled = (view: ReturnType<typeof render>) =>
+    waitFor(() => expect(view.container.querySelector("[data-core-input-morph]")).toBeNull(), {
+      timeout: 8_000,
+    });
+
+  test(
+    "a /btw scope keeps its own settings and the thread's snap back on close",
+    async () => {
+      // Sync is best-effort; a missing table keeps the composer local-only.
+      const fetchSpy = spyOn(globalThis, "fetch").mockImplementation(
+        async () => new Response("{}", { status: 503 })
+      );
+      const threadId = crypto.randomUUID();
+      const thread = coreInputScopes.thread("arcadia", threadId);
+      const btw = coreInputScopes.btw("arcadia", threadId);
+      const webSearchRef = { current: true };
+      const makeUi = (scope: CoreInputScope) => (
+        <Providers>
+          <CoreInput
+            modelRef={{ current: DEFAULT_COMPOSER_MODEL }}
+            useWebSearchRef={webSearchRef}
+            useMemoriesRef={{ current: false }}
+            sendMessage={mock(async () => {})}
+            stop={async () => {}}
+            status="ready"
+            featureHints={false}
+            showContextBudget={false}
+            snapshotScope={scope}
+          />
+        </Providers>
+      );
+
+      try {
+        const user = userEvent.setup();
+        const view = render(makeUi(thread));
+
+        await settled(view);
+        if (webSearchChip(view).getAttribute("aria-label") === "Web search on") {
+          await user.click(webSearchChip(view));
+        }
+        expect(webSearchChip(view).getAttribute("aria-label")).toBe("Web search off");
+
+        // Opening /btw starts from the thread's settings; changing them stays in the side thread.
+        view.rerender(makeUi(btw));
+        await settled(view);
+        expect(webSearchChip(view).getAttribute("aria-label")).toBe("Web search off");
+        await user.click(webSearchChip(view));
+        expect(webSearchChip(view).getAttribute("aria-label")).toBe("Web search on");
+        expect(webSearchRef.current).toBe(true);
+
+        // Closing /btw morphs back to the thread, and the refs a send reads follow it.
+        view.rerender(makeUi(thread));
+        await settled(view);
+        expect(webSearchChip(view).getAttribute("aria-label")).toBe("Web search off");
+        expect(webSearchRef.current).toBe(false);
+      } finally {
+        fetchSpy.mockRestore();
+      }
+    },
+    SLOW_UI_TEST_MS
+  );
+
+  test("a slash command runs while the thread streams and is never sent to it", async () => {
+    const sendMessage = mock(async () => {});
+    const btw = mock((_question: string) => {});
+    const view = render(
+      <Providers>
+        <CoreInput
+          modelRef={{ current: DEFAULT_COMPOSER_MODEL }}
+          useWebSearchRef={{ current: false }}
+          useMemoriesRef={{ current: false }}
+          sendMessage={sendMessage}
+          stop={async () => {}}
+          status="streaming"
+          featureHints={false}
+          showContextBudget={false}
+          slashCommands={{ btw }}
+        />
+      </Providers>
+    );
+    const textarea = view.container.querySelector("textarea")!;
+
+    await userEvent.setup().type(textarea, "/btw what does idempotent mean?");
+    await act(async () => fireEvent.submit(textarea.form!));
+
+    expect(btw).toHaveBeenCalledWith("what does idempotent mean?");
+    expect(sendMessage).not.toHaveBeenCalled();
+    expect(textarea.value).toBe("");
+
+    // Unregistered commands are ordinary text and stay blocked while streaming.
+    await userEvent.setup().type(textarea, "/unknown thing");
+    await act(async () => fireEvent.submit(textarea.form!));
+    expect(sendMessage).not.toHaveBeenCalled();
+    expect(textarea.value).toBe("/unknown thing");
   });
 });

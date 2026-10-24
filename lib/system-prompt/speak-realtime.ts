@@ -9,6 +9,11 @@ export type SpeakRealtimeInstructionOptions = {
   sessionContext?: string | null;
   /** True when the session continues an existing thread. */
   resumed?: boolean;
+  /**
+   * Arcadia multitask Speak-to seed (goal + progress + identity). When set, the model
+   * voices that subagent; silent progress vs spoken milestones are covered in the block.
+   */
+  subagentContext?: string | null;
 };
 
 /**
@@ -92,6 +97,12 @@ ${toolLines.join("\n")}`,
 - Use it when the user points at their screen ("this", "here", "what it just said", "the chat I have open") or when it plainly helps the answer.
 - Never announce, acknowledge, or react to a ${AMBIENT_LABEL} message on its own. It is not the user speaking; wait for them.
 - If you have none, or it says there is nothing to describe, tell the user you cannot see what they have open.`);
+
+  const subagent = options.subagentContext?.trim();
+
+  if (subagent) {
+    sections.push(subagent);
+  }
 
   const context = options.sessionContext?.trim();
 

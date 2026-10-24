@@ -1,5 +1,5 @@
 import type { AnthropicProviderOptions } from "@ai-sdk/anthropic";
-import type { GoogleGenerativeAIProviderOptions } from "@ai-sdk/google";
+import type { GoogleGenerativeAIProviderOptions as GoogleProviderOptions } from "@ai-sdk/google";
 import type { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 import type { JSONValue } from "@ai-sdk/provider";
 
@@ -94,7 +94,7 @@ const OPENAI_GPT54_FAMILY: EffortCapability = {
   levels: ["none", "low", "medium", "high", "xhigh"],
 };
 
-/** Claude Fable / Opus 5.x / Opus 4.8 / Sonnet 5 — adaptive thinking + effort. */
+/** Claude Fable / Opus 5.x / Opus 4.8 / Sonnet 5.x / Haiku 5.5 — adaptive thinking + effort. */
 const ANTHROPIC_ADAPTIVE_FULL: EffortCapability = {
   configurable: true,
   levels: ["none", "low", "medium", "high", "xhigh", "max"],
@@ -106,7 +106,7 @@ const ANTHROPIC_ADAPTIVE_NO_XHIGH: EffortCapability = {
   levels: ["none", "low", "medium", "high", "max"],
 };
 
-/** Haiku-class: manual `budget_tokens` only (no output_config.effort). */
+/** Haiku 4.5: manual `budget_tokens` only (no output_config.effort). */
 const ANTHROPIC_BUDGET: EffortCapability = {
   configurable: true,
   levels: ["none", "minimal", "low", "medium", "high", "xhigh", "max"],
@@ -213,7 +213,8 @@ export function getEffortCapabilityForModel(modelId: string): EffortCapability {
     if (slug.includes("opus-4.6") || slug.includes("opus-4-6") || slug.includes("opus-4.5")) {
       return ANTHROPIC_ADAPTIVE_NO_XHIGH;
     }
-    if (slug.includes("haiku")) return ANTHROPIC_BUDGET;
+    if (anthropicSlugUsesBudgetTokens(slug)) return ANTHROPIC_BUDGET;
+    if (slug.includes("haiku")) return ANTHROPIC_ADAPTIVE_FULL;
 
     return ANTHROPIC_ADAPTIVE_NO_XHIGH;
   }
@@ -300,11 +301,17 @@ type EffortProviderOptions = {
   openai?: OpenAIResponsesProviderOptions;
   /** SDK types may lag gateway fields; JSONValue keeps streamText providerOptions assignable. */
   anthropic?: AnthropicProviderOptions | Record<string, JSONValue>;
-  google?: GoogleGenerativeAIProviderOptions | Record<string, JSONValue>;
+  google?: GoogleProviderOptions | Record<string, JSONValue>;
 };
 
 function anthropicSlugUsesBudgetTokens(slug: string): boolean {
-  return slug.includes("haiku");
+  // Haiku 4.5 and older; Haiku 5.5 is adaptive-only and rejects `budget_tokens`.
+  return slug.includes("haiku") && !slug.includes("haiku-5");
+}
+
+function anthropicDisablesThinkingBetweenTools(slug: string): boolean {
+  // Sonnet 5.5 rejects `disabled`; `between_tools` is its thinking-off mode (effort ≤ high).
+  return slug.includes("sonnet-5.5") || slug.includes("sonnet-5-5");
 }
 
 function anthropicAdaptiveRequiresExplicitThinking(slug: string): boolean {
@@ -388,6 +395,14 @@ export function buildEffortProviderOptions(
         };
       }
 
+      if (anthropicDisablesThinkingBetweenTools(slug)) {
+        return {
+          anthropic: {
+            thinking: { type: "between_tools" },
+          } as unknown as AnthropicProviderOptions,
+        };
+      }
+
       return {
         anthropic: {
           thinking: { type: "disabled" },
@@ -426,7 +441,7 @@ export function buildEffortProviderOptions(
         return {
           google: {
             thinkingConfig: { thinkingLevel: level },
-          } as GoogleGenerativeAIProviderOptions,
+          } as GoogleProviderOptions,
         };
       }
 
@@ -440,7 +455,7 @@ export function buildEffortProviderOptions(
       return {
         google: {
           thinkingConfig: { thinkingLevel: level },
-        } as GoogleGenerativeAIProviderOptions,
+        } as GoogleProviderOptions,
       };
     }
 
@@ -449,7 +464,7 @@ export function buildEffortProviderOptions(
       return {
         google: {
           thinkingConfig: { thinkingBudget: 0 },
-        } satisfies GoogleGenerativeAIProviderOptions,
+        } satisfies GoogleProviderOptions,
       };
     }
 
@@ -458,11 +473,81 @@ export function buildEffortProviderOptions(
     return {
       google: {
         thinkingConfig: { thinkingBudget },
-      } satisfies GoogleGenerativeAIProviderOptions,
+      } satisfies GoogleProviderOptions,
     };
   }
 
   return undefined;
+}
+
+/** Anthropic models that think by default when `thinking` is omitted (adaptive, display omitted). */
+function anthropicThinksByDefault(slug: string): boolean {
+  return (
+    slug.includes("fable") ||
+    slug.includes("mythos") ||
+    slug.includes("opus-5") ||
+    slug.includes("sonnet-5") ||
+    slug.includes("haiku-5")
+  );
+}
+
+/**
+ * Effort options plus the opt-ins that make providers return readable reasoning text.
+ * Without these, OpenAI sends encrypted reasoning only, Gemini omits thoughts, and newer
+ * Claude models stream empty thinking blocks (`display: "omitted"` default). Never turns
+ * thinking on where it would otherwise be off.
+ */
+export function buildChatReasoningProviderOptions(
+  modelId: string,
+  effort: ChatEffortLevel | undefined
+): EffortProviderOptions {
+  const base = buildEffortProviderOptions(modelId, effort) ?? {};
+  const resolvedId = modelId === AUTO_CHAT_MODEL_ID ? AUTO_RESOLVED_SONNET_MODEL_ID : modelId;
+  const provider = providerOf(resolvedId);
+  const slug = stripProviderPrefix(resolvedId).toLowerCase();
+
+  if (provider === "openai") {
+    // Non-reasoning models (gpt-4o-mini, gpt-oss) report no effort control.
+    if (!modelSupportsEffortControl(resolvedId)) return base;
+    if (base.openai?.reasoningEffort === "none") return base;
+
+    return { ...base, openai: { ...base.openai, reasoningSummary: "auto" } };
+  }
+
+  if (provider === "google") {
+    if (!modelSupportsEffortControl(resolvedId)) return base;
+
+    const google = (base.google ?? {}) as Record<string, JSONValue>;
+    const thinkingConfig = (google.thinkingConfig ?? {}) as Record<string, JSONValue>;
+
+    if (thinkingConfig.thinkingBudget === 0) return base;
+
+    return {
+      ...base,
+      google: { ...google, thinkingConfig: { ...thinkingConfig, includeThoughts: true } },
+    };
+  }
+
+  if (provider === "anthropic") {
+    const anthropic = base.anthropic as Record<string, JSONValue> | undefined;
+    const thinking = anthropic?.thinking as Record<string, JSONValue> | undefined;
+
+    if (thinking?.type === "adaptive") {
+      return {
+        ...base,
+        anthropic: { ...anthropic, thinking: { ...thinking, display: "summarized" } },
+      };
+    }
+
+    if (!anthropic && anthropicThinksByDefault(slug)) {
+      return {
+        ...base,
+        anthropic: { thinking: { type: "adaptive", display: "summarized" } },
+      };
+    }
+  }
+
+  return base;
 }
 
 export function getChatEffortLabel(effort: ChatEffortLevel): string {

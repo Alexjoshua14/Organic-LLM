@@ -28,6 +28,12 @@ const VIEW_COPY: Record<LabView, string> = {
     "Footer controls in isolation, driven by lab state instead of CoreInput. Pinned cells hold a state so you can compare without clicking.",
 };
 
+/**
+ * Mobile first-fold: keep nav + title + product example inside 100dvh.
+ * Desktop keeps the roomier section gap.
+ */
+const LAB_INTRO_SECTION_GAP_CLASS = "mb-4 sm:mb-6";
+
 export function CoreInputLab() {
   const router = useRouter();
   const pathname = usePathname();
@@ -86,14 +92,14 @@ export function CoreInputLab() {
       <div className="relative z-10 h-full min-h-0 w-full overflow-y-auto pb-20">
         <PageContentFrame maxWidth="7xl">
           <PageNavBack
-            className="mb-6"
+            className={LAB_INTRO_SECTION_GAP_CLASS}
             href="/sandbox/prototypes"
             trailing={<ViewSwitch value={view} onChange={(next) => setParams({ view: next })} />}
           >
             ← Prototypes
           </PageNavBack>
 
-          <header className="mb-6">
+          <header className={LAB_INTRO_SECTION_GAP_CLASS}>
             <h1 className="font-commissioner text-2xl font-light tracking-tight text-foreground sm:text-3xl">
               CoreInput lab
             </h1>

@@ -56,12 +56,45 @@ export async function appendStrataMainChatSystemFragments(
   return out;
 }
 
+export type AppendTopicExploreCustomSystemPromptParams = {
+  systemPromptForRequest: string;
+  experience: ChatExperience | undefined;
+  customSystemPromptOverride: string | undefined;
+};
+
+/**
+ * Noesis authored-spark override. When a user taps an authored spark, its system prompt
+ * is sent as `customSystemPromptOverride`; here it is prepended as an authoritative
+ * directive that governs the `topic_explore` thread, while the platform's base context
+ * (and the later post-tool fragments) still apply. No-op for other experiences or when
+ * no override is supplied.
+ */
+export function appendTopicExploreCustomSystemPrompt(
+  params: AppendTopicExploreCustomSystemPromptParams
+): string {
+  const { systemPromptForRequest, experience, customSystemPromptOverride } = params;
+
+  const override = customSystemPromptOverride?.trim();
+
+  if (experience !== "topic_explore" || !override) {
+    return systemPromptForRequest;
+  }
+
+  return (
+    "[Noesis spark directive — authoritative; governs this conversation]\n" +
+    override +
+    "\n\n[End spark directive]\n\n" +
+    systemPromptForRequest
+  );
+}
+
 const SPEECH_FRIENDLY_APPEND =
   "\n\nOutput format (speech-friendly mode): Format your response for both clear on-screen reading and later use as a script for audio. Use clear structure, headings, and visually appealing formatting. A separate pipeline will convert your text into a speech-friendly script and handle text-to-speech, so focus on clarity, structure, and readability—not on pronouncing abbreviations or avoiding punctuation.";
 
 const ARCADIA_SHORT_REPLY_APPEND =
   "\n\n[Arcadia mode — keep replies short]\n" +
-  "- Target ~50–120 words per reply. Minimize vertical height; mobile should rarely need to scroll for a single answer.\n" +
+  "- Aim for ~50–120 words per reply; treat that as a ceiling, not a target. The UI fits itself to your reply, so a one-sentence answer is ideal when it suffices — never pad to reach a length.\n" +
+  "- Minimize vertical height; mobile should rarely need to scroll for a single answer.\n" +
   "- Lead with the answer in 1–2 sentences. Use bullets or a tiny list only when necessary; avoid long paragraphs.\n" +
   '- If more is needed: give a one-screen summary and say "I can expand on X or Y" instead of expanding in the same message.\n' +
   "- Prefer tool use over prose for complex tasks; then respond with a compact synthesis, not raw output.\n" +
@@ -165,7 +198,8 @@ export function wrapSystemPromptWithResponseLength(
     return (
       systemPromptForRequest +
       "\n\n<response_length>\n" +
-      `This response should fit the user's caption display. Approximate character budget: ${charBudget.toLocaleString()} characters (~${approxWords.toLocaleString()} words). ` +
+      `The caption display fits itself to your reply — the character budget below is a ceiling, not a target. ` +
+      `Shorter is better; never pad to fill it. Approximate ceiling: ${charBudget.toLocaleString()} characters (~${approxWords.toLocaleString()} words). ` +
       `Prefer staying within ${budget.visibleLines} visible lines; do not exceed ${budget.scrollMaxLines} lines total.\n` +
       "</response_length>"
     );

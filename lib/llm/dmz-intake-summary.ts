@@ -2,6 +2,7 @@ import type { Result } from "@/types";
 
 import { generateText } from "ai";
 
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import { KNOWLEDGE_GATEWAY_PROVIDER_OPTIONS } from "@/lib/knowledge/gateway-options";
 import { createLogger } from "@/lib/logger";
 import { recordLlmCall } from "@/lib/llm/metrics";
@@ -46,14 +47,19 @@ export async function generateDmzIntakeSummary(options: {
   try {
     const start = performance.now();
     const result = await generateText({
+      ...(await createAuthenticatedLlmBudgetHooks({
+        modelId: budgetModelId(DMZ_INTAKE_SUMMARY_MODEL),
+        operation: "llm/dmz-intake-summary",
+      })),
       model: DMZ_INTAKE_SUMMARY_MODEL,
-      system: SYSTEM,
+      instructions: SYSTEM,
       prompt: `Provider: ${options.provider}\nSubject: ${options.subjectKey}\n\nExternal text:\n${excerpt}`,
       maxOutputTokens: 120,
       providerOptions: KNOWLEDGE_GATEWAY_PROVIDER_OPTIONS,
     });
 
     recordLlmCall({
+      persist: false,
       model: DMZ_INTAKE_SUMMARY_MODEL,
       usage: result.usage,
       durationMs: performance.now() - start,

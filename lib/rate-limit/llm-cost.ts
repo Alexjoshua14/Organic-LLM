@@ -9,6 +9,8 @@ export type Usage = {
   inputTokens?: number;
   outputTokens?: number;
   cachedInputTokens?: number;
+  /** AI SDK usage, before conversion to the flat ledger shape. */
+  inputTokenDetails?: { cacheReadTokens?: number };
   totalTokens?: number;
   /** Realtime audio input tokens (≈1 token / 100ms user audio). */
   audioInputTokens?: number;
@@ -86,8 +88,18 @@ const MODEL_COSTS: Record<string, ModelCost> = {
   "anthropic/claude-fable-5.1": { inputPerMillion: 10.0, outputPerMillion: 50.0 },
   "anthropic/claude-fable-5": { inputPerMillion: 10.0, outputPerMillion: 50.0 },
   "anthropic/claude-opus-4.7": { inputPerMillion: 5.0, outputPerMillion: 25.0 },
+  "anthropic/claude-sonnet-5.5": {
+    inputPerMillion: 3.0,
+    outputPerMillion: 15.0,
+    cachedInputPerMillion: 0.3,
+  },
   "anthropic/claude-sonnet-5": { inputPerMillion: 2.0, outputPerMillion: 10.0 },
   "anthropic/claude-sonnet-4.6": { inputPerMillion: 3.0, outputPerMillion: 15.0 },
+  "anthropic/claude-haiku-5.5": {
+    inputPerMillion: 0.8,
+    outputPerMillion: 4.0,
+    cachedInputPerMillion: 0.08,
+  },
   "anthropic/claude-haiku-4.5": { inputPerMillion: 1.0, outputPerMillion: 5.0 },
   "perplexity/sonar-pro": { inputPerMillion: 1.0, outputPerMillion: 1.0 },
   "perplexity/sonar-reasoning-pro": { inputPerMillion: 3.0, outputPerMillion: 15.0 },
@@ -167,16 +179,17 @@ export function computeUsageCostUsd(modelId: string, usage: Usage): number {
   const cost = getModelCost(modelId);
   const input = usage.promptTokens ?? usage.inputTokens ?? 0;
   const output = usage.completionTokens ?? usage.outputTokens ?? 0;
-  const cached = usage.cachedInputTokens ?? 0;
+  const cached = Math.min(
+    input,
+    Math.max(0, usage.inputTokenDetails?.cacheReadTokens ?? usage.cachedInputTokens ?? 0)
+  );
   const uncachedInput = Math.max(0, input - cached);
   const audioIn = usage.audioInputTokens ?? 0;
   const audioOut = usage.audioOutputTokens ?? 0;
 
   const inputCost = (uncachedInput / 1_000_000) * cost.inputPerMillion;
   const cachedCost =
-    cached > 0 && cost.cachedInputPerMillion !== undefined
-      ? (cached / 1_000_000) * cost.cachedInputPerMillion
-      : 0;
+    cached > 0 ? (cached / 1_000_000) * (cost.cachedInputPerMillion ?? cost.inputPerMillion) : 0;
   const outputCost = (output / 1_000_000) * cost.outputPerMillion;
   const audioInCost =
     audioIn > 0 && cost.audioInputPerMillion !== undefined

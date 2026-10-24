@@ -6,6 +6,7 @@ import ShinyText from "@/components/ShinyText";
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
 import { glass } from "@/components/design-system/primitives";
 import { sandboxGatewayEntries } from "@/lib/sandbox/gateway";
+import { threadEntryPrefetch } from "@/lib/chat/thread-entry-navigation";
 import { cn } from "@/lib/utils";
 
 export default function SandboxPage() {
@@ -37,6 +38,7 @@ export default function SandboxPage() {
                   "p-5 flex flex-col justify-between"
                 )}
                 href={page.href}
+                prefetch={threadEntryPrefetch(page.href)}
               >
                 <div>
                   <div className="mb-2 flex flex-wrap items-center gap-2">

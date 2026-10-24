@@ -5,7 +5,10 @@
 - **[Product hub](./hub/README.md)** — product canon: ownership, maintenance protocol, surface adapters. Read before product or feature-spec work.
 - [Contributing](../CONTRIBUTING.md) — setup, code boundaries, pull requests
 - [Thread & session architecture](./thread-session-architecture.md) — persistence, encryption, sidebar contract
+- [Multi-mode message send queue](./message-send-queue.md) — composer enqueue + server dispatch + plan budget
+- [Usage ledger and entitlements](./architecture/decisions/20261010-usage-ledger-and-entitlements.md) — weekly authorization, immutable spending history, resets, and admin corrections
 - [Context building](./architecture/context-building.md) — how chat context is assembled before `streamText`
+- [Activated memories](./architecture/decisions/20261002-activated-memories-on-user-messages.md) — retain automatic recall on its user message within the history window
 - [Chat model aliases](./architecture/decisions/20260909-chat-model-aliases.md) — `models.provider.family` vs picker `name` / persisted gateway ids
 - [Arcadia context effort](./architecture/decisions/20260914-arcadia-context-effort.md) — Instant / Quick / Heavy memory compilation; 50k history window unchanged
 - [End-to-end encryption overview](./e2ee.md)
@@ -23,6 +26,9 @@ Canon for the product: what we're building, who owns which kind of truth, how ag
   - [Surface adapters](./hub/surfaces/) — Cursor, Claude Code, Notion, in-app
 - **[Speak](./speak/README.md)** — voice agent; first large-scale workstream under the hub
   - [Tool behavior](./speak/tool-behavior.md) — locked acknowledgment and visual rules
+- **[Aion](./aion/README.md)** — presence layer; sandbox first slice on `/sandbox/aion`
+  - [Presence layer ADR](./aion/decisions/20260921-presence-layer.md)
+  - [Orchestrator / worker + identity](./aion/decisions/20260925-orchestrator-worker-identity.md)
 - **[Remy](./remy/README.md)** — meal prep; mise is events / prep is weeks; one extended recipe-card
 
 ## Product & features
@@ -32,7 +38,9 @@ Canon for the product: what we're building, who owns which kind of truth, how ag
   - [Composer preferences & Auto model](./composer-preferences.md) → [/dev/docs/composer-preferences](https://organic.coalescencelabs.app/dev/docs/composer-preferences)
   - [Feature hints (onboarding)](./feature-hints.md) → [/dev/docs/feature-hints](https://organic.coalescencelabs.app/dev/docs/feature-hints)
 - [Chat tools](./chat-tools.md) — assistant toolbelt (memory, search, Gen UI, Mermaid, kanban, experiences)
+- [Ergon connection](./ergon/README.md) — per-user MCP OAuth Connectors + optional admin REST env fallback
 - [Arcadia sandbox](./arcadia.md)
+- [Arcadia showcase progress](./architecture/decisions/20261009-arcadia-showcase-progress.md) — scripted replay isolated from live worker progress
 - [Chat LLM transparency](./chat-llm-transparency.md)
 - [Export prompt presets](./export-prompt-presets.md)
 - [Speak page architecture](./speak-page-architecture.md) — ⚠️ **legacy** (pre-Realtime TTS pipeline); current Speak lives in [`docs/speak/`](./speak/README.md)
@@ -41,7 +49,17 @@ Canon for the product: what we're building, who owns which kind of truth, how ag
 
 - **[Design backbone](./design/README.md)** — agent-facing design standards (start here for UI/motion quality)
   - [Spacing](./design/spacing.md) — stack/gap/inset tokens, card density
+  - [Switches & quick settings](./design/switches-and-quick-settings.md) — shared glass switches and compact caption popovers
+  - [Context usage](./design/context-usage.md) — composer charts, source colors, percentage ramp, hover labels
+  - [Conversation scrolling](./design/conversation-scrolling.md) — native reading, reduced-motion following, and browser regression checks
+  - [Reasoning display](./design/reasoning-display.md) — secondary summary typography, stable disclosure, and streaming verification
+  - [Subagent identity mark](./design/subagent-identity-mark.md) — SVG dot states, glass diffusion, local layering
+  - [Glass distortion](./design/glass-distortion.md) — opt-in source refraction beneath glass, Safari compatibility
+  - [Liquid chrome materials](./design/liquid-chrome-materials.md) — theme-specific shader materials, fallbacks, and refraction parity
+  - [Welcome scene](./design/welcome-scene.md) — pane projection, scroll perspective, and themed floor continuity
+  - [Activity-mark physics and fallback](./architecture/decisions/20261010-activity-mark-physics-and-fallback.md) — independent springs, shared scheduling, adaptive performance guard
   - [Motion & character text timing](./design/motion-and-text-timing.md) — status labels, loading burns, stagger budgets
+  - [CoreInput snapshot morph](./design/core-input-morph.md) — per-scope composer settings, 400ms morph, touch to fast-forward
 - [Adaptive background](./adaptive-background.md)
 - [Organic presence](./organic-presence.md)
 - [Mermaid diagrams](./mermaid-diagram-design.md) — density tiers, inline well, expanded takeover, node linking
@@ -70,6 +88,8 @@ Public routes under `/blog` — see the [blog index](../app/blog/page.tsx) or ru
 
 ## Maintainer notes
 
+- [Shared gateway visibility](./architecture/decisions/20261009-shared-gateway-visibility.md) — request deduplication, session isolation, fresh server authorization, and identifier logging
 - [Performance journeys](./perf-journeys.md) — dev HUD for home load, Chat, and Arcadia transition timings (`?perf=1`)
+- [Chat and Arcadia initial load](./architecture/decisions/20261009-chat-arcadia-initial-load.md) — direct creation navigation, parallel owned reads, stream resumption, and worker discovery
 - [Strata manual verification](./strata-manual-verification.md)
-- [TTS token tracker](./tts-token-tracker.md)
+- [TTS token tracker](./tts-token-tracker.md) — historical; display components removed

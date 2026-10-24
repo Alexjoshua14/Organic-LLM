@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { motion } from "framer-motion";
 
@@ -23,7 +23,7 @@ import {
   articleContent,
   articleContentClasses,
 } from "@/lib/rabbit-holes/designTokens";
-import { sanitizeRabbitHoleArticleHtml } from "@/lib/html/sanitize";
+import { reSanitizeArticleHtmlInBrowser } from "@/lib/html/sanitize-browser";
 
 interface RabbitHoleArticleProps {
   title: string;
@@ -48,7 +48,14 @@ export function RabbitHoleArticle({
   compact = false,
 }: RabbitHoleArticleProps) {
   const articleRef = useRef<HTMLDivElement>(null);
-  const sanitizedArticleHtml = sanitizeRabbitHoleArticleHtml(articleHtml);
+  // Re-sanitized in the browser at the innerHTML sink. A pass-through during SSR,
+  // where articleHtml has already been through the same policy server-side
+  // (lib/html/sanitize.ts) or is the sandbox demo's static fixture — see
+  // reSanitizeArticleHtmlInBrowser for why the server build is not used here.
+  const sanitizedArticleHtml = useMemo(
+    () => reSanitizeArticleHtmlInBrowser(articleHtml),
+    [articleHtml]
+  );
   const [articleText, setArticleText] = useState("");
   const [takeawaysOpen, setTakeawaysOpen] = useState(true);
 

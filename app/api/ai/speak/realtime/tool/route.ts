@@ -5,6 +5,7 @@ import { z } from "zod";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { createLogger } from "@/lib/logger";
 import { executeSpeakRealtimeTool } from "@/lib/speak/execute-speak-tool";
+import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
 
 export const maxDuration = 60;
 
@@ -29,6 +30,13 @@ export async function POST(req: Request) {
   if (sbUserIdResult.error || !sbUserIdResult.data) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
+
+  const planGate = await requirePlanBudget({
+    clerkUserId: clerkUser.userId,
+    sbUserId: sbUserIdResult.data,
+  });
+
+  if (planGate) return planGate;
 
   let json: unknown;
 

@@ -8,6 +8,7 @@ export const FEATURE_HINT_PRIORITY: Record<FeatureHintId, number> = {
   "composer-auto-model": 21,
   "noesis-sparks": 30,
   "arcadia-starters": 32,
+  "arcadia-multiagent": 31,
   "arcadia-style-standard": 33,
   "arcadia-style-ergon": 33,
   "arcadia-style-remy": 33,

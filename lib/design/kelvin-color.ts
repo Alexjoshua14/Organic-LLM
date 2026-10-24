@@ -5,10 +5,12 @@ export const LUMEN_KELVIN_DEEP = 2_800;
 export const LUMEN_KELVIN_BASE = 3_000;
 export const LUMEN_KELVIN_RIM = 3_200;
 
+/** Context charts span candlelight amber through daylight white to icy blue. */
+export const CONTEXT_KELVIN_WARM = 1_500;
 /** Cool daylight — spacious context headroom. */
-export const CONTEXT_KELVIN_HEADROOM = 5_600;
+export const CONTEXT_KELVIN_HEADROOM = 12_000;
 /** Blue-white stress — context window nearly saturated. */
-export const CONTEXT_KELVIN_CRITICAL = 7_200;
+export const CONTEXT_KELVIN_CRITICAL = 30_000;
 
 /**
  * Approximate blackbody RGB for UI (1000–40000K).
@@ -60,24 +62,54 @@ export function kelvinToCss(kelvin: number, alpha = 1): string {
   return alpha === 1 ? `rgb(${r} ${g} ${b})` : `rgb(${r} ${g} ${b} / ${alpha})`;
 }
 
-/** Overall context pressure — lumen warmth → daylight overload as fill rises. */
+/** Overall context pressure — amber → blue as fill rises. */
 export function contextFillKelvin(fillRatio: number): number {
   const eased = smoothstep(fillRatio);
 
-  return LUMEN_KELVIN_DEEP + eased * (CONTEXT_KELVIN_CRITICAL - LUMEN_KELVIN_DEEP);
+  return CONTEXT_KELVIN_WARM + eased * (CONTEXT_KELVIN_CRITICAL - CONTEXT_KELVIN_WARM);
+}
+
+/** One ordered usage signal, separate from the categorical source colors. */
+export function contextUsageLabelColor(fillRatio: number): string {
+  const amberShare = smoothstep(fillRatio) * 100;
+
+  return `color-mix(in oklab, var(--foreground) ${100 - amberShare}%, var(--context-usage-amber) ${amberShare}%)`;
 }
 
 const SEGMENT_BASE_KELVIN: Record<Exclude<ContextBudgetSegmentId, "free">, number> = {
-  system: LUMEN_KELVIN_BASE,
-  tools: LUMEN_KELVIN_RIM,
-  memory: LUMEN_KELVIN_DEEP,
-  summary: 3_600,
-  tool_output: 3_900,
-  messages: 4_200,
-  draft: 5_200,
+  messages: 1_500,
+  tool_output: 2_200,
+  draft: 3_200,
+  system: 6_500,
+  tools: 10_000,
+  summary: 17_000,
+  memory: 30_000,
 };
 
-/** Segment tint pulled toward the live fill temperature as the window saturates. */
+/** Temperature-inspired accents with more separation than literal blackbody RGB. */
+const CONTEXT_SEGMENT_RGB: Record<Exclude<ContextBudgetSegmentId, "free">, string> = {
+  messages: "242 181 68",
+  tool_output: "237 117 64",
+  draft: "242 221 130",
+  system: "213 225 235",
+  tools: "81 201 222",
+  summary: "164 147 244",
+  memory: "94 143 230",
+};
+
+export function contextSegmentColor(
+  segmentId: ContextBudgetSegmentId,
+  fillRatio: number,
+  alpha = 1
+): string {
+  if (segmentId === "free") return kelvinToCss(contextSegmentKelvin(segmentId, fillRatio), alpha);
+
+  const rgb = CONTEXT_SEGMENT_RGB[segmentId];
+
+  return alpha === 1 ? `rgb(${rgb})` : `rgb(${rgb} / ${alpha})`;
+}
+
+/** Stable source colors, so a section keeps its identity across sends. */
 export function contextSegmentKelvin(segmentId: ContextBudgetSegmentId, fillRatio: number): number {
   if (segmentId === "free") {
     const headroom = 1 - Math.min(1, Math.max(0, fillRatio));
@@ -85,16 +117,12 @@ export function contextSegmentKelvin(segmentId: ContextBudgetSegmentId, fillRati
     return CONTEXT_KELVIN_HEADROOM + headroom * (CONTEXT_KELVIN_CRITICAL - CONTEXT_KELVIN_HEADROOM);
   }
 
-  const stress = contextFillKelvin(fillRatio);
-  const base = SEGMENT_BASE_KELVIN[segmentId];
-  const pull = smoothstep(fillRatio);
-
-  return base + (stress - base) * pull * 0.72;
+  return SEGMENT_BASE_KELVIN[segmentId];
 }
 
 /** Position along the filled arc (0 = first segment, 1 = last) → blackbody K. */
 export function contextArcKelvin(arcPosition: number, fillRatio: number): number {
-  const start = LUMEN_KELVIN_DEEP;
+  const start = CONTEXT_KELVIN_WARM;
   const end = contextFillKelvin(fillRatio);
   const t = smoothstep(arcPosition);
 

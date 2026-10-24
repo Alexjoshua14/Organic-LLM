@@ -32,12 +32,7 @@ export function useGenerationCompletion(
     const intervalId = setInterval(async () => {
       if (cancelled) return;
       if (POLL_DEBUG) {
-        console.log(
-          "[useGenerationCompletion] poll",
-          sessionId,
-          generatingNodeId,
-          new Date().toISOString()
-        );
+        console.log("[useGenerationCompletion] poll", generatingNodeId, new Date().toISOString());
       }
       const res = await getSessionById(sessionId);
 

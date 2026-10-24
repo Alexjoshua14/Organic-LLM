@@ -1,3 +1,5 @@
+import type { createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
+
 import { randomUUID } from "crypto";
 
 import {
@@ -5,7 +7,7 @@ import {
   createUIMessageStream,
   createUIMessageStreamResponse,
   smoothStream,
-  stepCountIs,
+  isStepCount,
   TypeValidationError,
   type UIMessage,
 } from "ai";
@@ -16,6 +18,7 @@ import { getMessageCount, getThreadHasTitle } from "@/data/supabase/chat";
 import { shouldAttemptInitialTitle } from "@/lib/chat/summary-title-cadence";
 import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
 import { CHAT_MODEL, getChatModel, measureAsync } from "@/lib/llm/helpers";
+import { CHAT_STREAM_CHUNKING } from "@/lib/llm/chat-stream-chunking";
 import { SYSTEM_PROMPT } from "@/lib/system-prompt/prompt-v0";
 import { appendCurrentDate } from "@/lib/system-prompt/current-date";
 import { createLogger } from "@/lib/logger";
@@ -32,6 +35,9 @@ export type AionDeps = {
   // but the Aion route calls it with no args.
   auth: (...args: any[]) => Promise<any>;
   getSupabaseUserId: (clerkUserId: string) => Promise<{ data: string | null; error: Error | null }>;
+  /** Weekly plan budget gate; a Response means the budget is spent. Omit only in tests. */
+  requirePlanBudget?: (args: { clerkUserId: string; sbUserId: string }) => Promise<Response | null>;
+  budgetHooks?: typeof createLlmBudgetHooks;
   getContext: (args: {
     chatId: string;
     limit?: number;
@@ -120,6 +126,9 @@ export function createAionHandler(deps: AionDeps) {
       return new Response("User not found in supabase", { status: 404 });
     }
     const sbUserId = sbUserIdResult.data;
+    const planGate = await deps.requirePlanBudget?.({ clerkUserId: clerkUser.userId, sbUserId });
+
+    if (planGate) return planGate;
 
     const messageLimitResult = await checkLlmMessageLimit(sbUserId);
 
@@ -216,7 +225,7 @@ export function createAionHandler(deps: AionDeps) {
           }
         }
 
-        const messages = convertToModelMessages(validatedMessages);
+        const messages = await convertToModelMessages(validatedMessages);
 
         const streamStartTime = performance.now();
 
@@ -243,14 +252,22 @@ export function createAionHandler(deps: AionDeps) {
 
         const systemWithStrata = appendCurrentDate(`${systemPromptForRequest}${strataSystem}`);
 
+        const budgetHooks = deps.budgetHooks?.({
+          ownerId: sbUserId,
+          clerkUserId: clerkUser.userId,
+          modelId: selectedModel.id,
+          operation: "aion_chat",
+          route: "/api/ai/aion",
+        });
         const result = deps.streamText({
+          ...budgetHooks,
           model: selectedModel.id,
           messages: messages,
-          system: systemWithStrata,
+          instructions: systemWithStrata,
           abortSignal: req.signal,
           experimental_transform: smoothStream({
             delayInMs: 20,
-            chunking: /(```[\s\S]*?```|^#{1,6}\s.*$|.*?(?:\n|$))/gm,
+            chunking: CHAT_STREAM_CHUNKING,
           }),
           maxOutputTokens: CHAT_MODEL.maxOutputTokens,
           onError({ error }: { error: unknown }) {
@@ -265,15 +282,16 @@ export function createAionHandler(deps: AionDeps) {
             view_archetype: viewArchetypeTool,
             ...hubTools,
           },
-          stopWhen: stepCountIs(stepLimit),
-          onFinish() {
+          stopWhen: isStepCount(stepLimit),
+          onEnd() {
             writer.write({
               type: "data-notification",
               data: { message: "Request completed", level: "info" },
               transient: true,
             });
           },
-          onStepFinish(step: any) {
+          async onStepFinish(step: any) {
+            await budgetHooks?.onStepFinish(step);
             writer.write({
               type: "data-notification",
               transient: true,
@@ -306,7 +324,7 @@ export function createAionHandler(deps: AionDeps) {
 
               return "An unexpected error occurred";
             },
-            onFinish: async ({
+            onEnd: async ({
               messages,
               isAborted,
               finishReason,

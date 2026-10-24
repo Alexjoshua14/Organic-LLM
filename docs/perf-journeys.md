@@ -59,11 +59,13 @@ Chrome DevTools Performance panel also shows `ol:<journey>:<phase>` User Timing 
 
 | Phase | Where |
 |-------|--------|
-| `createChat` | Arcadia index (`/sandbox/arcadia`) |
-| `updateThreadRouting` | Arcadia index |
+| `createChat` | Arcadia creation action and index (`/sandbox/arcadia`); routing is inserted atomically |
 | `loadChat` | Chat and Arcadia `[slug]` pages (shared per request via React `cache()`) |
 
-Arcadia index phases are stashed in-process and merged on `[slug]` after the redirect. On serverless or multi-instance deploys, that gap may appear as unattributed client time between click and route commit.
+Arcadia creation phases are stashed in-process and merged on `[slug]` after navigation.
+The sidebar uses the creation action and navigates straight to the canonical thread; direct
+index visits still redirect. On serverless or multi-instance deploys, that gap may appear as
+unattributed client time between click and route commit.
 
 ## Console logs
 
@@ -77,4 +79,7 @@ Same shape as `homepage_route_client` in the homepage semantic router.
 
 ## Out of scope
 
-This tooling measures only. It does not change route behavior. Follow-up optimizations (skip Arcadia redirect hop, add Arcadia `loading.tsx`, collapse create+load on Let's Chat) should be driven by what the traces show.
+This tooling measures only. Initial-load optimizations are recorded in the
+[Chat and Arcadia initial-load decision](./architecture/decisions/20261009-chat-arcadia-initial-load.md).
+Further changes, such as route loading boundaries or collapsing create+load on Let's Chat,
+should be driven by the traces.

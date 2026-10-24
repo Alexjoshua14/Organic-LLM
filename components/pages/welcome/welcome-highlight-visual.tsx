@@ -93,7 +93,8 @@ export function WelcomeHighlightVisual({
   }, [cycleIntervalMs, inView, pageVisible, reduce, sources.length]);
 
   const frameClass = cn(
-    "relative rounded-2xl border border-border/50",
+    // Illustrations and screenshots are pictures of UI; their text is not copy.
+    "relative select-none rounded-2xl border border-border/50",
     Illustration && id === "gen-ui" ? "overflow-visible" : "overflow-hidden",
     welcomeVisualMaxWidth[sizeKey],
     className
@@ -147,6 +148,7 @@ export function WelcomeHighlightVisual({
             key={src}
             alt={imageAlt ?? placeholder.hint}
             aria-hidden={index !== activeIndex}
+            draggable={false}
             className={cn(
               "object-cover transition-opacity duration-700 ease-in-out",
               index === activeIndex ? "opacity-100" : "opacity-0"

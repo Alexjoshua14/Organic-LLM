@@ -17,6 +17,7 @@ On each chat turn, `compileChatTools()` builds a `ToolSet` plus a **Tool Instruc
 | `useGetMoreMessages` + `chatId` | Deep thread access when the last-N window and rolling summary are not enough. |
 | `experience` | Changes the *mix* of tools: **Delphi** (propose/commit memory workflow), **Arcadia** / **topic explore** (Mermaid + Gen UI; **Ergon** chat style adds live kanban, **Remy** chat style adds event meal planning), **Strata hub** (navigate/search pages), **Strata page** (optional KG when knowledge search is on). Plain chat uses only the toggles above. |
 | `useKnowledgeSearch` | On **Strata page** only — experimental knowledge-graph tools; persistence is incomplete, so summarizing page content is usually better. |
+| `useResearch` | Server-selected Lyra persona: a dedicated [research toolbox](../lib/llm/subagents/research/README.md), evidence ledger and browsable reports. |
 
 Many tools accept a **stream writer** so the UI can show live state—search sources, tool labels, kanban commands—while the model continues. See [Chat LLM transparency](./chat-llm-transparency.md).
 
@@ -35,6 +36,14 @@ Vector search over the user’s long-term memory (Mem0 / Qdrant). Relevance tier
 Memory text is **encrypted at rest** in Qdrant (AES-256-GCM via [`EncryptedVectorStore`](../lib/memory/encrypted-vector-store.ts)); embeddings stay unencrypted so vector search still works. The server decrypts hits before returning them to the model. See [E2EE overview](./e2ee.md).
 
 - Implementation: [`createMemorySearchTool`](../lib/llm/llm-tool-kit.ts) → [`lib/memory/operations.ts`](../lib/memory/operations.ts)
+
+### `list_recent_memories` (Arcadia / topic explore)
+
+Wall-clock list of memories **created or updated** in the last **hour** or **day**. Use for “what’s new” digests; use `search_memories` for topical recall. Mem0 has no `since` filter here — the tool rate-limits a getAll, filters on timestamps, and caps the return set (~50).
+
+- Args: `{ window: "hour" | "day" }`
+- Implementation: [`createListRecentMemoriesTool`](../lib/llm/llm-tool-kit.ts) → [`getMemoriesForUser`](../lib/memory/operations.ts) + [`filterMemoriesSince`](../lib/memory/recent-memories.ts)
+- Registered when `useMemory` and experience is Arcadia-style (`arcadia` | `topic_explore`)
 
 ### `web_search`
 
@@ -78,8 +87,11 @@ Structured blocks as first-class UI, not markdown-only. Block types (Zod schemas
 | **decision-matrix** | Compare options in a grid |
 | **plan-timeline** | Phased plans with milestones |
 | **audio-snippet** | Short audio-oriented payloads in-thread |
+| **research-report** | Lyra's source synopses, takeaways and quoted evidence; constructed by `research_publish` from saved source/claim ids. |
 
-- Implementation: [`createRenderGenUiTool`](../lib/llm/gen-ui-tool.ts) · prompt hints: [`lib/system-prompt/gen-ui.ts`](../lib/system-prompt/gen-ui.ts)
+Also available in the **Delphi** memory-ingest chamber (stricter guidance: one compact block, reserved for hard-commit drafts, session recaps, or genuine filing choices; rendered in the delivery slot beneath the assistant caption).
+
+- Implementation: [`createRenderGenUiTool`](../lib/llm/gen-ui-tool.ts) · prompt hints: [`lib/system-prompt/gen-ui.ts`](../lib/system-prompt/gen-ui.ts) (`GEN_UI_TOOL_INSTRUCTIONS`, `DELPHI_GEN_UI_TOOL_INSTRUCTIONS`)
 
 ### `kanban_board` (Ergon chat style)
 
@@ -87,6 +99,22 @@ When `chatStyle === "ergon"`, the model drives a **live** kanban board over a tr
 
 - Implementation: [`createKanbanBoardTool`](../lib/llm/kanban-tool.ts) · [`lib/schemas/kanban`](../lib/schemas/kanban) · UI [`components/chat/kanban/KanbanView.tsx`](../components/chat/kanban/KanbanView.tsx)
 - Public scripted demo (zero live API): [`/showcase/ergon`](https://organic.coalescencelabs.app/showcase/ergon)
+
+### Connected Ergon engineering tickets (`ergon_*` ticket tools)
+
+An optional connection to a separate Ergon engineering workspace adds `ergon_list_issues`,
+`ergon_get_issue`, `ergon_save_issue`, `ergon_save_comment`, `ergon_list_projects`,
+`ergon_list_issue_statuses`, and `ergon_list_issue_labels` to main chat. Connect with
+**per-user MCP OAuth** in Settings → Connectors (`Connect with Ergon`; AuthKit / WorkOS Connect
+PKCE). Access and refresh tokens stay server-side only. Tools call Ergon over MCP
+(`callErgonTool` / `@ai-sdk/mcp`) when the connection includes Organic `write` scope. Optional
+server-only `ERGON_URL` / `ERGON_TOKEN` / `ERGON_OWNER_PROFILE_ID` stay an admin REST fallback
+for one Supabase profile. Paste-token connect is not the product UX (`PUT` returns 405).
+Other users cannot select another profile through tool arguments. The personal todo tool
+remains independent. Operational notes: [`docs/ergon/README.md`](./ergon/README.md).
+Implementation: [`ergon-ticket-tools.ts`](../lib/llm/ergon-ticket-tools.ts) ·
+[`ergon-mcp-client.ts`](../lib/llm/ergon-mcp-client.ts) ·
+[`ergonConfigForUser`](../lib/llm/ergon-config.ts).
 
 ### `manage_tasks` (durable Ergon todos)
 
@@ -124,6 +152,51 @@ Always on in the **Remy** route (`/api/ai/remy`); in Arcadia it's the **Remy** c
 
 - Implementation: [`createMisePlanTool` / `createFetchRecipeTool`](../lib/llm/mise-tool.ts) · [`lib/schemas/mise`](../lib/schemas/mise/) · [`data/supabase/mise.ts`](../data/supabase/mise.ts) · store [`lib/mise/store.ts`](../lib/mise/store.ts)
 - Requires the migration [`docs/migrations/mise_tables.sql`](./migrations/mise_tables.sql) applied and `lib/supabase/types.ts` regenerated.
+
+---
+
+## Connected-app tools (hard-set tool policy)
+
+These are registered only when a hard-set subagent's tool policy forces them on, in its shell, its
+queued sends and its dispatched worker runs. They are never composer toggles. Chronos remains
+owner-gated via env. Mira uses the user's Ergon MCP OAuth connection when it includes `agents`
+scope; admin `ERGON_AGENT_TOKEN` remains a REST fallback. Main chat loads write ticket tools
+whenever the user is connected with Organic `write` scope (or the env owner bridge). Mira's turns
+skip that write set.
+
+### `chronos_list_repos` + `chronos_git` (Reed, `tools.chronos`)
+
+Read-only git over the owner's local repositories, through Chronos's MCP endpoint (Streamable HTTP,
+via `@ai-sdk/mcp`). Each call opens one short-lived MCP session. Chronos runs an exact-token
+allowlist of subcommands and flags with no shell, so `branch` and `tag` only list and commands that
+print file contents are off unless Chronos enables them. Results carry HEAD's SHA and branch, the
+exit code and a truncation flag. Configure `CHRONOS_MCP_URL`, `CHRONOS_MCP_TOKEN` and
+`CHRONOS_OWNER_PROFILE_ID`. A deployed Organic cannot reach `localhost`, so it needs a tunnel.
+
+- Implementation: [`createChronosTools`](../lib/llm/chronos-mcp-tools.ts)
+
+### `ergon_*` agent tools (Mira, `tools.ergon`)
+
+Mira owns Ergon docs / agent-run representation (`tools.ergon`) — there is no second hard-set
+agent for that surface. Through Ergon MCP (same OAuth session as ticket tools) she can
+list/search vault docs, read a doc (content capped at 12,000 characters, clauses complete),
+resolve clauses, list open questions, read issue briefs, hooks and agent runs, and start an
+agent run. She uses a per-user MCP OAuth connection with `agents` scope, or `ERGON_AGENT_TOKEN`
+as admin REST fallback. Her turns skip the write connected-ticket tools. Starts are never
+retried automatically.
+
+- Implementation: [`createErgonAgentTools`](../lib/llm/ergon-agent-tools.ts) ·
+  [`ergon-mcp-client.ts`](../lib/llm/ergon-mcp-client.ts) ·
+  [`ergonConfigForUser`](../lib/llm/ergon-config.ts)
+
+### `ergon_*` ticket tools (main chat)
+
+Write ticket tools register for main chat when the user (or admin `ERGON_TOKEN` REST fallback) is
+connected with Organic `write` scope. There is no second Ergon hard-set ticket-steward — Mira owns
+Ergon representation (`tools.ergon`); Aion uses ticket tools directly in chat when connected.
+
+- Implementation: [`createErgonTicketTools`](../lib/llm/ergon-ticket-tools.ts) ·
+  [`ergonConfigForUser`](../lib/llm/ergon-config.ts)
 
 ---
 

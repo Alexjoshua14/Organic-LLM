@@ -16,7 +16,12 @@ import { registerUpstashRateLimitMocks } from "./helpers/rate-limit-upstash";
 declare global {
   // eslint-disable-next-line no-var
   var __realChat: typeof import("@/data/supabase/chat");
+  // eslint-disable-next-line no-var
+  var __realUserSettings: typeof import("@/lib/user-settings");
 }
+
+// Capture settings before UI suites register process-wide behavioral mocks.
+globalThis.__realUserSettings = { ...(await import("@/lib/user-settings")) };
 
 mock.module("server-only", () => ({}));
 mock.module("@/lib/supabase/server", () => ({
@@ -42,6 +47,7 @@ mock.module("@/lib/chat/chat-store", () => ({
   readChat: chatStoreStub,
   saveChat: async () => ({ ok: false, error: new Error("chat-store mocked") }),
   saveMessage: async () => ({ ok: false, error: new Error("chat-store mocked") }),
+  updateChatMessage: async () => ({ ok: false, error: new Error("chat-store mocked") }),
   deleteChatMessage: async () => ({ ok: false, error: new Error("chat-store mocked") }),
   getChats: async () => ({ data: null, error: new Error("chat-store mocked") }),
   getChat: chatStoreStub,

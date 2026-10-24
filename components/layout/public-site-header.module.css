@@ -1,0 +1,123 @@
+/* Shared by the public welcome page and Showcase. Margin matches the welcome hero's copy. */
+.header {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: max(24px, env(safe-area-inset-top, 0px)) clamp(24px, 4.5vw, 72px) 0;
+  font-family: var(--font-satoshi), sans-serif;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.045em;
+  white-space: nowrap;
+}
+
+.navigation {
+  display: flex;
+  align-items: center;
+  gap: clamp(20px, 3.4vw, 54px);
+}
+
+.navLink {
+  --public-nav-underline-enter: 180ms;
+  --public-nav-underline-exit: 140ms;
+  --public-nav-underline-ease: cubic-bezier(0, 0, 0.2, 1);
+
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.navLink::after {
+  position: absolute;
+  inset-inline: 0;
+  bottom: calc(50% - 0.8em);
+  height: 1px;
+  background: currentColor;
+  content: "";
+  pointer-events: none;
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform var(--public-nav-underline-exit) var(--public-nav-underline-ease);
+}
+
+.navLink:hover::after,
+.navLink:focus-visible::after {
+  transform: scaleX(1);
+  transform-origin: left;
+  transition-duration: var(--public-nav-underline-enter);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .navLink::after {
+    transition: none;
+  }
+}
+
+.withThemeToggle .navigation {
+  margin-right: max(0px, calc(64px - clamp(24px, 4.5vw, 72px)));
+}
+
+.themeToggle {
+  position: absolute;
+  top: max(24px, env(safe-area-inset-top, 0px));
+  right: max(12px, env(safe-area-inset-right, 0px));
+  width: 44px;
+  height: 44px;
+}
+
+.brand:focus-visible,
+.navLink:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 6px;
+}
+
+/* Pages with this header own their navigation without changing saved sidebar preferences. */
+:global(body):has(.header) :global([data-slot="sidebar"]),
+:global(body):has(.header) :global(.control-cluster),
+:global(body):has(.header) :global([data-onboarding-chrome="first-steps"]),
+:global(body):has(.header) :global(.first-session-toast),
+:global(body):has(.header) :global(main > div:has(> [data-sidebar="trigger"])) {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .header {
+    gap: 16px;
+    padding-top: max(16px, env(safe-area-inset-top, 0px));
+  }
+
+  .brand {
+    font-size: 19px;
+  }
+
+  .navigation {
+    gap: 20px;
+  }
+
+  .navLink {
+    font-size: 14px;
+  }
+
+  .themeToggle {
+    top: max(16px, env(safe-area-inset-top, 0px));
+  }
+}

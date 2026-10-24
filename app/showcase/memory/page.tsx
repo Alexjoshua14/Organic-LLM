@@ -8,6 +8,7 @@
 
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
 import Page from "@/components/layout/page";
+import { PublicSiteHeader } from "@/components/layout/public-site-header";
 import { PageContentFrame, PageNavBack } from "@/components/layout/page-content-frame";
 import { MemoryLens } from "@/components/memory/memory-lens";
 import { MemoryLensCard } from "@/components/memory/memory-lens-card";
@@ -25,13 +26,15 @@ const sampleAdded = [{ memory: "User asked to preview memory UI components in th
 export default function MemoryShowcasePage() {
   return (
     <Page
+      chrome="full-bleed"
       liquidChromeBackground
       transparentBackground
       className="items-stretch justify-start overflow-hidden"
     >
       <AdaptiveLiquidChrome dimIntensity={0.45} />
       <div className="relative z-10 h-full min-h-0 w-full overflow-y-auto pb-16">
-        <PageContentFrame>
+        <PublicSiteHeader className="text-foreground" />
+        <PageContentFrame className="pt-8 sm:pt-12" clearNavChrome={false}>
           <PageNavBack className="mb-8" href="/showcase">
             ← Showcase
           </PageNavBack>

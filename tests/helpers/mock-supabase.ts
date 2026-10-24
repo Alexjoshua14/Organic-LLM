@@ -1,11 +1,11 @@
 // In-memory Supabase test double with a thenable query builder.
 // Supports the subset of chaining used by the app's current route/data tests:
-// - from("messages" | "threads")
+// - from("messages" | "threads" | "thread_summaries")
 // - select(...)
 // - eq(...)
 // - order(...)
 // - limit(...)
-// - single()
+// - single() / maybeSingle()
 
 export type MessageRow = {
   id: string;
@@ -26,7 +26,12 @@ export type ThreadRow = {
   pinned?: boolean;
 };
 
-type TableRow = MessageRow | ThreadRow;
+export type ThreadSummaryRow = {
+  thread_id: string;
+  summary_text: string;
+};
+
+type TableRow = MessageRow | ThreadRow | ThreadSummaryRow;
 
 type QueryResult<T> = {
   data: T[] | T | null;
@@ -46,6 +51,7 @@ class QueryBuilder<T extends TableRow> {
   private limitValue?: number;
   private selectOptions?: SelectOptions;
   private expectSingle = false;
+  private allowNoRow = false;
 
   constructor(rows: T[]) {
     this.rows = rows;
@@ -73,6 +79,13 @@ class QueryBuilder<T extends TableRow> {
 
   single() {
     this.expectSingle = true;
+    return this;
+  }
+
+  /** Like `single()`, but zero rows is `{ data: null, error: null }` rather than an error. */
+  maybeSingle() {
+    this.expectSingle = true;
+    this.allowNoRow = true;
     return this;
   }
 
@@ -125,6 +138,9 @@ class QueryBuilder<T extends TableRow> {
       }
 
       if (this.expectSingle) {
+        if (result.length === 0 && this.allowNoRow) {
+          return Promise.resolve({ data: null, error: null });
+        }
         if (result.length !== 1) {
           return Promise.resolve({
             data: null,
@@ -150,6 +166,9 @@ class QueryBuilder<T extends TableRow> {
 export class MockSupabaseClient {
   private messages: MessageRow[] = [];
   private threads: ThreadRow[] = [];
+  private threadSummaries: ThreadSummaryRow[] = [];
+  /** Every table queried, in order — lets a test prove a read never happened. */
+  readonly queriedTables: string[] = [];
 
   insertMessages(rows: MessageRow[]) {
     this.messages.push(...rows);
@@ -159,7 +178,16 @@ export class MockSupabaseClient {
     this.threads.push(...rows);
   }
 
+  insertThreadSummaries(rows: ThreadSummaryRow[]) {
+    this.threadSummaries.push(...rows);
+  }
+
   from(table: string) {
+    this.queriedTables.push(table);
+
+    if (table === "thread_summaries") {
+      return new QueryBuilder(this.threadSummaries);
+    }
     if (table === "messages") {
       return new QueryBuilder(this.messages);
     }

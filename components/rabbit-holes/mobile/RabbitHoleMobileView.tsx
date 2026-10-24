@@ -15,6 +15,7 @@ import { MobileBottomSheet, type MobileSheetSnap } from "./MobileBottomSheet";
 import { MobileHeader } from "./MobileHeader";
 import { useRabbitHoleMobileDrawer } from "./RabbitHoleMobileDrawer";
 
+import { RABBIT_HOLE_OPEN_NODE_EVENT } from "@/components/chat/organic-tool-call-presence";
 import { RabbitHoleAmbientLayer } from "@/app/rabbitholes/_components/RabbitHoleAmbientLayer";
 import { RabbitHoleArticle } from "@/app/rabbitholes/_components/RabbitHoleArticle";
 import { RabbitHoleLoadingState } from "@/app/rabbitholes/_components/RabbitHoleLoadingState";
@@ -116,6 +117,29 @@ export function RabbitHoleMobileView({
   const showSheet = centerViewState.kind !== "viewing_source_analysis";
   const peekPad = sheetSnap === "collapsed" ? PEEK_PAD_COLLAPSED : PEEK_PAD_EXPANDED;
 
+  const handleNavFromTool = useCallback(
+    (nodeId: string) => {
+      setActiveNode(nodeId);
+      setSheetSnap((prev) => (prev === "full" ? "collapsed" : prev));
+    },
+    [setActiveNode]
+  );
+
+  useEffect(() => {
+    const onOpenNode = (event: Event) => {
+      const detail = (event as CustomEvent<{ nodeId?: string }>).detail;
+
+      if (detail?.nodeId) {
+        setActiveNode(detail.nodeId);
+        setSheetSnap("collapsed");
+      }
+    };
+
+    window.addEventListener(RABBIT_HOLE_OPEN_NODE_EVENT, onOpenNode);
+
+    return () => window.removeEventListener(RABBIT_HOLE_OPEN_NODE_EVENT, onOpenNode);
+  }, [setActiveNode]);
+
   const { composer, body, sendChatText } = useRabbitHoleMobileDrawer({
     session,
     activeNode,
@@ -127,7 +151,7 @@ export function RabbitHoleMobileView({
     onBranchClick: followBranch,
     onSourceClick: selectSource,
     onReset: reset,
-    onNavFromTool: setActiveNode,
+    onNavFromTool: handleNavFromTool,
     ensureEmptySession,
     onSessionCreated,
   });
@@ -214,19 +238,19 @@ export function RabbitHoleMobileView({
               </DelayedContent>
             )}
 
+            {centerViewState.kind === "article_loaded" &&
+              activeNode &&
+              !activeNode.articleHtml?.trim() && (
+                <DelayedContent key="article-pending" delayMs={400}>
+                  <RabbitHoleLoadingState preview={preview} variant="branch" />
+                </DelayedContent>
+              )}
+
             {centerViewState.kind === "article_loaded" && activeNode?.articleHtml && (
               <motion.div
                 key={activeNode.id}
                 animate={{ opacity: 1, x: 0 }}
-                className={cn(
-                  "relative",
-                  session &&
-                    session.path.length > 1 &&
-                    "before:pointer-events-none before:absolute before:inset-y-0 before:left-0 before:w-2 before:bg-linear-to-r before:from-accent/10 before:to-transparent",
-                  session &&
-                    session.path.length > 1 &&
-                    "after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:w-2 after:bg-linear-to-l after:from-accent/10 after:to-transparent"
-                )}
+                className="relative"
                 exit={{ opacity: 0, x: -12 }}
                 initial={{ opacity: 0, x: 12 }}
                 transition={{ duration: 0.25 }}
@@ -258,7 +282,7 @@ export function RabbitHoleMobileView({
         </div>
 
         {showSheet && (
-          <MobileBottomSheet composer={composer} onSnapChange={setSheetSnap}>
+          <MobileBottomSheet composer={composer} snap={sheetSnap} onSnapChange={setSheetSnap}>
             {body}
           </MobileBottomSheet>
         )}

@@ -8,6 +8,7 @@ import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
+import { morphDemoChrome, morphDemoRabbitRails } from "../../_lib/morph-demo-layout";
 import {
   morphSpringConfigForPlaybackPercent,
   type MorphDemoSpeedPercent,
@@ -53,7 +54,7 @@ export function MorphChatRabbitDemo() {
   });
   const speedEffectPrimedRef = useRef(false);
 
-  const [devHudExpanded, setDevHudExpanded] = useState(true);
+  const [devHudExpanded, setDevHudExpanded] = useState(false);
   const [layout, setLayout] = useState<ArchetypeLayout>("chat");
   const layoutRef = useRef<ArchetypeLayout>(layout);
   const [speedPercent, setSpeedPercent] = useState<MorphDemoSpeedPercent>(100);
@@ -229,10 +230,7 @@ export function MorphChatRabbitDemo() {
     <Page
       liquidChromeBackground={!demoFullscreen}
       transparentBackground={!demoFullscreen}
-      className={cn(
-        "items-stretch justify-start gap-0 overflow-hidden",
-        demoFullscreen && "min-h-0 flex-1"
-      )}
+      className={cn(morphDemoChrome.page, demoFullscreen && "min-h-0 flex-1 overflow-hidden")}
     >
       {!demoFullscreen ? (
         <>
@@ -241,7 +239,7 @@ export function MorphChatRabbitDemo() {
             aria-hidden
             className={cn(
               glass({ border: "none", opaque: true }),
-              "pointer-events-none absolute inset-0 z-[1] min-h-dvh w-full rounded-none"
+              "pointer-events-none absolute inset-0 z-[1] min-h-dvh w-full max-w-dvw rounded-none"
             )}
           />
         </>
@@ -272,7 +270,7 @@ export function MorphChatRabbitDemo() {
       ) : null}
       <div
         className={cn(
-          "relative z-10 flex h-full min-h-0 w-full flex-col",
+          "relative z-10 flex h-full min-h-0 w-full min-w-0 flex-col",
           demoFullscreen ? "min-h-0 flex-1 pt-0" : triggerInsetY
         )}
       >
@@ -298,21 +296,21 @@ export function MorphChatRabbitDemo() {
                 Morph input demo
               </Link>
             </nav>
-            <header
-              className={cn(
-                "shrink-0 px-4 pt-4 text-center",
-                devHudExpanded ? "pr-[min(18rem,100vw-1rem)] sm:pr-4" : "pr-4"
-              )}
-            >
-              <h1 className="font-commissioner text-2xl font-light tracking-tight text-foreground">
+            <header className={morphDemoChrome.header}>
+              <h1 className="font-commissioner text-xl font-light tracking-tight text-foreground sm:text-2xl">
                 Morph: chat thread ↔ rabbit-hole article
               </h1>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p
+                className={cn(
+                  "mt-1 text-sm text-muted-foreground text-balance",
+                  morphDemoChrome.headerBody
+                )}
+              >
                 Center bounds use{" "}
                 <code className="rounded bg-muted/50 px-1 py-0.5 text-xs">
                   @organic-llm/morph-physics
                 </code>
-                ; rails use Framer slide. Press{" "}
+                ; rails use Framer slide on wide viewports and stack on narrow. Press{" "}
                 <kbd className="rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-xs">
                   F
                 </kbd>{" "}
@@ -331,24 +329,36 @@ export function MorphChatRabbitDemo() {
                   </kbd>{" "}
                   or the button morphs layout.
                 </span>
-                <span className="sm:hidden">Button morphs layout.</span> At{" "}
-                <code className="rounded bg-muted/50 px-1 py-0.5 text-xs">lg</code>, ghost grid uses{" "}
-                <code className="rounded bg-muted/50 px-1 py-0.5 text-xs">
+                <span className="sm:hidden">Button morphs layout.</span> Ghost grid uses{" "}
+                <code className="rounded bg-muted/50 px-1 py-0.5 text-xs break-all">
                   {layoutTokens.gridCols}
-                </code>
-                .
+                </code>{" "}
+                (container query — see explorer-layout).
               </p>
             </header>
           </>
         ) : null}
 
+        {/* Narrow rabbit: path above morph stage (stacked instead of side columns). */}
+        {!demoFullscreen && layout === "rabbit" ? (
+          <div className={cn(morphDemoRabbitRails.stack, "shrink-0 pt-2")}>
+            <aside className={morphDemoRabbitRails.stackPath}>
+              <RabbitHolePathRail
+                activeNodeId={sessionForRails.activeNodeId}
+                generatingNodeId={null}
+                session={sessionForRails}
+                onNodeClick={setActiveNodeId}
+              />
+            </aside>
+          </div>
+        ) : null}
+
         <div
           ref={stageRef}
           className={cn(
-            "relative w-full flex-1",
             demoFullscreen
-              ? "mt-0 min-h-0 px-2 sm:px-4 lg:px-8"
-              : "mt-4 min-h-[min(72vh,680px)] px-2 sm:px-4"
+              ? "relative mt-0 min-h-0 w-full min-w-0 flex-1 px-2 sm:px-4 lg:px-8"
+              : morphDemoChrome.stageChatRabbit
           )}
         >
           {/* Ghost: chat — centered reading column */}
@@ -367,34 +377,38 @@ export function MorphChatRabbitDemo() {
             </div>
           </div>
 
-          {/* Ghost: rabbit — production grid, measure center column only */}
+          {/* Ghost: rabbit — production explorer grid; measure center column only */}
           <div aria-hidden className="pointer-events-none absolute inset-0 z-0 opacity-0">
             <div
               className={cn(
-                "mx-auto grid h-full w-full max-w-7xl grid-cols-1 gap-8 px-3 pt-6",
+                "mx-auto flex h-full w-full flex-col gap-8 px-3 pt-6",
+                layoutTokens.gridContainer,
+                layoutTokens.gridMaxWidth,
+                layoutTokens.gridDisplay,
                 layoutTokens.gridCols
               )}
             >
-              <aside className="min-w-0 lg:col-start-1">
+              <aside className={cn("min-w-0", layoutTokens.gridColStart1)}>
                 <RabbitHolePathRail
                   activeNodeId={sessionForRails.activeNodeId}
                   session={sessionForRails}
                   onNodeClick={setActiveNodeId}
                 />
               </aside>
-              <div ref={rabbitMeasureRef} className="min-w-0 lg:col-start-2">
+              <div ref={rabbitMeasureRef} className={cn("min-w-0", layoutTokens.gridColStart2)}>
                 {centerArticle}
               </div>
-              <aside className="min-w-0 lg:col-start-3">{demoRightRail}</aside>
+              <aside className={cn("min-w-0", layoutTokens.gridColStart3)}>{demoRightRail}</aside>
             </div>
           </div>
 
-          {/* Visible rails (outside morph elementRef) */}
-          <div className="pointer-events-none absolute inset-0 z-10 hidden lg:block">
+          {/* Visible rails (outside morph elementRef) — desktop side panels */}
+          <div className={morphDemoRabbitRails.sideLayer}>
             <motion.aside
               animate={{ x: layout === "rabbit" ? "0%" : "-115%" }}
               className={cn(
-                "absolute top-6 left-3 w-[260px] max-w-[260px]",
+                "absolute top-6 left-3",
+                morphDemoRabbitRails.sideRailWidth,
                 layout === "rabbit" ? "pointer-events-auto" : "pointer-events-none"
               )}
               initial={false}
@@ -410,7 +424,8 @@ export function MorphChatRabbitDemo() {
             <motion.aside
               animate={{ x: layout === "rabbit" ? "0%" : "115%" }}
               className={cn(
-                "absolute top-6 right-3 w-[260px] max-w-[260px]",
+                "absolute top-6 right-3",
+                morphDemoRabbitRails.sideRailWidth,
                 layout === "rabbit" ? "pointer-events-auto" : "pointer-events-none"
               )}
               initial={false}
@@ -434,7 +449,7 @@ export function MorphChatRabbitDemo() {
           <div
             ref={elementRef}
             className={cn(
-              "pointer-events-auto absolute top-0 left-0 z-20 overflow-hidden",
+              "pointer-events-auto absolute top-0 left-0 z-20 max-w-full overflow-hidden",
               demoFullscreen
                 ? "rounded-none border-0 bg-transparent shadow-none backdrop-blur-none"
                 : "rounded-xl border border-border/20 bg-background/80 shadow-sm backdrop-blur-sm",
@@ -442,19 +457,28 @@ export function MorphChatRabbitDemo() {
             )}
           >
             {layout === "chat" ? (
-              <div className="flex h-full min-h-0 flex-col">
+              <div className="flex h-full min-h-0 min-w-0 flex-col">
                 <Conversation className="flex h-full min-h-0 flex-col overflow-hidden">
                   <ChatThread className="min-h-0 flex-1" messages={MORPH_CHAT_RABBIT_MESSAGES} />
                 </Conversation>
               </div>
             ) : (
-              <div className="h-full min-h-0 overflow-y-auto px-2 py-2">{centerArticle}</div>
+              <div className="h-full min-h-0 min-w-0 overflow-y-auto px-2 py-2">
+                {centerArticle}
+              </div>
             )}
           </div>
         </div>
 
+        {/* Narrow rabbit: sources / branches below morph stage */}
+        {!demoFullscreen && layout === "rabbit" ? (
+          <div className={cn(morphDemoRabbitRails.stack, "shrink-0")}>
+            <aside className={morphDemoRabbitRails.stackSources}>{demoRightRail}</aside>
+          </div>
+        ) : null}
+
         {!demoFullscreen ? (
-          <div className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-4">
+          <div className={morphDemoChrome.morphButtonRow}>
             <Button
               className="pointer-events-auto shadow-lg"
               type="button"

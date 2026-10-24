@@ -114,6 +114,7 @@
   --background: oklch(1 0 0);
 
   --foreground: oklch(0.22 0.012 70); /* #2D2B26 - warm brown-gray */
+  --context-usage-amber: #916020;
 
   --card: oklch(1 0 0); /* Use with /80% opacity + backdrop-blur in components */
 
@@ -188,8 +189,8 @@
   /* Static fallback while Liquid Chrome WebGL initializes (matches AdaptiveLiquidChrome reduced-motion). */
   --liquid-chrome-fallback-light: radial-gradient(
     ellipse 120% 80% at 50% 40%,
-    rgb(128, 122, 117) 0%,
-    rgb(138, 132, 127) 100%
+    rgb(247, 245, 239) 0%,
+    rgb(241, 239, 233) 100%
   );
   --liquid-chrome-fallback-dark: radial-gradient(
     ellipse 120% 80% at 50% 40%,
@@ -199,6 +200,7 @@
 }
 
 .dark {
+  --context-usage-amber: #bb8334;
   --background: oklch(0.141 0.005 285.823); /* #141516 */
 
   --foreground: oklch(0.96 0.003 145); /* #F3F4F3 - slight green tint */
@@ -704,13 +706,20 @@ body.font-theme-commissioner {
   opacity: 0.36;
 }
 
+/* A small dark-mode lift beneath the material; both renderers retain linked dot opacity. */
+.dark .organic-agent-dot-grid {
+  color: oklch(0.99 0.003 145);
+  filter: drop-shadow(0 0 0.65px rgb(255 255 255 / 0.18));
+}
+
 /*
- * Organic Glass Frost grain — a once-rasterized SVG noise tile blended over the milk fill.
- * Static texture: the browser rasterizes the data URI a single time, so it adds zero
- * per-frame cost (unlike a live feTurbulence backdrop-filter). This is what separates
+ * Shared frosted-grain tile, also used beneath the activity mark's glass cover.
+ * Static texture: the browser can reuse the rasterized data URI without regenerating
+ * a noise filter per frame (unlike a live feTurbulence backdrop-filter). This separates
  * "blurred panel" from "frosted pane".
  */
-.organic-glass-frost::before {
+.organic-glass-frost::before,
+.organic-activity-grain {
   content: "";
   position: absolute;
   inset: 0;
@@ -724,7 +733,8 @@ body.font-theme-commissioner {
   mix-blend-mode: overlay;
 }
 
-.dark .organic-glass-frost::before {
+.dark .organic-glass-frost::before,
+.dark .organic-activity-grain {
   opacity: 0.07;
 }
 
@@ -762,6 +772,10 @@ body.font-theme-commissioner {
   .prototype-card-enter {
     animation: none;
   }
+
+  .organic-glass-distorted-backdrop {
+    filter: none !important;
+  }
 }
 
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
@@ -791,6 +805,18 @@ body.font-theme-commissioner {
 }
 
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .organic-agent-dot-grid {
+    filter: none !important;
+  }
+
+  .organic-activity-backdrop {
+    filter: none !important;
+  }
+
+  .organic-glass-distorted-backdrop {
+    filter: none !important;
+  }
+
   .organic-glass-preview {
     background: color-mix(in oklch, var(--background) 95%, transparent) !important;
     backdrop-filter: none !important;
@@ -818,7 +844,8 @@ body.font-theme-commissioner {
     background: color-mix(in oklch, var(--secondary) 95%, transparent) !important;
   }
 
-  .organic-glass-frost::before {
+  .organic-glass-frost::before,
+  .organic-activity-grain {
     display: none;
   }
 }

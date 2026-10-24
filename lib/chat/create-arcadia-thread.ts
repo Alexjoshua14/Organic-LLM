@@ -1,8 +1,13 @@
 "use server";
 
 import { createChat } from "@/lib/chat/chat-store";
-import { updateThreadRouting } from "@/data/supabase/chat";
 import { createLogger } from "@/lib/logger";
+import { PERF_PHASES } from "@/lib/perf/journeys";
+import {
+  stashServerPhases,
+  timeServerPhase,
+  type ServerPhaseRecord,
+} from "@/lib/perf/server-phase";
 
 const logger = createLogger("lib/chat/create-arcadia-thread.ts");
 
@@ -13,7 +18,10 @@ export type CreateArcadiaThreadResult = { ok: true; path: string } | { ok: false
  * Mirrors {@link app/sandbox/arcadia/page.tsx} without an extra redirect hop.
  */
 export async function createArcadiaThreadAction(): Promise<CreateArcadiaThreadResult> {
-  const res = await createChat();
+  const phases: ServerPhaseRecord[] = [];
+  const res = await timeServerPhase(phases, PERF_PHASES.serverCreateChat, () =>
+    createChat("arcadia")
+  );
 
   if (res.error || res.data === null) {
     logger.error("createArcadiaThreadAction", res.error?.message ?? "createChat failed");
@@ -23,13 +31,8 @@ export async function createArcadiaThreadAction(): Promise<CreateArcadiaThreadRe
 
   const id = res.data;
   const path = `/sandbox/arcadia/${id}`;
-  const routingRes = await updateThreadRouting(id, { feature: "arcadia", path });
 
-  if (!routingRes.ok) {
-    logger.error("createArcadiaThreadAction", "updateThreadRouting failed");
-
-    return { ok: false, error: "Failed to set Arcadia routing" };
-  }
+  stashServerPhases(id, phases);
 
   return { ok: true, path };
 }

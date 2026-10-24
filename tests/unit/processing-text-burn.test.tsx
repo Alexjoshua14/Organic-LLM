@@ -1,4 +1,4 @@
-import { describe, expect, test, afterEach, jest } from "bun:test";
+import { describe, expect, test, afterEach, jest, mock } from "bun:test";
 import { cleanup, act } from "@testing-library/react";
 
 import { ProcessingTextBurn } from "@/components/chat/processing-text-burn";
@@ -58,5 +58,64 @@ describe("ProcessingTextBurn", () => {
 
     expect(container.querySelector(".processing-text-burn__sustain-host")).toBeNull();
     expect(container.querySelectorAll(".processing-text-burn__char").length).toBeGreaterThan(0);
+  });
+
+  test("loop sweep remounts burn chars on the interval while shimmer sustains between", () => {
+    jest.useFakeTimers();
+    const { container } = render(
+      <ProcessingTextBurn loopSweepIntervalS={2} text="Old title" />
+    );
+
+    // Initial burn settles (~0.55s), then shimmer until the first 2s loop boundary.
+    act(() => {
+      jest.advanceTimersByTime(600);
+    });
+    expect(container.querySelector(".processing-text-burn__sustain-host")).toBeTruthy();
+
+    act(() => {
+      jest.advanceTimersByTime(1_400);
+    });
+    expect(container.querySelector(".processing-text-burn__sustain-host")).toBeNull();
+    expect(
+      container.querySelectorAll(".processing-text-burn__char--incoming-initial").length
+    ).toBeGreaterThan(0);
+  });
+
+  test("defers text change until commit sweep when looping", () => {
+    jest.useFakeTimers();
+    const onCommit = mock(() => {});
+    const { container, rerender } = render(
+      <ProcessingTextBurn loopSweepIntervalS={2} text="Old title" />
+    );
+
+    act(() => {
+      jest.advanceTimersByTime(5_000);
+    });
+
+    rerender(
+      <ProcessingTextBurn
+        commitOnNextSweep
+        loopSweepIntervalS={2}
+        text="New title"
+        onCommitSweepSettled={onCommit}
+      />
+    );
+
+    // Still showing old title until the next 2s boundary.
+    expect(container.querySelector(".sr-only")?.textContent).toBe("Old title");
+    expect(onCommit).not.toHaveBeenCalled();
+
+    act(() => {
+      jest.advanceTimersByTime(1_000);
+    });
+
+    expect(container.querySelector(".processing-text-burn__char--outgoing")).toBeTruthy();
+    expect(container.querySelector(".sr-only")?.textContent).toBe("New title");
+
+    act(() => {
+      jest.advanceTimersByTime(5_000);
+    });
+
+    expect(onCommit).toHaveBeenCalled();
   });
 });

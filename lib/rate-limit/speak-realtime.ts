@@ -8,6 +8,8 @@ import { Duration, Ratelimit } from "@upstash/ratelimit";
 
 import { fetchLlmUsageEvents } from "@/data/supabase/llm-usage";
 import { createLogger } from "@/lib/logger";
+import { getPlanBudgetForUser } from "@/lib/plans/plan-budget";
+import { canStartRealtimeGivenPlanBudget } from "@/lib/speak/weave-policy";
 import {
   computeCost,
   computeUsageCostUsd,
@@ -20,7 +22,7 @@ import { checkLlmCostLimit, recordLlmCost } from "@/lib/rate-limit/llm";
 import { runLimiter } from "@/lib/rate-limit/run-limiter";
 import { redis } from "@/lib/redis/redis";
 import { startOfBillingCycle } from "@/lib/usage/aggregate";
-import { trackLlmUsageEvent } from "@/lib/usage/track-llm-usage";
+import { insertLlmUsageEvent } from "@/data/supabase/llm-usage";
 
 export type { SpeakBudgetSnapshot } from "@/lib/speak/types";
 
@@ -197,13 +199,16 @@ async function recordSpeakUsage(args: {
       (usage?.audioInputTokens ?? 0) +
       (usage?.audioOutputTokens ?? 0);
 
-    trackLlmUsageEvent({
+    await insertLlmUsageEvent({
       ownerId: session.userId,
       modelId,
-      inputTokens: (usage?.inputTokens ?? 0) + Math.ceil((usage?.audioInputTokens ?? 0) / 2),
-      outputTokens: (usage?.outputTokens ?? 0) + Math.ceil((usage?.audioOutputTokens ?? 0) / 2),
+      inputTokens: usage?.inputTokens ?? 0,
+      outputTokens: usage?.outputTokens ?? 0,
       cachedInputTokens: usage?.cachedInputTokens ?? 0,
-      totalTokens: Math.max(1, totalTokens || Math.ceil(incrementalCost * 1000)),
+      audioInputTokens: usage?.audioInputTokens ?? 0,
+      audioOutputTokens: usage?.audioOutputTokens ?? 0,
+      totalTokens,
+      costUsdOverride: incrementalCost,
       operation: "speak-realtime",
       route: "/api/ai/speak/realtime",
     });
@@ -243,7 +248,7 @@ export async function settleStaleSpeakSessions(userId: string): Promise<void> {
     });
     await closeSpeakRealtimeSession(session);
 
-    logger.log("settleStaleSpeakSessions", `Settled abandoned session ${sessionId}`, {
+    logger.log("settleStaleSpeakSessions", "Settled abandoned session", {
       minutesUsed: session.minutesUsed,
       costUsd: session.costUsd,
     });
@@ -413,6 +418,8 @@ export type SpeakBudgetAssertResult = {
 export async function assertSpeakBudgetOrClose(args: {
   sessionId: string;
   userId: string;
+  /** When set, the user's weekly plan budget is checked too — a spent plan ends the call. */
+  clerkUserId?: string;
   usage?: Usage;
 }): Promise<SpeakBudgetAssertResult> {
   const session = await getSpeakRealtimeSession(args.sessionId);
@@ -473,6 +480,25 @@ export async function assertSpeakBudgetOrClose(args: {
     };
   }
 
+  if (args.clerkUserId) {
+    const plan = await getPlanBudgetForUser({
+      clerkUserId: args.clerkUserId,
+      ownerId: args.userId,
+    });
+
+    if (!canStartRealtimeGivenPlanBudget(plan)) {
+      await closeSpeakRealtimeSession(session);
+
+      return {
+        ok: false,
+        shouldClose: true,
+        error: plan.holdReason ?? "Plan usage limit reached",
+        session,
+        budget,
+      };
+    }
+  }
+
   return { ok: true, shouldClose: false, session, budget };
 }
 
@@ -500,7 +526,7 @@ export async function endSpeakRealtimeSession(args: {
   }
 
   await closeSpeakRealtimeSession(session);
-  logger.log("endSpeakRealtimeSession", `Closed ${args.sessionId}`, {
+  logger.log("endSpeakRealtimeSession", "Closed session", {
     minutesUsed: session.minutesUsed,
     costUsd: session.costUsd,
   });

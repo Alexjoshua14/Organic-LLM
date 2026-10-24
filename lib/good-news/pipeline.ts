@@ -145,7 +145,7 @@ async function extractCandidates(sources: SourceMeta[]): Promise<CandidateItem[]
   try {
     const { object, usage } = await generateObject({
       model: EXTRACTION_MODEL,
-      system: EXTRACTION_SYSTEM_PROMPT,
+      instructions: EXTRACTION_SYSTEM_PROMPT,
       prompt: `Today's candidate articles:\n\n${list}\n\nCluster and extract the positive-news candidates.`,
       schema: CandidateExtractionSchema,
       maxOutputTokens: 4_000,
@@ -218,7 +218,7 @@ async function factCheckCandidate(
   try {
     const { object, usage } = await generateObject({
       model: FACTCHECK_MODEL,
-      system: FACTCHECK_SYSTEM_PROMPT,
+      instructions: FACTCHECK_SYSTEM_PROMPT,
       prompt: `CLAIM: ${candidate.claim}\nCATEGORY: ${candidate.category}\n\nSOURCES:\n\n${sourceBlocks}`,
       schema: FactCheckResultSchema,
       maxOutputTokens: 1_200,

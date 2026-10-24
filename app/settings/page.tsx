@@ -3,19 +3,22 @@
 import Link from "next/link";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useAuth, useUser } from "@clerk/nextjs";
-import { Switch } from "@heroui/switch";
 import { X } from "lucide-react";
 
+import { Switch } from "@/components/design-system/switch";
+import { BackgroundActivitySetting } from "@/components/settings/background-activity-setting";
+import { LightweightModeSetting } from "@/components/settings/lightweight-mode-setting";
 import Page from "@/components/layout/page";
 import { PageTopBar } from "@/components/layout/page-top-bar";
 import { ReturnButton } from "@/components/ReturnButton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/third-party/ui/tabs";
 import { Profile } from "@/lib/schemas/profiles";
-import { SETTINGS_PAGE_TITLE } from "@/config/settings-page";
+import { isSettingsPageTab, SETTINGS_PAGE_TITLE } from "@/config/settings-page";
 import { caption } from "@/components/design-system/primitives";
 import ChatsSettings from "@/components/settings/chatsSettings";
 import MemorySettings from "@/components/settings/memorySettings";
 import FontSetting from "@/components/settings/FontSetting";
+import { ConnectorsSettingsTab } from "@/components/settings/connectors/ConnectorsSettingsTab";
 import { ProfileView } from "@/components/settings/profile";
 import { AccountDeletion } from "@/components/settings/AccountDeletion";
 import { DangerZone } from "@/components/settings/DangerZone";
@@ -40,9 +43,15 @@ export default function SettingsPage() {
   const clerkEmail = user?.primaryEmailAddress?.emailAddress ?? null;
 
   const [profileHintDismissed, setProfileHintDismissed] = useState(true); // default hidden to avoid flash
+  const [settingsTab, setSettingsTab] = useState("profile");
 
   useEffect(() => {
     setProfileHintDismissed(localStorage.getItem("profile-hint-dismissed") === "1");
+    const requested = new URLSearchParams(window.location.search).get("tab");
+
+    if (isSettingsPageTab(requested) && (requested !== "advanced" || showDevSettings)) {
+      setSettingsTab(requested);
+    }
   }, []);
   const dismissProfileHint = useCallback(() => {
     setProfileHintDismissed(true);
@@ -96,14 +105,18 @@ export default function SettingsPage() {
     <Page>
       <PageTopBar leading={<ReturnButton />} title={SETTINGS_PAGE_TITLE} />
       <div className="flex-1 w-full overflow-auto px-4 py-6 md:px-8">
-        <Tabs className="w-full max-w-2xl mx-auto" defaultValue="profile">
-          <TabsList
-            className={`grid w-full mb-6 select-none ${showDevSettings ? "grid-cols-6" : "grid-cols-5"}`}
-          >
+        <Tabs
+          className="w-full max-w-2xl mx-auto"
+          value={settingsTab}
+          onValueChange={setSettingsTab}
+        >
+          <TabsList className="mb-6 flex h-9 w-full select-none justify-start overflow-x-auto [&>button]:shrink-0 [&>button]:px-2.5 [&>button]:text-xs sm:[&>button]:px-3 sm:[&>button]:text-sm">
             <TabsTrigger value="profile">Profile</TabsTrigger>
+            <TabsTrigger value="connectors">Connectors</TabsTrigger>
             <TabsTrigger value="chats">Chats</TabsTrigger>
             <TabsTrigger value="memory">Memory</TabsTrigger>
             <TabsTrigger value="appearance">Appearance</TabsTrigger>
+            <TabsTrigger value="ai">AI</TabsTrigger>
             <TabsTrigger value="privacy">Privacy</TabsTrigger>
             {showDevSettings && <TabsTrigger value="advanced">Advanced</TabsTrigger>}
           </TabsList>
@@ -145,6 +158,10 @@ export default function SettingsPage() {
                 )}
               </Suspense>
             </div>
+          </TabsContent>
+
+          <TabsContent className="mt-0" value="connectors">
+            <ConnectorsSettingsTab />
           </TabsContent>
 
           <TabsContent className="mt-0" value="chats">
@@ -202,6 +219,7 @@ export default function SettingsPage() {
                     }}
                   />
                 </SettingsRow>
+                <LightweightModeSetting />
                 <FontSetting />
                 <div className="space-y-2">
                   <h3 className="text-sm font-medium text-foreground">Experimental</h3>
@@ -243,6 +261,13 @@ export default function SettingsPage() {
                   </SettingsRow>
                 </div>
               </section>
+            </div>
+          </TabsContent>
+
+          <TabsContent className="mt-0" value="ai">
+            <div className="flex flex-col gap-8">
+              <h2 className="text-xl font-semibold text-foreground">AI</h2>
+              <BackgroundActivitySetting />
             </div>
           </TabsContent>
 

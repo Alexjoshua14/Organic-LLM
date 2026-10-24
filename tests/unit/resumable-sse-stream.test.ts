@@ -1,4 +1,6 @@
-import { afterEach, describe, expect, mock, test } from "bun:test";
+import { afterAll, afterEach, describe, expect, mock, test } from "bun:test";
+
+import { mockModulePreservingReal } from "../helpers/module-mock";
 
 const consumeStreamMock = mock(async () => {});
 const saveChatMock = mock(async () => ({ data: null, error: null }));
@@ -6,32 +8,41 @@ const createNewResumableStreamMock = mock(async () => new ReadableStream());
 const createResumableStreamContextMock = mock(() => ({
   createNewResumableStream: createNewResumableStreamMock,
 }));
+const connectRedisMock = mock(async () => {});
+const disconnectRedisMock = mock(async () => {});
 
+// Real modules are captured first so afterAll can put them back: mock.module is process-wide, and
+// a stub left behind here changes `ai`, `next/server` and `chat-store` for every later test file.
 const realAi = await import("ai");
+const realNextServer = await import("next/server");
+const realChatStore = await import("@/lib/chat/chat-store");
+const realResumableStream = await import("resumable-stream");
+const realRedis = await import("redis");
 
-mock.module("ai", () => ({
-  ...realAi,
-  generateId: () => "stream-test-id",
-  consumeStream: consumeStreamMock,
-}));
-
-mock.module("next/server", () => ({
-  after: (promise: Promise<unknown>) => promise,
-}));
-
-mock.module("@/lib/chat/chat-store", () => ({
-  saveChat: saveChatMock,
-}));
-
-mock.module("resumable-stream", () => ({
-  createResumableStreamContext: createResumableStreamContextMock,
-}));
-
-mock.module("redis", () => ({
-  createClient: () => ({
-    on: () => {},
+const restores = [
+  mockModulePreservingReal("ai", realAi, {
+    generateId: () => "stream-test-id",
+    consumeStream: consumeStreamMock,
   }),
-}));
+  mockModulePreservingReal("next/server", realNextServer, {
+    after: (promise: Promise<unknown>) => promise,
+  }),
+  mockModulePreservingReal("@/lib/chat/chat-store", realChatStore, { saveChat: saveChatMock }),
+  mockModulePreservingReal("resumable-stream", realResumableStream, {
+    createResumableStreamContext: createResumableStreamContextMock,
+  }),
+  mockModulePreservingReal("redis", realRedis, {
+    createClient: () => ({
+      on: () => {},
+      connect: connectRedisMock,
+      disconnect: disconnectRedisMock,
+    }),
+  }),
+] as unknown as Array<() => void>;
+
+afterAll(() => {
+  for (const restore of restores) restore();
+});
 
 const { consumeChatSseStream } = await import("@/lib/chat/resumable-sse-stream");
 const { createLogger } = await import("@/lib/logger");
@@ -40,17 +51,25 @@ const logger = createLogger("tests/unit/resumable-sse-stream.test.ts");
 
 describe("consumeChatSseStream", () => {
   const originalRedisUrl = process.env.REDIS_URL;
+  const originalKvUrl = process.env.KV_URL;
 
   afterEach(() => {
     consumeStreamMock.mockClear();
     saveChatMock.mockClear();
     createNewResumableStreamMock.mockClear();
     createResumableStreamContextMock.mockClear();
+    connectRedisMock.mockClear();
+    disconnectRedisMock.mockClear();
 
     if (originalRedisUrl === undefined) {
       delete process.env.REDIS_URL;
     } else {
       process.env.REDIS_URL = originalRedisUrl;
+    }
+    if (originalKvUrl === undefined) {
+      delete process.env.KV_URL;
+    } else {
+      process.env.KV_URL = originalKvUrl;
     }
   });
 
@@ -67,6 +86,40 @@ describe("consumeChatSseStream", () => {
     expect(saveChatMock).not.toHaveBeenCalled();
   });
 
+  test("waits for both custom Redis connections before registering a stream", async () => {
+    process.env.REDIS_URL = "redis://localhost:6380";
+    let connectPublisher!: () => void;
+    let connectSubscriber!: () => void;
+    connectRedisMock
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            connectPublisher = resolve;
+          })
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            connectSubscriber = resolve;
+          })
+      );
+
+    const registration = consumeChatSseStream({
+      stream: new ReadableStream<string>(),
+      chatId: "chat-4",
+      logger,
+    });
+    await Promise.resolve();
+    expect(createResumableStreamContextMock).not.toHaveBeenCalled();
+    connectPublisher();
+    await Promise.resolve();
+    expect(createResumableStreamContextMock).not.toHaveBeenCalled();
+    connectSubscriber();
+    await registration;
+    expect(createNewResumableStreamMock).toHaveBeenCalledTimes(1);
+    expect(saveChatMock).toHaveBeenCalledTimes(1);
+  });
+
   test("persists active stream id when resumable setup succeeds", async () => {
     process.env.REDIS_URL = "redis://localhost:6379";
 
@@ -76,6 +129,7 @@ describe("consumeChatSseStream", () => {
 
     expect(createResumableStreamContextMock).toHaveBeenCalledTimes(1);
     expect(createNewResumableStreamMock).toHaveBeenCalledTimes(1);
+    expect(connectRedisMock).toHaveBeenCalledTimes(2);
     expect(saveChatMock).toHaveBeenCalledWith({
       chatId: "chat-2",
       activeStreamId: "stream-test-id",

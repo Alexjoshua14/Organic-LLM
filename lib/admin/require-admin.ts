@@ -2,7 +2,7 @@ import "server-only";
 
 import { auth } from "@clerk/nextjs/server";
 
-import { getShowSandboxGateway, getSupabaseUserId } from "@/data/supabase/profiles";
+import { readAdminProfile } from "@/lib/admin/read-admin-profile";
 
 export type AdminContext = {
   clerkUserId: string;
@@ -20,17 +20,13 @@ export async function requireAdmin(): Promise<AdminContext | null> {
     return null;
   }
 
-  const isAdmin = await getShowSandboxGateway(clerkUserId);
+  try {
+    const profile = await readAdminProfile(clerkUserId);
 
-  if (!isAdmin) {
+    if (!profile?.admin) return null;
+
+    return { clerkUserId, sbUserId: profile.id };
+  } catch {
     return null;
   }
-
-  const sbResult = await getSupabaseUserId(clerkUserId);
-
-  if (sbResult.error || !sbResult.data) {
-    return null;
-  }
-
-  return { clerkUserId, sbUserId: sbResult.data };
 }

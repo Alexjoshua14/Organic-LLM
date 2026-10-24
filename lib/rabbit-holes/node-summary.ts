@@ -3,6 +3,11 @@ import type { RabbitHoleNode } from "@/lib/schemas/rabbitHoleSchemas";
 import { generateText } from "ai";
 
 import {
+  createAuthenticatedLlmBudgetHooks,
+  createOwnerLlmBudgetHooks,
+  budgetModelId,
+} from "@/lib/plans/llm-budget-hooks";
+import {
   RABBIT_HOLE_NODE_SUMMARY_MAX_OUTPUT_TOKENS,
   RABBIT_HOLE_NODE_SUMMARY_MODEL,
 } from "@/lib/rabbit-holes/graph-context-models";
@@ -19,7 +24,7 @@ export function nodeHasSummaryContent(node: RabbitHoleNode): boolean {
   return Boolean(node.summary?.trim() || node.articleHtml?.trim());
 }
 
-export function formatNodeSummaryDocument(node: RabbitHoleNode): string {
+export async function formatNodeSummaryDocument(node: RabbitHoleNode): Promise<string> {
   const title = node.title?.trim() || node.userQuestion?.trim() || "Untitled";
   const summary = node.summary?.trim();
 
@@ -34,7 +39,7 @@ export function formatNodeSummaryDocument(node: RabbitHoleNode): string {
     .slice(0, 8)
     .map((s) => `- ${s.title} (${s.url})`)
     .join("\n");
-  const { text: articleText } = extractReadableText(node.articleHtml ?? "", {
+  const { text: articleText } = await extractReadableText(node.articleHtml ?? "", {
     maxChars: 12_000,
   });
 
@@ -52,12 +57,21 @@ export function formatNodeSummaryDocument(node: RabbitHoleNode): string {
 /**
  * Generate a stored summary for a completed article node (~2000 output token cap).
  */
-export async function generateRabbitHoleNodeSummary(node: RabbitHoleNode): Promise<string> {
-  const sourceDoc = formatNodeSummaryDocument(node);
+export async function generateRabbitHoleNodeSummary(
+  node: RabbitHoleNode,
+  ownerId?: string | null
+): Promise<string> {
+  const sourceDoc = await formatNodeSummaryDocument(node);
+  const modelId = budgetModelId(RABBIT_HOLE_NODE_SUMMARY_MODEL);
+  const operation = "rabbit-holes/node-summary";
+  const budgetHooks = ownerId
+    ? await createOwnerLlmBudgetHooks({ ownerId, modelId, operation })
+    : await createAuthenticatedLlmBudgetHooks({ modelId, operation });
 
   const { text } = await generateText({
+    ...budgetHooks,
     model: RABBIT_HOLE_NODE_SUMMARY_MODEL,
-    system: NODE_SUMMARY_SYSTEM,
+    instructions: NODE_SUMMARY_SYSTEM,
     prompt: sourceDoc,
     maxOutputTokens: RABBIT_HOLE_NODE_SUMMARY_MAX_OUTPUT_TOKENS,
     temperature: 0.2,
@@ -73,14 +87,17 @@ export async function generateRabbitHoleNodeSummary(node: RabbitHoleNode): Promi
   return trimmed;
 }
 
-export async function ensureRabbitHoleNodeSummary(node: RabbitHoleNode): Promise<string> {
+export async function ensureRabbitHoleNodeSummary(
+  node: RabbitHoleNode,
+  ownerId?: string | null
+): Promise<string> {
   const existing = node.summary?.trim();
 
   if (existing) return existing;
 
   if (!node.articleHtml?.trim()) return "";
 
-  const generated = await generateRabbitHoleNodeSummary(node);
+  const generated = await generateRabbitHoleNodeSummary(node, ownerId);
 
   return generated;
 }

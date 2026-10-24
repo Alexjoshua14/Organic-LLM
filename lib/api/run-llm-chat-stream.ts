@@ -2,8 +2,9 @@ import type { ModelMessage, ToolSet, UIMessage, UIMessageStreamWriter } from "ai
 import type { Logger } from "@/lib/logger";
 import type { ChatExperience } from "@/lib/chat/chat-experience";
 import type { Result } from "@/types";
+import type { ContextBudgetEstimate } from "@/lib/chat/context-budget";
 
-import { hasToolCall, smoothStream, stepCountIs, streamText } from "ai";
+import { hasToolCall, smoothStream, isStepCount, streamText } from "ai";
 import { GatewayProviderOptions } from "@ai-sdk/gateway";
 import { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 
@@ -13,17 +14,30 @@ import { shouldAttemptInitialTitle } from "@/lib/chat/summary-title-cadence";
 import { saveChat } from "@/lib/chat/chat-store";
 import { ensureChatHasTitle, updateChatSummary } from "@/lib/llm/chat-helpers";
 import { CHAT_MODEL, measureAsync } from "@/lib/llm/helpers";
+import { CHAT_STREAM_CHUNKING } from "@/lib/llm/chat-stream-chunking";
 import { serializeError } from "@/lib/llm/log-error";
 import { addLatestMessagesToMemoryForUser } from "@/lib/memory/operations";
-import { buildEffortProviderOptions, type ChatEffortLevel } from "@/lib/schemas/chat-effort";
-import { trackLlmUsageEvent } from "@/lib/usage/track-llm-usage";
+import { buildChatReasoningProviderOptions, type ChatEffortLevel } from "@/lib/schemas/chat-effort";
+import { gatewayAttribution } from "@/lib/usage/gateway-attribution";
+import { createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
 import { ChatAIActionEnum, type ChatUIMessage } from "@/types/ai";
+import {
+  memoryReferencesFromToolResult,
+  mergeContextMemoryReferences,
+} from "@/lib/chat/context-memory";
+import {
+  summarizeContextBudgetUsage,
+  type ContextBudgetUsageStep,
+} from "@/lib/chat/context-budget-usage";
 
 export type RunLLMChatStreamParams = {
   writer: UIMessageStreamWriter<ChatUIMessage>;
+  contextBudget?: ContextBudgetEstimate;
   logger: Logger;
   chatId: string;
   sbUserId: string;
+  /** When set, kick multi-mode queue dispatch after the stream clears. */
+  clerkUserId?: string;
   assistantMessageId: string;
   selectedModel: { id: string; name: string };
   effort?: ChatEffortLevel;
@@ -54,6 +68,7 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
     logger,
     chatId,
     sbUserId,
+    clerkUserId,
     assistantMessageId,
     selectedModel,
     effort,
@@ -73,6 +88,20 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
   } = params;
 
   const toolNames = Object.keys(tools);
+  let contextBudget = params.contextBudget;
+  const usageSteps: ContextBudgetUsageStep[] = [];
+  const publishContextBudget = (complete = false) => {
+    if (!contextBudget?.lastTurn) return;
+
+    contextBudget = {
+      ...contextBudget,
+      lastTurn: {
+        ...contextBudget.lastTurn,
+        usage: summarizeContextBudgetUsage(selectedModel.id, usageSteps, complete),
+      },
+    };
+    writer.write({ type: "data-context-budget", id: "context-budget", data: contextBudget });
+  };
 
   logger.debug("streamText", "Calling streamText", {
     model: selectedModel.id,
@@ -103,7 +132,8 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
     if (chunkRing.length > 24) chunkRing.shift();
   };
 
-  const effortProviderOptions = buildEffortProviderOptions(selectedModel.id, effort);
+  // Effort plus reasoning-summary opt-ins so the chat can show provider reasoning.
+  const effortProviderOptions = buildChatReasoningProviderOptions(selectedModel.id, effort);
 
   const providerOptionsSummary = {
     zeroDataRetention: isZeroDataRetention,
@@ -113,13 +143,21 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
 
   logger.debug("streamText", "providerOptions", providerOptionsSummary);
 
+  const budgetHooks = createLlmBudgetHooks({
+    ownerId: sbUserId,
+    clerkUserId,
+    modelId: selectedModel.id,
+    operation: "chat",
+    route: "/api/chat",
+  });
   const result = streamText({
+    ...budgetHooks,
     model: selectedModel.id,
     messages,
-    system: systemPromptWithLength,
+    instructions: systemPromptWithLength,
     experimental_transform: smoothStream({
       delayInMs: 20, // optional: defaults to 10ms
-      chunking: /(```[\s\S]*?```|^#{1,6}\s.*$|.*?(?:\n|$))/gm, // optional: defaults to 'word'
+      chunking: CHAT_STREAM_CHUNKING,
     }),
     maxOutputTokens: CHAT_MODEL.maxOutputTokens, // Cap output for dev guardrails
     onError({ error }) {
@@ -131,7 +169,26 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
         toolNames,
       });
     },
+    async onStepEnd(step) {
+      await budgetHooks.onStepFinish(step);
+      usageSteps.push({ usage: step.usage, providerMetadata: step.providerMetadata });
+
+      if (contextBudget) {
+        contextBudget = {
+          ...contextBudget,
+          memoryContext: mergeContextMemoryReferences([
+            ...(contextBudget.memoryContext ?? []),
+            ...step.toolResults.flatMap((result) =>
+              memoryReferencesFromToolResult(result.toolName, result.output, assistantMessageId)
+            ),
+          ]),
+        };
+      }
+
+      publishContextBudget();
+    },
     onFinish() {
+      publishContextBudget(true);
       writer.write({
         type: "data-notification",
         data: { message: "Request completed", level: "info" },
@@ -176,34 +233,26 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
     providerOptions: {
       openai: {
         include: ["reasoning.encrypted_content"],
-        ...effortProviderOptions?.openai,
+        ...effortProviderOptions.openai,
       } satisfies OpenAIResponsesProviderOptions,
       gateway: {
         zeroDataRetention: isZeroDataRetention,
+        ...gatewayAttribution({ userId: sbUserId, operation: "chat" }),
       } satisfies GatewayProviderOptions,
-      ...(effortProviderOptions?.anthropic ? { anthropic: effortProviderOptions.anthropic } : {}),
-      ...(effortProviderOptions?.google ? { google: effortProviderOptions.google } : {}),
+      ...(effortProviderOptions.anthropic ? { anthropic: effortProviderOptions.anthropic } : {}),
+      ...(effortProviderOptions.google ? { google: effortProviderOptions.google } : {}),
     },
     tools,
     toolChoice: hasTools ? "auto" : "none",
-    stopWhen: [stepCountIs(maxSteps), ...(stopAfterToolNames ?? []).map((name) => hasToolCall(name))],
+    stopWhen: [
+      isStepCount(maxSteps),
+      ...(stopAfterToolNames ?? []).map((name) => hasToolCall(name)),
+    ],
   });
 
-  void result.usage
+  void Promise.resolve(result.totalUsage)
     .then(async (usage) => {
       if (!usage) return;
-
-      trackLlmUsageEvent({
-        ownerId: sbUserId,
-        modelId: selectedModel.id,
-        inputTokens: usage.inputTokens,
-        outputTokens: usage.outputTokens,
-        cachedInputTokens: usage.cachedInputTokens,
-        reasoningTokens: usage.reasoningTokens,
-        totalTokens: usage.totalTokens,
-        operation: "chat",
-        route: "/api/chat",
-      });
 
       try {
         const { recordLlmCost, recordLlmTokenUsage } = await import("@/lib/rate-limit/llm");
@@ -212,7 +261,7 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
         await recordLlmCost(sbUserId, selectedModel.id, {
           inputTokens: usage.inputTokens ?? 0,
           outputTokens: usage.outputTokens ?? 0,
-          cachedInputTokens: usage.cachedInputTokens ?? 0,
+          cachedInputTokens: usage.inputTokenDetails.cacheReadTokens ?? 0,
         });
       } catch {
         /* optional Redis cost/token recording */
@@ -225,6 +274,7 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
   writer.merge(
     result.toUIMessageStream({
       generateMessageId: () => assistantMessageId,
+      sendStart: false, // The outer stream announces this ID before context and progress data.
       onError: (error) => {
         logger.error("POST", "UI stream error", {
           err: serializeError(error),
@@ -242,7 +292,7 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
 
         return "An unexpected error occurred";
       },
-      onFinish: async ({ messages, isAborted, finishReason }) => {
+      onEnd: async ({ messages, isAborted, finishReason }) => {
         logger.log("POST", "Stream finished", {
           finishReason: finishReason ?? "unknown",
           isAborted,
@@ -310,10 +360,21 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
           const messagesWithModel = messages.map((savedMessage) => {
             if (savedMessage.role !== "assistant") return savedMessage;
 
-            const parts =
-              persistedAssistantParts?.length && savedMessage.id === assistantMessageId
-                ? [...persistedAssistantParts, ...savedMessage.parts]
-                : savedMessage.parts;
+            let parts = savedMessage.parts;
+
+            if (savedMessage.id === assistantMessageId) {
+              if (persistedAssistantParts?.length) parts = [...persistedAssistantParts, ...parts];
+              if (contextBudget) {
+                parts = [
+                  ...parts.filter((part) => part.type !== "data-context-budget"),
+                  {
+                    type: "data-context-budget" as const,
+                    id: "context-budget",
+                    data: contextBudget,
+                  },
+                ];
+              }
+            }
 
             return { ...savedMessage, parts, model: selectedModel.id };
           });
@@ -338,6 +399,17 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
             logger.error("POST", `Error saving chat: ${msg}`);
 
             return; // Don't continue if save fails
+          }
+
+          // Multi-mode queue: after this stream clears, try to send the next queued message.
+          if (clerkUserId) {
+            const { kickDispatchAfterStream } = await import("@/lib/message-queue/dispatch");
+
+            void kickDispatchAfterStream({
+              ownerId: sbUserId,
+              clerkUserId,
+              threadId: chatId,
+            });
           }
 
           // Fire-and-forget post-processing (don't block `onFinish`)

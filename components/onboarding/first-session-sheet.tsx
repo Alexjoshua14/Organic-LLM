@@ -24,6 +24,7 @@ import {
   shouldShowFirstSessionChecklist,
 } from "@/lib/onboarding/first-session-storage";
 import { requestFeatureGuideResume } from "@/lib/onboarding/feature-hint-explicit-request";
+import { threadEntryPrefetch } from "@/lib/chat/thread-entry-navigation";
 import { cn } from "@/lib/utils";
 
 /**
@@ -49,6 +50,7 @@ export function FirstSessionSheet() {
 
     toastShownRef.current = true;
     toast("New here?", {
+      className: "first-session-toast",
       description: "Open First steps for a quick tour.",
       duration: 8_000,
       action: {
@@ -81,6 +83,7 @@ export function FirstSessionSheet() {
     typeof document !== "undefined"
       ? createPortal(
           <div
+            data-onboarding-chrome="first-steps"
             className={cn(
               "pointer-events-auto fixed z-[35]",
               "bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2",
@@ -151,6 +154,7 @@ export function FirstSessionSheet() {
                       done && "border-accent/25 bg-accent/5"
                     )}
                     href={step.href}
+                    prefetch={threadEntryPrefetch(step.href)}
                     onClick={() => {
                       const next = completeFirstSessionStep(window.localStorage, step.id);
 

@@ -49,6 +49,7 @@ client-side navigation. Held in a page, the peer connection dies on every route 
 | FluidGlass material | `components/voice/voice-fluid-glass{,-canvas}.tsx`, geometry in `voice-glass-geometry.ts` |
 | Audio analysis | `hooks/use-voice-audio-levels.ts` |
 | Transport seam | `lib/speak/transport/voice-transport.ts` |
+| Microphone support and recovery | `lib/speak/microphone.ts` |
 | Screen context | `hooks/use-voice-screen-context.ts`, `hooks/use-chat-voice-surface.ts`, `lib/speak/ambient-context.ts`, `lib/speak/ambient-item.ts` |
 | "Sees:" chip (dev only) | `components/voice/voice-sees-chip.tsx` |
 | Idle auto-pause | `lib/speak/voice-idle.ts` |
@@ -61,6 +62,9 @@ client-side navigation. Held in a page, the peer connection dies on every route 
 | Realtime hook | `hooks/use-realtime-voice.ts` |
 | Server-event classifier | `lib/speak/realtime-events.ts` |
 | Session mint | `app/api/ai/speak/realtime/session/route.ts` |
+| Silent subagent progress | `app/api/ai/speak/realtime/progress/route.ts`, `lib/speak/subagent-progress-item.ts` |
+| Spoken subagent milestone | `app/api/ai/speak/realtime/milestone/route.ts`, `lib/speak/subagent-milestone-item.ts` |
+| Realtime voice ids | `lib/schemas/speak-realtime-voice.ts` |
 | Thread resolution | `lib/speak/resolve-speak-thread.ts`, policy in `lib/schemas/speak-thread.ts` |
 | Resume context | `lib/speak/speak-session-context.ts` |
 | Turn persistence | `app/api/ai/speak/realtime/transcript/route.ts`, `lib/speak/persist-voice-turns.ts`, `lib/speak/voice-turns.ts` |
@@ -111,9 +115,24 @@ Verified against the session route and hook on 2026-09-17. Design rationale is i
    and no tool running, the call ends itself: the session is settled and the mic released. The
    bar stays up, paused, and **Resume** continues the same thread. See
    [idle auto-pause](./decisions/20260922-idle-auto-pause.md).
+10. **Arcadia multitask Speak-to.** A subagent session passes `voice` + `subagentSeed` at mint.
+    Work updates use distinct routes: `/progress` (silent) vs `/milestone` (announce). See
+    [multitask Speak ADR](./decisions/20260925-multitask-subagent-speak.md).
 
 Memory is a per-session opt-in sent by the client, mirroring chat's composer toggle. It is
 captured on the session record, so the tool gate and the ingest path read one value.
+
+## Microphone access on mobile and self-hosted deployments
+
+The browser-facing page must use trusted HTTPS. A private LAN address or VPN tunnel over
+HTTP is still an insecure browser origin; the local-development exception applies only to
+the device's own loopback address. A reverse proxy may forward HTTPS to an HTTP app server
+internally. See the [microphone preparation ADR](./decisions/20260925-microphone-preparation.md)
+for deployment checks and recovery.
+
+Speak checks browser capabilities and requests microphone permission before minting a
+Realtime session. Missing APIs and denied permissions show recovery instructions without
+reserving server budget or starting a retry. The browser still owns microphone permission.
 
 ## Current state vs. text chat
 

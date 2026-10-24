@@ -2,6 +2,7 @@ import type { Result } from "@/types";
 
 import { generateText } from "ai";
 
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import { KNOWLEDGE_GATEWAY_PROVIDER_OPTIONS } from "@/lib/knowledge/gateway-options";
 import { createLogger } from "@/lib/logger";
 import { recordLlmCall } from "@/lib/llm/metrics";
@@ -43,8 +44,12 @@ export async function generateStrataClipboardSourceTitle(options: {
   try {
     const start = performance.now();
     const result = await generateText({
+      ...(await createAuthenticatedLlmBudgetHooks({
+        modelId: budgetModelId(STRATA_CLIPBOARD_TITLE_MODEL),
+        operation: "llm/strata-clipboard-source-title",
+      })),
       model: STRATA_CLIPBOARD_TITLE_MODEL,
-      system: CLIPBOARD_SOURCE_TITLE_SYSTEM,
+      instructions: CLIPBOARD_SOURCE_TITLE_SYSTEM,
       prompt,
       maxOutputTokens: 96,
       providerOptions: KNOWLEDGE_GATEWAY_PROVIDER_OPTIONS,
@@ -52,6 +57,7 @@ export async function generateStrataClipboardSourceTitle(options: {
     const durationMs = performance.now() - start;
 
     recordLlmCall({
+      persist: false,
       model: STRATA_CLIPBOARD_TITLE_MODEL,
       usage: result.usage,
       durationMs,

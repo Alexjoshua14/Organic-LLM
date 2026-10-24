@@ -2,7 +2,7 @@ import {
   createUIMessageStream,
   createUIMessageStreamResponse,
   streamText,
-  stepCountIs,
+  isStepCount,
   convertToModelMessages,
 } from "ai";
 import { openai } from "@ai-sdk/openai";
@@ -10,6 +10,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getMemories, addMemories } from "@mem0/vercel-ai-provider";
 import { UIMessage } from "ai";
 
+import { createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { getContext } from "@/lib/chat/chat-store";
 import { saveChat } from "@/lib/chat/chat-store";
@@ -27,6 +28,7 @@ import { MISE_TOOL_INSTRUCTIONS } from "@/lib/system-prompt/mise";
 import { PREP_PLAN_TOOL_INSTRUCTIONS } from "@/lib/system-prompt/prep";
 import { appendCurrentDate } from "@/lib/system-prompt/current-date";
 import { createLogger } from "@/lib/logger";
+import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
 
 export const maxDuration = 30;
 
@@ -88,7 +90,7 @@ export async function POST(req: Request) {
     message: incomingMessage,
     messages: incomingMessages,
     id,
-    system,
+    instructions: system,
     tools,
     persistToSupabase = true,
     isTmpChat = false,
@@ -113,6 +115,10 @@ export async function POST(req: Request) {
     return new Response("User not found in supabase", { status: 404 });
   }
   const sbUserId = sbUserIdResult.data;
+
+  const planGate = await requirePlanBudget({ clerkUserId: clerkUser.userId, sbUserId: sbUserId });
+
+  if (planGate) return planGate;
 
   const messageLimitResult = await checkLlmMessageLimit(sbUserId);
 
@@ -230,13 +236,20 @@ export async function POST(req: Request) {
   );
 
   const streamTextConfig: Parameters<typeof streamText>[0] = {
+    ...createLlmBudgetHooks({
+      ownerId: sbUserId,
+      clerkUserId: clerkUser.userId,
+      modelId: "openai/gpt-4o",
+      operation: "remy",
+      route: "/api/ai/remy",
+    }),
     model: openai("gpt-4o"),
-    messages: convertToModelMessages(validatedMessages),
-    system: finalSystemPrompt,
+    messages: await convertToModelMessages(validatedMessages),
+    instructions: finalSystemPrompt,
     maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     // Mise tools may fire several commands per turn (initiate → upsert → show_view); allow the
     // model to continue after tool results.
-    stopWhen: stepCountIs(10),
+    stopWhen: isStepCount(10),
   };
 
   // Only include tools if they're provided and have execute functions
@@ -367,7 +380,7 @@ export async function POST(req: Request) {
         }
       }
     },
-    onFinish: async ({ messages }) => {
+    onEnd: async ({ messages }) => {
       try {
         // Save chat with all messages (only if persisting to Supabase)
         if (persistToSupabase) {

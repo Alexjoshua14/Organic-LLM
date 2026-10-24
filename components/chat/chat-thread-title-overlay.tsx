@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 
+import { ThreadTitleLine, useThreadTitlePhase } from "@/components/chat/thread-title-line";
 import { glass } from "@/components/design-system/primitives";
 import { FeatureHint } from "@/components/onboarding/feature-hint";
 import { useSidebar } from "@/components/third-party/ui/sidebar";
@@ -10,6 +11,8 @@ import { cn } from "@/lib/utils";
 
 type ChatThreadTitleOverlayProps = {
   title: string | null | undefined;
+  /** Thread id for title-regen indication; omit to skip burn/shimmer. */
+  threadId?: string;
   className?: string;
 };
 
@@ -34,9 +37,14 @@ export function useResolvedThreadTitle(
  * Floating thread title for chat surfaces when the sidebar is collapsed on desktop.
  * Sits above the scroll layer so context stays visible without opening the nav.
  */
-export function ChatThreadTitleOverlay({ title, className }: ChatThreadTitleOverlayProps) {
+export function ChatThreadTitleOverlay({
+  title,
+  threadId,
+  className,
+}: ChatThreadTitleOverlayProps) {
   const { open, isMobile } = useSidebar();
-  const label = title?.trim();
+  const label = title?.trim() ?? "";
+  const { phase, shown, announced, from, to } = useThreadTitlePhase(threadId, label);
 
   if (isMobile || open || !label) return null;
 
@@ -60,8 +68,9 @@ export function ChatThreadTitleOverlay({ title, className }: ChatThreadTitleOver
             "ring-1 ring-inset ring-white/25 dark:ring-white/10"
           )}
         >
-          <h1 className="truncate text-[0.9375rem] font-semibold leading-snug tracking-tight text-foreground md:text-base">
-            {label}
+          <h1 className="thread-title truncate text-[0.9375rem] font-semibold leading-snug tracking-tight text-foreground md:text-base">
+            <span className="sr-only">{announced}</span>
+            <ThreadTitleLine from={from} phase={phase} text={shown} to={to} />
           </h1>
         </div>
       </FeatureHint>

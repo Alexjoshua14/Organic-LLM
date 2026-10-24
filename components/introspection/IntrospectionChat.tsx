@@ -4,7 +4,7 @@ import type { IntrospectionGuidedState } from "@/lib/schemas/introspection";
 
 import { UIMessage, useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { IntrospectionShell } from "./IntrospectionShell";
@@ -18,6 +18,7 @@ import { getChatModel } from "@/lib/llm/helpers";
 import { useSharedChatContext } from "@/lib/context/chat-context";
 import { Thread } from "@/lib/schemas/chat";
 import { AUTO_CHAT_MODEL, ChatModel } from "@/lib/schemas/chat";
+import { coreInputScopes } from "@/lib/core-input/scopes";
 import { isClientPIIRedactionEnabled, redactUIMessages } from "@/lib/pii/redact";
 import { ChatAIActionEnum } from "@/types/ai";
 
@@ -111,6 +112,10 @@ export function IntrospectionChat({
   }, [messages.length, sendMessage, status]);
 
   const handleErrorCleared = useCallback(() => setChatError(undefined), []);
+  const coreInputScope = useMemo(
+    () => coreInputScopes.thread("introspection", chatData.thread.id),
+    [chatData.thread.id]
+  );
 
   return (
     <IntrospectionShell
@@ -129,6 +134,7 @@ export function IntrospectionChat({
           modelRef={selectedModelRef}
           onErrorCleared={handleErrorCleared}
           sendMessage={sendMessage}
+          snapshotScope={coreInputScope}
           status={status}
           stop={stop}
           useMemoriesRef={useMemoriesRef}
