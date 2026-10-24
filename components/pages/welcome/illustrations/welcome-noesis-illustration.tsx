@@ -367,12 +367,7 @@ export function WelcomeNoesisIllustration({ className }: WelcomeNoesisIllustrati
     };
 
     runScenario(scenarioIndexRef.current);
-  }, [
-    appendMessage,
-    runAssistTyping,
-    schedule,
-    streamAssistantReply,
-  ]);
+  }, [appendMessage, runAssistTyping, schedule, streamAssistantReply]);
 
   const active = inView && pageVisible && !reduce;
 
@@ -409,7 +404,13 @@ export function WelcomeNoesisIllustration({ className }: WelcomeNoesisIllustrati
         <p className="mb-3 text-center text-2xs text-muted-foreground/75">
           Uses memory for tailored suggestions
         </p>
-        <div className={cn(card, "flex min-h-0 flex-1 flex-col gap-2 rounded-lg p-2.5", welcomeDemoCompactClass)}>
+        <div
+          className={cn(
+            card,
+            "flex min-h-0 flex-1 flex-col gap-2 rounded-lg p-2.5",
+            welcomeDemoCompactClass
+          )}
+        >
           <div className="flex min-h-0 flex-1 flex-col gap-2">
             <WelcomeDemoUserMessage
               animate={false}
@@ -437,7 +438,13 @@ export function WelcomeNoesisIllustration({ className }: WelcomeNoesisIllustrati
         </span>
       </div>
 
-      <div className={cn(card, "flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg", welcomeDemoCompactClass)}>
+      <div
+        className={cn(
+          card,
+          "flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg",
+          welcomeDemoCompactClass
+        )}
+      >
         <div
           ref={threadRef}
           className="flex min-h-[5.5rem] flex-1 flex-col gap-2.5 overflow-y-auto px-2.5 py-2.5 sm:min-h-[6.5rem] sm:px-3 sm:py-3"

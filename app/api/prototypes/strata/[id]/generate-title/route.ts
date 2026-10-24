@@ -8,6 +8,7 @@ import { generateStrataPageTitleFromSections } from "@/lib/llm/strata-title";
 import { createLogger } from "@/lib/logger";
 import { checkStrataTitleGenerationLimit } from "@/lib/rate-limit/title";
 import { StrataGenerateTitleRequestSchema, isUntitledStrataTitle } from "@/lib/schemas/strata";
+import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
 
 export const maxDuration = 30;
 
@@ -40,6 +41,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const { id: pageId } = await params;
   const sbUserId = sbUserIdResult.data;
+  const planGate = await requirePlanBudget({ clerkUserId: clerkUser.userId, sbUserId });
+
+  if (planGate) return planGate;
 
   const limitResult = await checkStrataTitleGenerationLimit(sbUserId, pageId);
 
@@ -109,6 +113,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 
   const titleResult = await generateStrataPageTitleFromSections({
+    ownerId: sbUserId,
     pageId,
     rawText,
     refinedText,

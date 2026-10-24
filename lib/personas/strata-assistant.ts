@@ -1,6 +1,4 @@
-import type { ChatModel } from "@/lib/schemas/chat";
-
-import { DEFAULT_CHAT_MODEL, ChatModels, AUTO_RESOLVED_SONNET_MODEL_ID } from "@/lib/schemas/chat";
+import { models, type ChatModel } from "@/lib/schemas/chat";
 
 export const STRATA_ASSISTANT_PERSONA_IDS = ["remy", "spark", "aion", "prometheus"] as const;
 
@@ -29,12 +27,6 @@ const DEFAULT_TOOLS: StrataAssistantToolDefaults = {
   toolKnowledgeSearch: false,
 };
 
-function pickModel(id: string): ChatModel {
-  const found = ChatModels.find((m) => m.id === id);
-
-  return found ?? DEFAULT_CHAT_MODEL;
-}
-
 const DEFINITIONS: Record<StrataAssistantPersonaId, StrataAssistantPersonaDefinition> = {
   remy: {
     id: "remy",
@@ -42,7 +34,7 @@ const DEFINITIONS: Record<StrataAssistantPersonaId, StrataAssistantPersonaDefini
     shortLabel: "Remy",
     getSystemPromptAugmentation: () =>
       "\n\n[Persona: Remy]\nLean toward food, cooking technique, ingredients, menus, hospitality, and sensory language when relevant. Stay accurate; do not invent recipes or safety-critical temperatures.",
-    getDefaultModel: () => pickModel("openai/gpt-5.6-terra"),
+    getDefaultModel: () => models.openai.terra,
     getDefaultToolDefaults: () => ({ ...DEFAULT_TOOLS, toolWebSearch: true }),
   },
   spark: {
@@ -51,7 +43,7 @@ const DEFINITIONS: Record<StrataAssistantPersonaId, StrataAssistantPersonaDefini
     shortLabel: "Spark",
     getSystemPromptAugmentation: () =>
       "\n\n[Persona: Spark]\nLean toward markets, investing vocabulary, risk, and business finance when relevant. Do not give individualized investment advice or promises about returns.",
-    getDefaultModel: () => pickModel("openai/gpt-5.6-terra"),
+    getDefaultModel: () => models.openai.terra,
     getDefaultToolDefaults: () => ({ ...DEFAULT_TOOLS, toolWebSearch: true }),
   },
   aion: {
@@ -60,7 +52,7 @@ const DEFINITIONS: Record<StrataAssistantPersonaId, StrataAssistantPersonaDefini
     shortLabel: "Aion",
     getSystemPromptAugmentation: () =>
       "\n\n[Persona: Aion]\nUse a calm, encyclopedic tone across domains. Prefer structured explanations and clear definitions when the user spans multiple topics.",
-    getDefaultModel: () => pickModel("google/gemini-3.1-pro-preview"),
+    getDefaultModel: () => models.google.pro,
     getDefaultToolDefaults: () => ({
       ...DEFAULT_TOOLS,
       toolWebSearch: true,
@@ -73,7 +65,7 @@ const DEFINITIONS: Record<StrataAssistantPersonaId, StrataAssistantPersonaDefini
     shortLabel: "Prometheus",
     getSystemPromptAugmentation: () =>
       "\n\n[Persona: Prometheus]\nLean toward software, systems, scientific reasoning, and engineering tradeoffs when relevant. Prefer precise terminology and reproducible steps.",
-    getDefaultModel: () => pickModel(AUTO_RESOLVED_SONNET_MODEL_ID),
+    getDefaultModel: () => models.anthropic.sonnet,
     getDefaultToolDefaults: () => ({
       ...DEFAULT_TOOLS,
       toolWebSearch: true,

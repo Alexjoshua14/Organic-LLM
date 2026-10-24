@@ -30,9 +30,12 @@ export default async function StrataBrowserPage() {
 
   if (!clerkUser?.userId) {
     return (
-      <LiquidChromePage transparentBackground className="items-stretch justify-start overflow-hidden">
+      <LiquidChromePage
+        transparentBackground
+        className="items-stretch justify-start overflow-hidden"
+      >
         <AdaptiveLiquidChrome dimIntensity={0.45} />
-        <div className="relative z-10 h-full min-h-0 w-full overflow-y-auto">
+        <div className="relative z-10 h-full min-h-0 w-full min-w-0 overflow-x-hidden overflow-y-auto">
           <PageContentFrame>
             <PageNavBack href="/sandbox/prototypes">← Prototypes</PageNavBack>
             <p className="text-destructive">You need to sign in to use Strata.</p>
@@ -47,9 +50,12 @@ export default async function StrataBrowserPage() {
 
   if (sbUserIdResult.error || !ownerId) {
     return (
-      <LiquidChromePage transparentBackground className="items-stretch justify-start overflow-hidden">
+      <LiquidChromePage
+        transparentBackground
+        className="items-stretch justify-start overflow-hidden"
+      >
         <AdaptiveLiquidChrome dimIntensity={0.45} />
-        <div className="relative z-10 h-full min-h-0 w-full overflow-y-auto">
+        <div className="relative z-10 h-full min-h-0 w-full min-w-0 overflow-x-hidden overflow-y-auto">
           <PageContentFrame>
             <PageNavBack href="/sandbox/prototypes">← Prototypes</PageNavBack>
             <p className="text-destructive">Could not resolve your profile for Strata.</p>
@@ -100,8 +106,8 @@ export default async function StrataBrowserPage() {
           />
         }
       >
-        <div className="relative z-10 flex h-full min-h-0 w-full flex-col overflow-y-auto">
-          <PageContentFrame className="flex min-h-0 flex-col pb-0">
+        <div className="relative z-10 flex h-full min-h-0 w-full min-w-0 flex-col overflow-x-hidden overflow-y-auto overscroll-y-contain">
+          <PageContentFrame className="flex min-h-0 w-full min-w-0 max-w-full flex-col pb-0">
             <PageNavBack href="/sandbox/prototypes" trailing={<StrataAssistantOpenHint />}>
               ← Prototypes
             </PageNavBack>

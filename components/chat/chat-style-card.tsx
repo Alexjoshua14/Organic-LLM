@@ -2,11 +2,11 @@
 
 import type { ReactNode, Ref } from "react";
 
+import { useChatStyleCardLumen, useChatStyleCardLumenHostRef } from "./use-chat-style-card-lumen";
+
 import { glass } from "@/components/design-system/primitives";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/third-party/ui/tooltip";
 import { cn } from "@/lib/utils";
-
-import { useChatStyleCardLumen, useChatStyleCardLumenHostRef } from "./use-chat-style-card-lumen";
 
 type ChatStyleCardProps = {
   icon: ReactNode;
@@ -33,6 +33,7 @@ export function ChatStyleCard({
   buttonRef,
 }: ChatStyleCardProps) {
   const hostRef = useChatStyleCardLumenHostRef();
+
   useChatStyleCardLumen(hostRef, selected);
 
   const cardButton = (

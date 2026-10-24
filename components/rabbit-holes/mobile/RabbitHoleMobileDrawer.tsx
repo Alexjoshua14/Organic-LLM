@@ -7,14 +7,15 @@ import type {
   RabbitHoleSource,
 } from "@/lib/schemas/rabbitHoleSchemas";
 import type { MobileSheetSnap } from "./MobileBottomSheet";
+import type { SimpleResult } from "@/types";
 
 import { useRef } from "react";
 
 import { RabbitHoleDrawerChat } from "./RabbitHoleDrawerChat";
+
 import { RabbitHolePromptBar } from "@/components/rabbit-holes/RabbitHolePromptBar";
 import { useRabbitHoleChatComposer } from "@/hooks/use-rabbit-hole-chat-composer";
 import { useRabbitHoleDrawerDisplay } from "@/hooks/use-rabbit-hole-drawer-display";
-import type { SimpleResult } from "@/types";
 
 export type UseRabbitHoleMobileDrawerParams = {
   session: RabbitHoleSession | null;
@@ -89,8 +90,12 @@ export function useRabbitHoleMobileDrawer({
         isBusy={isBusy}
         isStreaming={chat.isStreaming}
         messages={chat.messages}
+        planBudget={chat.planBudget}
+        processingIntensity={chat.processingIntensity}
         session={session}
         sources={session ? sources : []}
+        subagents={chat.subagents}
+        zeroDataRetention={chat.zeroDataRetention}
         onBranchClick={onBranchClick}
         onNavigateBack={onNavigateBack}
         onSourceClick={onSourceClick}

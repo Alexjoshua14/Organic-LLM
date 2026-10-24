@@ -5,7 +5,15 @@ import type { TaskWithCategory } from "@/lib/ergon/types";
 import type { KeyboardEvent } from "react";
 
 import { useCallback, useRef, useState } from "react";
-import { Check, ChevronDown, CircleDot, MessageCircle, Pencil, Sparkles, Trash2 } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  CircleDot,
+  MessageCircle,
+  Pencil,
+  Sparkles,
+  Trash2,
+} from "lucide-react";
 
 import { ErgonTaskActionButton } from "@/components/ergon/ErgonTaskActionButton";
 import {
@@ -163,6 +171,7 @@ export function TaskRow({
     <span ref={hostRef} className="chat-style-card-host block w-full">
       <span className="chat-style-card-stage relative block w-full">
         {isActive ? <span aria-hidden className="chat-style-lumen-rim" /> : null}
+        {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- focusable row (tabIndex) with documented keyboard shortcuts and swipe gestures */}
         <div
           ref={setRowNode}
           aria-keyshortcuts="Enter Space a e Delete c"

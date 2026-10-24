@@ -1,7 +1,10 @@
 "use client";
 
 import type { CSSProperties, RefObject } from "react";
-import type { DelphiCaptionBudget, DelphiDisplayInput } from "@/lib/memory-ingest/delphi-caption-budget";
+import type {
+  DelphiCaptionBudget,
+  DelphiDisplayInput,
+} from "@/lib/memory-ingest/delphi-caption-budget";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -109,8 +112,9 @@ export function useMemoryIngestCaptionBudget(): UseMemoryIngestCaptionBudgetResu
     const nextBudget = computeDelphiCaptionBudget(input);
 
     setBudget(nextBudget);
+    // Ceiling, not a fixed size: the caption fits its content and may shrink to a
+    // single line; unused height flows back to the flex-1 particle column above.
     setCaptionStyle({
-      minHeight: nextBudget.visibleHeightPx,
       maxHeight: nextBudget.visibleHeightPx,
     });
   }, []);

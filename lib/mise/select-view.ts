@@ -1,7 +1,8 @@
 import type { PlanTimelineBlock, RecipeCardBlock, ShoppingListBlock } from "@/lib/schemas/gen-ui";
-import { RecipeCardBodySchema } from "@/lib/schemas/gen-ui/recipe-card";
 import type { MiseIngredient, MiseRecipe, MiseView } from "@/lib/schemas/mise";
 import type { MisePlanState } from "@/lib/mise/types";
+
+import { RecipeCardBodySchema } from "@/lib/schemas/gen-ui/recipe-card";
 
 /** Recipes in insertion order, optionally narrowed to one by the view filter. */
 export function selectRecipes(plan: MisePlanState, view?: MiseView): MiseRecipe[] {

@@ -5,6 +5,7 @@ import { z } from "zod";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { generateDmzIntakeSummary } from "@/lib/llm/dmz-intake-summary";
 import { DMZ_CONNECTION_PROVIDERS } from "@/lib/security/dmz";
+import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
 
 const BodySchema = z.object({
   excerpt: z.string().min(1).max(50_000),
@@ -26,6 +27,10 @@ export async function POST(req: Request) {
   if (sbUserId.error || !sbUserId.data) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
+
+  const planGate = await requirePlanBudget({ clerkUserId: user.userId, sbUserId: sbUserId.data });
+
+  if (planGate) return planGate;
 
   let json: unknown;
 

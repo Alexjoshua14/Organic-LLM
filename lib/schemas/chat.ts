@@ -1,19 +1,19 @@
 import type { GatewayModelId } from "@ai-sdk/gateway";
+import type { DeviceTier } from "@/lib/memory-ingest/delphi-caption-budget";
+import type { ChatModel } from "@/lib/schemas/chat-models";
 
 import z from "zod";
 
+import { ArcadiaMultitaskSendTargetSchema } from "@/lib/schemas/arcadia-multitask-send-target";
 import { CHAT_EXPERIENCES, parseChatExperience } from "@/lib/chat/chat-experience";
 import { parseChatStyle, ChatStyleSchema } from "@/lib/chat/chat-style";
 import { ChatEffortLevelSchema } from "@/lib/schemas/chat-effort";
-import type { DeviceTier } from "@/lib/memory-ingest/delphi-caption-budget";
+import { ContextEffortLevelSchema } from "@/lib/memory/context-effort";
 import {
   type DrawerChatDisplayInput,
   type DrawerSheetSnap,
 } from "@/lib/rabbit-holes/drawer-chat-ui-budget";
-import {
-  AUTO_CHAT_MODEL_ID,
-  AUTO_RESOLVED_SONNET_MODEL_ID,
-} from "@/lib/schemas/chat-model-ids";
+import { AUTO_CHAT_MODEL_ID } from "@/lib/schemas/chat-model-ids";
 
 export type { ChatEffortLevel } from "@/lib/schemas/chat-effort";
 export {
@@ -26,7 +26,27 @@ export {
   getEffortLevelsForModel,
   modelSupportsEffortControl,
 } from "@/lib/schemas/chat-effort";
-export { AUTO_CHAT_MODEL_ID, AUTO_RESOLVED_SONNET_MODEL_ID } from "@/lib/schemas/chat-model-ids";
+export { AUTO_CHAT_MODEL_ID } from "@/lib/schemas/chat-model-ids";
+export {
+  AUTO_CHAT_MODEL,
+  AUTO_RESOLVED_SONNET_MODEL_ID,
+  CHAT_MODEL_ALIASES,
+  ChatModelCatalog,
+  ChatModels,
+  DEFAULT_CHAT_MODEL,
+  MODEL_ALIASES,
+  models,
+  chatModelByAlias,
+  chatModelById,
+  requireChatModel,
+  getSelectableChatModels,
+  providerModelSlug,
+  type ChatModel,
+  type ChatModelAlias,
+  type ChatModelId,
+  type ModelAlias,
+  type ModelProvider,
+} from "@/lib/schemas/chat-models";
 
 // Message role enum
 export const MessageRole = z.enum(["user", "assistant", "system"]);
@@ -34,93 +54,18 @@ export const MessageRole = z.enum(["user", "assistant", "system"]);
 // Message schema kind enum
 export const MessageSchemaKind = z.enum(["ui_message"]);
 
-export type ChatModelId = GatewayModelId | typeof AUTO_CHAT_MODEL_ID;
-
-export type ChatModel = {
-  id: ChatModelId;
-  name: string;
-  supportsZeroDataRetention?: boolean;
-  /** Only selectable by admins (profiles.admin); enforced server-side in the chat route. */
-  adminOnly?: boolean;
-};
-
 export const ChatModelSchema: z.ZodType<ChatModel> = z.object({
   id: z.union([z.literal(AUTO_CHAT_MODEL_ID), z.string()]),
   name: z.string(),
+  alias: z.string().optional(),
+  picker: z.boolean().optional(),
   supportsZeroDataRetention: z.boolean().optional(),
+  requiresZeroDataRetention: z.boolean().optional(),
   adminOnly: z.boolean().optional(),
 }) as z.ZodType<ChatModel>;
 
 /** Re-export for call sites that only need the gateway model id union. */
 export type { GatewayModelId };
-
-export const AUTO_CHAT_MODEL: ChatModel = {
-  id: AUTO_CHAT_MODEL_ID,
-  name: "Auto",
-  supportsZeroDataRetention: true,
-};
-
-const gatewayChatModels: ChatModel[] = [
-  { id: "openai/gpt-5.6-sol", name: "GPT-5.6 Sol", supportsZeroDataRetention: true },
-  { id: "openai/gpt-5.6-terra", name: "GPT-5.6 Terra", supportsZeroDataRetention: true },
-  { id: "openai/gpt-5.6-luna", name: "GPT-5.6 Luna", supportsZeroDataRetention: true },
-  { id: "openai/gpt-5.4-mini", name: "GPT-5.4 Mini", supportsZeroDataRetention: true },
-  { id: "openai/gpt-5.4-nano", name: "GPT-5.4 Nano", supportsZeroDataRetention: true },
-  { id: "google/gemini-3.1-pro-preview", name: "Gemini 3.1 Pro", supportsZeroDataRetention: true },
-  { id: "google/gemini-3.7-flash", name: "Gemini 3.7 Flash", supportsZeroDataRetention: true },
-  { id: "google/gemini-3-flash", name: "Gemini 3 Flash", supportsZeroDataRetention: true },
-  {
-    id: "google/gemini-3.5-flash-lite",
-    name: "Gemini 3.5 Flash Lite",
-    supportsZeroDataRetention: true,
-  },
-  {
-    id: "google/gemini-2.5-flash-lite",
-    name: "Gemini 2.5 Flash Lite",
-    supportsZeroDataRetention: true,
-  },
-  {
-    // Fable 5.1 is not ZDR-compatible (gateway `zdr: none`).
-    id: "anthropic/claude-fable-5.1",
-    name: "Claude Fable 5.1",
-    supportsZeroDataRetention: false,
-    adminOnly: true,
-  },
-  { id: "anthropic/claude-opus-5", name: "Claude Opus 5", supportsZeroDataRetention: true },
-  {
-    id: "anthropic/claude-sonnet-5",
-    name: "Claude Sonnet 5",
-    supportsZeroDataRetention: true,
-  },
-  { id: "anthropic/claude-haiku-4.5", name: "Claude Haiku 4.5", supportsZeroDataRetention: true },
-  { id: "perplexity/sonar-pro", name: "Sonar Pro", supportsZeroDataRetention: false },
-  {
-    id: "perplexity/sonar-reasoning-pro",
-    name: "Sonar Reasoning Pro",
-    supportsZeroDataRetention: false,
-  },
-  { id: "moonshotai/kimi-k3", name: "Kimi K3", supportsZeroDataRetention: true },
-  { id: "moonshotai/kimi-k2.7-code", name: "Kimi K2.7 Code", supportsZeroDataRetention: true },
-  { id: "moonshotai/kimi-k2.6", name: "Kimi K2.6", supportsZeroDataRetention: true },
-  { id: "deepseek/deepseek-v4-pro", name: "DeepSeek v4 Pro", supportsZeroDataRetention: true },
-  {
-    id: "deepseek/deepseek-v4-flash",
-    name: "DeepSeek v4 Flash",
-    supportsZeroDataRetention: true,
-  },
-  { id: "openai/gpt-oss-120b", name: "GPT OSS [120b]", supportsZeroDataRetention: true },
-  { id: "openai/gpt-oss-20b", name: "GPT OSS [20b]", supportsZeroDataRetention: true },
-];
-
-/** First entry is Auto; default fixed model remains the first real gateway id. */
-export const ChatModels: ChatModel[] = [AUTO_CHAT_MODEL, ...gatewayChatModels];
-
-export const DEFAULT_CHAT_MODEL: ChatModel = gatewayChatModels[0];
-
-/** Models the given user may select; hides `adminOnly` entries from non-admins. */
-export function getSelectableChatModels(isAdmin: boolean): ChatModel[] {
-  return isAdmin ? ChatModels : ChatModels.filter((m) => !m.adminOnly);
-}
 
 // Thread schema
 export const ThreadCreate = z.object({
@@ -137,6 +82,9 @@ export const ThreadSchema = ThreadCreate.partial({ owner_id: true }).extend({
   active_stream_id: z.string().nullable().optional(),
   active_stream_started_at: z.string().nullable().optional(),
   arcadia_starter_key: z.string().nullable().optional(),
+  arcadia_multitask_view: z.boolean().nullable().optional(),
+  parent_thread_id: z.uuid().nullable().optional(),
+  subagent_agent_id: z.string().nullable().optional(),
 });
 
 export const ThreadUpdate = z.object({
@@ -231,14 +179,22 @@ export const DelphiDisplayRequestSchema = z.object({
   lineHeightPx: z.number().finite().positive(),
   avgCharWidthPx: z.number().finite().positive().optional(),
   userAgent: z.string().max(512).optional(),
-  deviceTier: z.enum(["mobile", "tablet", "desktop"] satisfies [DeviceTier, DeviceTier, DeviceTier]),
+  deviceTier: z.enum(["mobile", "tablet", "desktop"] satisfies [
+    DeviceTier,
+    DeviceTier,
+    DeviceTier,
+  ]),
   rootFontSizePx: z.number().finite().positive().optional(),
 });
 
 export const DrawerChatDisplayRequestSchema = z.object({
   viewportWidthPx: z.number().finite().positive(),
   viewportHeightPx: z.number().finite().positive(),
-  sheetSnap: z.enum(["collapsed", "half", "full"] satisfies [DrawerSheetSnap, DrawerSheetSnap, DrawerSheetSnap]),
+  sheetSnap: z.enum(["collapsed", "half", "full"] satisfies [
+    DrawerSheetSnap,
+    DrawerSheetSnap,
+    DrawerSheetSnap,
+  ]),
   aiBlockMaxHeightPx: z.number().finite().positive(),
   aiBlockWidthPx: z.number().finite().positive(),
   fontSizePx: z.number().finite().positive(),
@@ -254,6 +210,11 @@ export const ChatRequestSchema = z.object({
   model: ChatModelSchema.optional(),
   /** Reasoning effort hint; `auto` or omitted leaves provider defaults unchanged. */
   effort: ChatEffortLevelSchema.optional(),
+  /**
+   * Arcadia-only: how hard to compile user memory/portrait this turn.
+   * Omitted → legacy rewriter path (beta off, or non-Arcadia).
+   */
+  contextEffort: ContextEffortLevelSchema.optional(),
   webSearch: z.boolean().optional(),
   memory: z.boolean().optional().default(true),
   speechFriendly: z.boolean().optional(),
@@ -308,6 +269,13 @@ export const ChatRequestSchema = z.object({
     )
     .max(10)
     .optional(),
+  /** Noesis authored spark: system-prompt override that drives a `topic_explore` thread. */
+  customSystemPromptOverride: z.string().max(8000).optional(),
+  /**
+   * Arcadia multitask dashboard: explicit orchestrator vs subagent destination.
+   * Only honored while the saved Multiagent flag is on; omitted then means orchestrator.
+   */
+  multitaskSendTarget: ArcadiaMultitaskSendTargetSchema.optional(),
 });
 
 export const ThreadSummarySchema = z.object({

@@ -33,7 +33,7 @@ export function KanbanLoadingShell({ title }: { title?: string }) {
           Intelligence incoming…
         </span>
       </div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-3 gap-3">
         {[0, 1, 2].map((col) => (
           <div key={col} className="space-y-2">
             <Shimmer className="h-2.5 w-16" />

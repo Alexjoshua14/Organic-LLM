@@ -4,6 +4,7 @@ import type { Result } from "@/types";
 import { generateObject } from "ai";
 import { z } from "zod";
 
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import { KNOWLEDGE_GATEWAY_PROVIDER_OPTIONS } from "@/lib/knowledge/gateway-options";
 import { createLogger } from "@/lib/logger";
 import { recordLlmCall } from "@/lib/llm/metrics";
@@ -11,10 +12,11 @@ import {
   ErgonRefineCategoryHintSchema,
   ErgonRefineLlmTaskSchema,
 } from "@/lib/schemas/ergon-refine";
+import { models } from "@/lib/schemas/chat-models";
 
 const logger = createLogger("lib/ergon/refine-task-capture-llm.ts");
 
-export const ERGON_REFINE_MODEL = "openai/gpt-5.4-nano" as const;
+export const ERGON_REFINE_MODEL = models.openai.luna.id;
 export const ERGON_REFINE_TIMEOUT_MS = 1_500;
 
 type CategoryHint = z.infer<typeof ErgonRefineCategoryHintSchema>;
@@ -38,11 +40,7 @@ function buildOutputSchema(count: number) {
   });
 }
 
-function buildPrompt(options: {
-  titles: string[];
-  categories: CategoryHint[];
-  now: Date;
-}): string {
+function buildPrompt(options: { titles: string[]; categories: CategoryHint[]; now: Date }): string {
   const categoryLines =
     options.categories.length > 0
       ? options.categories.map((c) => `- ${c.name}`).join("\n")
@@ -94,8 +92,12 @@ export async function refineTasksWithLlm(options: {
 
     const { object, usage } = await withTimeout(
       generateObject({
+        ...(await createAuthenticatedLlmBudgetHooks({
+          modelId: budgetModelId(ERGON_REFINE_MODEL),
+          operation: "ergon/refine-task-capture-llm",
+        })),
         model: ERGON_REFINE_MODEL,
-        system: ERGON_REFINE_SYSTEM,
+        instructions: ERGON_REFINE_SYSTEM,
         prompt,
         schema,
         maxOutputTokens: Math.min(120 * count + 80, 1_200),
@@ -107,6 +109,7 @@ export async function refineTasksWithLlm(options: {
     const durationMs = performance.now() - start;
 
     recordLlmCall({
+      persist: false,
       model: ERGON_REFINE_MODEL,
       usage,
       durationMs,

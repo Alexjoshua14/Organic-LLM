@@ -5,15 +5,18 @@ import { generateText } from "ai";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { KNOWLEDGE_GATEWAY_PROVIDER_OPTIONS } from "@/lib/knowledge/gateway-options";
 import { CLASSIFIER_SYSTEM_PROMPT } from "@/lib/knowledge/prompts";
 import { recordLlmCall } from "@/lib/llm/metrics";
 import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
+import { models } from "@/lib/schemas/chat-models";
+import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
 
 export const maxDuration = 15;
 
-const CLASSIFY_MODEL = "openai/gpt-5.4-nano";
+const CLASSIFY_MODEL = models.openai.luna.id;
 
 const ClassifyBodySchema = z.object({
   text: z.string().trim().min(1).max(20_000),
@@ -41,6 +44,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
+  const planGate = await requirePlanBudget({ clerkUserId: user.userId, sbUserId: sbUserId.data });
+
+  if (planGate) return planGate;
+
   const messageLimitResult = await checkLlmMessageLimit(sbUserId.data);
 
   if (!messageLimitResult.success) {
@@ -62,14 +69,19 @@ export async function POST(req: Request) {
 
   try {
     const { text, usage } = await generateText({
+      ...(await createAuthenticatedLlmBudgetHooks({
+        modelId: budgetModelId(CLASSIFY_MODEL),
+        operation: "/api/profile/knowledge/classify",
+      })),
       model: CLASSIFY_MODEL,
-      system: CLASSIFIER_SYSTEM_PROMPT,
+      instructions: CLASSIFIER_SYSTEM_PROMPT,
       prompt: body.text,
       maxOutputTokens: 8,
       providerOptions: KNOWLEDGE_GATEWAY_PROVIDER_OPTIONS,
     });
 
     recordLlmCall({
+      persist: false,
       model: CLASSIFY_MODEL,
       usage,
       durationMs: performance.now() - start,

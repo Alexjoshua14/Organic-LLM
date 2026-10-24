@@ -22,9 +22,7 @@ function resolveUserLabel(userId: string | null | undefined): string {
 function buildAad(context: ComposerDraftEncryptionContext): Uint8Array {
   const userLabel = resolveUserLabel(context.userId);
 
-  return new TextEncoder().encode(
-    `${HKDF_INFO_PREFIX}:${userLabel}:${context.chatId}`
-  );
+  return new TextEncoder().encode(`${HKDF_INFO_PREFIX}:${userLabel}:${context.chatId}`);
 }
 
 function buildHkdfInfo(context: ComposerDraftEncryptionContext): Uint8Array {

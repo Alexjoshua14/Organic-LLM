@@ -1,19 +1,26 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import { cleanup } from "@testing-library/react";
+import { afterAll, afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { act, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ComponentProps, ReactNode } from "react";
 
 import { FeatureHintRegistryProvider } from "@/lib/onboarding/feature-hint-context";
+import * as sidebarUi from "@/components/third-party/ui/sidebar";
+import { mockModulePreservingReal } from "../helpers/module-mock";
 import { render } from "../helpers/render";
 
-const mockCreateChat = mock<
-  () => Promise<{ data: string | null; error: Error | null }>
->(async () => ({
-  data: "new-chat-id",
-  error: null,
-}));
+const mockCreateChat = mock<() => Promise<{ data: string | null; error: Error | null }>>(
+  async () => ({
+    data: "new-chat-id",
+    error: null,
+  })
+);
 const mockRefreshSidebarChats = mock(() => {});
 const mockRouterPush = mock(() => {});
+const mockCreateArcadia = mock(async () => ({ ok: true, path: "/sandbox/arcadia/new-arcadia-id" }));
+
+mock.module("@/lib/chat/create-arcadia-thread", () => ({
+  createArcadiaThreadAction: mockCreateArcadia,
+}));
 
 const chatStoreStub = async () => ({ data: null, error: new Error("chat-store mocked") });
 mock.module("@/lib/chat/chat-store", () => ({
@@ -22,6 +29,7 @@ mock.module("@/lib/chat/chat-store", () => ({
   readChat: chatStoreStub,
   saveChat: async () => ({ ok: false, error: new Error("chat-store mocked") }),
   saveMessage: async () => ({ ok: false, error: new Error("chat-store mocked") }),
+  updateChatMessage: async () => ({ ok: false, error: new Error("chat-store mocked") }),
   deleteChatMessage: async () => ({ ok: false, error: new Error("chat-store mocked") }),
   getChats: async () => ({ data: null, error: new Error("chat-store mocked") }),
   getChat: chatStoreStub,
@@ -38,31 +46,32 @@ mock.module("next/navigation", () => ({
 }));
 
 mock.module("next/link", () => ({
-  default: ({
-    children,
-    href,
-    ...p
-  }: {
-    children?: ReactNode;
-    href: string;
-  }) => (
+  default: ({ children, href, ...p }: { children?: ReactNode; href: string }) => (
     <a href={href} {...p}>
       {children}
     </a>
   ),
 }));
 
-mock.module("@/components/third-party/ui/sidebar", () => ({
-  SidebarMenuButton: ({
-    children,
-    onClick,
-    ...props
-  }: ComponentProps<"button"> & { children?: ReactNode }) => (
-    <button onClick={onClick} {...props}>
-      {children}
-    </button>
-  ),
-}));
+// Merged over the real module and restored: a bare stub dropped `SidebarProvider` and the
+// other primitives for every file loaded after this one.
+const restoreSidebarUi = mockModulePreservingReal(
+  "@/components/third-party/ui/sidebar",
+  sidebarUi,
+  {
+    SidebarMenuButton: ({
+      children,
+      onClick,
+      ...props
+    }: ComponentProps<"button"> & { children?: ReactNode }) => (
+      <button onClick={onClick} {...props}>
+        {children}
+      </button>
+    ),
+  } as never
+);
+
+afterAll(restoreSidebarUi);
 
 import { ChatContext, type ChatContextValue } from "@/lib/context/chat-context";
 
@@ -76,6 +85,8 @@ describe("SidebarExperienceRail (Chat segment)", () => {
     mockCreateChat.mockClear();
     mockRefreshSidebarChats.mockClear();
     mockRouterPush.mockClear();
+    mockCreateArcadia.mockClear();
+    mockCreateArcadia.mockResolvedValue({ ok: true, path: "/sandbox/arcadia/new-arcadia-id" });
 
     mockCreateChat.mockResolvedValue({
       data: "new-chat-id",
@@ -84,9 +95,7 @@ describe("SidebarExperienceRail (Chat segment)", () => {
   });
 
   async function renderNewChat() {
-    const { SidebarExperienceRail } = await import(
-      "@/components/sidebar/sidebar-experience-rail"
-    );
+    const { SidebarExperienceRail } = await import("@/components/sidebar/sidebar-experience-rail");
 
     return render(
       <FeatureHintRegistryProvider>
@@ -106,7 +115,7 @@ describe("SidebarExperienceRail (Chat segment)", () => {
         >
           <SidebarExperienceRail />
         </ChatContext.Provider>
-      </FeatureHintRegistryProvider>,
+      </FeatureHintRegistryProvider>
     );
   }
 
@@ -135,5 +144,39 @@ describe("SidebarExperienceRail (Chat segment)", () => {
 
     expect(mockRefreshSidebarChats.mock.calls.length).toBe(0);
     expect(mockRouterPush.mock.calls.length).toBe(0);
+  });
+
+  test("Arcadia creates on click and navigates directly to the canonical thread", async () => {
+    const user = userEvent.setup({ document: globalThis.document });
+    const view = await renderNewChat();
+
+    expect(mockCreateArcadia).not.toHaveBeenCalled();
+    await user.click(view.getByRole("button", { name: "Arcadia" }));
+
+    expect(mockCreateArcadia).toHaveBeenCalledTimes(1);
+    expect(mockCreateChat).not.toHaveBeenCalled();
+    expect(mockRefreshSidebarChats).toHaveBeenCalledTimes(1);
+    expect(mockRouterPush).toHaveBeenCalledWith("/sandbox/arcadia/new-arcadia-id");
+  });
+
+  test("pending creation blocks repeat clicks and other new-thread actions", async () => {
+    let resolve!: (value: { ok: boolean; path: string }) => void;
+
+    mockCreateArcadia.mockImplementationOnce(
+      () =>
+        new Promise((done) => {
+          resolve = done;
+        })
+    );
+    const user = userEvent.setup({ document: globalThis.document });
+    const view = await renderNewChat();
+
+    await user.click(view.getByRole("button", { name: "Arcadia" }));
+    await user.click(view.getByRole("button", { name: "Arcadia" }));
+    await user.click(view.getByRole("button", { name: "Chat" }));
+    expect(mockCreateArcadia).toHaveBeenCalledTimes(1);
+    expect(mockCreateChat).not.toHaveBeenCalled();
+    await act(async () => resolve({ ok: true, path: "/sandbox/arcadia/new-arcadia-id" }));
+    expect(mockRouterPush).toHaveBeenCalledTimes(1);
   });
 });

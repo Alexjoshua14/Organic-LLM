@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
 import {
@@ -79,6 +80,7 @@ describe("organic-relay contract", () => {
 
   test("isIntrospectionPayloadWire", () => {
     const wire = readFileSync(join(FIXTURES, "wire-v1.txt"), "utf8").trim();
+
     expect(isIntrospectionPayloadWire(wire)).toBe(true);
     expect(isIntrospectionPayloadWire("not-a-payload")).toBe(false);
   });

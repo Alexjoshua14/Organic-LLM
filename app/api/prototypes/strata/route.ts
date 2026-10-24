@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { generateObject, generateText } from "ai";
 
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import { getStrataPageById } from "@/data/supabase/strata";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { clientErrorResponse, logRouteError } from "@/lib/api/client-safe-error";
@@ -15,6 +16,8 @@ import { getStrataUpdateSystemPrompt } from "@/lib/system-prompt/strata-update";
 import { createStrataKnowledgeGraphTools } from "@/lib/llm/strata-knowledge-graph-tools";
 import { buildPromptSafeRawInputBlock, sanitizeRawUserInput } from "@/lib/strata/input-safety";
 import { buildRawDiffPromptBlock } from "@/lib/strata/raw-diff";
+import { models } from "@/lib/schemas/chat-models";
+import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
 
 export const maxDuration = 30;
 
@@ -69,6 +72,13 @@ export async function POST(req: Request) {
       headers: { "Content-Type": "application/json" },
     });
   }
+  const planGate = await requirePlanBudget({
+    clerkUserId: user.userId,
+    sbUserId: sbUserIdResult.data,
+  });
+
+  if (planGate) return planGate;
+
   const sbUserId = sbUserIdResult.data;
 
   try {
@@ -157,8 +167,12 @@ Return JSON only using the required output schema.`;
         : (await import("@/lib/llm/strata-memory-tool")).createStrataMemorySearchTool(sbUserId);
 
     const { text: toolingContext } = await generateText({
-      model: "openai/gpt-5.4-mini",
-      system: `${system}
+      ...(await createAuthenticatedLlmBudgetHooks({
+        modelId: budgetModelId(models.openai.terra.id),
+        operation: "/api/prototypes/strata",
+      })),
+      model: models.openai.terra.id,
+      instructions: `${system}
 
 This pass exists to gather context using tools before final section generation.
 Use tools to collect only relevant context, then return concise bullet notes.
@@ -172,8 +186,12 @@ Do not return final Refined/Elaborated content in this pass.`,
     });
 
     const { object } = await generateObject({
-      model: "google/gemini-3-flash",
-      system,
+      ...(await createAuthenticatedLlmBudgetHooks({
+        modelId: budgetModelId(models.google.flash.id),
+        operation: "/api/prototypes/strata",
+      })),
+      model: models.google.flash.id,
+      instructions: system,
       prompt: `${prompt}
 
 Tooling context notes (from Mem0 + knowledge graph tools):

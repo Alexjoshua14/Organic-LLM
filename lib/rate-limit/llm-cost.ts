@@ -9,6 +9,8 @@ export type Usage = {
   inputTokens?: number;
   outputTokens?: number;
   cachedInputTokens?: number;
+  /** AI SDK usage, before conversion to the flat ledger shape. */
+  inputTokenDetails?: { cacheReadTokens?: number };
   totalTokens?: number;
   /** Realtime audio input tokens (≈1 token / 100ms user audio). */
   audioInputTokens?: number;
@@ -36,9 +38,24 @@ const DEFAULT_COST: ModelCost = {
 
 /**
  * Cost per million tokens (USD). Sourced from provider pricing; update periodically.
- * Keys match model ids from lib/schemas/chat.ts (e.g. openai/gpt-5.4-mini).
+ * Keys match concrete gateway ids (catalog `ChatModel.id` and retired SKUs).
  */
 const MODEL_COSTS: Record<string, ModelCost> = {
+  "openai/gpt-6-astra": {
+    inputPerMillion: 10.0,
+    outputPerMillion: 50.0,
+    cachedInputPerMillion: 1.0,
+  },
+  "openai/gpt-6-sol": {
+    inputPerMillion: 2.0,
+    outputPerMillion: 10.0,
+    cachedInputPerMillion: 0.2,
+  },
+  "openai/gpt-6-luna": {
+    inputPerMillion: 0.1,
+    outputPerMillion: 0.5,
+    cachedInputPerMillion: 0.01,
+  },
   "openai/gpt-5.6-sol": { inputPerMillion: 2.0, outputPerMillion: 10.0 },
   "openai/gpt-5.6-terra": { inputPerMillion: 2.0, outputPerMillion: 12.0 },
   "openai/gpt-5.6-luna": { inputPerMillion: 0.2, outputPerMillion: 1.2 },
@@ -53,6 +70,7 @@ const MODEL_COSTS: Record<string, ModelCost> = {
   "openai/gpt-4o-mini": { inputPerMillion: 0.15, outputPerMillion: 0.6 },
   "openai/gpt-4-turbo": { inputPerMillion: 10.0, outputPerMillion: 30.0 },
   "google/gemini-3.1-pro-preview": { inputPerMillion: 2.0, outputPerMillion: 12.0 },
+  "google/gemini-3.8-flash": { inputPerMillion: 0.75, outputPerMillion: 3.75 },
   "google/gemini-3.7-flash": { inputPerMillion: 0.75, outputPerMillion: 3.75 },
   "google/gemini-3.6-flash": { inputPerMillion: 1.5, outputPerMillion: 7.5 },
   "google/gemini-3.5-flash": { inputPerMillion: 1.5, outputPerMillion: 9.0 },
@@ -60,13 +78,28 @@ const MODEL_COSTS: Record<string, ModelCost> = {
   "google/gemini-3.5-flash-lite": { inputPerMillion: 0.3, outputPerMillion: 2.5 },
   "google/gemini-3.1-flash-lite": { inputPerMillion: 0.25, outputPerMillion: 1.5 },
   "google/gemini-2.5-flash-lite": { inputPerMillion: 0.1, outputPerMillion: 0.4 },
+  "anthropic/claude-opus-5.5": {
+    inputPerMillion: 4.0,
+    outputPerMillion: 20.0,
+    cachedInputPerMillion: 0.2,
+  },
   "anthropic/claude-opus-5": { inputPerMillion: 5.0, outputPerMillion: 25.0 },
   "anthropic/claude-opus-4.8": { inputPerMillion: 5.0, outputPerMillion: 25.0 },
   "anthropic/claude-fable-5.1": { inputPerMillion: 10.0, outputPerMillion: 50.0 },
   "anthropic/claude-fable-5": { inputPerMillion: 10.0, outputPerMillion: 50.0 },
   "anthropic/claude-opus-4.7": { inputPerMillion: 5.0, outputPerMillion: 25.0 },
+  "anthropic/claude-sonnet-5.5": {
+    inputPerMillion: 3.0,
+    outputPerMillion: 15.0,
+    cachedInputPerMillion: 0.3,
+  },
   "anthropic/claude-sonnet-5": { inputPerMillion: 2.0, outputPerMillion: 10.0 },
   "anthropic/claude-sonnet-4.6": { inputPerMillion: 3.0, outputPerMillion: 15.0 },
+  "anthropic/claude-haiku-5.5": {
+    inputPerMillion: 0.8,
+    outputPerMillion: 4.0,
+    cachedInputPerMillion: 0.08,
+  },
   "anthropic/claude-haiku-4.5": { inputPerMillion: 1.0, outputPerMillion: 5.0 },
   "perplexity/sonar-pro": { inputPerMillion: 1.0, outputPerMillion: 1.0 },
   "perplexity/sonar-reasoning-pro": { inputPerMillion: 3.0, outputPerMillion: 15.0 },
@@ -74,6 +107,7 @@ const MODEL_COSTS: Record<string, ModelCost> = {
   "moonshotai/kimi-k2.7-code": { inputPerMillion: 0.95, outputPerMillion: 4.0 },
   "moonshotai/kimi-k2.6": { inputPerMillion: 0.95, outputPerMillion: 4.0 },
   "deepseek/deepseek-v4-pro": { inputPerMillion: 0.66, outputPerMillion: 1.98 },
+  "deepseek/deepseek-v4.1-flash": { inputPerMillion: 0.3, outputPerMillion: 1.2 },
   "deepseek/deepseek-v4-flash": { inputPerMillion: 0.13, outputPerMillion: 0.26 },
   "deepseek/deepseek-v3.2": { inputPerMillion: 0.28, outputPerMillion: 0.42 },
   "openai/gpt-oss-120b": { inputPerMillion: 0.1, outputPerMillion: 0.5 },
@@ -145,16 +179,17 @@ export function computeUsageCostUsd(modelId: string, usage: Usage): number {
   const cost = getModelCost(modelId);
   const input = usage.promptTokens ?? usage.inputTokens ?? 0;
   const output = usage.completionTokens ?? usage.outputTokens ?? 0;
-  const cached = usage.cachedInputTokens ?? 0;
+  const cached = Math.min(
+    input,
+    Math.max(0, usage.inputTokenDetails?.cacheReadTokens ?? usage.cachedInputTokens ?? 0)
+  );
   const uncachedInput = Math.max(0, input - cached);
   const audioIn = usage.audioInputTokens ?? 0;
   const audioOut = usage.audioOutputTokens ?? 0;
 
   const inputCost = (uncachedInput / 1_000_000) * cost.inputPerMillion;
   const cachedCost =
-    cached > 0 && cost.cachedInputPerMillion !== undefined
-      ? (cached / 1_000_000) * cost.cachedInputPerMillion
-      : 0;
+    cached > 0 ? (cached / 1_000_000) * (cost.cachedInputPerMillion ?? cost.inputPerMillion) : 0;
   const outputCost = (output / 1_000_000) * cost.outputPerMillion;
   const audioInCost =
     audioIn > 0 && cost.audioInputPerMillion !== undefined
@@ -207,4 +242,4 @@ export function costUnitsFromUsd(usd: number): number {
 }
 
 /** When the MODEL_COSTS table was last reviewed (update with pricing changes). */
-export const MODEL_PRICING_AS_OF = "2026-09-01";
+export const MODEL_PRICING_AS_OF = "2026-09-24";

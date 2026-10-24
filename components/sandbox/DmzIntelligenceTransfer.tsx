@@ -1,14 +1,6 @@
 "use client";
 
-import {
-  Check,
-  ChevronDown,
-  ClipboardPaste,
-  Loader2,
-  RotateCcw,
-  Send,
-  Shield,
-} from "lucide-react";
+import { Check, ChevronDown, ClipboardPaste, Loader2, RotateCcw, Send, Shield } from "lucide-react";
 import { useCallback, useState } from "react";
 
 import { OpenInChat } from "@/components/design-system/OpenInChat";
@@ -314,7 +306,11 @@ export function DmzIntelligenceTransfer({
           />
         ) : null}
 
-        <DmzLumeButton disabled={sendState === "preparing"} type="button" onClick={() => void handleSendQuestion()}>
+        <DmzLumeButton
+          disabled={sendState === "preparing"}
+          type="button"
+          onClick={() => void handleSendQuestion()}
+        >
           {sendState === "preparing" ? (
             <Loader2 className="mr-2 size-4 animate-spin" />
           ) : (
@@ -379,7 +375,9 @@ export function DmzIntelligenceTransfer({
             <p className="mb-1 text-2xs font-medium uppercase tracking-wide text-muted-foreground">
               Review summary
             </p>
-            <p className="whitespace-pre-line text-sm leading-snug text-foreground/90">{intakeSummary}</p>
+            <p className="whitespace-pre-line text-sm leading-snug text-foreground/90">
+              {intakeSummary}
+            </p>
           </div>
         ) : null}
 
@@ -396,7 +394,9 @@ export function DmzIntelligenceTransfer({
         {activeEntry && clipboardPhase === "done" ? (
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs text-emerald-300/90">
-              {activeEntry.status === "approved" ? "Added to Organic LLM" : "Quarantined for review"}
+              {activeEntry.status === "approved"
+                ? "Added to Organic LLM"
+                : "Quarantined for review"}
             </p>
             <Button
               className="h-8 gap-1.5 text-xs"

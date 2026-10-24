@@ -2,8 +2,10 @@ import "server-only";
 
 import { encodingForModel } from "js-tiktoken";
 
+import { models } from "@/lib/schemas/chat-models";
+
 /** Gateway model id for memory lens page summaries (cheap, high throughput). */
-export const LENS_OVERVIEW_MODEL = "openai/gpt-5-nano" as const;
+export const LENS_OVERVIEW_MODEL = models.openai.luna.id;
 
 /** Max tokens for serialized memory lines sent to the model (system prompt is separate). */
 export const LENS_OVERVIEW_MEMORY_BLOB_MAX_TOKENS = 1000;

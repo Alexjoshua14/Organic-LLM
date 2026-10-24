@@ -1,7 +1,13 @@
 "use server";
 
-import { generateObject, generateText, NoObjectGeneratedError } from "ai";
+import { generateObject, generateText, NoObjectGeneratedError, type LanguageModel } from "ai";
+import { z } from "zod";
 
+import {
+  createAuthenticatedLlmBudgetHooks,
+  createOwnerLlmBudgetHooks,
+  budgetModelId,
+} from "@/lib/plans/llm-budget-hooks";
 import {
   RabbitHoleAIResponse,
   RabbitHoleAIResponseSchema,
@@ -28,19 +34,18 @@ import {
   QUICK_PREVIEW_SYSTEM_PROMPT,
   SOURCE_ANALYSIS_SYSTEM_PROMPT,
 } from "@/lib/system-prompt/rabbit-hole";
-
-import { z } from "zod";
+import { models, providerModelSlug } from "@/lib/schemas/chat-models";
 
 const logger = createLogger("lib/llm/rabbit-hole/generation.ts");
 
 // Used for Core content generation
-const model = openai("gpt-5.6-sol");
+const model = openai(providerModelSlug(models.openai.sol.id));
 
 // Used for Branch suggestions
-const quickModel = openai("gpt-5.6-luna");
+const quickModel = openai(providerModelSlug(models.openai.luna.id));
 
 // Used for Preview
-const rapidModel = openai("gpt-5.6-luna");
+const rapidModel = openai(providerModelSlug(models.openai.luna.id));
 
 // Parameters for invoking the LLM for Rabbit Hole objects with consistent logging.
 type GenerateRabbitHoleObjectParams<T> = {
@@ -51,7 +56,20 @@ type GenerateRabbitHoleObjectParams<T> = {
   systemPrompt: string;
   prompt: string;
   temperature?: number;
+  /** Supabase profile id. When set, budget hooks do not call auth() (background `after()`). */
+  ownerId?: string | null;
 };
+
+async function rabbitHoleBudgetHooks(modelForBudget: LanguageModel, ownerId?: string | null) {
+  const modelId = budgetModelId(modelForBudget);
+  const operation = "llm/rabbit-hole/generation";
+
+  if (ownerId) {
+    return createOwnerLlmBudgetHooks({ ownerId, modelId, operation });
+  }
+
+  return createAuthenticatedLlmBudgetHooks({ modelId, operation });
+}
 
 /**
  * Shared helper to call the LLM and log timing/usage consistently.
@@ -67,14 +85,16 @@ export async function generateRabbitHoleObject<T>({
   systemPrompt,
   prompt,
   temperature,
+  ownerId,
 }: GenerateRabbitHoleObjectParams<T>): Promise<Result<RabbitHoleAIResponse>> {
   logger.log(logContext, startMessage);
   const aiResponseGenerationStart = performance.now();
 
   try {
     const { object, usage } = await generateObject({
+      ...(await rabbitHoleBudgetHooks(model, ownerId)),
       model,
-      system: systemPrompt,
+      instructions: systemPrompt,
       prompt,
       schema: RabbitHoleAIResponseSchema,
       maxOutputTokens: 7000,
@@ -89,7 +109,7 @@ export async function generateRabbitHoleObject<T>({
     if (usage) {
       logger.log(
         logContext,
-        `AI usage: input tokens=${usage.inputTokens ?? "?"}, reasoning tokens=${usage.reasoningTokens ?? "?"}, output tokens=${usage.outputTokens ?? "?"}, total tokens=${usage.totalTokens ?? "?"}`
+        `AI usage: input tokens=${usage.inputTokens ?? "?"}, reasoning tokens=${usage.outputTokenDetails.reasoningTokens ?? "?"}, output tokens=${usage.outputTokens ?? "?"}, total tokens=${usage.totalTokens ?? "?"}`
       );
     }
 
@@ -112,6 +132,7 @@ export async function generateRabbitHoleObject<T>({
 
 type GenerateSourceAnalysisParams = {
   prompt: string;
+  ownerId?: string | null;
 };
 
 /**
@@ -121,10 +142,12 @@ type GenerateSourceAnalysisParams = {
  */
 export async function generateSourceAnalysis({
   prompt,
+  ownerId,
 }: GenerateSourceAnalysisParams): Promise<any> {
   const { object, usage } = await generateObject({
+    ...(await rabbitHoleBudgetHooks(model, ownerId)),
     model,
-    system: SOURCE_ANALYSIS_SYSTEM_PROMPT,
+    instructions: SOURCE_ANALYSIS_SYSTEM_PROMPT,
     prompt,
     schema: RabbitHoleSourceAnalysisSchema.omit({ originalUrl: true }),
     temperature: 0.7,
@@ -135,6 +158,7 @@ export async function generateSourceAnalysis({
 
 type GenerateQuickPreviewParams = {
   prompt: string;
+  ownerId?: string | null;
 };
 
 /**
@@ -144,10 +168,12 @@ type GenerateQuickPreviewParams = {
  */
 export async function generateQuickPreviewLLM({
   prompt,
+  ownerId,
 }: GenerateQuickPreviewParams): Promise<{ text: string }> {
   const res = await generateText({
+    ...(await rabbitHoleBudgetHooks(rapidModel, ownerId)),
     model: rapidModel,
-    system: QUICK_PREVIEW_SYSTEM_PROMPT,
+    instructions: QUICK_PREVIEW_SYSTEM_PROMPT,
     prompt,
     maxOutputTokens: 400,
   });
@@ -160,6 +186,7 @@ type GenerateBranchSuggestionsParams = {
   rootQuestion?: string;
   pathHistory?: string;
   temperature?: number;
+  ownerId?: string | null;
 };
 
 /**
@@ -175,6 +202,7 @@ export async function generateBranchSuggestions({
   rootQuestion,
   pathHistory,
   temperature = 0.7,
+  ownerId,
 }: GenerateBranchSuggestionsParams): Promise<
   Result<z.infer<typeof RabbitHoleBranchSuggestionSchema>[]> & {
     usage?: LanguageModelUsage;
@@ -204,11 +232,18 @@ export async function generateBranchSuggestions({
       "\n\nGenerate 5-10 diverse, intriguing branch suggestions that represent natural next steps in this exploration.";
 
     const { object, usage } = await generateObject({
+      ...(await rabbitHoleBudgetHooks(quickModel, ownerId)),
       model: quickModel,
-      system: BRANCH_SUGGESTIONS_SYSTEM_PROMPT,
+      instructions: BRANCH_SUGGESTIONS_SYSTEM_PROMPT,
       prompt,
       output: "array",
-      schema: RabbitHoleBranchSuggestionSchema,
+      // Strict response schemas require every property. The stored suggestion schema
+      // keeps shortDescription optional; this generation schema does not.
+      schema: z.object({
+        id: z.string().min(1),
+        label: z.string().min(1),
+        shortDescription: z.string(),
+      }),
       temperature,
     });
 
@@ -223,12 +258,15 @@ export async function generateBranchSuggestions({
     if (usage) {
       logger.log(
         logContext,
-        `AI usage: input tokens=${usage.inputTokens ?? "?"}, reasoning tokens=${usage.reasoningTokens ?? "?"}, output tokens=${usage.outputTokens ?? "?"}, total tokens=${usage.totalTokens ?? "?"}`
+        `AI usage: input tokens=${usage.inputTokens ?? "?"}, reasoning tokens=${usage.outputTokenDetails.reasoningTokens ?? "?"}, output tokens=${usage.outputTokens ?? "?"}, total tokens=${usage.totalTokens ?? "?"}`
       );
     }
 
     return {
-      data: object,
+      data: object.map((suggestion) => ({
+        ...suggestion,
+        shortDescription: suggestion.shortDescription.trim().slice(0, 200),
+      })),
       error: null,
       usage: usage ?? undefined,
     };
@@ -256,15 +294,18 @@ export async function generateBranchSuggestions({
 
 export async function generateTitle({
   html,
+  ownerId,
 }: {
   html: string;
+  ownerId?: string | null;
 }): Promise<Result<string> & { usage?: LanguageModelUsage }> {
   let res;
 
   try {
     res = await generateText({
+      ...(await rabbitHoleBudgetHooks(quickModel, ownerId)),
       model: quickModel,
-      system: CREATE_TITLE_SYSTEM_PROMPT,
+      instructions: CREATE_TITLE_SYSTEM_PROMPT,
       prompt: html,
       maxOutputTokens: 80,
     });

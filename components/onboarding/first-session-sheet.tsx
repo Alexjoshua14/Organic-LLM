@@ -49,6 +49,7 @@ export function FirstSessionSheet() {
 
     toastShownRef.current = true;
     toast("New here?", {
+      className: "first-session-toast",
       description: "Open First steps for a quick tour.",
       duration: 8_000,
       action: {
@@ -81,6 +82,7 @@ export function FirstSessionSheet() {
     typeof document !== "undefined"
       ? createPortal(
           <div
+            data-onboarding-chrome="first-steps"
             className={cn(
               "pointer-events-auto fixed z-[35]",
               "bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2",
@@ -170,7 +172,9 @@ export function FirstSessionSheet() {
                       {done ? <Check className="size-3.5" /> : index + 1}
                     </span>
                     <span className="min-w-0 flex-1 text-left">
-                      <span className="block text-sm font-medium text-foreground">{step.title}</span>
+                      <span className="block text-sm font-medium text-foreground">
+                        {step.title}
+                      </span>
                       <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">
                         {step.body}
                       </span>
@@ -186,7 +190,8 @@ export function FirstSessionSheet() {
 
           <div className="border-t border-border/40 px-4 pt-3 sm:px-6">
             <p className="mb-3 text-xs leading-relaxed text-muted-foreground">
-              Tips use spotlight overlays and drawers — they never rearrange the UI you see behind them.
+              Tips use spotlight overlays and drawers — they never rearrange the UI you see behind
+              them.
             </p>
             {allDone ? (
               <Button className="h-9 w-full" type="button" onClick={dismiss}>

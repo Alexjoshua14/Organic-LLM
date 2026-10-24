@@ -2,15 +2,12 @@
 
 import type { UsageApiPayload } from "@/lib/usage/types";
 
+import { UsageSectionHeader } from "./usage-section-header";
+
 import { formatPlanTooltip } from "@/lib/usage/plans";
 import { formatPercent } from "@/lib/usage/format";
-import { UsageSectionHeader } from "./usage-section-header";
 import { cn } from "@/lib/utils";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/third-party/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/third-party/ui/tooltip";
 
 type PlanAllotmentRowProps = {
   planAllotments: UsageApiPayload["planAllotments"];
@@ -21,7 +18,7 @@ export function PlanAllotmentRow({ planAllotments, billingCycleLabel }: PlanAllo
   return (
     <section className="space-y-2">
       <UsageSectionHeader
-        caption={`Billing cycle so far · ${billingCycleLabel}`}
+        caption={`This cycle so far · ${billingCycleLabel}`}
         title="Plan allotment"
       />
 

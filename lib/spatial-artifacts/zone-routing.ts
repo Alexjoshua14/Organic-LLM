@@ -48,7 +48,11 @@ export function artifactMatchesFilter(
     case "audio":
       return blockType === "audio-snippet";
     case "guides":
-      return blockType === "answer-card" || blockType === "decision-matrix" || blockType === "restaurant-card";
+      return (
+        blockType === "answer-card" ||
+        blockType === "decision-matrix" ||
+        blockType === "restaurant-card"
+      );
   }
 }
 

@@ -68,9 +68,9 @@ export function WelcomeHighlightVisual({
       ? welcomeFeatureIllustrationRatio
       : id === "streaming"
         ? welcomeCompactHighlightIllustrationRatio
-      : sizeKey === "mode"
-        ? welcomeModeIllustrationRatio
-        : welcomeIllustrationRatio
+        : sizeKey === "mode"
+          ? welcomeModeIllustrationRatio
+          : welcomeIllustrationRatio
     : welcomeVisualAspect[aspect];
   const sources = normalizeImageSources(imageSrc);
   const reduce = useReducedMotion();
@@ -93,7 +93,8 @@ export function WelcomeHighlightVisual({
   }, [cycleIntervalMs, inView, pageVisible, reduce, sources.length]);
 
   const frameClass = cn(
-    "relative rounded-2xl border border-border/50",
+    // Illustrations and screenshots are pictures of UI; their text is not copy.
+    "relative select-none rounded-2xl border border-border/50",
     Illustration && id === "gen-ui" ? "overflow-visible" : "overflow-hidden",
     welcomeVisualMaxWidth[sizeKey],
     className
@@ -125,11 +126,7 @@ export function WelcomeHighlightVisual({
       <AspectRatio ref={frameRef} className={frameClass} ratio={ratio}>
         <motion.div
           aria-label={imageAlt ?? placeholder.hint}
-          className={cn(
-            "absolute inset-0 rounded-2xl",
-            glass({ opaque: true }),
-            "overflow-hidden"
-          )}
+          className={cn("absolute inset-0 rounded-2xl", glass({ opaque: true }), "overflow-hidden")}
           data-illustration-id={id}
           initial={reduce ? false : { opacity: 0.85, scale: 0.985 }}
           role="img"
@@ -151,6 +148,7 @@ export function WelcomeHighlightVisual({
             key={src}
             alt={imageAlt ?? placeholder.hint}
             aria-hidden={index !== activeIndex}
+            draggable={false}
             className={cn(
               "object-cover transition-opacity duration-700 ease-in-out",
               index === activeIndex ? "opacity-100" : "opacity-0"

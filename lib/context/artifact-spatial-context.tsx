@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  createContext,
-  useContext,
-  useMemo,
-  useRef,
-  type ReactNode,
-  type RefObject,
-} from "react";
+import { createContext, useContext, useMemo, useRef, type ReactNode, type RefObject } from "react";
 
 import {
   ArtifactSpatialStore,

@@ -1,7 +1,8 @@
 "use client";
 
-import { glass } from "@/components/design-system/primitives";
 import type { SpeakModalities } from "@/lib/schemas/speak-modalities";
+
+import { glass } from "@/components/design-system/primitives";
 import { cn } from "@/lib/utils";
 
 const TOGGLES: Array<{ key: keyof SpeakModalities; label: string; hint: string }> = [
@@ -20,10 +21,10 @@ export function SpeakModalityToggles({
   disabled?: boolean;
 }) {
   return (
-    <div className={cn(glass({ border: "all" }), "flex flex-wrap items-center gap-1 rounded-2xl p-1")}>
-      <span className="px-2 text-2xs uppercase tracking-wide text-muted-foreground">
-        Voice
-      </span>
+    <div
+      className={cn(glass({ border: "all" }), "flex flex-wrap items-center gap-1 rounded-2xl p-1")}
+    >
+      <span className="px-2 text-2xs uppercase tracking-wide text-muted-foreground">Voice</span>
       {TOGGLES.map((t) => {
         const on = value[t.key];
 
@@ -33,9 +34,7 @@ export function SpeakModalityToggles({
             aria-pressed={on}
             className={cn(
               "rounded-xl px-3 py-1.5 text-xs transition-colors",
-              on
-                ? "bg-white/15 text-foreground"
-                : "text-muted-foreground hover:text-foreground",
+              on ? "bg-white/15 text-foreground" : "text-muted-foreground hover:text-foreground",
               disabled && "opacity-60"
             )}
             disabled={disabled}

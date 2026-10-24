@@ -1,3 +1,6 @@
+import type { PlanBudgetSnapshot } from "@/lib/plans/plan-tags";
+import type { RabbitHoleNode } from "@/lib/schemas/rabbitHoleSchemas";
+
 import { randomUUID } from "crypto";
 
 import {
@@ -8,6 +11,8 @@ import {
 } from "ai";
 
 import { saveChat } from "@/lib/chat/chat-store";
+import { stampTurnWithActivatedMemories } from "@/lib/chat/stamp-activated-memories";
+import { expandActivatedMemoriesForModel } from "@/lib/memory/activated-thread-memories";
 import { consumeChatSseStream } from "@/lib/chat/resumable-sse-stream";
 import { getThreadArcadiaStarterKey, getThreadHasTitle } from "@/data/supabase/chat";
 import { isAdminUser } from "@/data/supabase/profiles";
@@ -24,6 +29,8 @@ import {
 } from "@/lib/schemas/chat";
 import { ChatUIMessage, ChatAIActionEnum } from "@/types/ai";
 import { tryArcadiaChatHelpShortcut } from "@/lib/api/arcadia-chat-help-shortcut";
+import { respondWithShellHelpReflex, startShellHelpReflex } from "@/lib/api/subagent-help-reflex";
+import { getHardSetSubagent } from "@/lib/llm/subagents/hard-set/registry";
 import { requireLlmChatActor } from "@/lib/api/chat-llm-gate";
 import { loadMainChatTurnContext, getContextMessageLimit } from "@/lib/api/chat-turn-context";
 import { loadArcadiaChatTurnContext } from "@/lib/api/arcadia-chat-turn-context";
@@ -37,16 +44,31 @@ import { computeMainChatMaxSteps } from "@/lib/api/chat-max-steps";
 import {
   appendMainChatPostToolSystemFragments,
   appendStrataMainChatSystemFragments,
+  appendTopicExploreCustomSystemPrompt,
   wrapSystemPromptWithResponseLength,
 } from "@/lib/api/chat-system-prompt";
 import { appendIntrospectionMainChatSystemFragments } from "@/lib/api/introspection-system-prompt";
+import { appendCurrentDate } from "@/lib/system-prompt/current-date";
 import { resolveMemoryEnabledForExperience } from "@/lib/chat/chat-experience";
 import { resolveChatStarterPromptByKey } from "@/lib/chat/chat-style-starters";
 import { compileChatTools } from "@/lib/llm/compile-chat-tools";
 import { runLLMChatStream } from "@/lib/api/run-llm-chat-stream";
+import {
+  prepareArcadiaMultitaskTurn,
+  prepareRabbitHoleMultitaskTurn,
+  type PrepareMultitaskTurnResult,
+} from "@/lib/llm/subagents/orchestrator/prepare-multitask-turn";
+import { RABBIT_HOLE_MAX_DISPATCHES_PER_TURN } from "@/lib/llm/subagents/orchestrator/constants";
+import { createMultitaskTurnDeps } from "@/lib/llm/subagents/orchestrator/multitask-turn-deps";
+import { withArcadiaOrchestratorTools } from "@/lib/llm/subagents/orchestrator/orchestrator-tools";
+import { foldSystemNoticesForModel } from "@/lib/llm/subagents/threads/fold-system-notices";
+import { loadUserConnectorsProfile } from "@/lib/connectors/user-connectors-store";
+import { getPlanBudgetForUser } from "@/lib/plans/plan-budget";
 
-// Allow streaming responses up to 30 seconds
-export const maxDuration = 30;
+// The stream still ends with the orchestrator's reply. The higher ceiling is for Arcadia subagent
+// runs scheduled with `after()`, which share this route's budget — keep in step with
+// SUBAGENT_RUN_MAX_DURATION_MS (lib/llm/subagents/threads/status.ts).
+export const maxDuration = 300;
 
 // const tools = {};
 
@@ -91,10 +113,13 @@ export async function POST(req: Request) {
     model: requestedModel,
     effort: requestedEffort,
     memory: requestedMemory,
+    contextEffort,
     delphiDisplay,
     drawerDisplay,
     rabbitHoleSessionId,
     diagramNodeLinks,
+    customSystemPromptOverride,
+    multitaskSendTarget,
   } = parseResult.data;
   const message = incomingMessage as UIMessage;
   const messageForLlm = augmentUserMessageWithDiagramLinks(message, diagramNodeLinks);
@@ -164,7 +189,7 @@ export async function POST(req: Request) {
 
   // Save the user message
 
-  saveChat({ chatId: id, messages: [message] })
+  const userMessageSave = saveChat({ chatId: id, messages: [message] })
     .then(() => {
       logger.log("POST", "User message saved optimistically");
     })
@@ -176,6 +201,8 @@ export async function POST(req: Request) {
 
   const stream = createUIMessageStream<ChatUIMessage>({
     execute: async ({ writer }) => {
+      // Identify the response before data parts can create a client-side message during replay.
+      writer.write({ type: "start", messageId: assistantMessageId });
       writer.write({
         type: "data-aiAction",
         data: {
@@ -185,6 +212,78 @@ export async function POST(req: Request) {
         transient: true,
       });
 
+      // Arcadia & Rabbit Hole multitask: subagents run in their own threads after this response,
+      // so the orchestrator frees CoreInput / Drawer as soon as its reply ends.
+      let multitask: PrepareMultitaskTurnResult | null = null;
+      let rabbitHoleActiveNodeId: string | null = null;
+      let rabbitHoleRootNodeId: string | null = null;
+      let rabbitHoleNodes: Record<string, RabbitHoleNode> | null = null;
+      let orchestratorThreadId = id;
+      let livePlanBudget: PlanBudgetSnapshot | null = null;
+      const multitaskDeps = createMultitaskTurnDeps({
+        ownerId: sbUserId,
+        clerkUserId,
+        route: "/api/chat",
+      });
+      const userConnectors =
+        experience === "arcadia" || experience === "rabbit_hole"
+          ? await loadUserConnectorsProfile(clerkUserId).catch(() => null)
+          : null;
+
+      if (experience === "arcadia") {
+        multitask = await prepareArcadiaMultitaskTurn({
+          chatId: id,
+          ownerId: sbUserId,
+          userText: getLastUserMessageText(messageForLlm),
+          sendTarget: multitaskSendTarget,
+          modelId: selectedModel.id,
+          zeroDataRetention: isZeroDataRetention,
+          writer,
+          deps: multitaskDeps,
+          userConnectors,
+        });
+      } else if (experience === "rabbit_hole" && id) {
+        if (rabbitHoleSessionId) {
+          const { getSessionById } = await import("@/data/supabase/rabbitholes");
+          const sessionRes = await getSessionById(rabbitHoleSessionId);
+
+          if (sessionRes.data) {
+            rabbitHoleActiveNodeId = sessionRes.data.activeNodeId ?? null;
+            rabbitHoleRootNodeId = sessionRes.data.rootNodeId ?? null;
+            rabbitHoleNodes = sessionRes.data.nodesById ?? null;
+            orchestratorThreadId = sessionRes.data.chatThreadId ?? id;
+          }
+        }
+        livePlanBudget = await getPlanBudgetForUser({
+          clerkUserId,
+          ownerId: sbUserId,
+        }).catch(() => null);
+        multitask = await prepareRabbitHoleMultitaskTurn({
+          chatId: orchestratorThreadId,
+          ownerId: sbUserId,
+          userText: getLastUserMessageText(messageForLlm),
+          sendTarget: multitaskSendTarget,
+          modelId: selectedModel.id,
+          zeroDataRetention: isZeroDataRetention,
+          writer,
+          deps: multitaskDeps,
+          planBudget: livePlanBudget,
+          maxDispatchesPerTurn: RABBIT_HOLE_MAX_DISPATCHES_PER_TURN,
+          userConnectors,
+        });
+      }
+
+      // Hard-set subagent shell: Jev decides help reflex vs. a normal turn, alongside context load.
+      const shellAgent = getHardSetSubagent(multitask?.hardSetAgentId);
+      const shellReflex = shellAgent
+        ? startShellHelpReflex({
+            agent: shellAgent,
+            message: messageForLlm,
+            ownerId: sbUserId,
+            route: "/api/chat",
+          })
+        : null;
+
       const loadTurnContext =
         experience === "arcadia"
           ? () =>
@@ -193,6 +292,7 @@ export async function POST(req: Request) {
                 chatId: id,
                 message: messageForLlm,
                 memoryEnabled,
+                contextEffort,
               })
           : () =>
               loadMainChatTurnContext({
@@ -203,7 +303,7 @@ export async function POST(req: Request) {
                 experience,
               });
 
-      const {
+      let {
         validatedMessages,
         systemPromptForRequest: afterContext,
         tokenBreakdown,
@@ -211,7 +311,17 @@ export async function POST(req: Request) {
         totalThreadMessages,
         scheduleBackgroundCondensation,
         memoriesInjected,
+        memoryContext,
+        activatedMemories,
       } = await loadTurnContext();
+
+      validatedMessages = await stampTurnWithActivatedMemories({
+        chatId: id,
+        validatedMessages,
+        savedUserMessage: message,
+        activatedMemories,
+        userMessageSave,
+      });
 
       if (experience === "arcadia" && scheduleBackgroundCondensation) {
         scheduleArcadiaContextCondensation({
@@ -234,6 +344,16 @@ export async function POST(req: Request) {
         chatId: id,
         sbUserId,
       });
+
+      // Noesis authored-spark override: when a spark drives a topic_explore thread.
+      systemPromptForRequest = appendTopicExploreCustomSystemPrompt({
+        systemPromptForRequest,
+        experience,
+        customSystemPromptOverride,
+      });
+      for (const fragment of multitask?.systemFragments ?? []) {
+        systemPromptForRequest = `${systemPromptForRequest}\n\n${fragment}`;
+      }
 
       logger.log(
         "POST",
@@ -268,7 +388,21 @@ export async function POST(req: Request) {
         }),
       });
 
-      if (
+      if (shellAgent && shellReflex) {
+        if ((await shellReflex).reflex) {
+          await respondWithShellHelpReflex({
+            agent: shellAgent,
+            assistantMessageId,
+            validatedMessages,
+            chatId: id,
+            sbUserId,
+            writer,
+            logger,
+          });
+
+          return;
+        }
+      } else if (
         await tryArcadiaChatHelpShortcut({
           experience,
           message,
@@ -289,23 +423,39 @@ export async function POST(req: Request) {
         transient: true,
       });
 
-      const messages = convertToModelMessages(validatedMessages);
+      const messages = await convertToModelMessages(
+        foldSystemNoticesForModel(expandActivatedMemoriesForModel(validatedMessages))
+      );
       const initialMessageCount = validatedMessages.length;
-      let rabbitHoleActiveNodeId: string | null = null;
 
-      if (experience === "rabbit_hole" && rabbitHoleSessionId) {
-        const { getSessionById } = await import("@/data/supabase/rabbitholes");
-        const sessionRes = await getSessionById(rabbitHoleSessionId);
+      const orchestratorToolsConfig = {
+        multitask,
+        orchestratorThreadId,
+        deps: multitaskDeps,
+        modelId: selectedModel.id,
+        zeroDataRetention: isZeroDataRetention,
+        autonomous: false,
+        currentUserMessage: { id: message.id, text: getLastUserMessageText(messageForLlm) },
+        writer,
+        rabbitHoleNodes,
+        rabbitHoleActiveNodeId,
+        rabbitHoleRootNodeId,
+        userConnectors,
+        planBudget: livePlanBudget,
+        maxDispatchesPerTurn:
+          experience === "rabbit_hole" ? RABBIT_HOLE_MAX_DISPATCHES_PER_TURN : undefined,
+        alwaysIncludeReadSubagentThread: experience === "rabbit_hole",
+      };
 
-        if (sessionRes.data) {
-          rabbitHoleActiveNodeId = sessionRes.data.activeNodeId ?? null;
-        }
-      }
-
-      const { tools, toolInstructions } = await compileChatTools({
-        useSearch: parseResult.data.webSearch ?? false,
-        useMemory: parseResult.data.memory ?? false,
-        useGetMoreMessages: messageSearch ?? true,
+      const compiledTools = await compileChatTools({
+        useSearch: shellAgent?.tools.webSearch ?? parseResult.data.webSearch ?? false,
+        useResearch: shellAgent?.tools.research ?? false,
+        useChronos: shellAgent?.tools.chronos ?? false,
+        useErgonAgent: shellAgent?.tools.ergon ?? false,
+        researchModelId: selectedModel.id,
+        researchGenerationContext: { messages, system: systemPromptForRequest },
+        useMemory: shellAgent?.tools.memory ?? parseResult.data.memory ?? false,
+        useGetMoreMessages: shellAgent?.tools.chatHistory ?? messageSearch ?? true,
         useKnowledgeSearch: Boolean(knowledgeSearch) && experience === "strata_page",
         experience,
         chatStyle,
@@ -315,7 +465,14 @@ export async function POST(req: Request) {
         writer,
         rabbitHoleSessionId,
         rabbitHoleActiveNodeId,
+        rabbitHoleRootNodeId,
+        rabbitHoleNodes,
+        multitaskOrchestrator: experience === "rabbit_hole" ? orchestratorToolsConfig : undefined,
       });
+      const { tools, toolInstructions } = withArcadiaOrchestratorTools(
+        compiledTools,
+        orchestratorToolsConfig
+      );
 
       const toolNames = Object.keys(tools);
 
@@ -365,10 +522,12 @@ export async function POST(req: Request) {
         transient: true,
       });
 
-      const systemPromptWithLength = wrapSystemPromptWithResponseLength(systemPromptForRequest, {
-        experience,
-        delphiDisplay,
-      });
+      const systemPromptWithLength = appendCurrentDate(
+        wrapSystemPromptWithResponseLength(systemPromptForRequest, {
+          experience,
+          delphiDisplay,
+        })
+      );
 
       const inputTokenEstimate = estimateLlmInputTokens({
         systemPrompt: systemPromptWithLength,
@@ -421,18 +580,23 @@ export async function POST(req: Request) {
         contextMessageLimit:
           experience === "arcadia" ? undefined : getContextMessageLimit(experience),
         memoriesInjected,
+        memoryContext,
+        recordLastTurn: true,
       });
 
       writer.write({
         type: "data-context-budget",
+        id: "context-budget",
         data: contextBudget,
       });
 
       await runLLMChatStream({
         writer,
+        contextBudget,
         logger,
         chatId: id,
         sbUserId,
+        clerkUserId,
         assistantMessageId,
         selectedModel,
         effort: requestedEffort,

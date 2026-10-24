@@ -9,9 +9,12 @@
  * - {@link saveChat} / {@link loadChat} — thread storage.
  *
  * **Memory:** Non-Arcadia uses a single Mem0 search; Arcadia uses rewrite → parallel search →
- * tiered injection (see `lib/memory/*` and internal `docs/architecture/context-building.md`).
+ * tiered injection, or `contextEffort` → typed planner + deadline (see `lib/memory/*` and
+ * internal `docs/architecture/context-building.md`).
  */
 import type { MemoryItemType } from "@/lib/schemas/memory";
+import type { ContextEffortLevel } from "../memory/context-effort";
+import type { ContextMemoryReference } from "./context-memory";
 
 import { UIMessage } from "ai";
 import { auth } from "@clerk/nextjs/server";
@@ -20,8 +23,10 @@ import { createLogger } from "../logger";
 import { SYSTEM_PROMPT, PROMETHEUS_SYSTEM_PROMPT } from "../system-prompt/prompt-v0";
 import SPARK_SYSTEM_PROMPT from "../system-prompt";
 import { getStateString } from "../supabase/organicStateStore";
+import { toActivatedMemories, type ActivatedMemory } from "../memory/activated-thread-memories";
 import { searchMemoriesForUser } from "../memory/operations";
 import { searchMemoriesWithL1Cache } from "../memory/memory-search-cache";
+import { runArcadiaMemoryPhase } from "../memory/arcadia-memory-phase";
 import {
   ARCADIA_MEMORY_MAX_INJECTED,
   ARCADIA_MEMORY_MIN_SCORE,
@@ -47,6 +52,8 @@ import {
 import { estimateTokenCount } from "../llm/chat-helpers";
 import { getPersistedSchemas } from "../persistedSchemas";
 
+import { memoryReferencesFromAutomaticRecall } from "./context-memory";
+
 import {
   createChat as createChatSupabase,
   loadChat as loadChatSupabase,
@@ -57,9 +64,14 @@ import {
   upsertMessages,
   deleteMessage,
   addMessage,
+  updateMessage,
   updateChatStream,
 } from "@/data/supabase/chat";
-import { upsertMessagesWithAdmin, updateChatStreamWithAdmin } from "@/data/supabase/chat-admin";
+import {
+  upsertMessagesWithAdmin,
+  updateChatStreamWithAdmin,
+  updateMessageWithAdmin,
+} from "@/data/supabase/chat-admin";
 import { Result, SimpleResult } from "@/types";
 import {
   type ChatExperience,
@@ -105,10 +117,15 @@ interface getContextProps {
   totalThreadMessagesOverride?: number;
   /** Human-readable window label for the "Current chat" blurb. */
   contextWindowLabel?: string;
+  /**
+   * Arcadia-only context-effort tier. When set with `experience === "arcadia"`,
+   * uses the typed planner + deadline path. Omitted → legacy rewriter.
+   */
+  contextEffort?: ContextEffortLevel;
 }
 
-export async function createChat(): Promise<Result<string>> {
-  const res = await createChatSupabase();
+export async function createChat(experience?: "arcadia"): Promise<Result<string>> {
+  const res = await createChatSupabase(undefined, experience);
 
   if (res.error) {
     logger.error("createChat", `Error creating chat: ${res.error.message}`);
@@ -312,6 +329,76 @@ export async function saveMessage({
 }
 
 /**
+ * Replaces one stored UI message. Used to attach activated memories after the
+ * optimistic insert of the user message.
+ */
+export async function updateChatMessage({
+  chatId,
+  message,
+  ownerId,
+}: {
+  chatId: string;
+  message: UIMessage;
+  /** When set, update with the admin client (queued turns whose user JWT may be expired). */
+  ownerId?: string;
+}): Promise<SimpleResult> {
+  if (!message.id) {
+    return {
+      ok: false,
+      error: new Error("Message id required"),
+    };
+  }
+
+  if (ownerId) {
+    const clerkUser = await auth();
+
+    if (!clerkUser?.userId) {
+      return { ok: false, error: new Error("Unauthorized") };
+    }
+
+    const currentSbUserIdResult = await getSupabaseUserIdWithAdmin(clerkUser.userId);
+
+    if (
+      currentSbUserIdResult.error ||
+      currentSbUserIdResult.data === null ||
+      currentSbUserIdResult.data !== ownerId
+    ) {
+      return { ok: false, error: new Error("Unauthorized") };
+    }
+  }
+
+  try {
+    const result = ownerId
+      ? await updateMessageWithAdmin({ chatId, message, ownerId })
+      : await updateMessage(chatId, message.id, message);
+
+    if (!result.ok) {
+      logger.error(
+        "updateChatMessage",
+        `Failed to update message ${message.id}: ${result.error?.message}`
+      );
+
+      return {
+        ok: false,
+        error: result.error ?? new Error("Unknown error updating message"),
+      };
+    }
+
+    return { ok: true, error: null };
+  } catch (error) {
+    logger.error(
+      "updateChatMessage",
+      `Error updating message: ${error instanceof Error ? error.message : String(error)}`
+    );
+
+    return {
+      ok: false,
+      error: error instanceof Error ? error : new Error("Unknown error updating message"),
+    };
+  }
+}
+
+/**
  * Deletes a specific message by its ID.
  *
  * @param messageId - The ID of the message to delete.
@@ -429,9 +516,7 @@ export async function getMessagesForChatPrompt({
         ? SPARK_SYSTEM_PROMPT
         : SYSTEM_PROMPT;
 
-  const systemPrompt = prompt
-    .replace("{{currentDateTime}}", new Date().toISOString())
-    .concat(`\n\nConversation Summary:\n${conversationSummary}`);
+  const systemPrompt = prompt.concat(`\n\nConversation Summary:\n${conversationSummary}`);
 
   return {
     data: {
@@ -507,14 +592,9 @@ export async function getContextAndMessagesChatPrompt({
 
   prompt += `\n\nConversation Summary:\n${conversationSummary}`;
 
-  /**
-   * Replace the current date time in the prompt
-   */
-  const systemPrompt = prompt.replace("{{currentDateTime}}", new Date().toISOString());
-
   return {
     data: {
-      prompt: systemPrompt,
+      prompt,
       messages,
     },
     error: null,
@@ -567,12 +647,16 @@ export async function getContext({
   messagesOverride,
   totalThreadMessagesOverride,
   contextWindowLabel,
+  contextEffort,
 }: getContextProps): Promise<
   Result<
     {
       context: string;
       messages: UIMessage[];
       memories?: string[];
+      memoryContext?: ContextMemoryReference[];
+      /** Unclipped selected memories, to persist on the activating user message. */
+      activatedMemories?: ActivatedMemory[];
       tokenBreakdown?: Array<{ name: string; tokens: number }>;
       packedMessageCount?: number;
       totalThreadMessages?: number;
@@ -642,7 +726,13 @@ export async function getContext({
       .filter((part) => part.type === "text")
       .reduce((acc, part) => acc + part.text, "");
 
-    logger.log("getContext", `User message length: ${userMessage.length}`);
+    // Length 0 is normal for context-budget scaffold polls (empty draftMessage).
+    logger.log(
+      "getContext",
+      userMessage.length === 0
+        ? "User message length: 0 (empty draft or non-text parts)"
+        : `User message length: ${userMessage.length}`
+    );
 
     // Arcadia defers memory to phase 2 (needs DB messages for rewrite transcript).
     const memNonArcadiaPromise =
@@ -679,8 +769,6 @@ export async function getContext({
           break;
       }
     }
-
-    systemPrompt = systemPrompt.replace("{{currentDateTime}}", new Date().toISOString());
 
     contextPieces.push({
       content: systemPrompt,
@@ -721,8 +809,24 @@ export async function getContext({
     let memoriesResult: { results: MemoryItemType[] } = { results: [] };
     let arcadiaQueryRewriteUsed: boolean | undefined;
     let arcadiaEffectiveQueryCount: number | undefined;
+    let effortPhase: Awaited<ReturnType<typeof runArcadiaMemoryPhase>> | undefined;
+    let returnedMemories: string[] | undefined;
+    let selectedContextMemories: MemoryItemType[] = [];
 
-    if (memoryEnabled && isArcadiaStyleMemoryReadExperience(experience)) {
+    const useEffortPath = memoryEnabled && experience === "arcadia" && contextEffort;
+
+    if (useEffortPath) {
+      const historyMessages = messagesResult.data ?? [];
+      const recentTurns = buildRecentTurnsForMemoryRewrite(historyMessages, message);
+
+      effortPhase = await runArcadiaMemoryPhase({
+        sbUserId,
+        userMessage,
+        recentTurns,
+        conversationMessagesInContext: historyMessages.length + 1,
+        contextEffort,
+      });
+    } else if (memoryEnabled && isArcadiaStyleMemoryReadExperience(experience)) {
       // Query rewrite is only for Mem0 search below. Returned `messages` are DB history only;
       // routes append the original request `message` unchanged for the main LLM.
       const historyMessages = messagesResult.data ?? [];
@@ -816,7 +920,44 @@ export async function getContext({
     if (memoryEnabled) {
       let memories = "";
 
-      if (memoriesResult.results === null || memoriesResult.results === undefined) {
+      if (effortPhase) {
+        if (effortPhase.portraitText) {
+          contextPieces.push({
+            title: "User portrait (from profile)",
+            content: effortPhase.portraitText,
+          });
+          const portraitTokens = await estimateTokenCount(effortPhase.portraitText);
+
+          if (portraitTokens !== null) {
+            contextTokenSizes.push({
+              name: "User portrait",
+              tokens: portraitTokens,
+            });
+          }
+        }
+
+        memories = effortPhase.memoriesText;
+        returnedMemories = effortPhase.selected.map((item) => item.memory).filter(Boolean);
+        selectedContextMemories = effortPhase.selected;
+
+        contextPieces.push({
+          title: "Memories from past conversations:",
+          content: memories,
+        });
+        contextPieces.push({
+          title: "Memory inventory (Arcadia)",
+          content: effortPhase.inventoryText,
+        });
+
+        const inventoryTokens = await estimateTokenCount(effortPhase.inventoryText);
+
+        if (inventoryTokens !== null) {
+          contextTokenSizes.push({
+            name: "Memory inventory",
+            tokens: inventoryTokens,
+          });
+        }
+      } else if (memoriesResult.results === null || memoriesResult.results === undefined) {
         logger.error(
           "getContext",
           `Error getting memories: Memories are null\n${JSON.stringify(memoriesResult)}`
@@ -835,7 +976,18 @@ export async function getContext({
         });
 
         memories = formatMemoriesForPrompt(selected);
+        returnedMemories = selected.map((item) => item.memory).filter(Boolean);
+        selectedContextMemories = selected;
         const conversationMessagesInContext = messages.length + 1;
+        const inventoryText = buildArcadiaMemoryInventoryText({
+          conversationMessagesInContext,
+          memoriesInjected: selected.length,
+          tiers,
+          overfetchCap: ARCADIA_MEMORY_OVERFETCH,
+          minScore: ARCADIA_MEMORY_MIN_SCORE,
+          queryRewriteUsed: arcadiaQueryRewriteUsed ?? false,
+          effectiveQueryCount: arcadiaEffectiveQueryCount ?? 1,
+        });
 
         contextPieces.push({
           title: "Memories from past conversations:",
@@ -844,21 +996,27 @@ export async function getContext({
 
         contextPieces.push({
           title: "Memory inventory (Arcadia)",
-          content: buildArcadiaMemoryInventoryText({
-            conversationMessagesInContext,
-            memoriesInjected: selected.length,
-            tiers,
-            overfetchCap: ARCADIA_MEMORY_OVERFETCH,
-            minScore: ARCADIA_MEMORY_MIN_SCORE,
-            queryRewriteUsed: arcadiaQueryRewriteUsed ?? false,
-            effectiveQueryCount: arcadiaEffectiveQueryCount ?? 1,
-          }),
+          content: inventoryText,
         });
+
+        const inventoryTokens = await estimateTokenCount(inventoryText);
+
+        if (inventoryTokens !== null) {
+          contextTokenSizes.push({
+            name: "Memory inventory",
+            tokens: inventoryTokens,
+          });
+        }
       } else {
+        selectedContextMemories = memoriesResult.results;
         memories = memoriesResult.results
           .map((result: { memory?: string }) => result.memory)
           .filter((memory: string | undefined): memory is string => memory != null)
           .join("\n");
+        returnedMemories = memories
+          .split("\n")
+          .map((line) => line.trim())
+          .filter(Boolean);
 
         contextPieces.push({
           title: "Memories from past conversations:",
@@ -949,10 +1107,7 @@ export async function getContext({
      *
      * Current chat context (total message count + context window size for get_more_chat_history)
      ***/
-    const totalCount =
-      totalThreadMessagesOverride ??
-      (await getMessageCount(chatId)).data ??
-      null;
+    const totalCount = totalThreadMessagesOverride ?? (await getMessageCount(chatId)).data ?? null;
     const messagesInContext = messages.length;
     const windowLabel = contextWindowLabel ?? `most recent ${messagesInContext}`;
     const currentChatContent =
@@ -976,6 +1131,9 @@ export async function getContext({
       data: {
         context,
         messages,
+        memories: returnedMemories,
+        memoryContext: memoryReferencesFromAutomaticRecall(selectedContextMemories, message.id),
+        activatedMemories: toActivatedMemories(selectedContextMemories, { clip: false }),
         tokenBreakdown: contextTokenSizes,
         totalThreadMessages: totalCount ?? messages.length,
         packedMessageCount: messages.length,

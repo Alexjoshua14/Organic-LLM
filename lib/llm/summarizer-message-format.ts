@@ -1,4 +1,9 @@
-import type { UIMessage } from "ai";
+import type { ModelMessage, UIMessage } from "ai";
+
+/** Keep the transcript intact and end on the task, rather than an assistant prefill. */
+export function appendSummarizerTask(messages: ModelMessage[], task: string): ModelMessage[] {
+  return [...messages, { role: "user", content: task }];
+}
 
 /** Max length for tool result snippet in converted text (avoid huge payloads). */
 const TOOL_RESULT_TEXT_MAX_LEN = 600;

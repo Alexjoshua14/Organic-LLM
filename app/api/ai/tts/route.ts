@@ -1,6 +1,6 @@
 import { openai } from "@ai-sdk/openai";
 import { elevenlabs } from "@ai-sdk/elevenlabs";
-import { experimental_generateSpeech as generateSpeech, SpeechModel } from "ai";
+import { generateSpeech as generateSpeech } from "ai";
 import { NextRequest, NextResponse } from "next/server";
 
 import { requireTtsActor } from "@/lib/api/tts-gate";
@@ -10,29 +10,49 @@ import { stripSpeechTags } from "@/lib/tts/speech-tags";
 
 const logger = createLogger("app/api/tts/route.ts");
 
-let availableSpeechModels: SpeechModel[] = [
+const availableSpeechModels = [
   openai.speech("gpt-4o-mini-tts"),
   elevenlabs.speech("eleven_multilingual_v2"),
   elevenlabs.speech("eleven_flash_v2_5"),
   elevenlabs.speech("eleven_v3"),
 ];
 
+const DEFAULT_ELEVENLABS_VOICE_ID = "19STyYD15bswVz51nqLf";
+
 export async function POST(req: NextRequest) {
   const start = performance.now();
   const {
     text,
     model,
+    voiceId,
     skipTransform,
     timestamps,
   }: {
     text: string;
-    model: string;
+    model?: string;
+    voiceId?: string;
     skipTransform?: boolean;
     timestamps?: "word";
   } = await req.json();
 
   if (!text || typeof text !== "string") {
     return NextResponse.json({ error: "Text is required" }, { status: 400 });
+  }
+
+  const resolvedModel =
+    model && typeof model === "string"
+      ? (availableSpeechModels.find((m) => m.modelId === model) ?? null)
+      : null;
+  const speechModel = resolvedModel ?? availableSpeechModels[0]!;
+
+  if (speechModel.provider === "elevenlabs.speech" && !process.env.ELEVENLABS_API_KEY?.trim()) {
+    return NextResponse.json(
+      {
+        error:
+          "ELEVENLABS_API_KEY is not configured. Add your ElevenLabs API key to synthesize audio.",
+      },
+      { status: 503 }
+    );
   }
 
   const ttsGate = await requireTtsActor(text.length);
@@ -69,12 +89,6 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const resolvedModel =
-    model && typeof model === "string"
-      ? (availableSpeechModels.find((m) => m.modelId === model) ?? null)
-      : null;
-  const speechModel: SpeechModel = resolvedModel ?? availableSpeechModels[0]!;
-
   logger.log(
     "TTS Route",
     `Using model: ${speechModel.modelId}, from provider: ${speechModel.provider}`
@@ -89,21 +103,20 @@ export async function POST(req: NextRequest) {
     logger.log("TTS Route", "Eleven v3: preserving square-bracket audio tags in input.");
   }
 
+  const resolvedElevenLabsVoice =
+    typeof voiceId === "string" && voiceId.trim().length > 0 && voiceId.trim() !== "default"
+      ? voiceId.trim()
+      : DEFAULT_ELEVENLABS_VOICE_ID;
+
   try {
     if (speechModel.provider === "elevenlabs.speech") {
       const { audio } = await generateSpeech({
         model: speechModel,
         text: textForTTS,
-        voice: "19STyYD15bswVz51nqLf",
+        voice: resolvedElevenLabsVoice,
       });
 
       return NextResponse.json({ data: audio });
-
-      // Convert Uint8Array to array for JSON serialization
-      // const audioData = Array.from(audio.uint8Array);
-      // const mimeType = audio.format || "mpeg";
-
-      // return NextResponse.json({ data: audio });
     } else {
       const { audio } = await generateSpeech({
         model: speechModel,
@@ -113,6 +126,12 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json({ data: audio });
     }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to generate speech";
+
+    logger.error("TTS Route", `Error generating speech: ${message}`);
+
+    return NextResponse.json({ error: message }, { status: 500 });
   } finally {
     const speechModelEndGeneration = performance.now();
 

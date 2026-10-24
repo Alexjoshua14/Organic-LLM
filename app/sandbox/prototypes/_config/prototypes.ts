@@ -32,6 +32,19 @@ export type PrototypeEntry = {
 
 export const prototypes: PrototypeEntry[] = [
   {
+    slug: "organic-agent",
+    title: "Organic Agent",
+    description:
+      "ActivityMark's five states together, with size controls, physics/v0 comparison, and live state transitions.",
+    about: {
+      what: "A focused bench for the production OrganicActivityMark: independent physics dots beneath the glass layer, with the original SVG grid preserved for comparison and fallback.",
+      authorThoughts:
+        "Each dot should have independent physics for advanced microanimations, while the original grid remains available when motion preferences or device performance call for it.",
+      howToUse:
+        "Compare all five states, change the preview size, replay completion, or select Compare to see adaptive and v0 motion together. Use the transition preview to interrupt one state with another.",
+    },
+  },
+  {
     slug: "background",
     title: "AdaptiveLiquidChrome",
     description:
@@ -149,13 +162,13 @@ export const prototypes: PrototypeEntry[] = [
     slug: "glass-primitive",
     title: "Glass primitive",
     description:
-      "Three-column lab: shipped glass(), approved Organic Glass baseline, and a working surface column for lighting experiments — tuned for AdaptiveLiquidChrome.",
+      "Showcase of three glass materials over AdaptiveLiquidChrome: shipped glass(), approved Organic Glass baseline, and a working refraction preview — side-by-side on desktop, stacked on mobile.",
     about: {
-      what: "A three-column comparison lab for the glass() primitive — what ships today, the approved Organic Glass baseline, and a scratch column for lighting experiments.",
+      what: "A responsive comparison of three glass materials — production glass(), the approved Organic Glass baseline, and a working refraction surface — shown as live foreground lenses over AdaptiveLiquidChrome.",
       authorThoughts:
         "Glass surfaces are tuned as foreground lenses for AdaptiveLiquidChrome: readable by default, responsive through cheap opacity shifts when the background dims.",
       howToUse:
-        "Compare columns side by side under a live liquid chrome background; adjust lighting in the working column without touching production tokens.",
+        "On desktop, compare the three columns side by side. On a phone, scroll the stack — each hero surface is the primary example. Toggle the production capability chips to feel the chip aperture lens.",
     },
     ranking: {
       importance: 10,
@@ -181,6 +194,25 @@ export const prototypes: PrototypeEntry[] = [
       frequency: 8,
       createdAt: "2026-04-24",
       updatedAt: "2026-04-24",
+    },
+  },
+  {
+    slug: "core-input",
+    title: "CoreInput lab",
+    description:
+      "Developer bench for the chat composer — the shipped CoreInput under width and prop controls, plus every footer control isolated with pinned states.",
+    about: {
+      what: "A working bench for CoreInput: the production composer on a resizable stage with simulated sends, and a focus view that renders each footer control (tool toggles, model + effort, context effort, context badge, send button, overflow, attachments, lumen shell) on the real shell with lab-driven state.",
+      howToUse:
+        "Product view: type and press Enter to run the simulated send cycle; use the panel to hit each width breakpoint and prop. Focus view: pick a control, compare its pinned states, and deep-link it with ?view=focus&control=<id> while you edit its file.",
+      adminQuestion:
+        "What should the composer communicate at a glance — which controls deserve visual weight, and how should the memory lumen and the context badge relate to each other?",
+    },
+    ranking: {
+      importance: 9,
+      frequency: 9,
+      createdAt: "2026-09-16",
+      updatedAt: "2026-09-16",
     },
   },
   {
@@ -261,20 +293,21 @@ export const prototypes: PrototypeEntry[] = [
   },
   {
     slug: "ergon",
-    title: "Ergon board (kanban puppet)",
+    title: "Ergon living board",
     description:
-      "LLM-driven kanban chat style: stream INITIATE -> hydrate -> show-view commands into a client store and render saved views with motion.",
+      "Presence is now production. Lab still compares Trace / Field / Presence, plus a compact in-chat block and the legacy board as Before.",
     about: {
-      what: "A kanban puppet — step through INITIATE → hydrate → show-view commands into a client store and render saved board views with motion, without hitting an API.",
-      howToUse: "Use the step buttons to replay fixture commands and switch between saved views.",
-      adminQuestion:
-        "What is Ergon meant to become in production chat — a full task surface, a lightweight status board, or something else?",
+      what: "A lab for the Ergon board. Presence shipped as the production SHOW_VIEW surface; Trace and Field stay here for comparison on the same replay script.",
+      howToUse:
+        "Pick a light or Compare all, switch widths to see how the board squeezes, and use the transport to pause or send the next command. Open board on an in-thread block expands it to the full board.",
+      authorThoughts:
+        "Presence won: light is the model — orb, underglow, sparks. Quiet cards, fixed six lanes that fold to rails, no hard rims.",
     },
     ranking: {
       importance: 8,
       frequency: 4,
       createdAt: "2026-05-31",
-      updatedAt: "2026-05-31",
+      updatedAt: "2026-09-22",
     },
   },
   {
@@ -294,6 +327,25 @@ export const prototypes: PrototypeEntry[] = [
       frequency: 4,
       createdAt: "2026-05-07",
       updatedAt: "2026-05-07",
+    },
+  },
+  {
+    slug: "voice-bar",
+    title: "Live voice bar",
+    description:
+      "Layer-by-layer cost of the always-on voice bar — ribbon waveform, Lumen glow spring, and the FluidGlass slab, each toggleable against a live frame readout.",
+    about: {
+      what: "The h-8 bar that proves a voice session is live on every route. Three layers that can be measured independently: an SVG ribbon driven by real audio bands, an elapsed clock whose seconds are a Lumen glow rather than digits, and a WebGL transmission slab over the CSS glass.",
+      authorThoughts:
+        "The waveform follows the author's generative art: a ribbon is not a shape with an outline, it is a band of many thin strokes interpolated between driver curves, and the light comes from stroke density. The clock's glow fills across the minute and drops at :00, so time reads as something alive rather than a counter. The bar is on screen for an entire call, so every layer has to justify its cost — hence the toggles.",
+      howToUse:
+        "Toggle one layer at a time and read the delta in mean frame time. Numbers recorded here back the live-bar ADR in docs/speak/decisions/.",
+    },
+    ranking: {
+      importance: 8,
+      frequency: 4,
+      createdAt: "2026-09-22",
+      updatedAt: "2026-09-22",
     },
   },
 ];

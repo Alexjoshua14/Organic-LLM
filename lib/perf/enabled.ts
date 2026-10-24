@@ -1,4 +1,10 @@
 const PERF_STORAGE_KEY = "ol:perf";
+let sessionAllowed = false;
+
+/** Runtime auth gate; never persisted alongside the user's debug preference. */
+export function setPerfSessionAllowed(allowed: boolean): void {
+  sessionAllowed = allowed;
+}
 
 /** URL query `?perf=1` enables; `?perf=0` disables. */
 export function readPerfFlagFromSearch(search: string): boolean | null {
@@ -16,7 +22,7 @@ export function readPerfFlagFromSearch(search: string): boolean | null {
 }
 
 export function isPerfEnabled(): boolean {
-  if (typeof window === "undefined") return false;
+  if (typeof window === "undefined" || !sessionAllowed) return false;
 
   try {
     return sessionStorage.getItem(PERF_STORAGE_KEY) === "1";

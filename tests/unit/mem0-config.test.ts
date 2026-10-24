@@ -22,6 +22,8 @@ describe("installMem0OllamaFetch", () => {
   const originalFetch = globalThis.fetch;
   const originalUrl = process.env.OLLAMA_URL;
   const originalApiKey = process.env.OLLAMA_API_KEY;
+  const originalClientId = process.env.OLLAMA_CF_ACCESS_CLIENT_ID;
+  const originalClientSecret = process.env.OLLAMA_CF_ACCESS_CLIENT_SECRET;
 
   afterEach(() => {
     globalThis.fetch = originalFetch;
@@ -29,11 +31,17 @@ describe("installMem0OllamaFetch", () => {
     else process.env.OLLAMA_URL = originalUrl;
     if (originalApiKey === undefined) delete process.env.OLLAMA_API_KEY;
     else process.env.OLLAMA_API_KEY = originalApiKey;
+    if (originalClientId === undefined) delete process.env.OLLAMA_CF_ACCESS_CLIENT_ID;
+    else process.env.OLLAMA_CF_ACCESS_CLIENT_ID = originalClientId;
+    if (originalClientSecret === undefined) delete process.env.OLLAMA_CF_ACCESS_CLIENT_SECRET;
+    else process.env.OLLAMA_CF_ACCESS_CLIENT_SECRET = originalClientSecret;
   });
 
   test("adds Authorization for requests to OLLAMA_URL", async () => {
     process.env.OLLAMA_URL = "https://ollama.example.com";
     process.env.OLLAMA_API_KEY = "test-token";
+    process.env.OLLAMA_CF_ACCESS_CLIENT_ID = "id.access";
+    process.env.OLLAMA_CF_ACCESS_CLIENT_SECRET = "access-secret";
 
     const calls: Array<{ url: string; headers: Headers }> = [];
 
@@ -66,6 +74,10 @@ describe("installMem0OllamaFetch", () => {
 
     expect(calls).toHaveLength(2);
     expect(calls[0]?.headers.get("Authorization")).toBe("Bearer test-token");
+    expect(calls[0]?.headers.get("CF-Access-Client-Id")).toBe("id.access");
+    expect(calls[0]?.headers.get("CF-Access-Client-Secret")).toBe("access-secret");
     expect(calls[1]?.headers.get("Authorization")).toBeNull();
+    expect(calls[1]?.headers.get("CF-Access-Client-Id")).toBeNull();
+    expect(calls[1]?.headers.get("CF-Access-Client-Secret")).toBeNull();
   });
 });

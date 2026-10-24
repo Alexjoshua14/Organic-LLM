@@ -1,9 +1,20 @@
+import type { BudgetCycleRange } from "@/lib/plans/budget-cycle";
+import type { PlanBudgetSnapshot } from "@/lib/plans/plan-tags";
 import type { UsagePlanTier } from "@/lib/usage/plans";
-import type { UsageRangePreset, UsageTotals, UsageDailyBucket, UsageModelBreakdown } from "@/lib/usage/aggregate";
+import type { UsageTotals, UsageDailyBucket, UsageModelBreakdown } from "@/lib/usage/aggregate";
+
+export type GatewaySpendSummary =
+  | { status: "available"; accountCostUsd: number; attributedCostUsd: number; asOf: string }
+  | { status: "unavailable" };
 
 export type UsageApiPayload = {
-  range: { start: string; end: string; preset: UsageRangePreset };
+  gatewaySpend?: GatewaySpendSummary;
+  /** The budget cycles shown. */
+  range: { start: string; end: string; preset: BudgetCycleRange };
+  /** The current weekly budget window (end = when it resets). */
   billingCycle: { start: string; end: string };
+  /** Verified plan, spend in the current window, resets left, and whether requests may run. */
+  plan: PlanBudgetSnapshot;
   totals: UsageTotals;
   billingCycleTotals: UsageTotals;
   daily: UsageDailyBucket[];

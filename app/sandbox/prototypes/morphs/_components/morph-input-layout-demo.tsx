@@ -9,6 +9,7 @@ import { snapshot } from "@organic-llm/morph-physics";
 import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
+import { morphDemoChrome } from "../_lib/morph-demo-layout";
 import {
   morphSpringConfigForPlaybackPercent,
   type MorphDemoSpeedPercent,
@@ -42,7 +43,7 @@ export function MorphInputLayoutDemo() {
   });
   const speedEffectPrimedRef = useRef(false);
 
-  const [devHudExpanded, setDevHudExpanded] = useState(true);
+  const [devHudExpanded, setDevHudExpanded] = useState(false);
 
   const [layout, setLayout] = useState<Layout>("home");
   const layoutRef = useRef<Layout>(layout);
@@ -174,13 +175,13 @@ export function MorphInputLayoutDemo() {
   };
 
   return (
-    <Page liquidChromeBackground transparentBackground className="items-stretch justify-start gap-0 overflow-hidden">
+    <Page liquidChromeBackground transparentBackground className={morphDemoChrome.page}>
       <AdaptiveLiquidChrome dimIntensity={0.45} />
       <div
         aria-hidden
         className={cn(
           glass({ border: "none", opaque: true }),
-          "pointer-events-none absolute inset-0 z-[1] min-h-dvh w-full rounded-none"
+          "pointer-events-none absolute inset-0 z-[1] min-h-dvh w-full max-w-dvw rounded-none"
         )}
       />
       <MorphDemoReactScan debugPanelExpanded={devHudExpanded} />
@@ -205,7 +206,9 @@ export function MorphInputLayoutDemo() {
           />
         )}
       </MorphLiveMetricsSampler>
-      <div className={cn("relative z-10 flex h-full min-h-0 w-full flex-col", triggerInsetY)}>
+      <div
+        className={cn("relative z-10 flex h-full min-h-0 w-full min-w-0 flex-col", triggerInsetY)}
+      >
         <nav
           className={cn(
             "flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1",
@@ -226,16 +229,16 @@ export function MorphInputLayoutDemo() {
             Chat ↔ rabbit morph
           </Link>
         </nav>
-        <header
-          className={cn(
-            "shrink-0 px-4 pt-4 text-center",
-            devHudExpanded ? "pr-[min(18rem,100vw-1rem)] sm:pr-4" : "pr-4"
-          )}
-        >
-          <h1 className="font-commissioner text-2xl font-light tracking-tight text-foreground">
+        <header className={morphDemoChrome.header}>
+          <h1 className="font-commissioner text-xl font-light tracking-tight text-foreground sm:text-2xl">
             Morph: homepage ↔ chat input
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p
+            className={cn(
+              "mt-1 text-sm text-muted-foreground text-balance",
+              morphDemoChrome.headerBody
+            )}
+          >
             Layout positions are measured from hidden references; the visible block is driven by{" "}
             <code className="rounded bg-muted/50 px-1 py-0.5 text-xs">
               @organic-llm/morph-physics
@@ -248,21 +251,17 @@ export function MorphInputLayoutDemo() {
             <kbd className="rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-xs">
               Tab
             </kbd>{" "}
-            or use the button below. Use the debug panel (top right) for playback speed and metrics;
-            collapse it with the chevron when you need space. In development, React Scan adds a
-            toolbar with live FPS.
+            or use the button below. Use the debug panel for playback speed and metrics; collapse it
+            when you need space. In development, React Scan adds a toolbar with live FPS.
           </p>
         </header>
 
-        <div
-          ref={stageRef}
-          className="relative mt-4 min-h-[min(72vh,640px)] w-full flex-1 px-2 sm:px-4"
-        >
+        <div ref={stageRef} className={morphDemoChrome.stage}>
           <div
             ref={homeGhostRef}
             aria-hidden
             className={cn(
-              "pointer-events-none absolute left-1/2 top-[38%] z-0 w-[calc(100%-1.5rem)] max-w-xl",
+              "pointer-events-none absolute left-1/2 top-[38%] z-0 w-[calc(100%-1.5rem)] max-w-xl min-w-0",
               "-translate-x-1/2 -translate-y-1/2 opacity-0"
             )}
           >
@@ -272,7 +271,7 @@ export function MorphInputLayoutDemo() {
             ref={chatGhostRef}
             aria-hidden
             className={cn(
-              "pointer-events-none absolute right-4 bottom-24 left-4 z-0 opacity-0 sm:left-8 sm:right-8"
+              "pointer-events-none absolute right-4 bottom-24 left-4 z-0 min-w-0 opacity-0 sm:left-8 sm:right-8"
             )}
           >
             <MorphDemoChatInput className="w-full" />
@@ -281,15 +280,15 @@ export function MorphInputLayoutDemo() {
           <div
             ref={elementRef}
             className={cn(
-              "pointer-events-auto absolute top-0 left-0 z-20 overflow-hidden rounded-xl",
+              "pointer-events-auto absolute top-0 left-0 z-20 max-w-full overflow-hidden rounded-xl",
               "border-0 bg-transparent shadow-none backdrop-blur-none will-change-[transform,width,height]"
             )}
           >
             {layout === "home" ? (
               <div
                 className={cn(
-                  "min-h-full",
-                  relaxHomeComposerMaxWidth ? "w-full min-w-0" : "w-full max-w-xl"
+                  "min-h-full min-w-0",
+                  relaxHomeComposerMaxWidth ? "w-full" : "w-full max-w-xl"
                 )}
               >
                 <MorphDemoHomeInput
@@ -298,12 +297,12 @@ export function MorphInputLayoutDemo() {
                 />
               </div>
             ) : (
-              <MorphDemoChatInput className="min-h-full w-full" />
+              <MorphDemoChatInput className="min-h-full w-full min-w-0" />
             )}
           </div>
         </div>
 
-        <div className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-4">
+        <div className={morphDemoChrome.morphButtonRow}>
           <Button
             className="pointer-events-auto shadow-lg"
             type="button"

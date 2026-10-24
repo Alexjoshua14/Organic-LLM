@@ -26,7 +26,7 @@ export function OrganicGlassBaselineSurface({
   compact,
 }: OrganicGlassBaselineSurfaceProps) {
   return (
-    <div className="m-0.5 min-w-0 overflow-visible sm:m-1">
+    <div className="m-0.5 min-w-0 overflow-x-clip sm:m-1">
       <div
         className={cn(
           glassPreview({ depth, interactive: true, opaque, tone }),

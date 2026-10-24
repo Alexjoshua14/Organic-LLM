@@ -1,10 +1,23 @@
+import type { LiquidChromeMaterial } from "@/lib/background/liquid-chrome-material";
+
 import React, { memo, useEffect, useLayoutEffect, useRef } from "react";
 import { Renderer, Program, Mesh, Triangle } from "ogl";
 
 import "./LiquidChrome.css";
 
+import {
+  LIQUID_CHROME_RENDER_IMAGE_GLSL,
+  LIQUID_CHROME_SAMPLE_GLSL,
+  LIQUID_CHROME_UNIFORMS_GLSL,
+} from "@/lib/background/liquid-chrome-shader";
+import {
+  registerLiquidChromeSource,
+  type LiquidChromeUniforms,
+} from "@/lib/background/liquid-chrome-source";
+
 interface LiquidChromeProps extends React.HTMLAttributes<HTMLDivElement> {
   baseColor?: [number, number, number];
+  material?: LiquidChromeMaterial;
   speed?: number;
   amplitude?: number;
   frequencyX?: number;
@@ -16,6 +29,7 @@ interface LiquidChromeProps extends React.HTMLAttributes<HTMLDivElement> {
 
 type LiquidChromeRuntimeProps = {
   baseColor: [number, number, number];
+  material: LiquidChromeMaterial;
   speed: number;
   amplitude: number;
   frequencyX: number;
@@ -32,6 +46,7 @@ function rgb01ToCss([r, g, b]: [number, number, number]): string {
 function runtimePropsEqual(a: LiquidChromeRuntimeProps, b: LiquidChromeRuntimeProps): boolean {
   return (
     a.speed === b.speed &&
+    a.material === b.material &&
     a.amplitude === b.amplitude &&
     a.frequencyX === b.frequencyX &&
     a.frequencyY === b.frequencyY &&
@@ -43,6 +58,7 @@ function runtimePropsEqual(a: LiquidChromeRuntimeProps, b: LiquidChromeRuntimePr
 
 export const LiquidChrome = memo(function LiquidChrome({
   baseColor = [0.1, 0.1, 0.1],
+  material = "chrome",
   speed = 0.2,
   amplitude = 0.5,
   frequencyX = 3,
@@ -55,6 +71,7 @@ export const LiquidChrome = memo(function LiquidChrome({
   const pausedRef = useRef(paused);
   const propsRef = useRef<LiquidChromeRuntimeProps>({
     baseColor,
+    material,
     speed,
     amplitude,
     frequencyX,
@@ -64,7 +81,7 @@ export const LiquidChrome = memo(function LiquidChrome({
   const startLoopRef = useRef<(() => void) | null>(null);
 
   pausedRef.current = paused;
-  propsRef.current = { baseColor, speed, amplitude, frequencyX, frequencyY };
+  propsRef.current = { baseColor, material, speed, amplitude, frequencyX, frequencyY };
 
   useLayoutEffect(() => {
     if (!containerRef.current) return;
@@ -88,52 +105,16 @@ export const LiquidChrome = memo(function LiquidChrome({
       }
     `;
 
+    // Shared with the voice bar's FluidGlass mirror so the two can never drift apart.
     const fragmentShader = `
       precision highp float;
-      uniform float uTime;
-      uniform vec3 uResolution;
-      uniform vec3 uBaseColor;
-      uniform float uAmplitude;
-      uniform float uFrequencyX;
-      uniform float uFrequencyY;
-      uniform vec2 uMouse;
-      uniform float uMultiSample;
+      ${LIQUID_CHROME_UNIFORMS_GLSL}
       varying vec2 vUv;
-
-      vec4 renderImage(vec2 uvCoord) {
-          vec2 fragCoord = uvCoord * uResolution.xy;
-          vec2 uv = (2.0 * fragCoord - uResolution.xy) / min(uResolution.x, uResolution.y);
-
-          for (float i = 1.0; i < 10.0; i++){
-              uv.x += uAmplitude / i * cos(i * uFrequencyX * uv.y + uTime + uMouse.x * 3.14159);
-              uv.y += uAmplitude / i * cos(i * uFrequencyY * uv.x + uTime + uMouse.y * 3.14159);
-          }
-
-          vec2 diff = (uvCoord - uMouse);
-          float dist = length(diff);
-          float falloff = exp(-dist * 20.0);
-          float ripple = sin(10.0 * dist - uTime * 2.0) * 0.03;
-          uv += (diff / (dist + 0.0001)) * ripple * falloff;
-
-          vec3 color = uBaseColor / abs(sin(uTime - uv.y - uv.x));
-          return vec4(color, 1.0);
-      }
+      ${LIQUID_CHROME_RENDER_IMAGE_GLSL}
+      ${LIQUID_CHROME_SAMPLE_GLSL}
 
       void main() {
-          if (uMultiSample < 0.5) {
-              gl_FragColor = renderImage(vUv);
-              return;
-          }
-          vec4 col = vec4(0.0);
-          int samples = 0;
-          for (int i = -1; i <= 1; i++){
-              for (int j = -1; j <= 1; j++){
-                  vec2 offset = vec2(float(i), float(j)) * (1.0 / min(uResolution.x, uResolution.y));
-                  col += renderImage(vUv + offset);
-                  samples++;
-              }
-          }
-          gl_FragColor = col / float(samples);
+          gl_FragColor = sampleLiquidChrome(vUv);
       }
     `;
 
@@ -151,6 +132,8 @@ export const LiquidChrome = memo(function LiquidChrome({
           ]),
         },
         uBaseColor: { value: new Float32Array(initial.baseColor) },
+        uPaperInk: { value: initial.material === "paper-ink" ? 1 : 0 },
+        uPixelRatio: { value: 1 },
         uAmplitude: { value: initial.amplitude },
         uFrequencyX: { value: initial.frequencyX },
         uFrequencyY: { value: initial.frequencyY },
@@ -165,12 +148,14 @@ export const LiquidChrome = memo(function LiquidChrome({
 
     function resize() {
       const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
+
       renderer.setSize(container.offsetWidth * dpr, container.offsetHeight * dpr);
       const resUniform = program.uniforms.uResolution.value as Float32Array;
 
       resUniform[0] = gl.canvas.width;
       resUniform[1] = gl.canvas.height;
       resUniform[2] = gl.canvas.width / gl.canvas.height;
+      program.uniforms.uPixelRatio.value = dpr;
     }
     window.addEventListener("resize", resize);
     resize();
@@ -181,11 +166,12 @@ export const LiquidChrome = memo(function LiquidChrome({
 
     function handleMouseMove(event: MouseEvent) {
       const rect = container.getBoundingClientRect();
+
       if (rect.width <= 0 || rect.height <= 0) return;
 
       setMouseTarget(
         (event.clientX - rect.left) / rect.width,
-        1 - (event.clientY - rect.top) / rect.height,
+        1 - (event.clientY - rect.top) / rect.height
       );
     }
 
@@ -193,11 +179,12 @@ export const LiquidChrome = memo(function LiquidChrome({
       if (event.touches.length === 0) return;
       const touch = event.touches[0];
       const rect = container.getBoundingClientRect();
+
       if (rect.width <= 0 || rect.height <= 0) return;
 
       setMouseTarget(
         (touch.clientX - rect.left) / rect.width,
-        1 - (touch.clientY - rect.top) / rect.height,
+        1 - (touch.clientY - rect.top) / rect.height
       );
     }
 
@@ -208,6 +195,7 @@ export const LiquidChrome = memo(function LiquidChrome({
 
     function syncUniformsFromProps() {
       const runtime = propsRef.current;
+
       if (runtimePropsEqual(syncedProps, runtime)) return;
 
       const baseColorUniform = program.uniforms.uBaseColor.value as Float32Array;
@@ -216,6 +204,7 @@ export const LiquidChrome = memo(function LiquidChrome({
       baseColorUniform[1] = runtime.baseColor[1];
       baseColorUniform[2] = runtime.baseColor[2];
       program.uniforms.uAmplitude.value = runtime.amplitude;
+      program.uniforms.uPaperInk.value = runtime.material === "paper-ink" ? 1 : 0;
       program.uniforms.uFrequencyX.value = runtime.frequencyX;
       program.uniforms.uFrequencyY.value = runtime.frequencyY;
       syncedProps = { ...runtime };
@@ -225,6 +214,7 @@ export const LiquidChrome = memo(function LiquidChrome({
       syncUniformsFromProps();
 
       const runtime = propsRef.current;
+
       program.uniforms.uTime.value = timeMs * 0.001 * runtime.speed;
 
       if (interactive) {
@@ -241,6 +231,7 @@ export const LiquidChrome = memo(function LiquidChrome({
     function tick(t: number) {
       if (pausedRef.current) {
         animationId = null;
+
         return;
       }
 
@@ -256,12 +247,22 @@ export const LiquidChrome = memo(function LiquidChrome({
     container.appendChild(gl.canvas);
     renderFrame(0);
 
+    // Publishes the live uniforms so FluidGlass can re-render this exact field behind the voice
+    // bar. Read-only for consumers; costs nothing per frame here.
+    const unregisterSource = registerLiquidChromeSource({
+      element: container,
+      uniforms: program.uniforms as unknown as LiquidChromeUniforms,
+      isRunning: () => animationId !== null && !pausedRef.current,
+      getSpeed: () => propsRef.current.speed,
+    });
+
     startLoopRef.current = startLoop;
     if (!pausedRef.current) {
       startLoop();
     }
 
     return () => {
+      unregisterSource();
       startLoopRef.current = null;
       if (animationId !== null) cancelAnimationFrame(animationId);
       window.removeEventListener("resize", resize);

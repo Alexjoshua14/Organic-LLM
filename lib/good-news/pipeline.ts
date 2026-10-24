@@ -23,8 +23,10 @@ import { dateStringCompare } from "@/lib/utils";
 
 const logger = createLogger("lib/good-news/pipeline.ts");
 
-const EXTRACTION_MODEL = "openai/gpt-5.6-terra" as const;
-const FACTCHECK_MODEL = "openai/gpt-5.6-luna" as const;
+import { models } from "@/lib/schemas/chat-models";
+
+const EXTRACTION_MODEL = models.openai.terra.id;
+const FACTCHECK_MODEL = models.openai.luna.id;
 
 const RECENCY_WINDOW_DAYS = 9;
 const MAX_SOURCES_FOR_EXTRACTION = 60;
@@ -143,7 +145,7 @@ async function extractCandidates(sources: SourceMeta[]): Promise<CandidateItem[]
   try {
     const { object, usage } = await generateObject({
       model: EXTRACTION_MODEL,
-      system: EXTRACTION_SYSTEM_PROMPT,
+      instructions: EXTRACTION_SYSTEM_PROMPT,
       prompt: `Today's candidate articles:\n\n${list}\n\nCluster and extract the positive-news candidates.`,
       schema: CandidateExtractionSchema,
       maxOutputTokens: 4_000,
@@ -216,7 +218,7 @@ async function factCheckCandidate(
   try {
     const { object, usage } = await generateObject({
       model: FACTCHECK_MODEL,
-      system: FACTCHECK_SYSTEM_PROMPT,
+      instructions: FACTCHECK_SYSTEM_PROMPT,
       prompt: `CLAIM: ${candidate.claim}\nCATEGORY: ${candidate.category}\n\nSOURCES:\n\n${sourceBlocks}`,
       schema: FactCheckResultSchema,
       maxOutputTokens: 1_200,

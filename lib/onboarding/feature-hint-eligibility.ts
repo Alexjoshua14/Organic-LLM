@@ -49,7 +49,11 @@ export function isSurfaceEntryHintPending(
   dismissRecord: FeatureHintDismissRecord,
   replayFeatureHints: boolean
 ): boolean {
-  const hintId = getSurfaceEntryHintForPath(pathname);
+  const hintId =
+    pathname.startsWith("/sandbox/arcadia") &&
+    isRegistrationEligible("arcadia-multiagent", registrations)
+      ? "arcadia-multiagent"
+      : getSurfaceEntryHintForPath(pathname);
 
   if (!hintId || !isFeatureHintEnabledInCode(hintId)) return false;
 

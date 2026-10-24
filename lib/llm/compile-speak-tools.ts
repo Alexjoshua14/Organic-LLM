@@ -1,8 +1,9 @@
 import type { SpeakModalities } from "@/lib/schemas/speak-modalities";
 
+import { z } from "zod";
+
 import { GenUIBlockSchema } from "@/lib/schemas/gen-ui";
 import { httpUrl } from "@/lib/schemas/gen-ui/shared";
-import { z } from "zod";
 
 /** OpenAI Realtime function-tool shape. */
 export type SpeakRealtimeFunctionTool = {
@@ -63,12 +64,22 @@ const SummarizeThreadSchema = z.object({
   reason: z.string().max(200).optional(),
 });
 
+const SearchMemoriesSchema = z.object({
+  query: z.string().min(1).max(500),
+});
+
+export type SpeakToolCompileOptions = {
+  /** Adds `search_memories`. Off unless the client opted in, mirroring chat's composer toggle. */
+  memoryEnabled?: boolean;
+};
+
 /**
  * Compile modality-gated Realtime tools. Always includes async nanobot tools
  * that need a thread; they no-op gracefully without one.
  */
 export function compileSpeakRealtimeTools(
-  modalities: SpeakModalities
+  modalities: SpeakModalities,
+  options: SpeakToolCompileOptions = {}
 ): SpeakRealtimeFunctionTool[] {
   const tools: SpeakRealtimeFunctionTool[] = [];
 
@@ -113,6 +124,16 @@ export function compileSpeakRealtimeTools(
     });
   }
 
+  if (options.memoryEnabled) {
+    tools.push({
+      type: "function",
+      name: "search_memories",
+      description:
+        "Recall what you know about this user from earlier conversations — preferences, names, past decisions, ongoing projects. Call it silently; do not announce the lookup. Returns up to three short memories.",
+      parameters: toParameters(SearchMemoriesSchema),
+    });
+  }
+
   tools.push({
     type: "function",
     name: "update_thread_title",
@@ -136,12 +157,14 @@ export const SpeakToolNameSchema = z.enum([
   "refresh_component",
   "upsert_ui_state",
   "show_web_preview",
+  "search_memories",
   "update_thread_title",
   "summarize_thread",
 ]);
 
 export type SpeakToolName = z.infer<typeof SpeakToolNameSchema>;
 
+/** Modality ceiling only; `search_memories` is not a presentation channel so it passes here. */
 export function isToolAllowedForModalities(
   name: SpeakToolName,
   modalities: SpeakModalities
@@ -155,12 +178,25 @@ export function isToolAllowedForModalities(
       return modalities.genUi;
     case "show_web_preview":
       return modalities.web;
+    case "search_memories":
     case "update_thread_title":
     case "summarize_thread":
       return true;
     default:
       return false;
   }
+}
+
+export type SpeakToolGate = {
+  modalities: SpeakModalities;
+  memoryEnabled: boolean;
+};
+
+/** Full per-session gate: modality toggles plus the memory opt-in captured at mint. */
+export function isToolAllowedForSession(name: SpeakToolName, gate: SpeakToolGate): boolean {
+  if (name === "search_memories") return gate.memoryEnabled;
+
+  return isToolAllowedForModalities(name, gate.modalities);
 }
 
 export {
@@ -171,4 +207,5 @@ export {
   UpsertUiStateSchema,
   UpdateThreadTitleSchema,
   SummarizeThreadSchema,
+  SearchMemoriesSchema,
 };

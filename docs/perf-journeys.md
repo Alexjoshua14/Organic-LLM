@@ -2,7 +2,7 @@
 
 Dev-only instrumentation for measuring three user journeys:
 
-1. **Page load** — document load of `/` (signed-in composer or signed-out welcome)
+1. **Page load** — document load of `/` (signed-in composer)
 2. **Home → Chat** — Let's Chat / sidebar Chat rail
 3. **Home → Arcadia** — any link to `/sandbox/arcadia…`
 
@@ -14,6 +14,17 @@ Add `?perf=1` to any URL. The flag is sticky per tab (`sessionStorage`). Disable
 
 Works in `bun dev`, `bun start`, and deployed builds. The HUD is **not** auto-on in development.
 
+**Locked — 2026-09-10:** Collection and the HUD require resolved, signed-in auth as well as
+the perf flag. Signed-out visits emit no custom perf marks or traces, even with a stored flag.
+Sign-out discards the active trace and disconnects the page-load observer. The debug preference
+and completed history remain stored per tab.
+
+Signing in within a document enables subsequent navigation journeys, but does not start a
+page-load trace for time spent signed out. Load traces only start for initially signed-in
+home visits; direct loads of other routes do not create an unfinished home-load trace.
+Auth initialization runs before the composer's ready effect, including when auth resolves late.
+This scope applies to the custom perf collector; Vercel Analytics is unchanged.
+
 ## Headline metric
 
 **Destination composer painted** — when the user can type in the target composer:
@@ -21,7 +32,6 @@ Works in `bun dev`, `bun start`, and deployed builds. The HUD is **not** auto-on
 | Journey | Headline phase |
 |---------|----------------|
 | Page load (signed in) | `home:composer-ready` |
-| Page load (signed out) | `home:welcome-ready` |
 | Home → Chat | `chat:ready` |
 | Home → Arcadia | `chat:ready` (`experience: arcadia`) |
 
@@ -49,11 +59,13 @@ Chrome DevTools Performance panel also shows `ol:<journey>:<phase>` User Timing 
 
 | Phase | Where |
 |-------|--------|
-| `createChat` | Arcadia index (`/sandbox/arcadia`) |
-| `updateThreadRouting` | Arcadia index |
+| `createChat` | Arcadia creation action and index (`/sandbox/arcadia`); routing is inserted atomically |
 | `loadChat` | Chat and Arcadia `[slug]` pages (shared per request via React `cache()`) |
 
-Arcadia index phases are stashed in-process and merged on `[slug]` after the redirect. On serverless or multi-instance deploys, that gap may appear as unattributed client time between click and route commit.
+Arcadia creation phases are stashed in-process and merged on `[slug]` after navigation.
+The sidebar uses the creation action and navigates straight to the canonical thread; direct
+index visits still redirect. On serverless or multi-instance deploys, that gap may appear as
+unattributed client time between click and route commit.
 
 ## Console logs
 
@@ -67,4 +79,7 @@ Same shape as `homepage_route_client` in the homepage semantic router.
 
 ## Out of scope
 
-This tooling measures only. It does not change route behavior. Follow-up optimizations (skip Arcadia redirect hop, add Arcadia `loading.tsx`, collapse create+load on Let's Chat) should be driven by what the traces show.
+This tooling measures only. Initial-load optimizations are recorded in the
+[Chat and Arcadia initial-load decision](./architecture/decisions/20261009-chat-arcadia-initial-load.md).
+Further changes, such as route loading boundaries or collapsing create+load on Let's Chat,
+should be driven by the traces.

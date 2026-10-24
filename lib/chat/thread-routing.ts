@@ -9,17 +9,19 @@ import { generateObject } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
 
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import { createChat } from "@/lib/chat/chat-store";
 import { resolveHomepageCandidateByIndex } from "@/lib/chat/thread-routing-candidates";
 import { loadHomepageRoutingCandidates } from "@/lib/chat/load-homepage-routing-candidates";
 import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
 import { recordLlmCall } from "@/lib/llm/metrics";
 import { createLogger } from "@/lib/logger";
+import { models, providerModelSlug } from "@/lib/schemas/chat-models";
 import { Result } from "@/types";
 
 const logger = createLogger("lib/chat/thread-routing.ts");
 
-const ROUTING_MODEL = openai("gpt-5.4-nano");
+const ROUTING_MODEL = openai(providerModelSlug(models.openai.luna.id));
 
 const HomepageRoutingDecisionSchema = z.object({
   selectedCandidateIndex: z
@@ -172,8 +174,12 @@ export async function routeHomepagePrompt(params: {
 
   try {
     const { object, usage } = await generateObject({
+      ...(await createAuthenticatedLlmBudgetHooks({
+        modelId: budgetModelId(ROUTING_MODEL),
+        operation: "chat/thread-routing",
+      })),
       model: ROUTING_MODEL,
-      system: ROUTING_SYSTEM,
+      instructions: ROUTING_SYSTEM,
       prompt: buildClassifierPrompt(trimmed, candidates),
       schema: HomepageRoutingDecisionSchema,
       maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
@@ -183,7 +189,8 @@ export async function routeHomepagePrompt(params: {
     classificationMs = performance.now() - llmStart;
 
     recordLlmCall({
-      model: "gpt-5.4-nano",
+      persist: false,
+      model: models.openai.luna.id,
       usage,
       durationMs: classificationMs,
       metadata: { operation: "homepage-thread-routing" },

@@ -38,10 +38,7 @@ import {
 import { fetchExternalSources, getWebpageContent } from "@/lib/exa/sources";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { checkExternalFetchLimit } from "@/lib/rate-limit/external-fetch";
-import {
-  sanitizeUntrustedText,
-  wrapUntrustedContent,
-} from "@/lib/security/external-content";
+import { sanitizeUntrustedText, wrapUntrustedContent } from "@/lib/security/external-content";
 
 const logger = createLogger("app/rabbitholes/actions.ts");
 
@@ -366,7 +363,7 @@ export async function createRabbitHoleSession(
       sourcesInstruction
     );
     // Create the node and session shells that mirror the AI output.
-    const { session, sessionId } = buildInitialSession({
+    const { session } = buildInitialSession({
       rawPrompt: prompt,
       userQuestion: question,
       aiObject: object,
@@ -374,7 +371,7 @@ export async function createRabbitHoleSession(
       branchSuggestions,
     });
 
-    logger.log("createRabbitHoleSession", `Session created: ${sessionId}`);
+    logger.log("createRabbitHoleSession", "Session created");
 
     return {
       data: session,
@@ -432,10 +429,7 @@ export async function followRabbitHoleBranch(
       };
     }
 
-    logger.log(
-      "followRabbitHoleBranch",
-      `Following branch: ${branch.label} in session: ${session.sessionId}`
-    );
+    logger.log("followRabbitHoleBranch", `Following branch: ${branch.label}`);
 
     // Search sources for this branch.
     const { exaSources, sourcesContext, sourcesInstruction } = await fetchExternalSources(
@@ -586,7 +580,7 @@ Provide a comprehensive analysis that helps the user understand this source's ke
     if (usage) {
       logger.log(
         "createRabbitHoleSession",
-        `AI usage: input tokens=${usage.inputTokens ?? "?"}, reasoning tokens=${usage.reasoningTokens ?? "?"}, output tokens=${usage.outputTokens ?? "?"}, total tokens=${usage.totalTokens ?? "?"}`
+        `AI usage: input tokens=${usage.inputTokens ?? "?"}, reasoning tokens=${usage.outputTokenDetails.reasoningTokens ?? "?"}, output tokens=${usage.outputTokens ?? "?"}, total tokens=${usage.totalTokens ?? "?"}`
       );
     }
 

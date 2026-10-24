@@ -37,7 +37,7 @@ export function StatusCheckDetails({
       {check.message ? (
         <p
           className={cn(
-            "text-muted-foreground leading-snug",
+            "break-words text-muted-foreground leading-snug",
             entries.length > 0 && "mt-1 border-t border-border/40 pt-1"
           )}
         >

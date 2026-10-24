@@ -2,13 +2,15 @@ import type { Result } from "@/types";
 
 import { generateText } from "ai";
 
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import { KNOWLEDGE_GATEWAY_PROVIDER_OPTIONS } from "@/lib/knowledge/gateway-options";
 import { createLogger } from "@/lib/logger";
 import { recordLlmCall } from "@/lib/llm/metrics";
+import { models } from "@/lib/schemas/chat-models";
 
 const logger = createLogger("lib/llm/strata-clipboard-source-title.ts");
 
-const STRATA_CLIPBOARD_TITLE_MODEL = "openai/gpt-5.4-nano" as const;
+const STRATA_CLIPBOARD_TITLE_MODEL = models.openai.luna.id;
 
 /** Only this prefix of the pasted excerpt is sent to the model (cost + context cap). */
 const STRATA_CLIPBOARD_TITLE_LLM_INPUT_MAX = 8_000;
@@ -42,8 +44,12 @@ export async function generateStrataClipboardSourceTitle(options: {
   try {
     const start = performance.now();
     const result = await generateText({
+      ...(await createAuthenticatedLlmBudgetHooks({
+        modelId: budgetModelId(STRATA_CLIPBOARD_TITLE_MODEL),
+        operation: "llm/strata-clipboard-source-title",
+      })),
       model: STRATA_CLIPBOARD_TITLE_MODEL,
-      system: CLIPBOARD_SOURCE_TITLE_SYSTEM,
+      instructions: CLIPBOARD_SOURCE_TITLE_SYSTEM,
       prompt,
       maxOutputTokens: 96,
       providerOptions: KNOWLEDGE_GATEWAY_PROVIDER_OPTIONS,
@@ -51,6 +57,7 @@ export async function generateStrataClipboardSourceTitle(options: {
     const durationMs = performance.now() - start;
 
     recordLlmCall({
+      persist: false,
       model: STRATA_CLIPBOARD_TITLE_MODEL,
       usage: result.usage,
       durationMs,

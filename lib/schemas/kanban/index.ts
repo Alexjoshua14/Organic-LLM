@@ -28,6 +28,26 @@ export type KanbanAckOutput = z.infer<typeof KanbanAckOutputSchema>;
 export type KanbanViewOutput = z.infer<typeof KanbanViewOutputSchema>;
 export type KanbanBoardToolOutput = z.infer<typeof KanbanBoardToolOutputSchema>;
 
+/**
+ * Map a validated kanban command to the tool's return payload.
+ * Shared by `createKanbanBoardTool` and the public Ergon showcase script so
+ * recorded outputs cannot drift from production.
+ */
+export function toKanbanToolOutput(command: KanbanCommand): KanbanBoardToolOutput {
+  if (command.type === "SHOW_VIEW") {
+    return { kind: "kanban-view", view: command.view };
+  }
+
+  const count =
+    command.type === "UPSERT_ITEMS"
+      ? command.items.length
+      : command.type === "INITIATE_KANBAN"
+        ? (command.seedItems?.length ?? 0)
+        : 1;
+
+  return { kind: "kanban-ack", applied: command.type, count };
+}
+
 export type SafeParseKanbanCommandResult =
   | { ok: true; command: KanbanCommand }
   | { ok: false; errors: z.ZodError };

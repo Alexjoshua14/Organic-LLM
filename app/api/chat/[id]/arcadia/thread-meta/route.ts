@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { getConversationSummary, getThreadOwnerContext } from "@/data/supabase/chat";
-import { clientErrorJson, logRouteError } from "@/lib/api/client-safe-error";
+import { logRouteError } from "@/lib/api/client-safe-error";
 import { createLogger } from "@/lib/logger";
 import { supabaseServer } from "@/lib/supabase/server";
 import { decryptFromStorage } from "@/lib/crypto/message-encryption";

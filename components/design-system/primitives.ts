@@ -60,6 +60,8 @@ export const caption = tv({
 /**
  * Neutral smoke glass — blur + theme tint + hairline border. Uses HeroUI background/border
  * tokens (not raw white/black) so light/dark follow the app palette automatically.
+ * For opt-in refraction, put owned background content in <GlassBackdrop distortion />
+ * beneath this surface. Source filtering avoids Safari's incomplete SVG backdrop URL support.
  *
  * `chip: true` — unified foreground aperture lens for toggles inside opaque shells.
  * Uses base smoke opacity (not `opaque`) so chrome shows through. Do not combine with `opaque: true`.

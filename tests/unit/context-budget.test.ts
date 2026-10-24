@@ -11,12 +11,16 @@ import {
   estimateTokenCountSync,
   ESTIMATED_SYSTEM_PROMPT_TOKENS,
   finalizeContextBudget,
+  formatMemoryPackLabel,
   getContextComposition,
   getContextHeadroomTurns,
+  getLatestContextBudgetFromMessages,
   getMessageToolPartsForTokenEstimate,
   getModelContextWindowTokens,
   getThreadContextCoverage,
+  mergePreservedLastTurn,
   scaffoldFromStreamBudget,
+  withLastTurnSnapshot,
   type ContextBudgetScaffold,
 } from "@/lib/chat/context-budget";
 import { AUTO_CHAT_MODEL_ID, AUTO_RESOLVED_SONNET_MODEL_ID } from "@/lib/schemas/chat";
@@ -63,7 +67,7 @@ function fixtureScaffold(overrides: Partial<ContextBudgetScaffold> = {}): Contex
 describe("computeContextBudget", () => {
   test("counts draft text toward next submit total", () => {
     const budget = computeContextBudget({
-      modelId: "openai/gpt-5.6-terra",
+      modelId: "openai/gpt-6-sol",
       threadMessages: [userMessage("Hello there")],
       draftText: "What is next?",
       memoryEnabled: false,
@@ -94,7 +98,7 @@ describe("computeContextBudget", () => {
 
   test("counts tool output parts in a dedicated segment", () => {
     const budget = computeContextBudget({
-      modelId: "openai/gpt-5.6-terra",
+      modelId: "openai/gpt-6-sol",
       threadMessages: [assistantWithToolOutput()],
       draftText: "",
       memoryEnabled: false,
@@ -109,9 +113,9 @@ describe("computeContextBudget", () => {
   });
 
   test("reserves output tokens from the model window", () => {
-    const window = getModelContextWindowTokens("openai/gpt-5.6-terra");
+    const window = getModelContextWindowTokens("openai/gpt-6-sol");
     const budget = computeContextBudget({
-      modelId: "openai/gpt-5.6-terra",
+      modelId: "openai/gpt-6-sol",
       threadMessages: [],
       draftText: "",
       memoryEnabled: false,
@@ -127,7 +131,7 @@ describe("computeContextBudget", () => {
 describe("computeNewThreadDefaultBudget", () => {
   test("defaults to system prompt and tool overhead only", () => {
     const budget = computeNewThreadDefaultBudget({
-      modelId: "openai/gpt-5.6-terra",
+      modelId: "openai/gpt-6-sol",
       memoryEnabled: false,
       webSearchEnabled: false,
       messageSearchEnabled: false,
@@ -174,7 +178,7 @@ describe("composeContextBudget", () => {
       scaffold,
       threadMessages: thread,
       draftText,
-      modelId: "openai/gpt-5.6-terra",
+      modelId: "openai/gpt-6-sol",
     });
 
     expect(composed.source).toBe("client");
@@ -195,7 +199,7 @@ describe("composeContextBudget", () => {
       scaffold: fixtureScaffold({ contextMessageLimit: 10, summaryTokens: 600 }),
       threadMessages: thread,
       draftText: "",
-      modelId: "openai/gpt-5.6-terra",
+      modelId: "openai/gpt-6-sol",
     });
 
     expect(composed.packedMessageCount).toBe(10);
@@ -203,9 +207,10 @@ describe("composeContextBudget", () => {
     expect(composed.includesRollingSummary).toBe(true);
   });
 
-  test("scaffold JSON is numbers-only besides activeToolNames", () => {
+  test("scaffold JSON is numbers-only besides activeToolNames and nested lastTurn", () => {
     const scaffold = fixtureScaffold({
       memoriesInjected: 2,
+      lastTurn: { inputTokens: 12_400, memoryTokens: 2_140, memoriesInjected: 8 },
       activeToolNames: ["web_search", "search_memories"],
     });
     const serialized = JSON.parse(JSON.stringify(scaffold)) as Record<string, unknown>;
@@ -220,6 +225,14 @@ describe("composeContextBudget", () => {
         continue;
       }
 
+      if (key === "lastTurn") {
+        expect(value && typeof value === "object").toBe(true);
+        for (const nested of Object.values(value as Record<string, unknown>)) {
+          expect(typeof nested).toBe("number");
+        }
+        continue;
+      }
+
       if (allowedStringKeys.has(key)) {
         expect(typeof value).toBe("string");
         continue;
@@ -228,13 +241,25 @@ describe("composeContextBudget", () => {
       expect(typeof value === "number" || value === undefined).toBe(true);
     }
   });
+
+  test("compose keeps lastTurn from the scaffold", () => {
+    const lastTurn = { inputTokens: 9_001, memoryTokens: 640, memoriesInjected: 4 };
+    const composed = composeContextBudget({
+      scaffold: fixtureScaffold({ lastTurn, memoryTokens: 900, memoriesInjected: 0 }),
+      threadMessages: [userMessage("hi")],
+      draftText: "next",
+      modelId: "openai/gpt-6-sol",
+    });
+
+    expect(composed.lastTurn).toEqual(lastTurn);
+  });
 });
 
 describe("scaffoldFromStreamBudget", () => {
   test("round-trips segment tokens from a finalized budget", () => {
     const budget = finalizeContextBudget({
-      modelId: "openai/gpt-5.6-terra",
-      resolvedModelId: "openai/gpt-5.6-terra",
+      modelId: "openai/gpt-6-sol",
+      resolvedModelId: "openai/gpt-6-sol",
       segments: [
         { id: "system", label: "System prompt", tokens: 3_400, color: "x" },
         { id: "tools", label: "Tools", tokens: 1_200, color: "x" },
@@ -248,6 +273,11 @@ describe("scaffoldFromStreamBudget", () => {
       includesRollingSummary: false,
       activeToolNames: ["manage_tasks"],
       memoriesInjected: 1,
+      lastTurn: {
+        inputTokens: 5_650,
+        memoryTokens: 900,
+        memoriesInjected: 3,
+      },
       source: "server",
     });
 
@@ -259,6 +289,11 @@ describe("scaffoldFromStreamBudget", () => {
       summaryTokens: 100,
       memoryTokens: 900,
       memoriesInjected: 1,
+      lastTurn: {
+        inputTokens: 5_650,
+        memoryTokens: 900,
+        memoriesInjected: 3,
+      },
       activeToolNames: ["manage_tasks"],
       contextMessageLimit: 10,
       source: "server",
@@ -268,11 +303,16 @@ describe("scaffoldFromStreamBudget", () => {
       scaffold,
       threadMessages: [userMessage("hi")],
       draftText: "draft",
-      modelId: "openai/gpt-5.6-terra",
+      modelId: "openai/gpt-6-sol",
     });
 
     expect(recomposed.segments.find((s) => s.id === "system")?.tokens).toBe(3_400);
     expect(recomposed.segments.find((s) => s.id === "memory")?.tokens).toBe(900);
+    expect(recomposed.lastTurn).toEqual({
+      inputTokens: 5_650,
+      memoryTokens: 900,
+      memoriesInjected: 3,
+    });
   });
 });
 
@@ -289,7 +329,7 @@ describe("estimateTokenCount shared encoder", () => {
 describe("context budget derivations", () => {
   test("returns null coverage for empty threads", () => {
     const budget = computeNewThreadDefaultBudget({
-      modelId: "openai/gpt-5.6-terra",
+      modelId: "openai/gpt-6-sol",
       memoryEnabled: false,
       webSearchEnabled: false,
       messageSearchEnabled: false,
@@ -301,7 +341,7 @@ describe("context budget derivations", () => {
   test("computes partial thread coverage when the window is smaller than the thread", () => {
     const thread = Array.from({ length: 12 }, (_, i) => userMessage(`Turn ${i + 1}`, `u${i}`));
     const budget = computeContextBudget({
-      modelId: "openai/gpt-5.6-terra",
+      modelId: "openai/gpt-6-sol",
       threadMessages: thread,
       draftText: "",
       contextMessageLimit: 10,
@@ -318,7 +358,7 @@ describe("context budget derivations", () => {
 
   test("computes headroom and composition from packed segments", () => {
     const budget = computeContextBudget({
-      modelId: "openai/gpt-5.6-terra",
+      modelId: "openai/gpt-6-sol",
       threadMessages: [userMessage("Hello"), assistantWithToolOutput()],
       draftText: "Next question",
       memoryEnabled: false,
@@ -339,7 +379,7 @@ describe("context budget derivations", () => {
 
 describe("resolveChatModelId", () => {
   test("passes explicit model ids through unchanged", () => {
-    expect(resolveChatModelId({ modelId: "openai/gpt-5.6-terra" })).toBe("openai/gpt-5.6-terra");
+    expect(resolveChatModelId({ modelId: "openai/gpt-6-sol" })).toBe("openai/gpt-6-sol");
   });
 
   test("resolves Auto to Sonnet by default", () => {
@@ -356,5 +396,92 @@ describe("resolveChatModelId", () => {
 
     expect(resolved).not.toBe(AUTO_CHAT_MODEL_ID);
     expect(resolved).not.toBe(AUTO_RESOLVED_SONNET_MODEL_ID);
+  });
+});
+
+describe("last-turn helpers", () => {
+  test("withLastTurnSnapshot copies next-submit totals when lastTurn is missing", () => {
+    const budget = finalizeContextBudget({
+      modelId: "openai/gpt-6-sol",
+      segments: [
+        { id: "system", label: "System prompt", tokens: 100, color: "x" },
+        { id: "memory", label: "Memory", tokens: 40, color: "x" },
+      ],
+      contextMessageLimit: 10,
+      packedMessageCount: 0,
+      totalThreadMessages: 0,
+      includesRollingSummary: false,
+      memoriesInjected: 2,
+      source: "server",
+    });
+
+    expect(budget.lastTurn).toBeUndefined();
+    expect(withLastTurnSnapshot(budget).lastTurn).toEqual({
+      inputTokens: 140,
+      memoryTokens: 40,
+      memoriesInjected: 2,
+    });
+  });
+
+  test("mergePreservedLastTurn keeps the previous snapshot when incoming omits it", () => {
+    const previous = { lastTurn: { inputTokens: 9, memoryTokens: 3, memoriesInjected: 1 } };
+    const incoming = { memoryTokens: 900 };
+
+    expect(mergePreservedLastTurn(incoming, previous).lastTurn).toEqual(previous.lastTurn);
+    expect(mergePreservedLastTurn({ lastTurn: { inputTokens: 1, memoryTokens: 1, memoriesInjected: 0 } }, previous).lastTurn?.inputTokens).toBe(1);
+  });
+
+  test("getLatestContextBudgetFromMessages hydrates the newest data-context-budget part", () => {
+    const older = finalizeContextBudget({
+      modelId: "openai/gpt-6-sol",
+      segments: [{ id: "system", label: "System prompt", tokens: 10, color: "x" }],
+      contextMessageLimit: 10,
+      packedMessageCount: 1,
+      totalThreadMessages: 1,
+      includesRollingSummary: false,
+      memoriesInjected: 1,
+      lastTurn: { inputTokens: 10, memoryTokens: 0, memoriesInjected: 1 },
+      source: "server",
+    });
+    const newer = finalizeContextBudget({
+      modelId: "openai/gpt-6-sol",
+      segments: [
+        { id: "system", label: "System prompt", tokens: 20, color: "x" },
+        { id: "memory", label: "Memory", tokens: 50, color: "x" },
+      ],
+      contextMessageLimit: 10,
+      packedMessageCount: 2,
+      totalThreadMessages: 2,
+      includesRollingSummary: false,
+      memoriesInjected: 5,
+      source: "server",
+    });
+
+    const found = getLatestContextBudgetFromMessages([
+      {
+        id: "a1",
+        role: "assistant",
+        parts: [{ type: "data-context-budget", data: older }],
+      },
+      {
+        id: "a2",
+        role: "assistant",
+        parts: [
+          { type: "text", text: "ok" },
+          { type: "data-context-budget", data: newer },
+        ],
+      },
+    ]);
+
+    expect(found?.lastTurn).toEqual({
+      inputTokens: 70,
+      memoryTokens: 50,
+      memoriesInjected: 5,
+    });
+  });
+
+  test("formatMemoryPackLabel names the count and token pack", () => {
+    expect(formatMemoryPackLabel({ count: 1, tokens: 400 })).toBe("1 memory · 400 tok");
+    expect(formatMemoryPackLabel({ count: 8, tokens: 12_400 })).toBe("8 memories · 12k tok");
   });
 });

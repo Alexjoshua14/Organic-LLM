@@ -1,12 +1,15 @@
-import { afterEach, beforeEach, describe, expect, jest, mock, test } from "bun:test";
+import { afterAll, afterEach, beforeEach, describe, expect, jest, mock, test } from "bun:test";
 import { act, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import type { HTMLAttributes, ReactNode } from "react";
+import * as framerMotion from "framer-motion";
 
+import { mockModulePreservingReal } from "../helpers/module-mock";
 import { render } from "../helpers/render";
 
 const mockRouterPush = mock(() => {});
 const mockSetChatId = mock(() => {});
 const mockRefreshSidebarChats = mock(() => {});
+const mockUpdateSidebarChat = mock((_id: string, _patch: unknown) => {});
 const mockSetOpenMobile = mock(() => {});
 const mockUpdateChatTitle = mock(async () => ({ ok: true, error: null }));
 const mockUpdateChatPinned = mock(async () => ({ ok: true, error: null }));
@@ -29,12 +32,22 @@ mock.module("@/hooks/use-mobile", () => ({
   useIsMobile: () => currentIsMobile,
 }));
 
-mock.module("framer-motion", () => ({
+/**
+ * Only `motion.div` is swapped for a plain element. `motion` is a Proxy, so the rest is
+ * forwarded to the real one: a stub that dropped `motion.svg` used to leak into later files
+ * and break any component animating an icon.
+ */
+const restoreFramerMotion = mockModulePreservingReal("framer-motion", framerMotion, (real) => ({
   AnimatePresence: ({ children }: { children: ReactNode }) => <>{children}</>,
-  motion: {
-    div: (props: HTMLAttributes<HTMLDivElement>) => <div {...props} />,
-  },
+  motion: new Proxy(real.motion, {
+    get: (target, prop) =>
+      prop === "div"
+        ? (props: HTMLAttributes<HTMLDivElement>) => <div {...props} />
+        : Reflect.get(target, prop),
+  }),
 }));
+
+afterAll(restoreFramerMotion);
 
 mock.module("@/data/supabase/chat", () => ({
   updateChatTitle: mockUpdateChatTitle,
@@ -42,24 +55,52 @@ mock.module("@/data/supabase/chat", () => ({
   deleteChat: mockDeleteChat,
 }));
 
+/**
+ * Every export is stubbed, deliberately: this mock stays installed for later files, and a
+ * partial one left real Radix items rendering inside these plain-`div` roots, which throws
+ * "`MenuItem` must be used within `Menu`". Merging the real module back in would reintroduce
+ * exactly that mix, so the stub has to cover the whole surface instead.
+ */
+const passthrough = ({ children }: { children?: ReactNode }) => <div>{children}</div>;
+const menuItemStub = ({
+  children,
+  onSelect,
+  onCheckedChange,
+  className,
+}: {
+  children?: ReactNode;
+  onSelect?: () => void;
+  onCheckedChange?: (checked: boolean) => void;
+  className?: string;
+}) => (
+  <button
+    className={className}
+    onClick={() => {
+      onSelect?.();
+      onCheckedChange?.(true);
+    }}
+  >
+    {children}
+  </button>
+);
+
 mock.module("@/components/third-party/ui/dropdown-menu", () => ({
-  DropdownMenu: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  DropdownMenuTrigger: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  DropdownMenuContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  DropdownMenuItem: ({
-    children,
-    onSelect,
-    className,
-  }: {
-    children: ReactNode;
-    onSelect?: () => void;
-    className?: string;
-  }) => (
-    <button className={className} onClick={() => onSelect?.()}>
-      {children}
-    </button>
-  ),
+  DropdownMenu: passthrough,
+  DropdownMenuTrigger: passthrough,
+  DropdownMenuContent: passthrough,
+  DropdownMenuGroup: passthrough,
+  DropdownMenuPortal: passthrough,
+  DropdownMenuSub: passthrough,
+  DropdownMenuSubContent: passthrough,
+  DropdownMenuSubTrigger: passthrough,
+  DropdownMenuRadioGroup: passthrough,
+  DropdownMenuLabel: passthrough,
+  DropdownMenuShortcut: passthrough,
+  DropdownMenuItem: menuItemStub,
+  DropdownMenuCheckboxItem: menuItemStub,
+  DropdownMenuRadioItem: menuItemStub,
   DropdownMenuSeparator: () => <hr />,
+  DropdownMenuPrimitive: {},
 }));
 
 mock.module("@heroui/modal", () => {
@@ -130,6 +171,7 @@ describe("SidebarChatList", () => {
     mockRouterPush.mockReset();
     mockSetChatId.mockReset();
     mockRefreshSidebarChats.mockReset();
+    mockUpdateSidebarChat.mockReset();
     mockSetOpenMobile.mockReset();
     mockUpdateChatTitle.mockReset();
     mockUpdateChatPinned.mockReset();
@@ -157,6 +199,7 @@ describe("SidebarChatList", () => {
             isSidebarChatsLoading: false,
             sidebarChatsError: null,
             refreshSidebarChats: mockRefreshSidebarChats,
+            updateSidebarChat: mockUpdateSidebarChat,
           } as ChatContextValue
         }
       >
@@ -176,27 +219,54 @@ describe("SidebarChatList", () => {
     expect(mockRouterPush).toHaveBeenCalledWith("/chat/thread-1");
   });
 
-  test("renames a thread and refreshes the sidebar list", async () => {
+  test("mounts a row's actions menu only once its trigger is pointed at", () => {
     const view = renderList();
 
+    expect(view.queryByText("Edit title")).toBeNull();
+
+    fireEvent.pointerEnter(view.getByLabelText("Thread options"));
+
+    expect(view.getByText("Edit title")).toBeDefined();
+  });
+
+  test("renames a thread and patches the cached title without a refetch", async () => {
+    const view = renderList();
+
+    fireEvent.pointerEnter(view.getByLabelText("Thread options"));
     fireEvent.click(view.getByText("Edit title"));
     fireEvent.click(await view.findByText("Save edited title"));
 
     await waitFor(() => {
       expect(mockUpdateChatTitle).toHaveBeenCalledWith("thread-1", "Renamed Thread");
     });
-    expect(mockRefreshSidebarChats).toHaveBeenCalled();
+    expect(mockUpdateSidebarChat).toHaveBeenCalledWith("thread-1", { title: "Renamed Thread" });
+    expect(mockRefreshSidebarChats).not.toHaveBeenCalled();
   });
 
-  test("toggles pin state and refreshes on success", async () => {
+  test("toggles pin state and patches the cache on success", async () => {
     const view = renderList();
 
+    fireEvent.pointerEnter(view.getByLabelText("Thread options"));
     fireEvent.click(view.getByText("Pin"));
 
     await waitFor(() => {
       expect(mockUpdateChatPinned).toHaveBeenCalledWith("thread-1", true);
     });
-    expect(mockRefreshSidebarChats).toHaveBeenCalled();
+    expect(mockUpdateSidebarChat).toHaveBeenCalledWith("thread-1", { pinned: true });
+    expect(mockRefreshSidebarChats).not.toHaveBeenCalled();
+  });
+
+  test("leaves the cache alone when pinning fails", async () => {
+    mockUpdateChatPinned.mockResolvedValueOnce({ ok: false, error: new Error("nope") } as never);
+    const view = renderList();
+
+    fireEvent.pointerEnter(view.getByLabelText("Thread options"));
+    fireEvent.click(view.getByText("Pin"));
+
+    await waitFor(() => {
+      expect(mockUpdateChatPinned).toHaveBeenCalled();
+    });
+    expect(mockUpdateSidebarChat).not.toHaveBeenCalled();
   });
 
   test("ignores the first title click immediately after a mobile long press", () => {

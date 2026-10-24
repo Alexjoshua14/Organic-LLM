@@ -64,7 +64,11 @@ export function ExperienceSurfacesGuide({ onDismiss }: { onDismiss?: () => void 
       ) : null}
 
       <p className="text-[11px] text-muted-foreground pt-1">
-        <Link className="underline-offset-2 hover:underline" href="/blog/surfaces" onClick={() => onDismiss?.()}>
+        <Link
+          className="underline-offset-2 hover:underline"
+          href="/blog/surfaces"
+          onClick={() => onDismiss?.()}
+        >
           Full surface guides →
         </Link>
       </p>

@@ -28,7 +28,13 @@ export const ErgonRefineLlmTaskSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .nullable()
     .optional(),
-  est_minutes: z.number().int().min(1).max(24 * 60).nullable().optional(),
+  est_minutes: z
+    .number()
+    .int()
+    .min(1)
+    .max(24 * 60)
+    .nullable()
+    .optional(),
   mental_effort: MentalEffort.nullable().optional(),
 });
 

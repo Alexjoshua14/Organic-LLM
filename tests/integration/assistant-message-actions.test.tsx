@@ -35,7 +35,11 @@ mock.module("@/lib/user-settings", () => ({
     zeroDataRetention: false,
     coalescenceMode: false,
     experimentalArcadiaMarkdownPreview: false,
+    experimentalContextEffort: false,
+    contextEffortLevel: "quick",
   }),
+  // Bun module mocks are process-wide; later files import composer code that needs this export.
+  setSettings: () => ({}),
 }));
 
 mock.module("@/lib/tts/pinned-to-speak", () => ({

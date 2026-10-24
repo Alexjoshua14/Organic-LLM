@@ -5,9 +5,7 @@ import { MentalEffort, TaskPriority, TaskStatus } from "@/lib/schemas/tasks";
 /** Aion durable-todo tool name (client-safe constant). */
 export const MANAGE_TASKS_TOOL_NAME = "manage_tasks";
 
-const IsoDate = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, "Use an absolute date in YYYY-MM-DD form");
+const IsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use an absolute date in YYYY-MM-DD form");
 
 /** A task the model wants to create or fields it wants to change. */
 export const ErgonTaskDraftSchema = z.object({
@@ -17,7 +15,9 @@ export const ErgonTaskDraftSchema = z.object({
     .string()
     .max(64)
     .optional()
-    .describe("Category by name; resolved or created automatically. Only set if the user named one."),
+    .describe(
+      "Category by name; resolved or created automatically. Only set if the user named one."
+    ),
   priority: TaskPriority.optional().describe("Only set when the user signals urgency"),
   due_date: IsoDate.optional().describe("Hard deadline (YYYY-MM-DD). Only if the user gave one."),
   planned_date: IsoDate.optional().describe(

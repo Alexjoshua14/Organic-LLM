@@ -1,7 +1,9 @@
 import { z } from "zod";
 import { generateObject } from "ai";
 
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import { createLogger } from "@/lib/logger";
+import { models } from "@/lib/schemas/chat-models";
 
 export const MAX_WINES = 20;
 
@@ -34,8 +36,12 @@ export async function parseWineCount(userText: string): Promise<number> {
 
   try {
     const { object } = await generateObject({
-      model: "openai/gpt-5.4-nano",
-      system: PARSER_SYSTEM,
+      ...(await createAuthenticatedLlmBudgetHooks({
+        modelId: budgetModelId(models.openai.luna.id),
+        operation: "llm/sommelier/parser",
+      })),
+      model: models.openai.luna.id,
+      instructions: PARSER_SYSTEM,
       prompt: truncated,
       schema: WineCountSchema,
       maxOutputTokens: 10,

@@ -1,4 +1,16 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterAll, afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import * as budgetGate from "@/lib/api/plan-budget-gate";
+import { mockModulePreservingReal } from "../helpers/module-mock";
+import { mockAllowedAuthenticatedBudget } from "../helpers/llm-budget";
+
+let restoreHooks: () => void;
+afterEach(() => restoreHooks());
+
+const mockPlanGate = mock(async (): Promise<Response | null> => null);
+const restoreBudget = mockModulePreservingReal("@/lib/api/plan-budget-gate", budgetGate, {
+  requirePlanBudget: mockPlanGate,
+});
+afterAll(restoreBudget);
 
 const mockAuth = mock(async () => ({ userId: "user_123" }));
 const mockGetSupabaseUserId = mock(async () => ({ data: "sb-user", error: null }));
@@ -68,6 +80,8 @@ import { POST } from "@/app/api/prototypes/strata/route";
 
 describe("POST /api/prototypes/strata", () => {
   beforeEach(() => {
+    restoreHooks = mockAllowedAuthenticatedBudget();
+    mockPlanGate.mockClear();
     mockAuth.mockClear();
     mockGetStrataPageById.mockClear();
     mockGenerateObject.mockClear();
@@ -75,6 +89,21 @@ describe("POST /api/prototypes/strata", () => {
     mockGetSupabaseUserId.mockClear();
     mockCreateStrataMemorySearchTool.mockClear();
     mockCreateStrataKnowledgeGraphTools.mockClear();
+  });
+
+  test("an exhausted allowance stops both generation calls", async () => {
+    mockPlanGate.mockResolvedValueOnce(
+      Response.json({ error: "Plan limit", code: "plan_limit" }, { status: 429 })
+    );
+    const response = await POST(
+      new Request("http://localhost/api/prototypes/strata", {
+        method: "POST",
+        body: JSON.stringify({ mode: "create", pageId: "550e8400-e29b-41d4-a716-446655440000" }),
+      })
+    );
+    expect(response.status).toBe(429);
+    expect(mockGenerateText).not.toHaveBeenCalled();
+    expect(mockGenerateObject).not.toHaveBeenCalled();
   });
 
   test("returns 401 when unauthorized", async () => {

@@ -12,6 +12,7 @@ import {
   type ExportIntentPreset,
 } from "@/lib/export/prompts";
 import { KNOWLEDGE_GATEWAY_PROVIDER_OPTIONS } from "@/lib/knowledge/gateway-options";
+import { models } from "@/lib/schemas/chat-models";
 
 export const ExportPromptRequestSchema = z.object({
   presetId: z.string().min(1),
@@ -146,8 +147,8 @@ export async function handleExportPromptPost(
 
   try {
     const { text } = await deps.generateTextImpl({
-      model: "openai/gpt-5.4-nano",
-      system: `You generate concise, high-quality external-assistant prompts for Organic LLM.
+      model: models.openai.luna.id,
+      instructions: `You generate concise, high-quality external-assistant prompts for Organic LLM.
 Output only the final prompt text.
 No markdown fences.
 Respect the delivery target conventions described in the user message.`,

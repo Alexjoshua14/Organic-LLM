@@ -1,5 +1,14 @@
 // @ts-nocheck
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import * as ai from "ai";
+import * as budgetGate from "@/lib/api/plan-budget-gate";
+import { mockModulePreservingReal } from "../helpers/module-mock";
+import { mockAllowedAuthenticatedBudget } from "../helpers/llm-budget";
+
+let restoreHooks: () => void;
+let restoreGate: () => void;
+const mockPlanGate = mock(async (): Promise<Response | null> => null);
+afterEach(() => { restoreHooks(); restoreGate(); });
 
 import { createMockAuth, createMockClerkUser } from "../helpers/mock-auth";
 
@@ -135,12 +144,11 @@ mock.module("@clerk/nextjs/server", () => ({
   auth: mockAuth,
 }));
 
-mock.module("ai", () => ({
+// Keep real SDK predicates: a global stepCountIs stub also replaces its isStepCount alias.
+mockModulePreservingReal("ai", ai, {
   generateText: mockGenerateText,
   generateObject: mockGenerateObject,
-  stepCountIs: mock((count: number) => ({ stepCount: count })),
-  tool: mock((definition: unknown) => definition),
-}));
+});
 
 mock.module("@/data/supabase/profiles", () => ({
   getSupabaseUserId: mockGetSupabaseUserId,
@@ -172,6 +180,9 @@ import { POST } from "@/app/api/profile/summary/route";
 
 describe("POST /api/profile/summary", () => {
   beforeEach(() => {
+    restoreHooks = mockAllowedAuthenticatedBudget();
+    restoreGate = mockModulePreservingReal("@/lib/api/plan-budget-gate", budgetGate, { requirePlanBudget: mockPlanGate });
+    mockPlanGate.mockClear();
     mockAuth.mockClear();
     mockGenerateText.mockClear();
     mockGenerateObject.mockClear();
@@ -326,20 +337,17 @@ describe("POST /api/profile/summary", () => {
     );
     expect(mockGenerateObject).toHaveBeenCalledWith(
       expect.objectContaining({
-        model: "openai/gpt-5.6-sol",
         schemaName: "ProfileSectionPlan",
         prompt: expect.stringContaining("Plan the ideal ProfileTree sections"),
       })
     );
     expect(mockGenerateObject).toHaveBeenCalledWith(
       expect.objectContaining({
-        model: "openai/gpt-5.6-sol",
         schemaName: "ProfileSectionBatchReview",
       })
     );
     expect(mockGenerateObject).toHaveBeenCalledWith(
       expect.objectContaining({
-        model: "openai/gpt-5.6-sol",
         schemaName: "ProfileTreeReview",
       })
     );

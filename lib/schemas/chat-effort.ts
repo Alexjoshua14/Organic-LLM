@@ -1,11 +1,12 @@
 import type { AnthropicProviderOptions } from "@ai-sdk/anthropic";
-import type { GoogleGenerativeAIProviderOptions } from "@ai-sdk/google";
+import type { GoogleGenerativeAIProviderOptions as GoogleProviderOptions } from "@ai-sdk/google";
 import type { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 import type { JSONValue } from "@ai-sdk/provider";
 
 import z from "zod";
 
-import { AUTO_CHAT_MODEL_ID, AUTO_RESOLVED_SONNET_MODEL_ID } from "@/lib/schemas/chat-model-ids";
+import { AUTO_CHAT_MODEL_ID } from "@/lib/schemas/chat-model-ids";
+import { AUTO_RESOLVED_SONNET_MODEL_ID } from "@/lib/schemas/chat-models";
 
 /**
  * Unified composer effort dial. Not every provider/model accepts every value —
@@ -55,15 +56,22 @@ const EFFORT_RANK: Record<ChatEffortLevel, number> = {
   max: 6,
 };
 
-const LEVEL_BY_ID = Object.fromEntries(
-  CHAT_EFFORT_LEVELS.map((row) => [row.id, row])
-) as Record<ChatEffortLevel, ChatEffortLevelRow>;
+const LEVEL_BY_ID = Object.fromEntries(CHAT_EFFORT_LEVELS.map((row) => [row.id, row])) as Record<
+  ChatEffortLevel,
+  ChatEffortLevelRow
+>;
 
 /** Non-auto levels a model can actually send to its provider. */
 export type EffortCapability = {
   /** When false, only Auto is shown; provider options are omitted. */
   configurable: boolean;
   levels: Exclude<ChatEffortLevel, "auto">[];
+};
+
+/** GPT-6 Astra — no `none` / `minimal`; gateway lists low through max. */
+const OPENAI_GPT6: EffortCapability = {
+  configurable: true,
+  levels: ["low", "medium", "high", "xhigh", "max"],
 };
 
 const OPENAI_GPT56: EffortCapability = {
@@ -86,7 +94,7 @@ const OPENAI_GPT54_FAMILY: EffortCapability = {
   levels: ["none", "low", "medium", "high", "xhigh"],
 };
 
-/** Claude Fable / Opus 5 / Opus 4.8 / Sonnet 5 — adaptive thinking + effort. */
+/** Claude Fable / Opus 5.x / Opus 4.8 / Sonnet 5.x / Haiku 5.5 — adaptive thinking + effort. */
 const ANTHROPIC_ADAPTIVE_FULL: EffortCapability = {
   configurable: true,
   levels: ["none", "low", "medium", "high", "xhigh", "max"],
@@ -98,7 +106,7 @@ const ANTHROPIC_ADAPTIVE_NO_XHIGH: EffortCapability = {
   levels: ["none", "low", "medium", "high", "max"],
 };
 
-/** Haiku-class: manual `budget_tokens` only (no output_config.effort). */
+/** Haiku 4.5: manual `budget_tokens` only (no output_config.effort). */
 const ANTHROPIC_BUDGET: EffortCapability = {
   configurable: true,
   levels: ["none", "minimal", "low", "medium", "high", "xhigh", "max"],
@@ -171,6 +179,7 @@ export function getEffortCapabilityForModel(modelId: string): EffortCapability {
   const slug = stripProviderPrefix(modelId).toLowerCase();
 
   if (provider === "openai") {
+    if (slug.includes("gpt-6")) return OPENAI_GPT6;
     if (slug.includes("gpt-5.6")) return OPENAI_GPT56;
     if (slug.includes("gpt-5.5-pro") || /gpt-5\.5.*-pro/.test(slug)) return OPENAI_GPT55_PRO;
     if (slug.includes("gpt-5.5")) return OPENAI_GPT55;
@@ -180,7 +189,12 @@ export function getEffortCapabilityForModel(modelId: string): EffortCapability {
     if (slug.includes("gpt-5-pro") || slug.includes("gpt-5.4-pro")) {
       return { configurable: true, levels: ["high"] };
     }
-    if (slug.startsWith("gpt-5") || slug.startsWith("o1") || slug.startsWith("o3") || slug.startsWith("o4")) {
+    if (
+      slug.startsWith("gpt-5") ||
+      slug.startsWith("o1") ||
+      slug.startsWith("o3") ||
+      slug.startsWith("o4")
+    ) {
       // Legacy GPT-5 / o-series: minimal–high is the common intersection.
       return { configurable: true, levels: ["minimal", "low", "medium", "high"] };
     }
@@ -199,17 +213,21 @@ export function getEffortCapabilityForModel(modelId: string): EffortCapability {
     if (slug.includes("opus-4.6") || slug.includes("opus-4-6") || slug.includes("opus-4.5")) {
       return ANTHROPIC_ADAPTIVE_NO_XHIGH;
     }
-    if (slug.includes("haiku")) return ANTHROPIC_BUDGET;
+    if (anthropicSlugUsesBudgetTokens(slug)) return ANTHROPIC_BUDGET;
+    if (slug.includes("haiku")) return ANTHROPIC_ADAPTIVE_FULL;
 
     return ANTHROPIC_ADAPTIVE_NO_XHIGH;
   }
 
   if (provider === "google") {
-    if (slug.includes("2.5-flash-lite") || slug.includes("2.5-flash")) return GOOGLE_25_FLASH_BUDGET;
+    if (slug.includes("2.5-flash-lite") || slug.includes("2.5-flash"))
+      return GOOGLE_25_FLASH_BUDGET;
     if (slug.includes("2.5-pro")) return GOOGLE_25_PRO_BUDGET;
     if (slug.includes("3.1-pro") || (slug.includes("3-pro") && !slug.includes("flash"))) {
       return GOOGLE_PRO_LEVELS;
     }
+    // 3.8 Flash: gateway + Gemini API reject `minimal`.
+    if (slug.includes("3.8-flash")) return GOOGLE_PRO_LEVELS;
     if (slug.includes("gemini-3") || slug.includes("3.5-flash") || slug.includes("3-flash")) {
       return GOOGLE_FLASH_LEVELS;
     }
@@ -228,10 +246,7 @@ export function getEffortLevelsForModel(modelId: string): ChatEffortLevelRow[] {
     return [LEVEL_BY_ID.auto];
   }
 
-  return [
-    LEVEL_BY_ID.auto,
-    ...capability.levels.map((id) => LEVEL_BY_ID[id]),
-  ];
+  return [LEVEL_BY_ID.auto, ...capability.levels.map((id) => LEVEL_BY_ID[id])];
 }
 
 export function modelSupportsEffortControl(modelId: string): boolean {
@@ -286,11 +301,17 @@ type EffortProviderOptions = {
   openai?: OpenAIResponsesProviderOptions;
   /** SDK types may lag gateway fields; JSONValue keeps streamText providerOptions assignable. */
   anthropic?: AnthropicProviderOptions | Record<string, JSONValue>;
-  google?: GoogleGenerativeAIProviderOptions | Record<string, JSONValue>;
+  google?: GoogleProviderOptions | Record<string, JSONValue>;
 };
 
 function anthropicSlugUsesBudgetTokens(slug: string): boolean {
-  return slug.includes("haiku");
+  // Haiku 4.5 and older; Haiku 5.5 is adaptive-only and rejects `budget_tokens`.
+  return slug.includes("haiku") && !slug.includes("haiku-5");
+}
+
+function anthropicDisablesThinkingBetweenTools(slug: string): boolean {
+  // Sonnet 5.5 rejects `disabled`; `between_tools` is its thinking-off mode (effort ≤ high).
+  return slug.includes("sonnet-5.5") || slug.includes("sonnet-5-5");
 }
 
 function anthropicAdaptiveRequiresExplicitThinking(slug: string): boolean {
@@ -308,7 +329,13 @@ function anthropicAdaptiveRequiresExplicitThinking(slug: string): boolean {
 }
 
 function anthropicCanDisableThinking(slug: string): boolean {
-  return !(slug.includes("fable") || slug.includes("mythos"));
+  // Fable / Mythos / Opus 5.5: adaptive thinking is always on.
+  return !(
+    slug.includes("fable") ||
+    slug.includes("mythos") ||
+    slug.includes("opus-5.5") ||
+    slug.includes("opus-5-5")
+  );
 }
 
 function googleUsesThinkingLevel(slug: string): boolean {
@@ -324,8 +351,7 @@ export function buildEffortProviderOptions(
 
   if (clamped === "auto") return undefined;
 
-  const resolvedId =
-    modelId === AUTO_CHAT_MODEL_ID ? AUTO_RESOLVED_SONNET_MODEL_ID : modelId;
+  const resolvedId = modelId === AUTO_CHAT_MODEL_ID ? AUTO_RESOLVED_SONNET_MODEL_ID : modelId;
   const provider = providerOf(resolvedId);
   const slug = stripProviderPrefix(resolvedId).toLowerCase();
 
@@ -369,6 +395,14 @@ export function buildEffortProviderOptions(
         };
       }
 
+      if (anthropicDisablesThinkingBetweenTools(slug)) {
+        return {
+          anthropic: {
+            thinking: { type: "between_tools" },
+          } as unknown as AnthropicProviderOptions,
+        };
+      }
+
       return {
         anthropic: {
           thinking: { type: "disabled" },
@@ -401,12 +435,13 @@ export function buildEffortProviderOptions(
     if (googleUsesThinkingLevel(slug)) {
       if (clamped === "none") {
         // Gemini 3.x cannot disable thinking; map to lowest available level.
-        const level = slug.includes("pro") ? "low" : "minimal";
+        const capability = getEffortCapabilityForModel(resolvedId);
+        const level = capability.levels.includes("minimal") ? "minimal" : "low";
 
         return {
           google: {
             thinkingConfig: { thinkingLevel: level },
-          } as GoogleGenerativeAIProviderOptions,
+          } as GoogleProviderOptions,
         };
       }
 
@@ -420,7 +455,7 @@ export function buildEffortProviderOptions(
       return {
         google: {
           thinkingConfig: { thinkingLevel: level },
-        } as GoogleGenerativeAIProviderOptions,
+        } as GoogleProviderOptions,
       };
     }
 
@@ -429,7 +464,7 @@ export function buildEffortProviderOptions(
       return {
         google: {
           thinkingConfig: { thinkingBudget: 0 },
-        } satisfies GoogleGenerativeAIProviderOptions,
+        } satisfies GoogleProviderOptions,
       };
     }
 
@@ -438,11 +473,81 @@ export function buildEffortProviderOptions(
     return {
       google: {
         thinkingConfig: { thinkingBudget },
-      } satisfies GoogleGenerativeAIProviderOptions,
+      } satisfies GoogleProviderOptions,
     };
   }
 
   return undefined;
+}
+
+/** Anthropic models that think by default when `thinking` is omitted (adaptive, display omitted). */
+function anthropicThinksByDefault(slug: string): boolean {
+  return (
+    slug.includes("fable") ||
+    slug.includes("mythos") ||
+    slug.includes("opus-5") ||
+    slug.includes("sonnet-5") ||
+    slug.includes("haiku-5")
+  );
+}
+
+/**
+ * Effort options plus the opt-ins that make providers return readable reasoning text.
+ * Without these, OpenAI sends encrypted reasoning only, Gemini omits thoughts, and newer
+ * Claude models stream empty thinking blocks (`display: "omitted"` default). Never turns
+ * thinking on where it would otherwise be off.
+ */
+export function buildChatReasoningProviderOptions(
+  modelId: string,
+  effort: ChatEffortLevel | undefined
+): EffortProviderOptions {
+  const base = buildEffortProviderOptions(modelId, effort) ?? {};
+  const resolvedId = modelId === AUTO_CHAT_MODEL_ID ? AUTO_RESOLVED_SONNET_MODEL_ID : modelId;
+  const provider = providerOf(resolvedId);
+  const slug = stripProviderPrefix(resolvedId).toLowerCase();
+
+  if (provider === "openai") {
+    // Non-reasoning models (gpt-4o-mini, gpt-oss) report no effort control.
+    if (!modelSupportsEffortControl(resolvedId)) return base;
+    if (base.openai?.reasoningEffort === "none") return base;
+
+    return { ...base, openai: { ...base.openai, reasoningSummary: "auto" } };
+  }
+
+  if (provider === "google") {
+    if (!modelSupportsEffortControl(resolvedId)) return base;
+
+    const google = (base.google ?? {}) as Record<string, JSONValue>;
+    const thinkingConfig = (google.thinkingConfig ?? {}) as Record<string, JSONValue>;
+
+    if (thinkingConfig.thinkingBudget === 0) return base;
+
+    return {
+      ...base,
+      google: { ...google, thinkingConfig: { ...thinkingConfig, includeThoughts: true } },
+    };
+  }
+
+  if (provider === "anthropic") {
+    const anthropic = base.anthropic as Record<string, JSONValue> | undefined;
+    const thinking = anthropic?.thinking as Record<string, JSONValue> | undefined;
+
+    if (thinking?.type === "adaptive") {
+      return {
+        ...base,
+        anthropic: { ...anthropic, thinking: { ...thinking, display: "summarized" } },
+      };
+    }
+
+    if (!anthropic && anthropicThinksByDefault(slug)) {
+      return {
+        ...base,
+        anthropic: { thinking: { type: "adaptive", display: "summarized" } },
+      };
+    }
+  }
+
+  return base;
 }
 
 export function getChatEffortLabel(effort: ChatEffortLevel): string {

@@ -11,7 +11,7 @@ export const ARCADIA_MEMORY_OVERFETCH = 28;
 export const ARCADIA_MEMORY_MIN_SCORE = 0.25;
 
 /** Hard cap on bullet lines shown under "Memories from past conversations". */
-export const ARCADIA_MEMORY_MAX_INJECTED = 10;
+export const ARCADIA_MEMORY_MAX_INJECTED = 20;
 
 /** Tool path: Mem0 asks for at least this many hits before tiering + slicing to the tool `limit`. */
 export const MEMORY_TOOL_OVERFETCH_MIN = 28;
@@ -175,16 +175,23 @@ export function buildArcadiaMemoryInventoryText(params: {
   queryRewriteUsed?: boolean;
   /** Number of parallel Mem0 queries (1–3 after rewrite). */
   effectiveQueryCount?: number;
+  /** Inject cap used this turn; defaults to {@link ARCADIA_MEMORY_MAX_INJECTED}. */
+  injectCap?: number;
+  /** When set, names the Arcadia context-effort tier in the inventory. */
+  contextEffort?: string;
 }): string {
   const { tiers, minScore } = params;
+  const injectCap = params.injectCap ?? ARCADIA_MEMORY_MAX_INJECTED;
   const rewriteLine =
     params.queryRewriteUsed !== undefined && params.effectiveQueryCount !== undefined
       ? `Query rewrite: ${params.queryRewriteUsed ? "on" : "off"}. Effective queries: ${params.effectiveQueryCount}.`
       : null;
+  const effortLine = params.contextEffort ? `Context effort: ${params.contextEffort}.` : null;
 
   return [
     `Conversation messages in this request (including your latest user message): ${params.conversationMessagesInContext}.`,
-    `Injected memories for this turn: ${params.memoriesInjected} (cap ${ARCADIA_MEMORY_MAX_INJECTED}).`,
+    `Injected memories for this turn: ${params.memoriesInjected} (cap ${injectCap}).`,
+    ...(effortLine ? [effortLine] : []),
     ...(rewriteLine ? [rewriteLine] : []),
     `Semantic search sample: ${tiers.sampleSize} hit(s) among the top-${params.overfetchCap} retrieved for this query.`,
     `Relevance tiers in that sample — tier 1 (score > 0.7): ${tiers.tier1}; tier 2 (0.4 < score ≤ 0.7): ${tiers.tier2}; tier 3 (${minScore} < score ≤ 0.4): ${tiers.tier3}; at or below minimum score (≤ ${minScore}): ${tiers.belowThreshold}; without score: ${tiers.noScore}.`,

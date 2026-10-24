@@ -1,13 +1,17 @@
 import "server-only";
 
+import type { SpeakModalities } from "@/lib/schemas/speak-modalities";
+import type { SpeakToolClientEffect } from "@/lib/speak/types";
+
 import { after } from "next/server";
 import { z } from "zod";
 
 import { ensureChatHasTitle, updateChatSummary } from "@/lib/llm/chat-helpers";
 import {
-  isToolAllowedForModalities,
+  isToolAllowedForSession,
   RefreshComponentSchema,
   RenderGenUiSchema,
+  SearchMemoriesSchema,
   ShowWebPreviewSchema,
   SpeakToolNameSchema,
   SummarizeThreadSchema,
@@ -17,14 +21,15 @@ import {
   type SpeakToolName,
 } from "@/lib/llm/compile-speak-tools";
 import { createLogger } from "@/lib/logger";
-import {
-  assertSpeakBudgetOrClose,
-  getSpeakRealtimeSession,
-} from "@/lib/rate-limit/speak-realtime";
-import type { SpeakModalities } from "@/lib/schemas/speak-modalities";
-import type { SpeakToolClientEffect } from "@/lib/speak/types";
+import { ARCADIA_MEMORY_MIN_SCORE, selectMemoriesForPrompt } from "@/lib/memory/memory-relevance";
+import { searchMemoriesWithL1Cache } from "@/lib/memory/memory-search-cache";
+import { assertSpeakBudgetOrClose, getSpeakRealtimeSession } from "@/lib/rate-limit/speak-realtime";
 
 const logger = createLogger("lib/speak/execute-speak-tool.ts");
+
+/** Voice wants a few strong hits, not an inventory: fetch wide, keep the top three. */
+const SPEAK_MEMORY_TOOL_LIMIT = 3;
+const SPEAK_MEMORY_TOOL_OVERFETCH = 12;
 
 export type { SpeakToolClientEffect } from "@/lib/speak/types";
 
@@ -85,11 +90,16 @@ export async function executeSpeakRealtimeTool(args: {
 
   const toolName = nameParsed.data;
 
-  if (!isToolAllowedForModalities(toolName, session.modalities)) {
+  const allowed = isToolAllowedForSession(toolName, {
+    modalities: session.modalities,
+    memoryEnabled: session.memoryEnabled === true,
+  });
+
+  if (!allowed) {
     return {
       ok: false,
-      error: "Tool disabled by modality toggles",
-      modelResult: { error: "Tool disabled by modality toggles" },
+      error: "Tool not enabled for this session",
+      modelResult: { error: "Tool not enabled for this session" },
       clientEffects: [],
     };
   }
@@ -201,6 +211,50 @@ async function runSpeakTool(args: {
             title: parsed.data.title,
           },
         ],
+      };
+    }
+    case "search_memories": {
+      const parsed = SearchMemoriesSchema.safeParse(args.rawArgs);
+
+      if (!parsed.success) {
+        return invalidArgs();
+      }
+
+      const query = parsed.data.query.trim();
+      const run = await searchMemoriesWithL1Cache(args.userId, query, SPEAK_MEMORY_TOOL_OVERFETCH);
+
+      if (run.result.error) {
+        logger.warn("search_memories", `memory search failed: ${run.result.error}`);
+
+        return {
+          ok: false,
+          error: run.result.error,
+          modelResult: {
+            ok: false,
+            memories: [],
+            count: 0,
+            error: "Memory is unavailable right now",
+          },
+          clientEffects: [],
+        };
+      }
+
+      const memories = selectMemoriesForPrompt(run.result.data?.results ?? [], {
+        maxIncluded: SPEAK_MEMORY_TOOL_LIMIT,
+        minScore: ARCADIA_MEMORY_MIN_SCORE,
+      }).map((m) => m.memory);
+
+      logger.log("search_memories", "memory_search_ok", {
+        queryLength: query.length,
+        cacheHit: run.metrics.cacheHit,
+        searchMs: Math.round(run.metrics.memorySearchMs),
+        count: memories.length,
+      });
+
+      return {
+        ok: true,
+        modelResult: { ok: true, memories, count: memories.length },
+        clientEffects: [],
       };
     }
     case "update_thread_title": {

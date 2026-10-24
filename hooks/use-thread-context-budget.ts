@@ -10,8 +10,12 @@ import { useEffect, useMemo, useState } from "react";
 import {
   composeContextBudget,
   computeNewThreadDefaultBudget,
+  mergePreservedLastTurn,
   scaffoldFromStreamBudget,
+  withLastTurnSnapshot,
 } from "@/lib/chat/context-budget";
+import { useContextEffortSettings } from "@/hooks/use-context-effort-settings";
+import { contextEffortForRequest } from "@/lib/memory/context-effort";
 import { getSettings } from "@/lib/user-settings";
 
 type UseThreadContextBudgetParams = {
@@ -60,6 +64,13 @@ export function useThreadContextBudget(
   } = params;
 
   const useClientCompose = threadMessages != null;
+  const contextEffortSettings = useContextEffortSettings();
+  const contextEffort = contextEffortForRequest({
+    experience,
+    memoryEnabled,
+    experimentalContextEffort: contextEffortSettings.enabled,
+    contextEffortLevel: contextEffortSettings.level,
+  });
 
   const [debouncedDraft, setDebouncedDraft] = useState(draftText);
   const [polledBudget, setPolledBudget] = useState<ContextBudgetEstimate | null>(null);
@@ -82,11 +93,16 @@ export function useThreadContextBudget(
     return () => window.clearTimeout(timer);
   }, [draftText, draftDebounceMs]);
 
+  useEffect(() => {
+    setScaffold(null);
+    setPolledBudget(null);
+  }, [chatId]);
+
   // Adopt measured scaffold from the stream budget when it arrives.
   useEffect(() => {
     if (!useClientCompose || !streamBudget) return;
 
-    setScaffold(scaffoldFromStreamBudget(streamBudget));
+    setScaffold(scaffoldFromStreamBudget(withLastTurnSnapshot(streamBudget)));
   }, [streamBudget, useClientCompose]);
 
   // Client-compose path: fetch scaffold on open / toggle / refresh — not on draft change.
@@ -116,6 +132,7 @@ export function useThreadContextBudget(
             chatStyle,
             speechFriendly,
             zeroDataRetention: getSettings().zeroDataRetention,
+            ...(contextEffort ? { contextEffort } : {}),
           }),
         });
 
@@ -123,8 +140,10 @@ export function useThreadContextBudget(
 
         const payload = (await response.json()) as { scaffold?: ContextBudgetScaffold };
 
-        if (payload.scaffold) {
-          setScaffold(payload.scaffold);
+        const incomingScaffold = payload.scaffold;
+
+        if (incomingScaffold) {
+          setScaffold((previous) => mergePreservedLastTurn(incomingScaffold, previous));
         }
       } catch {
         /* ignore abort / transient failures */
@@ -144,6 +163,7 @@ export function useThreadContextBudget(
     speechFriendly,
     useClientCompose,
     webSearchEnabled,
+    contextEffort,
   ]);
 
   // Legacy poll path when threadMessages are not supplied.
@@ -174,6 +194,7 @@ export function useThreadContextBudget(
             chatStyle,
             speechFriendly,
             zeroDataRetention: getSettings().zeroDataRetention,
+            ...(contextEffort ? { contextEffort } : {}),
           }),
         });
 
@@ -181,8 +202,10 @@ export function useThreadContextBudget(
 
         const payload = (await response.json()) as { budget?: ContextBudgetEstimate };
 
-        if (payload.budget) {
-          setPolledBudget(payload.budget);
+        const incomingBudget = payload.budget;
+
+        if (incomingBudget) {
+          setPolledBudget((previous) => mergePreservedLastTurn(incomingBudget, previous));
         }
       } catch {
         /* ignore abort / transient failures */
@@ -203,6 +226,7 @@ export function useThreadContextBudget(
     speechFriendly,
     useClientCompose,
     webSearchEnabled,
+    contextEffort,
   ]);
 
   const composedBudget = useMemo(() => {
@@ -223,8 +247,14 @@ export function useThreadContextBudget(
   }
 
   if (useClientCompose) {
-    return composedBudget ?? streamBudget ?? defaultBudget;
+    const next = composedBudget
+      ? mergePreservedLastTurn(composedBudget, streamBudget)
+      : streamBudget;
+
+    return next ?? defaultBudget;
   }
 
-  return polledBudget ?? streamBudget ?? defaultBudget;
+  const next = polledBudget ? mergePreservedLastTurn(polledBudget, streamBudget) : streamBudget;
+
+  return next ?? defaultBudget;
 }

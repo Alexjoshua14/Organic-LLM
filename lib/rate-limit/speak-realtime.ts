@@ -8,6 +8,8 @@ import { Duration, Ratelimit } from "@upstash/ratelimit";
 
 import { fetchLlmUsageEvents } from "@/data/supabase/llm-usage";
 import { createLogger } from "@/lib/logger";
+import { getPlanBudgetForUser } from "@/lib/plans/plan-budget";
+import { canStartRealtimeGivenPlanBudget } from "@/lib/speak/weave-policy";
 import {
   computeCost,
   computeUsageCostUsd,
@@ -20,7 +22,7 @@ import { checkLlmCostLimit, recordLlmCost } from "@/lib/rate-limit/llm";
 import { runLimiter } from "@/lib/rate-limit/run-limiter";
 import { redis } from "@/lib/redis/redis";
 import { startOfBillingCycle } from "@/lib/usage/aggregate";
-import { trackLlmUsageEvent } from "@/lib/usage/track-llm-usage";
+import { insertLlmUsageEvent } from "@/data/supabase/llm-usage";
 
 export type { SpeakBudgetSnapshot } from "@/lib/speak/types";
 
@@ -72,10 +74,24 @@ export type SpeakRealtimeSessionRecord = {
   model: string;
   threadId: string | null;
   modalities: SpeakModalities;
+  /** Enables `search_memories` and transcript ingest. Absent on records minted before this field. */
+  memoryEnabled?: boolean;
   startedAt: number;
+  /**
+   * When the user first started talking, across page reloads. A refresh mints a new OpenAI call
+   * and therefore a new `sessionId`, but the conversation the user perceives is one continuous
+   * thing — the live bar's elapsed clock reads from here, not from `startedAt`.
+   *
+   * Absent on records minted before continuity landed; callers fall back to `startedAt`.
+   */
+  continuityStartedAt?: number;
   /** Server clock (ms) through which usage has already been billed. */
   lastMeteredAt: number;
-  /** Server clock (ms) past which no further usage is billable; the session is settled instead. */
+  /**
+   * Server clock (ms) past which no further usage is billable; the session is settled instead.
+   * **Carried across a resume.** Without that, reloading the page would reset the deadline and
+   * `SPEAK_SESSION_MAX_MINUTES` could be extended indefinitely by refreshing.
+   */
   expiresAt: number;
   minutesUsed: number;
   costUsd: number;
@@ -99,11 +115,13 @@ export async function getSpeakRealtimeSession(
 
   if (!raw) return null;
 
-  // Records written before server-side metering lack the clock fields.
+  // Records written before server-side metering lack the clock fields; records written before
+  // resume-after-reload lack the continuity anchor and are their own origin.
   return {
     ...raw,
     lastMeteredAt: raw.lastMeteredAt ?? raw.startedAt,
     expiresAt: raw.expiresAt ?? raw.startedAt + getSpeakSessionMaxMinutes() * 60_000,
+    continuityStartedAt: raw.continuityStartedAt ?? raw.startedAt,
   };
 }
 
@@ -181,13 +199,16 @@ async function recordSpeakUsage(args: {
       (usage?.audioInputTokens ?? 0) +
       (usage?.audioOutputTokens ?? 0);
 
-    trackLlmUsageEvent({
+    await insertLlmUsageEvent({
       ownerId: session.userId,
       modelId,
-      inputTokens: (usage?.inputTokens ?? 0) + Math.ceil((usage?.audioInputTokens ?? 0) / 2),
-      outputTokens: (usage?.outputTokens ?? 0) + Math.ceil((usage?.audioOutputTokens ?? 0) / 2),
+      inputTokens: usage?.inputTokens ?? 0,
+      outputTokens: usage?.outputTokens ?? 0,
       cachedInputTokens: usage?.cachedInputTokens ?? 0,
-      totalTokens: Math.max(1, totalTokens || Math.ceil(incrementalCost * 1000)),
+      audioInputTokens: usage?.audioInputTokens ?? 0,
+      audioOutputTokens: usage?.audioOutputTokens ?? 0,
+      totalTokens,
+      costUsdOverride: incrementalCost,
       operation: "speak-realtime",
       route: "/api/ai/speak/realtime",
     });
@@ -227,7 +248,7 @@ export async function settleStaleSpeakSessions(userId: string): Promise<void> {
     });
     await closeSpeakRealtimeSession(session);
 
-    logger.log("settleStaleSpeakSessions", `Settled abandoned session ${sessionId}`, {
+    logger.log("settleStaleSpeakSessions", "Settled abandoned session", {
       minutesUsed: session.minutesUsed,
       costUsd: session.costUsd,
     });
@@ -314,12 +335,49 @@ export async function checkSpeakRealtimeSessionStart(
   return { success: true, remaining: budget.dailyMinutesRemaining, budget };
 }
 
+/**
+ * The one active session for a user, if any. Used on page load to discover that a call was in
+ * flight before a reload; see `findResumableSpeakSession`.
+ */
+export async function findActiveSpeakRealtimeSession(
+  userId: string
+): Promise<SpeakRealtimeSessionRecord | null> {
+  // Anything past its deadline is billed and closed first, so we never offer a dead session.
+  await settleStaleSpeakSessions(userId);
+
+  const sessionIds = await redis.smembers(activeSetKey(userId));
+
+  for (const sessionId of sessionIds) {
+    const session = await getSpeakRealtimeSession(sessionId);
+
+    if (session && session.userId === userId && session.status === "active") {
+      return session;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Clock carried from a session being resumed after a page reload.
+ *
+ * `expiresAt` is inherited rather than recomputed so the per-session minute cap survives
+ * refreshing, and `lastMeteredAt` starts at *now* because the predecessor already settled its
+ * own tail in {@link endSpeakRealtimeSession}.
+ */
+export type SpeakSessionContinuity = {
+  continuityStartedAt: number;
+  expiresAt: number;
+};
+
 export async function registerSpeakRealtimeSession(args: {
   sessionId: string;
   userId: string;
   model: string;
   threadId: string | null;
   modalities: SpeakModalities;
+  memoryEnabled?: boolean;
+  continuity?: SpeakSessionContinuity | null;
 }): Promise<SpeakRealtimeSessionRecord> {
   const startedAt = Date.now();
   const record: SpeakRealtimeSessionRecord = {
@@ -328,9 +386,11 @@ export async function registerSpeakRealtimeSession(args: {
     model: args.model,
     threadId: args.threadId,
     modalities: args.modalities,
+    memoryEnabled: args.memoryEnabled === true,
     startedAt,
+    continuityStartedAt: args.continuity?.continuityStartedAt ?? startedAt,
     lastMeteredAt: startedAt,
-    expiresAt: startedAt + getSpeakSessionMaxMinutes() * 60_000,
+    expiresAt: args.continuity?.expiresAt ?? startedAt + getSpeakSessionMaxMinutes() * 60_000,
     minutesUsed: 0,
     costUsd: 0,
     status: "active",
@@ -358,6 +418,8 @@ export type SpeakBudgetAssertResult = {
 export async function assertSpeakBudgetOrClose(args: {
   sessionId: string;
   userId: string;
+  /** When set, the user's weekly plan budget is checked too — a spent plan ends the call. */
+  clerkUserId?: string;
   usage?: Usage;
 }): Promise<SpeakBudgetAssertResult> {
   const session = await getSpeakRealtimeSession(args.sessionId);
@@ -418,6 +480,25 @@ export async function assertSpeakBudgetOrClose(args: {
     };
   }
 
+  if (args.clerkUserId) {
+    const plan = await getPlanBudgetForUser({
+      clerkUserId: args.clerkUserId,
+      ownerId: args.userId,
+    });
+
+    if (!canStartRealtimeGivenPlanBudget(plan)) {
+      await closeSpeakRealtimeSession(session);
+
+      return {
+        ok: false,
+        shouldClose: true,
+        error: plan.holdReason ?? "Plan usage limit reached",
+        session,
+        budget,
+      };
+    }
+  }
+
   return { ok: true, shouldClose: false, session, budget };
 }
 
@@ -445,7 +526,7 @@ export async function endSpeakRealtimeSession(args: {
   }
 
   await closeSpeakRealtimeSession(session);
-  logger.log("endSpeakRealtimeSession", `Closed ${args.sessionId}`, {
+  logger.log("endSpeakRealtimeSession", "Closed session", {
     minutesUsed: session.minutesUsed,
     costUsd: session.costUsd,
   });

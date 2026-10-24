@@ -60,9 +60,5 @@ export function resolveMemoryEnabledForExperience(
 export function shouldSkipMemoryWriteForExperience(
   experience: ChatExperience | undefined
 ): boolean {
-  return (
-    experience === "delphi" ||
-    experience === "topic_explore" ||
-    experience === "rabbit_hole"
-  );
+  return experience === "delphi" || experience === "topic_explore" || experience === "rabbit_hole";
 }

@@ -10,11 +10,14 @@ const isProtectedRoute = createRouteMatcher([
   "/archetype(.*)",
   "/chat(.*)",
   "/introspection(.*)",
+  "/plans(.*)",
   "/rabbitholes(.*)",
+  "/release-notes(.*)",
   "/remy(.*)",
   "/sandbox(.*)",
   "/settings(.*)",
   "/speak(.*)",
+  "/stage(.*)",
   "/status(.*)",
 ]);
 

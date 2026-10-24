@@ -3,12 +3,12 @@
 import type { MemoryLensContentProps, SortOption } from "@/types/memory-lens";
 
 import { Suspense, useState } from "react";
-import { Switch } from "@heroui/switch";
 
 import { MemoryLensCard } from "./memory-lens-card";
 import { MemoryLensOverviewSkeleton } from "./MemoryLensOverviewSkeleton";
 import { MemoryLensPageOverview } from "./MemoryLensPageOverview";
 
+import { Switch } from "@/components/design-system/switch";
 import { glass, caption } from "@/components/design-system/primitives";
 import { Button } from "@/components/third-party/ui/button";
 import { cn } from "@/lib/utils";

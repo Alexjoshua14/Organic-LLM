@@ -43,6 +43,8 @@ export type BuildRabbitHoleGraphContextParams = {
   limit?: number;
   /** Max reranked summaries in the prompt (default 90). */
   rerankedLimit?: number;
+  /** When set, summary backfill bills this owner without calling auth(). */
+  ownerId?: string | null;
 };
 
 function formatGraphContextSection(contextBlock: string): string {
@@ -50,9 +52,7 @@ function formatGraphContextSection(contextBlock: string): string {
 
   if (!trimmed) return "";
 
-  return (
-    "Related rabbit hole articles (ranked by relevance to this topic):\n" + `${trimmed}\n\n`
-  );
+  return "Related rabbit hole articles (ranked by relevance to this topic):\n" + `${trimmed}\n\n`;
 }
 
 function roleLabel(role: RelatedNodeRef["role"]): string {
@@ -112,7 +112,7 @@ export async function buildRabbitHoleGraphContextBlock(
   const documents: Array<{ text: string; meta: RelatedNodeRef }> = [];
 
   for (const { ref, node } of candidates) {
-    const summary = await ensureRabbitHoleNodeSummary(node);
+    const summary = await ensureRabbitHoleNodeSummary(node, params.ownerId);
 
     if (!summary.trim()) continue;
 
@@ -121,7 +121,7 @@ export async function buildRabbitHoleGraphContextBlock(
     }
 
     const docNode = node.summary?.trim() ? node : { ...node, summary };
-    const text = formatNodeSummaryDocument(docNode);
+    const text = await formatNodeSummaryDocument(docNode);
 
     documents.push({ text, meta: ref });
   }

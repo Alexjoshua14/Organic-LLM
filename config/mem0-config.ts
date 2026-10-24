@@ -7,6 +7,7 @@ import {
   MEMORY_PRODUCTION_QDRANT_COLLECTION,
 } from "@/config/memory-production-meta";
 import { OLLAMA_EMBED_MODEL, OLLAMA_URL } from "@/lib/memory/ollama-config";
+import { models, providerModelSlug } from "@/lib/schemas/chat-models";
 import { custom_fact_extraction_prompt } from "@/lib/system-prompt/memory";
 import "server-only";
 
@@ -49,7 +50,7 @@ export function createMem0Config({
       provider: "openai",
       config: {
         apiKey: process.env.OPENAI_API_KEY || "",
-        model: "gpt-5.6-luna",
+        model: providerModelSlug(models.openai.luna.id),
       },
     },
     customPrompt: custom_fact_extraction_prompt,

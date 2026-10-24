@@ -33,10 +33,11 @@ export const ControlCluster: FC<ControlClusterProps> = ({ className }) => {
         <OrganicHelpDialog triggerClassName="min-w-8 w-8 h-8" />
         <UsageOverlay triggerClassName="min-w-8 w-8 h-8" />
         <button
-          aria-label="Open quick settings"
+          aria-expanded={settingsOpen}
+          aria-label={settingsOpen ? "Close quick settings" : "Open quick settings"}
           className="group min-w-8 w-8 h-8 grid cursor-pointer place-content-center rounded border-0 hover:bg-background-tertiary"
           type="button"
-          onClick={() => setSettingsOpen(true)}
+          onClick={() => setSettingsOpen((open) => !open)}
         >
           <Settings2Icon
             className="transition-transform duration-200 ease-out motion-safe:group-hover:scale-110 motion-safe:group-active:scale-95"

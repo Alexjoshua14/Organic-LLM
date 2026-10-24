@@ -1,0 +1,18 @@
+.fill {
+  animation: refresh-fill linear forwards;
+}
+
+@keyframes refresh-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fill {
+    animation: none;
+  }
+}

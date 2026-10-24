@@ -2,14 +2,16 @@ import type { Result } from "@/types";
 
 import { generateText } from "ai";
 
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import { KNOWLEDGE_GATEWAY_PROVIDER_OPTIONS } from "@/lib/knowledge/gateway-options";
 import { createLogger } from "@/lib/logger";
 import { recordLlmCall } from "@/lib/llm/metrics";
 import { DMZ_MAX_INTAKE_CHARS } from "@/lib/security/dmz/types";
+import { models } from "@/lib/schemas/chat-models";
 
 const logger = createLogger("lib/llm/dmz-intake-summary.ts");
 
-export const DMZ_INTAKE_SUMMARY_MODEL = "openai/gpt-5.4-nano" as const;
+export const DMZ_INTAKE_SUMMARY_MODEL = models.openai.luna.id;
 
 const DMZ_SUMMARY_INPUT_MAX = 6_000;
 
@@ -45,14 +47,19 @@ export async function generateDmzIntakeSummary(options: {
   try {
     const start = performance.now();
     const result = await generateText({
+      ...(await createAuthenticatedLlmBudgetHooks({
+        modelId: budgetModelId(DMZ_INTAKE_SUMMARY_MODEL),
+        operation: "llm/dmz-intake-summary",
+      })),
       model: DMZ_INTAKE_SUMMARY_MODEL,
-      system: SYSTEM,
+      instructions: SYSTEM,
       prompt: `Provider: ${options.provider}\nSubject: ${options.subjectKey}\n\nExternal text:\n${excerpt}`,
       maxOutputTokens: 120,
       providerOptions: KNOWLEDGE_GATEWAY_PROVIDER_OPTIONS,
     });
 
     recordLlmCall({
+      persist: false,
       model: DMZ_INTAKE_SUMMARY_MODEL,
       usage: result.usage,
       durationMs: performance.now() - start,

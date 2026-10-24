@@ -32,7 +32,7 @@ export function GenUISkeleton({ type }: GenUISkeletonProps) {
         </div>
       ) : null}
 
-      {type === "answer-card" || !type ? (
+      {type === "answer-card" || type === "research-report" || !type ? (
         <div className="space-y-2">
           <Shimmer className="h-12 w-full" />
           <Shimmer className="h-3 w-full" />

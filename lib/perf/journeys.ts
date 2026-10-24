@@ -17,7 +17,6 @@ export const PERF_PHASES = {
   // Home load
   homeShellMounted: "home:shell-mounted",
   homeComposerReady: "home:composer-ready",
-  homeWelcomeReady: "home:welcome-ready",
   chromeFirstFrame: "chrome:first-frame",
   sidebarChatsLoaded: "sidebar:chats-loaded",
 
@@ -50,7 +49,6 @@ export const PERF_PHASE_LABELS: Record<string, string> = {
   [PERF_PHASES.navPush]: "router.push",
   [PERF_PHASES.homeShellMounted]: "Home shell mounted",
   [PERF_PHASES.homeComposerReady]: "Composer ready",
-  [PERF_PHASES.homeWelcomeReady]: "Welcome ready",
   [PERF_PHASES.chromeFirstFrame]: "Chrome first frame",
   [PERF_PHASES.sidebarChatsLoaded]: "Sidebar chats loaded",
   [PERF_PHASES.chatCreated]: "Chat created",

@@ -36,7 +36,10 @@ export function extractMermaidNodeIds(source: string): string[] {
 
     const node = line.match(FLOW_NODE_RE);
 
-    if (node?.[1] && !["flowchart", "graph", "stateDiagram-v2", "sequenceDiagram"].includes(node[1])) {
+    if (
+      node?.[1] &&
+      !["flowchart", "graph", "stateDiagram-v2", "sequenceDiagram"].includes(node[1])
+    ) {
       ids.add(node[1]);
     }
   }
@@ -136,10 +139,7 @@ export function formatDiagramNodeContext(link: {
   ].filter(Boolean) as string[];
 
   if (link.neighborhood.neighbors.length > 0) {
-    lines.push(
-      "Neighbors:",
-      ...link.neighborhood.neighbors.map((n) => `- ${n.label} (${n.id})`)
-    );
+    lines.push("Neighbors:", ...link.neighborhood.neighbors.map((n) => `- ${n.label} (${n.id})`));
   }
 
   if (link.neighborhood.edges.length > 0) {

@@ -58,10 +58,7 @@ async function draftToInsert(draft: TaskDraft, deps: ManageTasksDeps): Promise<T
   return insert;
 }
 
-async function draftToPatch(
-  draft: Partial<TaskDraft>,
-  deps: ManageTasksDeps
-): Promise<TaskPatch> {
+async function draftToPatch(draft: Partial<TaskDraft>, deps: ManageTasksDeps): Promise<TaskPatch> {
   const patch: TaskPatch = {};
 
   if (draft.title) patch.title = draft.title;

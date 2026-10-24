@@ -4,7 +4,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "13.0.4";
+    PostgrestVersion: "14.5";
   };
   public: {
     Tables: {
@@ -37,150 +37,6 @@ export type Database = {
           {
             foreignKeyName: "extraction_logs_owner_id_fkey";
             columns: ["owner_id"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      memory_feedback: {
-        Row: {
-          id: string;
-          user_id: string;
-          memory_id: string;
-          signal: string;
-          source: string;
-          chat_id: string | null;
-          note: string | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id?: string;
-          memory_id: string;
-          signal: string;
-          source: string;
-          chat_id?: string | null;
-          note?: string | null;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          user_id?: string;
-          memory_id?: string;
-          signal?: string;
-          source?: string;
-          chat_id?: string | null;
-          note?: string | null;
-          created_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "memory_feedback_user_id_fkey";
-            columns: ["user_id"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      memory_quality_daily: {
-        Row: {
-          id: string;
-          user_id: string;
-          day: string;
-          source: string;
-          ingest_count: number;
-          delete_count: number;
-          feedback_up: number;
-          feedback_down: number;
-          char_count_mean: number | null;
-          char_count_p50: number | null;
-          char_count_p90: number | null;
-          delete_rate: number | null;
-          positive_rate: number | null;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          day: string;
-          source: string;
-          ingest_count?: number;
-          delete_count?: number;
-          feedback_up?: number;
-          feedback_down?: number;
-          char_count_mean?: number | null;
-          char_count_p50?: number | null;
-          char_count_p90?: number | null;
-          delete_rate?: number | null;
-          positive_rate?: number | null;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          user_id?: string;
-          day?: string;
-          source?: string;
-          ingest_count?: number;
-          delete_count?: number;
-          feedback_up?: number;
-          feedback_down?: number;
-          char_count_mean?: number | null;
-          char_count_p50?: number | null;
-          char_count_p90?: number | null;
-          delete_rate?: number | null;
-          positive_rate?: number | null;
-          updated_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "memory_quality_daily_user_id_fkey";
-            columns: ["user_id"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      memory_quality_events: {
-        Row: {
-          id: string;
-          user_id: string;
-          event: string;
-          memory_id: string | null;
-          source: string;
-          char_count: number | null;
-          word_count: number | null;
-          metadata: Json;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id?: string;
-          event: string;
-          memory_id?: string | null;
-          source: string;
-          char_count?: number | null;
-          word_count?: number | null;
-          metadata?: Json;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          user_id?: string;
-          event?: string;
-          memory_id?: string | null;
-          source?: string;
-          char_count?: number | null;
-          word_count?: number | null;
-          metadata?: Json;
-          created_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "memory_quality_events_user_id_fkey";
-            columns: ["user_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
@@ -237,6 +93,209 @@ export type Database = {
           },
         ];
       };
+      llm_usage_events: {
+        Row: {
+          cached_input_tokens: number;
+          cost_usd: number;
+          created_at: string;
+          id: string;
+          input_tokens: number;
+          model_id: string;
+          operation: string | null;
+          output_tokens: number;
+          owner_id: string;
+          reasoning_tokens: number;
+          route: string | null;
+          total_tokens: number;
+        };
+        Insert: {
+          cached_input_tokens?: number;
+          cost_usd?: number;
+          created_at?: string;
+          id?: string;
+          input_tokens?: number;
+          model_id: string;
+          operation?: string | null;
+          output_tokens?: number;
+          owner_id?: string;
+          reasoning_tokens?: number;
+          route?: string | null;
+          total_tokens?: number;
+        };
+        Update: {
+          cached_input_tokens?: number;
+          cost_usd?: number;
+          created_at?: string;
+          id?: string;
+          input_tokens?: number;
+          model_id?: string;
+          operation?: string | null;
+          output_tokens?: number;
+          owner_id?: string;
+          reasoning_tokens?: number;
+          route?: string | null;
+          total_tokens?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "llm_usage_events_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      memory_feedback: {
+        Row: {
+          created_at: string;
+          id: string;
+          memory_id: string;
+          note_approved_at: string | null;
+          note_ciphertext: string | null;
+          revision: number;
+          signal: string;
+          source: string;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          memory_id: string;
+          note_approved_at?: string | null;
+          note_ciphertext?: string | null;
+          revision?: number;
+          signal: string;
+          source: string;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          memory_id?: string;
+          note_approved_at?: string | null;
+          note_ciphertext?: string | null;
+          revision?: number;
+          signal?: string;
+          source?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "memory_feedback_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      memory_quality_daily: {
+        Row: {
+          char_count_mean: number | null;
+          char_count_p50: number | null;
+          char_count_p90: number | null;
+          day: string;
+          delete_count: number;
+          delete_rate: number | null;
+          feedback_down: number;
+          feedback_up: number;
+          id: string;
+          ingest_count: number;
+          positive_rate: number | null;
+          source: string;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          char_count_mean?: number | null;
+          char_count_p50?: number | null;
+          char_count_p90?: number | null;
+          day: string;
+          delete_count?: number;
+          delete_rate?: number | null;
+          feedback_down?: number;
+          feedback_up?: number;
+          id?: string;
+          ingest_count?: number;
+          positive_rate?: number | null;
+          source: string;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          char_count_mean?: number | null;
+          char_count_p50?: number | null;
+          char_count_p90?: number | null;
+          day?: string;
+          delete_count?: number;
+          delete_rate?: number | null;
+          feedback_down?: number;
+          feedback_up?: number;
+          id?: string;
+          ingest_count?: number;
+          positive_rate?: number | null;
+          source?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "memory_quality_daily_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      memory_quality_events: {
+        Row: {
+          char_count: number | null;
+          created_at: string;
+          event: string;
+          id: string;
+          memory_id: string | null;
+          metadata: Json;
+          source: string;
+          user_id: string;
+          word_count: number | null;
+        };
+        Insert: {
+          char_count?: number | null;
+          created_at?: string;
+          event: string;
+          id?: string;
+          memory_id?: string | null;
+          metadata?: Json;
+          source: string;
+          user_id: string;
+          word_count?: number | null;
+        };
+        Update: {
+          char_count?: number | null;
+          created_at?: string;
+          event?: string;
+          id?: string;
+          memory_id?: string | null;
+          metadata?: Json;
+          source?: string;
+          user_id?: string;
+          word_count?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "memory_quality_events_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       message_context_links: {
         Row: {
           created_at: string;
@@ -275,6 +334,72 @@ export type Database = {
             columns: ["message_id"];
             isOneToOne: false;
             referencedRelation: "messages";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      message_send_queue: {
+        Row: {
+          body: string;
+          created_at: string;
+          dispatched_at: string | null;
+          error: string | null;
+          hold_reason: string | null;
+          id: string;
+          owner_id: string;
+          payload: Json;
+          position: number;
+          sent_at: string | null;
+          status: string;
+          target_agent_id: string | null;
+          thread_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          body: string;
+          created_at?: string;
+          dispatched_at?: string | null;
+          error?: string | null;
+          hold_reason?: string | null;
+          id?: string;
+          owner_id?: string;
+          payload?: Json;
+          position: number;
+          sent_at?: string | null;
+          status?: string;
+          target_agent_id?: string | null;
+          thread_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          body?: string;
+          created_at?: string;
+          dispatched_at?: string | null;
+          error?: string | null;
+          hold_reason?: string | null;
+          id?: string;
+          owner_id?: string;
+          payload?: Json;
+          position?: number;
+          sent_at?: string | null;
+          status?: string;
+          target_agent_id?: string | null;
+          thread_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "message_send_queue_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "message_send_queue_thread_id_fkey";
+            columns: ["thread_id"];
+            isOneToOne: false;
+            referencedRelation: "threads";
             referencedColumns: ["id"];
           },
         ];
@@ -323,6 +448,206 @@ export type Database = {
           },
         ];
       };
+      mise_events: {
+        Row: {
+          created_at: string;
+          event_date: string | null;
+          event_time: string | null;
+          guest_count: number | null;
+          id: string;
+          location: string | null;
+          notes: string | null;
+          owner_id: string;
+          thread_id: string | null;
+          timeline: Json;
+          title: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          event_date?: string | null;
+          event_time?: string | null;
+          guest_count?: number | null;
+          id?: string;
+          location?: string | null;
+          notes?: string | null;
+          owner_id?: string;
+          thread_id?: string | null;
+          timeline?: Json;
+          title: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          event_date?: string | null;
+          event_time?: string | null;
+          guest_count?: number | null;
+          id?: string;
+          location?: string | null;
+          notes?: string | null;
+          owner_id?: string;
+          thread_id?: string | null;
+          timeline?: Json;
+          title?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "mise_events_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      mise_ingredients: {
+        Row: {
+          category: string | null;
+          checked: boolean;
+          client_key: string;
+          created_at: string;
+          event_id: string;
+          id: string;
+          name: string;
+          owner_id: string;
+          quantity: string | null;
+          recipe_key: string | null;
+          status: string;
+          unit: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          category?: string | null;
+          checked?: boolean;
+          client_key: string;
+          created_at?: string;
+          event_id: string;
+          id?: string;
+          name: string;
+          owner_id?: string;
+          quantity?: string | null;
+          recipe_key?: string | null;
+          status?: string;
+          unit?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          category?: string | null;
+          checked?: boolean;
+          client_key?: string;
+          created_at?: string;
+          event_id?: string;
+          id?: string;
+          name?: string;
+          owner_id?: string;
+          quantity?: string | null;
+          recipe_key?: string | null;
+          status?: string;
+          unit?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "mise_ingredients_event_id_fkey";
+            columns: ["event_id"];
+            isOneToOne: false;
+            referencedRelation: "mise_events";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "mise_ingredients_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      mise_recipes: {
+        Row: {
+          client_key: string;
+          complexity: string | null;
+          cook_time: string | null;
+          created_at: string;
+          cuisine: string | null;
+          duration: string | null;
+          equipment: string[] | null;
+          event_id: string;
+          id: string;
+          ingredients: Json;
+          main_carbs: string | null;
+          main_protein: string | null;
+          notes: string | null;
+          owner_id: string;
+          prep_time: string | null;
+          servings: string | null;
+          source_url: string | null;
+          steps: string[];
+          title: string;
+          updated_at: string;
+        };
+        Insert: {
+          client_key: string;
+          complexity?: string | null;
+          cook_time?: string | null;
+          created_at?: string;
+          cuisine?: string | null;
+          duration?: string | null;
+          equipment?: string[] | null;
+          event_id: string;
+          id?: string;
+          ingredients?: Json;
+          main_carbs?: string | null;
+          main_protein?: string | null;
+          notes?: string | null;
+          owner_id?: string;
+          prep_time?: string | null;
+          servings?: string | null;
+          source_url?: string | null;
+          steps?: string[];
+          title: string;
+          updated_at?: string;
+        };
+        Update: {
+          client_key?: string;
+          complexity?: string | null;
+          cook_time?: string | null;
+          created_at?: string;
+          cuisine?: string | null;
+          duration?: string | null;
+          equipment?: string[] | null;
+          event_id?: string;
+          id?: string;
+          ingredients?: Json;
+          main_carbs?: string | null;
+          main_protein?: string | null;
+          notes?: string | null;
+          owner_id?: string;
+          prep_time?: string | null;
+          servings?: string | null;
+          source_url?: string | null;
+          steps?: string[];
+          title?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "mise_recipes_event_id_fkey";
+            columns: ["event_id"];
+            isOneToOne: false;
+            referencedRelation: "mise_events";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "mise_recipes_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       organic_state: {
         Row: {
           clerk_user_id: string;
@@ -340,6 +665,237 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [];
+      };
+      prep_placements: {
+        Row: {
+          created_at: string;
+          date: string;
+          id: string;
+          leftover_of_placement_id: string | null;
+          owner_id: string;
+          recipe_id: string;
+          slot: string;
+          updated_at: string;
+          week_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          date: string;
+          id?: string;
+          leftover_of_placement_id?: string | null;
+          owner_id?: string;
+          recipe_id: string;
+          slot: string;
+          updated_at?: string;
+          week_id: string;
+        };
+        Update: {
+          created_at?: string;
+          date?: string;
+          id?: string;
+          leftover_of_placement_id?: string | null;
+          owner_id?: string;
+          recipe_id?: string;
+          slot?: string;
+          updated_at?: string;
+          week_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "prep_placements_leftover_of_placement_id_fkey";
+            columns: ["leftover_of_placement_id"];
+            isOneToOne: false;
+            referencedRelation: "prep_placements";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "prep_placements_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "prep_placements_recipe_id_fkey";
+            columns: ["recipe_id"];
+            isOneToOne: false;
+            referencedRelation: "prep_recipes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "prep_placements_week_id_fkey";
+            columns: ["week_id"];
+            isOneToOne: false;
+            referencedRelation: "prep_weeks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      prep_recipes: {
+        Row: {
+          client_key: string;
+          complexity: string | null;
+          cook_time: string | null;
+          created_at: string;
+          cuisine: string | null;
+          duration: string | null;
+          equipment: string[] | null;
+          id: string;
+          ingredients: Json;
+          main_carbs: string | null;
+          main_protein: string | null;
+          notes: string | null;
+          owner_id: string;
+          prep_time: string | null;
+          servings: string | null;
+          source_url: string | null;
+          steps: string[];
+          title: string;
+          updated_at: string;
+        };
+        Insert: {
+          client_key: string;
+          complexity?: string | null;
+          cook_time?: string | null;
+          created_at?: string;
+          cuisine?: string | null;
+          duration?: string | null;
+          equipment?: string[] | null;
+          id?: string;
+          ingredients?: Json;
+          main_carbs?: string | null;
+          main_protein?: string | null;
+          notes?: string | null;
+          owner_id?: string;
+          prep_time?: string | null;
+          servings?: string | null;
+          source_url?: string | null;
+          steps?: string[];
+          title: string;
+          updated_at?: string;
+        };
+        Update: {
+          client_key?: string;
+          complexity?: string | null;
+          cook_time?: string | null;
+          created_at?: string;
+          cuisine?: string | null;
+          duration?: string | null;
+          equipment?: string[] | null;
+          id?: string;
+          ingredients?: Json;
+          main_carbs?: string | null;
+          main_protein?: string | null;
+          notes?: string | null;
+          owner_id?: string;
+          prep_time?: string | null;
+          servings?: string | null;
+          source_url?: string | null;
+          steps?: string[];
+          title?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "prep_recipes_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      prep_week_ingredients: {
+        Row: {
+          category: string | null;
+          checked: boolean;
+          created_at: string;
+          id: string;
+          identity: string;
+          name: string;
+          owner_id: string;
+          quantity: string | null;
+          status: string;
+          unit: string | null;
+          updated_at: string;
+          week_id: string;
+        };
+        Insert: {
+          category?: string | null;
+          checked?: boolean;
+          created_at?: string;
+          id?: string;
+          identity: string;
+          name: string;
+          owner_id?: string;
+          quantity?: string | null;
+          status?: string;
+          unit?: string | null;
+          updated_at?: string;
+          week_id: string;
+        };
+        Update: {
+          category?: string | null;
+          checked?: boolean;
+          created_at?: string;
+          id?: string;
+          identity?: string;
+          name?: string;
+          owner_id?: string;
+          quantity?: string | null;
+          status?: string;
+          unit?: string | null;
+          updated_at?: string;
+          week_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "prep_week_ingredients_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "prep_week_ingredients_week_id_fkey";
+            columns: ["week_id"];
+            isOneToOne: false;
+            referencedRelation: "prep_weeks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      prep_weeks: {
+        Row: {
+          created_at: string;
+          id: string;
+          owner_id: string;
+          updated_at: string;
+          week_start: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          owner_id?: string;
+          updated_at?: string;
+          week_start: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          owner_id?: string;
+          updated_at?: string;
+          week_start?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "prep_weeks_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       profiles: {
         Row: {
@@ -449,9 +1005,9 @@ export type Database = {
           key_takeaways: string[];
           node_id: string;
           preview: string | null;
-          summary: string | null;
           raw_prompt: string;
           session_id: string;
+          summary: string | null;
           title: string | null;
           user_question: string;
         };
@@ -462,9 +1018,9 @@ export type Database = {
           key_takeaways: string[];
           node_id: string;
           preview?: string | null;
-          summary?: string | null;
           raw_prompt: string;
           session_id: string;
+          summary?: string | null;
           title?: string | null;
           user_question: string;
         };
@@ -475,9 +1031,9 @@ export type Database = {
           key_takeaways?: string[];
           node_id?: string;
           preview?: string | null;
-          summary?: string | null;
           raw_prompt?: string;
           session_id?: string;
+          summary?: string | null;
           title?: string | null;
           user_question?: string;
         };
@@ -529,6 +1085,7 @@ export type Database = {
       rabbit_hole_sessions: {
         Row: {
           active_node_id: string | null;
+          chat_thread_id: string | null;
           created_at: string;
           generating_node_id: string | null;
           generation_step: string | null;
@@ -540,6 +1097,7 @@ export type Database = {
         };
         Insert: {
           active_node_id?: string | null;
+          chat_thread_id?: string | null;
           created_at?: string;
           generating_node_id?: string | null;
           generation_step?: string | null;
@@ -551,6 +1109,7 @@ export type Database = {
         };
         Update: {
           active_node_id?: string | null;
+          chat_thread_id?: string | null;
           created_at?: string;
           generating_node_id?: string | null;
           generation_step?: string | null;
@@ -561,6 +1120,13 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "rabbit_hole_sessions_chat_thread_id_fkey";
+            columns: ["chat_thread_id"];
+            isOneToOne: false;
+            referencedRelation: "threads";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "rabbit_hole_sessions_owner_id_fkey";
             columns: ["owner_id"];
@@ -622,6 +1188,45 @@ export type Database = {
             referencedColumns: ["session_id"];
           },
         ];
+      };
+      release_notes_cache: {
+        Row: {
+          commit_count: number;
+          created_at: string;
+          from_sha: string;
+          from_version: string | null;
+          generated_at: string;
+          model: string;
+          notes: Json;
+          to_sha: string;
+          to_version: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          commit_count?: number;
+          created_at?: string;
+          from_sha: string;
+          from_version?: string | null;
+          generated_at?: string;
+          model: string;
+          notes: Json;
+          to_sha: string;
+          to_version?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          commit_count?: number;
+          created_at?: string;
+          from_sha?: string;
+          from_version?: string | null;
+          generated_at?: string;
+          model?: string;
+          notes?: Json;
+          to_sha?: string;
+          to_version?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
       };
       strata_note_snapshots: {
         Row: {
@@ -930,55 +1535,132 @@ export type Database = {
           },
         ];
       };
+      research_ledgers: {
+        Row: {
+          id: string;
+          owner_id: string;
+          payload: string | null;
+          payload_rev: string | null;
+          legacy_thread_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id?: string;
+          payload?: string | null;
+          payload_rev?: string | null;
+          legacy_thread_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          owner_id?: string;
+          payload?: string | null;
+          payload_rev?: string | null;
+          legacy_thread_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "research_ledgers_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       threads: {
         Row: {
           active_stream_id: string | null;
           active_stream_started_at: string | null;
+          arcadia_multitask_view: boolean;
+          arcadia_starter_key: string | null;
           archived: boolean | null;
           conversation_summary: string | null;
           created_at: string;
           feature: string;
           flags: number;
           id: string;
+          introspection_bootstrap_nonce: string | null;
+          introspection_config_ciphertext: string | null;
+          introspection_guided_state_ciphertext: string | null;
           owner_id: string;
+          parent_thread_id: string | null;
           path: string | null;
+          research_ledger_id: string | null;
           persisted_schemas: Json | null;
           persona: string | null;
           pinned: boolean;
+          subagent_agent_id: string | null;
+          subagent_heartbeat_at: string | null;
+          subagent_heartbeat_baseline: string | null;
+          subagent_heartbeat_digest: string | null;
+          subagent_status: string | null;
+          subagent_status_at: string | null;
           title: string | null;
           updated_at: string;
         };
         Insert: {
           active_stream_id?: string | null;
           active_stream_started_at?: string | null;
+          arcadia_multitask_view?: boolean;
+          arcadia_starter_key?: string | null;
           archived?: boolean | null;
           conversation_summary?: string | null;
           created_at?: string;
           feature?: string;
           flags?: number;
           id?: string;
+          introspection_bootstrap_nonce?: string | null;
+          introspection_config_ciphertext?: string | null;
+          introspection_guided_state_ciphertext?: string | null;
           owner_id: string;
+          parent_thread_id?: string | null;
           path?: string | null;
+          research_ledger_id?: string | null;
           persisted_schemas?: Json | null;
           persona?: string | null;
           pinned?: boolean;
+          subagent_agent_id?: string | null;
+          subagent_heartbeat_at?: string | null;
+          subagent_heartbeat_baseline?: string | null;
+          subagent_heartbeat_digest?: string | null;
+          subagent_status?: string | null;
+          subagent_status_at?: string | null;
           title?: string | null;
           updated_at?: string;
         };
         Update: {
           active_stream_id?: string | null;
           active_stream_started_at?: string | null;
+          arcadia_multitask_view?: boolean;
+          arcadia_starter_key?: string | null;
           archived?: boolean | null;
           conversation_summary?: string | null;
           created_at?: string;
           feature?: string;
           flags?: number;
           id?: string;
+          introspection_bootstrap_nonce?: string | null;
+          introspection_config_ciphertext?: string | null;
+          introspection_guided_state_ciphertext?: string | null;
           owner_id?: string;
+          parent_thread_id?: string | null;
           path?: string | null;
+          research_ledger_id?: string | null;
           persisted_schemas?: Json | null;
           persona?: string | null;
           pinned?: boolean;
+          subagent_agent_id?: string | null;
+          subagent_heartbeat_at?: string | null;
+          subagent_heartbeat_baseline?: string | null;
+          subagent_heartbeat_digest?: string | null;
+          subagent_status?: string | null;
+          subagent_status_at?: string | null;
           title?: string | null;
           updated_at?: string;
         };
@@ -990,7 +1672,36 @@ export type Database = {
             referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
+          {
+            foreignKeyName: "threads_research_ledger_owner_fkey";
+            columns: ["research_ledger_id", "owner_id"];
+            isOneToOne: false;
+            referencedRelation: "research_ledgers";
+            referencedColumns: ["id", "owner_id"];
+          },
+          {
+            foreignKeyName: "threads_parent_thread_id_fkey";
+            columns: ["parent_thread_id"];
+            isOneToOne: false;
+            referencedRelation: "threads";
+            referencedColumns: ["id"];
+          },
         ];
+      };
+      threads_hierarchy_locks: {
+        Row: {
+          owner_key: string;
+          revision: boolean;
+        };
+        Insert: {
+          owner_key: string;
+          revision?: boolean;
+        };
+        Update: {
+          owner_key?: string;
+          revision?: boolean;
+        };
+        Relationships: [];
       };
       transcripts: {
         Row: {

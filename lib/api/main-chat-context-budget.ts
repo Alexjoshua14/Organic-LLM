@@ -2,6 +2,7 @@ import type { UIMessage } from "ai";
 import type { ChatExperience } from "@/lib/chat/chat-experience";
 import type { ChatStyle } from "@/lib/chat/chat-style";
 import type { Logger } from "@/lib/logger";
+import type { ContextEffortLevel } from "@/lib/memory/context-effort";
 
 import { randomUUID } from "crypto";
 
@@ -14,9 +15,9 @@ import { loadArcadiaChatTurnContext } from "@/lib/api/arcadia-chat-turn-context"
 import { resolveChatModelId } from "@/lib/api/resolve-chat-model";
 import {
   type ContextBudgetEstimate,
+  type ContextBudgetLastTurn,
   type ContextBudgetScaffold,
   type ContextBudgetSegment,
-  ESTIMATED_MEMORY_CONTEXT_TOKENS,
   filterBudgetSegments,
   finalizeContextBudget,
   getMessageTextForTokenEstimate,
@@ -25,6 +26,13 @@ import {
 import { estimateTokenCount } from "@/lib/llm/chat-helpers";
 import { compileChatTools } from "@/lib/llm/compile-chat-tools";
 import { createLogger } from "@/lib/logger";
+import { appendCurrentDate } from "@/lib/system-prompt/current-date";
+import { estimatedMemoryContextTokensForEffort } from "@/lib/memory/context-effort";
+import {
+  getContextMemoryReferences,
+  mergeContextMemoryReferences,
+  type ContextMemoryReference,
+} from "@/lib/chat/context-memory";
 
 const logger = createLogger("lib/api/main-chat-context-budget.ts");
 
@@ -43,6 +51,7 @@ export type AssembleMainChatContextBudgetParams = {
   speechFriendly?: boolean;
   contextMessageLimit?: number;
   zeroDataRetention?: boolean;
+  contextEffort?: ContextEffortLevel;
 };
 
 export function buildDraftUserMessage(draftText: string): UIMessage {
@@ -58,6 +67,17 @@ function breakdownTokens(
   label: string
 ): number {
   return rows?.find((row) => row.name === label)?.tokens ?? 0;
+}
+
+const MEMORY_BREAKDOWN_NAMES = new Set(["Memories", "User portrait", "Memory inventory"]);
+
+function memoryBreakdownTokens(rows: Array<{ name: string; tokens: number }> | undefined): number {
+  if (!rows) return 0;
+
+  return rows.reduce(
+    (sum, row) => (MEMORY_BREAKDOWN_NAMES.has(row.name) ? sum + row.tokens : sum),
+    0
+  );
 }
 
 async function sumMessageTokens(messages: UIMessage[]): Promise<number> {
@@ -112,7 +132,7 @@ export async function resolveScaffoldSegmentTokens(params: {
 
   const baseSystemTokens = breakdownTokens(tokenBreakdown, "System Prompt");
   const summaryTokens = breakdownTokens(tokenBreakdown, "Conversation Summary");
-  const memoryTokens = breakdownTokens(tokenBreakdown, "Memories");
+  const memoryTokens = memoryBreakdownTokens(tokenBreakdown);
 
   const trackedContext = baseSystemTokens + summaryTokens + memoryTokens;
   const contextOverhead = Math.max(0, (contextPackTokens ?? 0) - trackedContext);
@@ -141,6 +161,7 @@ function finalizeBudgetEstimate(params: {
   reservedOutputTokens?: number;
   activeToolNames?: string[];
   memoriesInjected?: number;
+  lastTurn?: ContextBudgetLastTurn;
 }): ContextBudgetEstimate {
   const {
     modelId,
@@ -153,6 +174,7 @@ function finalizeBudgetEstimate(params: {
     reservedOutputTokens,
     activeToolNames,
     memoriesInjected,
+    lastTurn,
   } = params;
 
   return finalizeContextBudget({
@@ -166,6 +188,7 @@ function finalizeBudgetEstimate(params: {
     reservedOutputTokens,
     activeToolNames,
     memoriesInjected,
+    lastTurn,
     source: "server",
   });
 }
@@ -187,6 +210,9 @@ export async function buildBudgetFromAssembledTurn(params: {
   totalThreadMessages?: number;
   contextMessageLimit?: number;
   memoriesInjected?: number;
+  /** Stamp `lastTurn` — only for a real LLM send, never poll/scaffold. */
+  recordLastTurn?: boolean;
+  memoryContext?: ContextMemoryReference[];
 }): Promise<ContextBudgetEstimate> {
   const {
     modelId,
@@ -202,6 +228,8 @@ export async function buildBudgetFromAssembledTurn(params: {
     totalThreadMessages,
     contextMessageLimit,
     memoriesInjected,
+    recordLastTurn = false,
+    memoryContext: automaticMemoryContext,
   } = params;
 
   const historyMessages = validatedMessages.slice(0, -1);
@@ -266,7 +294,7 @@ export async function buildBudgetFromAssembledTurn(params: {
   const resolvedPacked = packedMessageCount ?? historyMessages.length;
   const resolvedTotal = totalThreadMessages ?? Math.max(resolvedPacked, historyMessages.length);
 
-  return finalizeBudgetEstimate({
+  const estimate = finalizeBudgetEstimate({
     modelId,
     resolvedModelId,
     segments,
@@ -279,6 +307,23 @@ export async function buildBudgetFromAssembledTurn(params: {
     activeToolNames,
     memoriesInjected,
   });
+
+  const memoryContext = mergeContextMemoryReferences([
+    ...(automaticMemoryContext ?? []),
+    ...getContextMemoryReferences(validatedMessages),
+  ]);
+
+  if (!recordLastTurn) return { ...estimate, memoryContext };
+
+  return {
+    ...estimate,
+    memoryContext,
+    lastTurn: {
+      inputTokens: estimate.nextSubmitTokens,
+      memoryTokens: scaffoldTokens.memoryTokens,
+      memoriesInjected: memoriesInjected ?? 0,
+    },
+  };
 }
 
 async function assembleTurnPromptsAndTools(params: {
@@ -294,6 +339,7 @@ async function assembleTurnPromptsAndTools(params: {
   chatStyle?: ChatStyle;
   speechFriendly?: boolean;
   scaffoldMode?: boolean;
+  contextEffort?: ContextEffortLevel;
 }) {
   const {
     log,
@@ -308,6 +354,7 @@ async function assembleTurnPromptsAndTools(params: {
     chatStyle,
     speechFriendly,
     scaffoldMode = false,
+    contextEffort,
   } = params;
 
   const draftMessage = buildDraftUserMessage(draftText);
@@ -362,24 +409,27 @@ async function assembleTurnPromptsAndTools(params: {
     chatStyle,
   });
 
-  systemPromptForRequest = wrapSystemPromptWithResponseLength(systemPromptForRequest, {
-    experience,
-  });
+  systemPromptForRequest = appendCurrentDate(
+    wrapSystemPromptWithResponseLength(systemPromptForRequest, {
+      experience,
+    })
+  );
 
   const tokenBreakdown = [...(turnContext.tokenBreakdown ?? [])];
 
   if (memoryEnabled) {
+    const memoryTokens = estimatedMemoryContextTokensForEffort(contextEffort);
     const memoryIndex = tokenBreakdown.findIndex((row) => row.name === "Memories");
 
     if (memoryIndex >= 0) {
       tokenBreakdown[memoryIndex] = {
         name: "Memories",
-        tokens: ESTIMATED_MEMORY_CONTEXT_TOKENS,
+        tokens: memoryTokens,
       };
     } else {
       tokenBreakdown.push({
         name: "Memories",
-        tokens: ESTIMATED_MEMORY_CONTEXT_TOKENS,
+        tokens: memoryTokens,
       });
     }
   }
@@ -412,6 +462,7 @@ export async function assembleMainChatContextScaffold(
     chatStyle,
     speechFriendly,
     contextMessageLimit = 10,
+    contextEffort,
   } = params;
 
   const assembled = await assembleTurnPromptsAndTools({
@@ -427,6 +478,7 @@ export async function assembleMainChatContextScaffold(
     chatStyle,
     speechFriendly,
     scaffoldMode: true,
+    contextEffort,
   });
 
   const scaffoldTokens = await resolveScaffoldSegmentTokens({
@@ -474,6 +526,7 @@ export async function assembleMainChatContextBudget(
     speechFriendly,
     contextMessageLimit = 10,
     zeroDataRetention = false,
+    contextEffort,
   } = params;
 
   const resolvedModelId = resolveChatModelId({
@@ -495,6 +548,7 @@ export async function assembleMainChatContextBudget(
     experience,
     chatStyle,
     speechFriendly,
+    contextEffort,
   });
 
   return buildBudgetFromAssembledTurn({
@@ -511,5 +565,6 @@ export async function assembleMainChatContextBudget(
     totalThreadMessages: assembled.turnContext.totalThreadMessages,
     contextMessageLimit: experience === "arcadia" ? undefined : contextMessageLimit,
     memoriesInjected: assembled.turnContext.memoriesInjected,
+    memoryContext: assembled.turnContext.memoryContext,
   });
 }

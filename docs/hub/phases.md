@@ -12,7 +12,7 @@ a single product decision. Numbering is historical, not an order of execution.
 | **3** | Linear execution spine | 🟡 **Partially live** — context capture only; implementation still gated |
 | **5** | In-app dev-docs pointer at `/dev/docs/product-hub` | Unblocked; low value until the hub settles |
 | **6** | `docs/llms.txt` index for the in-app LLM | Queued behind 5 |
-| **7+** | Speak implementation pillars | ⛔ Gated — continuity model undecided |
+| **7+** | Speak implementation pillars | 🟡 **Started** — pillar 1 foundation shipped 2026-09-17 on a provisional thread default |
 
 ## What gates what
 
@@ -30,6 +30,12 @@ Phase 4 sits outside this chain: vision does not wait on execution.
 
 Both gates are **product decisions, not engineering work.** Nothing unblocks them except the
 user choosing. See `organic-llm-hub/speak/open-questions.md`.
+
+**2026-09-17:** the user chose a provisional thread default (resume the latest voice thread) and
+a first slice (continuity + memory). The mechanism is built so the default is one policy value;
+the branching-container question remains open. Records:
+`organic-llm-hub/decisions/20260917-speak-thread-model-provisional.md` and
+[`docs/speak/decisions/20260917-voice-continuity-and-memory.md`](../speak/decisions/20260917-voice-continuity-and-memory.md).
 
 ## Phase 4 — Notion vision layer (live)
 
@@ -91,4 +97,5 @@ the hub's shape stops moving.
 
 The five roadmap pillars live in `organic-llm-hub/speak/product-spec.md`. Every candidate first
 slice touches continuity, so picking one before the thread model is settled means guessing at
-the foundation and rebuilding.
+the foundation and rebuilding. The 2026-09-17 slice sidesteps that by keeping the thread choice
+behind a single policy value rather than baking it into the persistence or memory paths.

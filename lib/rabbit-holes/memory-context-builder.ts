@@ -1,5 +1,6 @@
 import { generateText } from "ai";
 
+import { budgetModelId, createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
 import {
   RABBIT_HOLE_MEMORY_CONTEXT_MODEL,
   RABBIT_HOLE_MEMORY_CONTEXT_WARN_MS,
@@ -7,10 +8,7 @@ import {
   RABBIT_HOLE_MEMORY_SYNTHESIS_CAP,
 } from "@/lib/rabbit-holes/memory-context-models";
 import { searchMemoriesForUser } from "@/lib/memory/operations";
-import {
-  formatMemoriesForPrompt,
-  selectMemoriesForPrompt,
-} from "@/lib/memory/memory-relevance";
+import { formatMemoriesForPrompt, selectMemoriesForPrompt } from "@/lib/memory/memory-relevance";
 import { createLogger } from "@/lib/logger";
 
 const logger = createLogger("lib/rabbit-holes/memory-context-builder.ts");
@@ -136,8 +134,13 @@ export async function buildRabbitHoleMemoryContextBlock(
   const llmStarted = performance.now();
 
   const { text } = await generateText({
+    ...createLlmBudgetHooks({
+      ownerId: params.userId,
+      modelId: budgetModelId(RABBIT_HOLE_MEMORY_CONTEXT_MODEL),
+      operation: "rabbit_hole_memory_context",
+    }),
     model: RABBIT_HOLE_MEMORY_CONTEXT_MODEL,
-    system: SYNTHESIS_SYSTEM,
+    instructions: SYNTHESIS_SYSTEM,
     prompt: synthesisPrompt,
     maxOutputTokens: 220,
     temperature: 0.2,

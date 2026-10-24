@@ -1,9 +1,10 @@
 import "server-only";
 
 import type { LanguageModel } from "ai";
+import type { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
+
 import { generateObject, NoObjectGeneratedError } from "ai";
 import { openai } from "@ai-sdk/openai";
-import type { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 
 import {
   MEMORY_QUALITY_CLASSIFIER_SYSTEM,
@@ -11,13 +12,16 @@ import {
   parseMemoryQualityFromModelText,
   type MemoryQuality,
 } from "@/lib/memory/ingest-quality";
+import { models, providerModelSlug } from "@/lib/schemas/chat-models";
 
 export type ClassifyMemoryQualityDeps = {
   generateObjectImpl?: typeof generateObject;
   model?: LanguageModel;
 };
 
-const defaultModel = openai(process.env.MIGRATE_QUALITY_MODEL ?? "gpt-5.4-mini");
+const defaultModel = openai(
+  process.env.MIGRATE_QUALITY_MODEL ?? providerModelSlug(models.openai.terra.id)
+);
 
 export async function classifyMemoryQuality(
   text: string,
@@ -38,7 +42,7 @@ export async function classifyMemoryQuality(
           store: false,
         } satisfies OpenAIResponsesProviderOptions,
       },
-      system: MEMORY_QUALITY_CLASSIFIER_SYSTEM,
+      instructions: MEMORY_QUALITY_CLASSIFIER_SYSTEM,
       prompt: `Classify this memory line:\n\n${text.slice(0, 8000)}`,
     });
 

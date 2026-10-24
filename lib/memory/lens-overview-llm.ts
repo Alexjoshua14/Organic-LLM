@@ -1,3 +1,4 @@
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import "server-only";
 
 import { GatewayProviderOptions } from "@ai-sdk/gateway";
@@ -22,8 +23,12 @@ export const generateLensOverviewTextCached = unstable_cache(
   async (sbUserId: string, userBlob: string) => {
     const start = performance.now();
     const result = await generateText({
+      ...(await createAuthenticatedLlmBudgetHooks({
+        modelId: budgetModelId(LENS_OVERVIEW_MODEL),
+        operation: "memory/lens-overview-llm",
+      })),
       model: LENS_OVERVIEW_MODEL,
-      system: SYSTEM,
+      instructions: SYSTEM,
       prompt: `Memory snippets on this page:\n${userBlob}`,
       maxOutputTokens: 320,
       temperature: 0.3,
@@ -36,6 +41,7 @@ export const generateLensOverviewTextCached = unstable_cache(
     const durationMs = performance.now() - start;
 
     recordLlmCall({
+      persist: false,
       model: LENS_OVERVIEW_MODEL,
       usage: result.usage,
       durationMs,

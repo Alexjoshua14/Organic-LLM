@@ -1,9 +1,6 @@
 import type { UIMessage } from "ai";
 
-import {
-  estimateTokenCountSync,
-  getMessageTextForTokenEstimate,
-} from "@/lib/chat/context-budget";
+import { estimateTokenCountSync, getMessageTextForTokenEstimate } from "@/lib/chat/context-budget";
 import { HARD_MAX_LLM_INPUT_TOKENS } from "@/lib/chat/arcadia-token-context";
 
 export type LlmInputTokenEstimate = {

@@ -1,5 +1,4 @@
 import type { OpenInChatProvider } from "@/lib/export/prompts";
-
 import type { DmzConnectionProvider } from "./types";
 
 export type DmzConnectionMeta = {
@@ -17,21 +16,24 @@ export const DMZ_CONNECTIONS: DmzConnectionMeta[] = [
   {
     id: "notion",
     label: "Notion AI",
-    description: "Ask Notion AI about your notes, then paste the answer back through DMZ quarantine.",
+    description:
+      "Ask Notion AI about your notes, then paste the answer back through DMZ quarantine.",
     supportsOpenIn: false,
     supportsPasteback: true,
   },
   {
     id: "obsidian",
     label: "Obsidian",
-    description: "Query your vault with Obsidian's LLM plugins or Copilot, then paste the response back.",
+    description:
+      "Query your vault with Obsidian's LLM plugins or Copilot, then paste the response back.",
     supportsOpenIn: false,
     supportsPasteback: true,
   },
   {
     id: "chatgpt",
     label: "ChatGPT",
-    description: "Open a prepared question in ChatGPT; paste the answer back for quarantine review.",
+    description:
+      "Open a prepared question in ChatGPT; paste the answer back for quarantine review.",
     supportsOpenIn: true,
     openInProvider: "chatgpt",
     supportsPasteback: true,

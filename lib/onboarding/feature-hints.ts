@@ -9,7 +9,10 @@
  * - Bump `version` to re-show a hint after copy changes (ignores older dismiss records).
  */
 
-export { FEATURE_HINT_GUIDE_POLICY, MAX_CONSECUTIVE_AUTO_FEATURE_HINTS } from "./feature-hint-guide-policy";
+export {
+  FEATURE_HINT_GUIDE_POLICY,
+  MAX_CONSECUTIVE_AUTO_FEATURE_HINTS,
+} from "./feature-hint-guide-policy";
 
 export const FEATURE_HINTS_MASTER_SWITCH = true;
 
@@ -24,6 +27,7 @@ export const FEATURE_HINT_IDS = [
   "composer-auto-model",
   "rabbit-holes-focus",
   "arcadia-starters",
+  "arcadia-multiagent",
   "arcadia-style-standard",
   "arcadia-style-ergon",
   "arcadia-style-remy",
@@ -173,6 +177,18 @@ export const FEATURE_HINTS: Record<FeatureHintId, FeatureHintDefinition> = {
     pathPrefix: "/sandbox/arcadia",
     deferUntilNavigationSettled: true,
     contextualBackdrop: "blur",
+  },
+  "arcadia-multiagent": {
+    id: "arcadia-multiagent",
+    enabled: true,
+    title: "Multiagent controls",
+    body: "Click the current agent's name to choose who receives your next message. Orchestrator coordinates the team; choose a subagent to message it directly. Ctrl+Q shows or hides chat; Ctrl+W shows or hides the agent board. Your draft stays in place.",
+    version: 1,
+    presentation: "spotlight",
+    side: "bottom",
+    align: "start",
+    pathPrefix: "/sandbox/arcadia",
+    deferUntilNavigationSettled: true,
   },
   "arcadia-style-standard": {
     id: "arcadia-style-standard",

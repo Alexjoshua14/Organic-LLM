@@ -2,15 +2,19 @@ import { openai } from "@ai-sdk/openai";
 import { generateText } from "ai";
 import { auth } from "@clerk/nextjs/server";
 
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
 import { createLogger } from "@/lib/logger";
 import { recordLlmCall } from "@/lib/llm/metrics";
+import { models, providerModelSlug } from "@/lib/schemas/chat-models";
+import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
 
 // Allow responses up to 30 seconds
 export const maxDuration = 30;
 
 const logger = createLogger(`app/api/speech/route.ts`);
+const speechModel = models.openai.gpt4oMini;
 
 // Speech-friendly system prompt that encourages natural, conversational responses
 const speechSystemPrompt = `You are a helpful AI assistant optimized for text-to-speech output. Your responses should be:
@@ -53,6 +57,10 @@ export async function POST(req: Request) {
     }
     const sbUserId = sbUserIdResult.data;
 
+    const planGate = await requirePlanBudget({ clerkUserId: clerkUser.userId, sbUserId: sbUserId });
+
+    if (planGate) return planGate;
+
     const messageLimitResult = await checkLlmMessageLimit(sbUserId);
 
     if (!messageLimitResult.success) {
@@ -64,7 +72,11 @@ export async function POST(req: Request) {
 
     const start = performance.now();
     const result = await generateText({
-      model: openai("gpt-4o-mini"), // Using a faster model for speech generation
+      ...(await createAuthenticatedLlmBudgetHooks({
+        modelId: budgetModelId(openai(providerModelSlug(speechModel.id))),
+        operation: "/api/ai/speech",
+      })),
+      model: openai(providerModelSlug(speechModel.id)), // Using a faster model for speech generation
       messages: [
         {
           role: "system",
@@ -81,7 +93,8 @@ export async function POST(req: Request) {
     const durationMs = performance.now() - start;
 
     recordLlmCall({
-      model: "gpt-4o-mini",
+      persist: false,
+      model: speechModel.id,
       usage: result.usage,
       durationMs,
       metadata: { operation: "speech-route", route: "/api/ai/speech" },

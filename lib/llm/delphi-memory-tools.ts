@@ -175,8 +175,7 @@ export function createDelphiMemoryTools(
   });
 
   const flag_for_followup = tool({
-    description:
-      "Silent curriculum note when a topic closes but is worth revisiting later.",
+    description: "Silent curriculum note when a topic closes but is worth revisiting later.",
     inputSchema: flagPayloadSchema,
     execute: async ({ note, context, memory_id }) => {
       const flagNote = requireDelphiToolText(note, "note");

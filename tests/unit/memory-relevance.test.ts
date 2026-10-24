@@ -4,6 +4,7 @@ import type { MemoryItemType } from "@/lib/schemas/memory";
 import {
   ARCADIA_MEMORY_MIN_SCORE,
   bucketMemoriesByTier,
+  buildArcadiaMemoryInventoryText,
   passesMinScoreForInjection,
   selectMemoriesForPrompt,
 } from "@/lib/memory/memory-relevance";
@@ -90,5 +91,23 @@ describe("selectMemoriesForPrompt", () => {
     });
 
     expect(picked.map((p) => p.id)).toEqual(["a", "b"]);
+  });
+});
+
+describe("buildArcadiaMemoryInventoryText", () => {
+  test("names the effort tier and that counts are a sample not the whole store", () => {
+    const tiers = bucketMemoriesByTier([mem("a", "x", 0.9)], ARCADIA_MEMORY_MIN_SCORE);
+    const text = buildArcadiaMemoryInventoryText({
+      conversationMessagesInContext: 4,
+      memoriesInjected: 1,
+      tiers,
+      overfetchCap: 8,
+      minScore: ARCADIA_MEMORY_MIN_SCORE,
+      injectCap: 5,
+      contextEffort: "instant",
+    });
+
+    expect(text).toContain("Context effort: instant.");
+    expect(text).toContain("not your entire memory store");
   });
 });

@@ -16,7 +16,10 @@ import { ValidSummary, ValidSummarySchema } from "../schemas/llm-tools";
 import { decryptFromStorage, encryptForStorage } from "../crypto/message-encryption";
 
 import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
-import { convertToolCallsToTextForSummarizer } from "@/lib/llm/summarizer-message-format";
+import {
+  appendSummarizerTask,
+  convertToolCallsToTextForSummarizer,
+} from "@/lib/llm/summarizer-message-format";
 import { createLogger } from "@/lib/logger";
 import { convertMessageToUIMessage } from "@/lib/chat/message-transform";
 import {
@@ -27,9 +30,11 @@ import {
   updateConversationSummary,
 } from "@/data/supabase/chat";
 import { Result } from "@/types";
+import { createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
 import { recordLlmCall } from "@/lib/llm/metrics";
 import { generateShortTitleFromSummary } from "@/lib/llm/short-title-from-summary";
 import { TITLE_PIPELINE_SUMMARIZER_MODEL } from "@/lib/llm/title-models";
+import { models } from "@/lib/schemas/chat-models";
 import {
   exchangeCountFromPersistedMessageCount,
   shouldRefreshSummary,
@@ -38,9 +43,9 @@ import {
 /** Model Selections: Each ZDR compatible */
 const MODEL_SELECTION: Record<string, LanguageModel> = {
   summarizer: TITLE_PIPELINE_SUMMARIZER_MODEL,
-  updater: "google/gemini-3-flash",
-  validator: "google/gemini-3-flash",
-  reviser: "google/gemini-3-flash",
+  updater: models.google.flash.id,
+  validator: models.google.flash.id,
+  reviser: models.google.flash.id,
 };
 
 /** Max input tokens for title generation (allows long-thread context). */
@@ -57,17 +62,17 @@ Be concise, neutral, plain text only—no lists, markdown, or citations.
 `;
 
 const SummarizerSystemPrompt = `
-You are Organic LLM's summarizer. 
-Summarize the entire conversation into ONE clear paragraph (2–4 sentences, under 600 tokens). 
-Include: main objectives/tasks, important decisions or open questions, and the current focus/next step. 
+You are Organic LLM's summarizer.
+Summarize the entire conversation into ONE clear paragraph (2–4 sentences, under 600 tokens).
+Include: main objectives/tasks, important decisions or open questions, and the current focus/next step.
 Be concise, neutral, and free of lists, formatting, or citations. Output plain text only.
 `;
 
 const UpdateSummarizerSystemPrompt = `
-You are Organic LLM's summarizer. 
-Update the previous summary by integrating NEW messages since it was last written. 
-Produce ONE clear paragraph (2–4 sentences, under 600 tokens) that preserves all key details from the prior summary while adding new information. 
-Include: objectives/tasks, decisions or questions, and current focus/next step. 
+You are Organic LLM's summarizer.
+Update the previous summary by integrating NEW messages since it was last written.
+Produce ONE clear paragraph (2–4 sentences, under 600 tokens) that preserves all key details from the prior summary while adding new information.
+Include: objectives/tasks, decisions or questions, and current focus/next step.
 Be concise, neutral, and output plain text only.
 
 Previous summary:
@@ -75,12 +80,12 @@ Previous summary:
 `;
 
 const ValidatorSystemPrompt = `
-You are a strict validator. 
+You are a strict validator.
 Given a proposed conversation summary, return valid = TRUE if it clearly includes:
-1. Main objectives or tasks, 
-2. Important decisions or open questions, 
-3. Current focus or next step. 
-Otherwise return valid = FALSE. 
+1. Main objectives or tasks,
+2. Important decisions or open questions,
+3. Current focus or next step.
+Otherwise return valid = FALSE.
 Reply only with the boolean value and a short reason for the validity of the summary.
 
 Proposed summary:
@@ -90,9 +95,9 @@ Current persisted summary (if any):
 `;
 
 const ReviserSystemPrompt = `
-You are Organic LLM's summary reviser. 
-Rewrite the current summary into ONE concise paragraph (2–4 sentences, under 600 tokens). 
-It must include: objectives/tasks, important decisions or open questions, and the current focus/next step. 
+You are Organic LLM's summary reviser.
+Rewrite the current summary into ONE concise paragraph (2–4 sentences, under 600 tokens).
+It must include: objectives/tasks, important decisions or open questions, and the current focus/next step.
 Be clear, compact, neutral, and output plain text only—no lists or formatting.
 
 Current summary:
@@ -259,6 +264,7 @@ export async function generateChatTitle(chatId: string): Promise<Result<string>>
     .from("messages")
     .select("*")
     .eq("thread_id", chatId)
+    .filter("role", "not.eq", "system")
     .order("created_at", { ascending: false });
 
   if (messages.error) {
@@ -310,8 +316,16 @@ export async function generateChatTitle(chatId: string): Promise<Result<string>>
     const summaryStart = performance.now();
     const summaryResult = await generateText({
       model: MODEL_SELECTION.summarizer,
-      system: ChatTitleSummarizerSystemPrompt,
-      messages: convertToModelMessages(messagesForTitleClean),
+      ...createLlmBudgetHooks({
+        ownerId,
+        modelId: MODEL_SELECTION.summarizer as string,
+        operation: "chat-summary",
+      }),
+      instructions: ChatTitleSummarizerSystemPrompt,
+      messages: appendSummarizerTask(
+        await convertToModelMessages(messagesForTitleClean),
+        "Summarize the conversation above for a short chat title."
+      ),
       maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     });
     const summaryDuration = performance.now() - summaryStart;
@@ -338,6 +352,7 @@ export async function generateChatTitle(chatId: string): Promise<Result<string>>
   const shortTitleResult = await generateShortTitleFromSummary(conversationSummary, {
     contextId: chatId,
     operation: "chatTitle-title",
+    ownerId,
     subject: "chat",
   });
 
@@ -369,6 +384,11 @@ export async function generateChatTitle(chatId: string): Promise<Result<string>>
 }
 
 export async function summarizeChat(chatId: string): Promise<Result<string, string>> {
+  const owner = await getThreadOwnerContext(chatId);
+
+  if (!owner.data || owner.error) return { data: null, error: "Thread owner unavailable" };
+  const ownerId = owner.data.ownerId;
+
   logger.log("summarizeChat", `Summarizing chat ${chatId}`);
   // Get all chat messages
   let { data: messages, error } = await getMessages(chatId);
@@ -391,7 +411,7 @@ export async function summarizeChat(chatId: string): Promise<Result<string, stri
   // Convert tool-invocation parts to text so Gemini 3 does not require thought_signature.
   // Preserves tool semantics (name, args, result) for the summarizer.
   const messagesForSummary = convertToolCallsToTextForSummarizer(messages);
-  const modelMessages = convertToModelMessages(messagesForSummary);
+  const modelMessages = await convertToModelMessages(messagesForSummary);
 
   // logger.log(
   //   "summarizeChat",
@@ -403,9 +423,14 @@ export async function summarizeChat(chatId: string): Promise<Result<string, stri
   const summarizeStart = performance.now();
   const summarizeResult = await generateText({
     model: MODEL_SELECTION.summarizer,
-    system: SummarizerSystemPrompt,
+    ...createLlmBudgetHooks({
+      ownerId,
+      modelId: MODEL_SELECTION.summarizer as string,
+      operation: "chat-summary",
+    }),
+    instructions: SummarizerSystemPrompt,
     temperature: 0.2,
-    messages: modelMessages,
+    messages: appendSummarizerTask(modelMessages, "Summarize the conversation above."),
     maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
   });
   const summarizeDuration = performance.now() - summarizeStart;
@@ -427,7 +452,7 @@ export async function summarizeChat(chatId: string): Promise<Result<string, stri
     //`Conversation Summary (v${summaryGenerationCount}): ${conversationSummary}`,
   );
 
-  const validatedSummaryRes = await validateSummary(conversationSummary, modelMessages);
+  const validatedSummaryRes = await validateSummary(ownerId, conversationSummary, modelMessages);
 
   if (validatedSummaryRes.error || !validatedSummaryRes.data) {
     return {
@@ -679,22 +704,30 @@ export async function updateChatSummary(chatId: string): Promise<Result<string, 
 
   // Convert tool-invocation parts to text so Gemini 3 does not require thought_signature.
   const messagesForSummary = convertToolCallsToTextForSummarizer(uiMessages as UIMessage[]);
-  const modelMessages = convertToModelMessages(messagesForSummary);
+  const modelMessages = await convertToModelMessages(messagesForSummary);
 
   const { text: updatedSummary } = await generateText({
     model: MODEL_SELECTION.updater,
-    system: UpdateSummarizerSystemPrompt.replace(
+    ...createLlmBudgetHooks({
+      ownerId,
+      modelId: MODEL_SELECTION.updater as string,
+      operation: "chat-summary-update",
+    }),
+    instructions: UpdateSummarizerSystemPrompt.replace(
       "{{conversationSummary}}",
       threadSummary.summary_text
     ),
     temperature: 0.3,
-    messages: modelMessages,
+    messages: appendSummarizerTask(
+      modelMessages,
+      "Update the previous summary using the conversation above."
+    ),
     maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
   });
 
   // logger.log("updateChatSummary", `Updated summary: ${updatedSummary}`);
 
-  const validatedSummaryRes = await validateSummary(updatedSummary, modelMessages);
+  const validatedSummaryRes = await validateSummary(ownerId, updatedSummary, modelMessages);
 
   if (validatedSummaryRes.error) {
     return {
@@ -766,6 +799,7 @@ export async function updateChatSummary(chatId: string): Promise<Result<string, 
  * @returns The validated summary
  */
 const validateSummary = async (
+  ownerId: string,
   conversationSummary: string,
   messages: ModelMessage[],
   currentPersistedConversationSummary?: string,
@@ -776,14 +810,25 @@ const validateSummary = async (
   // Generate conversation summary and validate result
   for (let i = 1; i <= 3; i++) {
     const validatorStart = performance.now();
+    const validatorBudget = createLlmBudgetHooks({
+      ownerId,
+      modelId: MODEL_SELECTION.validator as string,
+      operation: "summary-validator",
+    });
+
+    await validatorBudget.prepareStep();
     const validatorRes = await generateObject({
+      onStepFinish: validatorBudget.onStepFinish,
       model: MODEL_SELECTION.validator,
-      system: ValidatorSystemPrompt.replace(
+      instructions: ValidatorSystemPrompt.replace(
         "{{currentPersistedConversationSummary}}",
         currentPersistedConversationSummary ?? "null"
       ).replace("{{conversationSummary}}", conversationSummary),
       temperature: 0.1,
-      messages: messages,
+      messages: appendSummarizerTask(
+        messages,
+        "Validate the proposed summary against the conversation above."
+      ),
       schema: ValidSummarySchema,
       maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     });
@@ -813,14 +858,22 @@ const validateSummary = async (
     const reviserStart = performance.now();
     const reviserResult = await generateText({
       model: MODEL_SELECTION.reviser,
-      system: ReviserSystemPrompt.replace("{{conversationSummary}}", conversationSummary)
+      ...createLlmBudgetHooks({
+        ownerId,
+        modelId: MODEL_SELECTION.reviser as string,
+        operation: "summary-reviser",
+      }),
+      instructions: ReviserSystemPrompt.replace("{{conversationSummary}}", conversationSummary)
         .replace(
           "{{currentPersistedConversationSummary}}",
           currentPersistedConversationSummary ?? "null"
         )
         .replace("{{reason}}", validSummary.reason),
       temperature: 0.2,
-      messages: messages,
+      messages: appendSummarizerTask(
+        messages,
+        "Revise the proposed summary using the conversation above and the validation feedback."
+      ),
       maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     });
     const reviserDuration = performance.now() - reviserStart;

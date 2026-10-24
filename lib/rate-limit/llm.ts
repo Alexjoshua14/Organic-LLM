@@ -1,6 +1,8 @@
 import { Duration, Ratelimit } from "@upstash/ratelimit";
 
 import { redis } from "@/lib/redis/redis";
+import { LLM_MESSAGE_RATE_LIMIT } from "@/lib/rate-limit/catalog";
+import { recordRateLimitHit } from "@/lib/rate-limit/hit-batch";
 import { computeCost, type Usage } from "@/lib/rate-limit/llm-cost";
 import { runLimiter } from "@/lib/rate-limit/run-limiter";
 
@@ -64,12 +66,24 @@ function isCostLimitEnabled(): boolean {
  * Uses Supabase user id as identifier (same as memory limits).
  */
 export async function checkLlmMessageLimit(userId: string): Promise<RateLimitResult> {
-  const { success, remaining } = await runLimiter("checkLlmMessageLimit", () =>
+  const { success, remaining, limit, reset } = await runLimiter("checkLlmMessageLimit", () =>
     messageLimiter.limit(userId)
   );
 
   if (!success) {
-    return { success: false, error: "Too many LLM requests" };
+    recordRateLimitHit({
+      limiter: LLM_MESSAGE_RATE_LIMIT.id,
+      prefix: LLM_MESSAGE_RATE_LIMIT.prefix,
+      cap: LLM_MESSAGE_RATE_LIMIT.cap,
+      window: LLM_MESSAGE_RATE_LIMIT.window,
+      remaining,
+      limit,
+      reset,
+      error: LLM_MESSAGE_RATE_LIMIT.error,
+      where: "checkLlmMessageLimit",
+    });
+
+    return { success: false, error: LLM_MESSAGE_RATE_LIMIT.error, remaining };
   }
 
   return { success: true, remaining };

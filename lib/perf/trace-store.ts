@@ -196,6 +196,13 @@ export function clearPerfTraces(): void {
   notify();
 }
 
+/** Drop an interrupted session's unfinished measurement without logging it. */
+export function discardActivePerfTrace(): void {
+  if (!activeTrace) return;
+  activeTrace = null;
+  notify();
+}
+
 export function startJourney(
   journey: PerfJourneyId,
   trigger: string,

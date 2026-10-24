@@ -3,14 +3,16 @@ import type { Result } from "@/types";
 
 import { generateObject } from "ai";
 
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import { KNOWLEDGE_GATEWAY_PROVIDER_OPTIONS } from "@/lib/knowledge/gateway-options";
 import { createLogger } from "@/lib/logger";
 import { recordLlmCall } from "@/lib/llm/metrics";
 import { ErgonEnhanceFieldsSchema } from "@/lib/schemas/ergon-enhance";
+import { models } from "@/lib/schemas/chat-models";
 
 const logger = createLogger("lib/llm/enhance-task.ts");
 
-export const ERGON_ENHANCE_MODEL = "openai/gpt-5.4-nano" as const;
+export const ERGON_ENHANCE_MODEL = models.openai.luna.id;
 export const ERGON_ENHANCE_TIMEOUT_MS = 6_000;
 
 const ENHANCE_SYSTEM = `You enrich a single todo by inferring values for ONLY the fields the user left empty, using the task's meaning plus the user's categories, their other tasks, and any memory provided.
@@ -51,9 +53,7 @@ function buildPrompt(ctx: EnhanceTaskContext, now: Date): string {
   const categories = ctx.categories.length > 0 ? ctx.categories.join(", ") : "(none yet)";
   const others =
     ctx.otherTasks.length > 0
-      ? ctx.otherTasks
-          .map((t) => `- ${t.title}${t.category ? ` [${t.category}]` : ""}`)
-          .join("\n")
+      ? ctx.otherTasks.map((t) => `- ${t.title}${t.category ? ` [${t.category}]` : ""}`).join("\n")
       : "(none)";
   const memory = ctx.memory.length > 0 ? ctx.memory.map((m) => `- ${m}`).join("\n") : "(none)";
 
@@ -86,8 +86,12 @@ export async function enhanceTaskFields(
 
     const { object, usage } = await withTimeout(
       generateObject({
+        ...(await createAuthenticatedLlmBudgetHooks({
+          modelId: budgetModelId(ERGON_ENHANCE_MODEL),
+          operation: "llm/enhance-task",
+        })),
         model: ERGON_ENHANCE_MODEL,
-        system: ENHANCE_SYSTEM,
+        instructions: ENHANCE_SYSTEM,
         prompt: buildPrompt(ctx, now),
         schema: ErgonEnhanceFieldsSchema,
         maxOutputTokens: 300,
@@ -97,6 +101,7 @@ export async function enhanceTaskFields(
     );
 
     recordLlmCall({
+      persist: false,
       model: ERGON_ENHANCE_MODEL,
       usage,
       durationMs: performance.now() - start,

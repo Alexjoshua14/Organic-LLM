@@ -1,11 +1,23 @@
 import { z } from "zod";
 
+import {
+  BackgroundActivityModeSchema,
+  DEFAULT_BACKGROUND_ACTIVITY_MODE,
+} from "@/lib/background-activity";
+import { ContextEffortLevelSchema, DEFAULT_CONTEXT_EFFORT } from "@/lib/memory/context-effort";
+import {
+  defaultUserConnectorsProfile,
+  UserConnectorsProfileSchema,
+} from "@/lib/schemas/user-connectors";
+
 /**
  * Client-side user settings schema.
  * Persisted to localStorage always (quick cache); Supabase grabbers can sync when configured.
  */
 export const UserSettingsSchema = z.object({
   fontId: z.string().default("satoshi"),
+  /** Prefer the inexpensive activity-mark renderer over per-dot spring physics. */
+  lightweightMode: z.boolean().default(false),
   /** When true, TTS plays the whole message; when false, only the first section (paragraph). Dev-only setting under Advanced. */
   ttsWholeMessage: z.boolean().default(true),
   /** When true, no chat data is retained (zero data retention). */
@@ -14,20 +26,33 @@ export const UserSettingsSchema = z.object({
   coalescenceMode: z.boolean().default(false),
   /** Experimental: Arcadia composer can show a markdown preview toggle. */
   experimentalArcadiaMarkdownPreview: z.boolean().default(false),
+  /** Beta: Arcadia composer shows a context-effort slider (Instant / Quick / Heavy). */
+  experimentalContextEffort: z.boolean().default(false),
+  /** Last chosen Arcadia context-effort tier (used when the beta control is on). */
+  contextEffortLevel: ContextEffortLevelSchema.default(DEFAULT_CONTEXT_EFFORT),
   /** Ergon page: animated liquid chrome background. */
   ergonLiquidChrome: z.boolean().default(true),
   /** When true, show feature hints/coachmarks again (ignores persisted dismissals until turned off). */
   replayFeatureHints: z.boolean().default(false),
+  /** Settings → AI: cadence of in-view background probes (Arcadia subagent heartbeat). */
+  backgroundActivity: BackgroundActivityModeSchema.default(DEFAULT_BACKGROUND_ACTIVITY_MODE),
+  /** Settings → Connectors: private profile connectors & personal dossier. */
+  connectors: UserConnectorsProfileSchema.default(defaultUserConnectorsProfile),
 });
 
 export type UserSettings = z.infer<typeof UserSettingsSchema>;
 
 export const defaultUserSettings = (): UserSettings => ({
   fontId: "satoshi",
+  lightweightMode: false,
   ttsWholeMessage: true,
   zeroDataRetention: false,
   coalescenceMode: false,
   experimentalArcadiaMarkdownPreview: false,
+  experimentalContextEffort: false,
+  contextEffortLevel: DEFAULT_CONTEXT_EFFORT,
   ergonLiquidChrome: true,
   replayFeatureHints: false,
+  backgroundActivity: DEFAULT_BACKGROUND_ACTIVITY_MODE,
+  connectors: defaultUserConnectorsProfile(),
 });

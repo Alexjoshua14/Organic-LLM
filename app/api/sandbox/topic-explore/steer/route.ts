@@ -1,6 +1,7 @@
 import { generateText } from "ai";
 import z from "zod";
 
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import { requireLlmChatActor } from "@/lib/api/chat-llm-gate";
 import {
   TOPIC_EXPLORE_PROVIDER_OPTIONS,
@@ -65,8 +66,12 @@ export async function POST(req: Request) {
   try {
     const t0 = performance.now();
     const result = await generateText({
+      ...(await createAuthenticatedLlmBudgetHooks({
+        modelId: budgetModelId(TOPIC_EXPLORE_STEER_MODEL),
+        operation: "/api/sandbox/topic-explore/steer",
+      })),
       model: TOPIC_EXPLORE_STEER_MODEL,
-      system: SYSTEM,
+      instructions: SYSTEM,
       prompt: `RECENT_TRANSCRIPT:\n${transcript}\n\nUSER_STEER_INSTRUCTION:\n${instruction}`,
       maxOutputTokens: 700,
       providerOptions: TOPIC_EXPLORE_PROVIDER_OPTIONS,
@@ -74,6 +79,7 @@ export async function POST(req: Request) {
     const durationMs = performance.now() - t0;
 
     recordLlmCall({
+      persist: false,
       model: TOPIC_EXPLORE_STEER_MODEL,
       usage: result.usage,
       durationMs,

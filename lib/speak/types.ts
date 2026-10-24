@@ -27,6 +27,8 @@ export type SpeakRealtimeSessionPublic = {
   model: string;
   threadId: string | null;
   modalities: SpeakModalities;
+  /** Whether `search_memories` and transcript ingest were enabled at mint. */
+  memoryEnabled?: boolean;
   minutesUsed: number;
   costUsd: number;
   status: "active" | "closed";

@@ -23,7 +23,7 @@ export async function POST(req: Request) {
     return Response.json({ error: "Invalid request body" }, { status: 400 });
   }
 
-  const authGate = await requireLlmChatActor();
+  const authGate = await requireLlmChatActor({ planBudget: false });
 
   if (authGate.error != null) {
     return authGate.error;
@@ -48,6 +48,7 @@ export async function POST(req: Request) {
         chatStyle: parsed.data.chatStyle,
         speechFriendly: parsed.data.speechFriendly,
         zeroDataRetention: parsed.data.zeroDataRetention,
+        contextEffort: parsed.data.contextEffort,
       });
 
       return Response.json({ scaffold });
@@ -67,6 +68,7 @@ export async function POST(req: Request) {
       chatStyle: parsed.data.chatStyle,
       speechFriendly: parsed.data.speechFriendly,
       zeroDataRetention: parsed.data.zeroDataRetention,
+      contextEffort: parsed.data.contextEffort,
     });
 
     return Response.json({ budget });

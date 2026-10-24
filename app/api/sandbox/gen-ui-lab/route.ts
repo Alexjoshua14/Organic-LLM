@@ -1,5 +1,6 @@
-import { generateText, stepCountIs } from "ai";
+import { generateText, isStepCount } from "ai";
 
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import { requireLlmChatActor } from "@/lib/api/chat-llm-gate";
 import { GENERIC_SERVER_ERROR, logRouteError } from "@/lib/api/client-safe-error";
 import { createLogger } from "@/lib/logger";
@@ -46,15 +47,20 @@ export async function POST(req: Request) {
 
   try {
     const { text, usage } = await generateText({
+      ...(await createAuthenticatedLlmBudgetHooks({
+        modelId: budgetModelId(GEN_UI_LAB_MODEL),
+        operation: "/api/sandbox/gen-ui-lab",
+      })),
       model: GEN_UI_LAB_MODEL,
-      system: GEN_UI_LAB_AION_SYSTEM,
+      instructions: GEN_UI_LAB_AION_SYSTEM,
       prompt: buildGenUiLabPrompt(parsed.data),
       tools,
-      stopWhen: stepCountIs(2),
+      stopWhen: isStepCount(2),
       maxOutputTokens: 800,
     });
 
     recordLlmCall({
+      persist: false,
       model: GEN_UI_LAB_MODEL,
       usage,
       durationMs: performance.now() - start,

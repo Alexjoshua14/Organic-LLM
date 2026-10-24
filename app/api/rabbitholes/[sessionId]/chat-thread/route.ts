@@ -3,10 +3,7 @@ import { NextResponse } from "next/server";
 import { loadRabbitHoleSessionChat } from "@/lib/rabbit-holes/session-chat-thread";
 import { requireLlmChatActor } from "@/lib/api/chat-llm-gate";
 
-export async function GET(
-  _req: Request,
-  context: { params: Promise<{ sessionId: string }> }
-) {
+export async function GET(_req: Request, context: { params: Promise<{ sessionId: string }> }) {
   const actor = await requireLlmChatActor();
 
   if (actor.error != null) {

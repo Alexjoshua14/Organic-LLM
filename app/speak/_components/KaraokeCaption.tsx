@@ -1,7 +1,6 @@
 "use client";
 
 import type { ReactNode } from "react";
-
 import type { AlignmentData } from "@/lib/schemas/tts";
 
 import { cn } from "@/lib/utils";
@@ -29,9 +28,7 @@ function buildHighlightedNodes(args: {
         key={i}
         className={cn(
           "transition-colors duration-75",
-          highlighted
-            ? "text-foreground"
-            : "text-muted-foreground/70"
+          highlighted ? "text-foreground" : "text-muted-foreground/70"
         )}
       >
         {char}
@@ -63,8 +60,7 @@ export function KaraokeCaption({
 }) {
   if (!text) return null;
 
-  const roleLabel =
-    role === "user" ? "You" : role === "assistant" ? "Organic" : "";
+  const roleLabel = role === "user" ? "You" : role === "assistant" ? "Organic" : "";
 
   return (
     <div

@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+
 import { Pin, PinOff } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -26,7 +27,7 @@ export function ToolResultPinButton({
       aria-pressed={isPinned}
       className={cn(
         "h-6 w-6 shrink-0 grid place-content-center rounded text-muted-foreground",
-        "hover:bg-background-tertiary/60 hover:text-foreground transition-colors",
+        "hover:bg-background-tertiary/60 hover:text-foreground transition-colors"
       )}
       type="button"
       onClick={(event) => {
@@ -47,9 +48,7 @@ type ToolResultInlineRowProps = {
 
 export function ToolResultInlineRow({ isPinned, pin, children }: ToolResultInlineRowProps) {
   return (
-    <div
-      className={cn("not-prose flex items-start gap-1.5", isPinned && "sticky top-20 z-30")}
-    >
+    <div className={cn("not-prose flex items-start gap-1.5", isPinned && "sticky top-20 z-30")}>
       {children}
       {pin}
     </div>
@@ -59,7 +58,6 @@ export function ToolResultInlineRow({ isPinned, pin, children }: ToolResultInlin
 export const toolResultSummaryButtonClass =
   "not-prose min-w-0 flex-1 cursor-pointer text-left text-xs text-muted-foreground";
 
-export const toolResultErrorSummaryButtonClass =
-  "min-w-0 flex-1 cursor-pointer text-left text-xs";
+export const toolResultErrorSummaryButtonClass = "min-w-0 flex-1 cursor-pointer text-left text-xs";
 
 export const toolResultExpandedDetailClass = "mt-0.5 block text-2xs leading-snug";

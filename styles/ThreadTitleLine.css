@@ -1,0 +1,85 @@
+/* Thread titles keep one line box across stable, shimmer, and burn. */
+
+.thread-title {
+  color: inherit;
+}
+
+.thread-title-line {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+}
+
+/* Shine sits on a second copy of the glyphs. The text node underneath keeps its color. */
+.thread-title-line--shimmer {
+  position: relative;
+}
+
+.thread-title-line--shimmer::after {
+  content: attr(data-title);
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  background-image: linear-gradient(
+    120deg,
+    transparent 42%,
+    color-mix(in oklch, white 90%, transparent) 50%,
+    transparent 58%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: shine 5s linear infinite;
+}
+
+.thread-title-line.processing-text-burn {
+  width: 100%;
+  margin: 0;
+  line-height: inherit;
+}
+
+.thread-title-line--burn {
+  position: relative;
+}
+
+/* Rest on the title color so the handoff back to plain text does not flash gray. */
+.thread-title-line--burn .processing-text-burn__char--outgoing {
+  color: inherit;
+}
+
+.thread-title-line--burn .processing-text-burn__char--incoming {
+  animation-name: thread-title-char-in-color, ptb-char-in-opacity;
+}
+
+@keyframes thread-title-char-in-color {
+  0%,
+  25% {
+    color: color-mix(in oklch, white 82%, transparent);
+  }
+  100% {
+    color: inherit;
+  }
+}
+
+/* Burn layers default to wrapping. Titles stay one line, clipped like the stable ellipsis. */
+.thread-title-line--burn .processing-text-burn__layer,
+.thread-title-line--burn .processing-text-burn__space {
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thread-title-line--shimmer::after {
+    content: none;
+  }
+}

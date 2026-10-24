@@ -1,14 +1,5 @@
 import "server-only";
 
-import { getContents } from "@/lib/exa/client";
-import { createLogger } from "@/lib/logger";
-
-import {
-  requiresModelFetchConfirmation,
-  verifyFetchConfirmation,
-} from "./confirm";
-import { extractReadableText } from "./extract-text";
-import { safeFetch } from "./safe-fetch";
 import type {
   ConfirmedFetchToken,
   ExternalContentFetchMode,
@@ -16,7 +7,14 @@ import type {
   FetchExternalContentOptions,
   FetchExternalContentResult,
 } from "./types";
+
+import { requiresModelFetchConfirmation, verifyFetchConfirmation } from "./confirm";
+import { extractReadableText } from "./extract-text";
+import { safeFetch } from "./safe-fetch";
 import { assertSafePublicHttpsUrl } from "./safe-url";
+
+import { createLogger } from "@/lib/logger";
+import { getContents } from "@/lib/exa/client";
 
 const logger = createLogger("lib/security/external-content/fetch-external-content");
 
@@ -51,7 +49,7 @@ async function fetchViaExa(
     return null;
   }
 
-  const extracted = extractReadableText(text, { maxChars, contentType: "text/plain" });
+  const extracted = await extractReadableText(text, { maxChars, contentType: "text/plain" });
 
   return {
     ok: true,
@@ -62,10 +60,7 @@ async function fetchViaExa(
   };
 }
 
-async function fetchViaOrigin(
-  url: string,
-  maxChars: number
-): Promise<FetchExternalContentResult> {
+async function fetchViaOrigin(url: string, maxChars: number): Promise<FetchExternalContentResult> {
   const fetched = await safeFetch(url);
 
   if (!fetched.ok) {
@@ -76,7 +71,7 @@ async function fetchViaOrigin(
     };
   }
 
-  const extracted = extractReadableText(fetched.body, {
+  const extracted = await extractReadableText(fetched.body, {
     maxChars,
     contentType: fetched.contentType,
   });
