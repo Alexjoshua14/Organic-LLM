@@ -1,6 +1,7 @@
 import type { KanbanCommand } from "@/lib/schemas/kanban";
 import type { IntrospectionGuidedState } from "@/lib/schemas/introspection";
 import type { ContextBudgetEstimate } from "@/lib/chat/context-budget";
+import type { ActivityTrailMetadata } from "@/lib/chat/activity-trail";
 
 import { UIMessage } from "ai";
 
@@ -18,7 +19,7 @@ export type MyUIMessage = UIMessage<
 >;
 
 export type ChatUIMessage = UIMessage<
-  never,
+  ActivityTrailMetadata,
   {
     notification?: {
       message: string;

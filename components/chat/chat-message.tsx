@@ -1,6 +1,6 @@
 import type { ExaSearchResultSource } from "@/lib/exa/types";
 
-import { FC, memo, useCallback, useState } from "react";
+import { FC, memo, ReactNode, useCallback, useState } from "react";
 import { getToolOrDynamicToolName, isToolUIPart, UIMessage } from "ai";
 
 import { glass } from "../design-system/primitives";
@@ -8,7 +8,7 @@ import { glass } from "../design-system/primitives";
 import { AssistantMessageActions } from "./assistant-message-actions";
 import { ChatMessageMarkdown } from "./chat-message-markdown";
 import { ArcadiaHelpMessage } from "./arcadia-help-message";
-import { ChatReasoningBlock } from "./chat-reasoning-block";
+import { ChatActivityTrail, ChatReasoningProse } from "./chat-activity-trail";
 import { ChatReasoning, ChatThinking, ChatSearching } from "./chat-loading";
 import {
   FullChatHistoryToolResultCard,
@@ -36,7 +36,12 @@ import { MiseLoadingShell } from "@/components/chat/mise/MiseLoadingShell";
 import { MiseToolResult } from "@/components/chat/mise/MiseToolResult";
 import { ARCADIA_HELP_PREFIX } from "@/lib/arcadia/help-response";
 import { messagePartsToCopyMarkdown } from "@/lib/chat/message-copy-markdown";
-import { groupReasoningParts } from "@/lib/chat/reasoning-parts";
+import {
+  type ActivityTrail,
+  groupActivityTrails,
+  readTrailDuration,
+} from "@/lib/chat/activity-trail";
+import { trailLiveHeadline, trailSummaryLabel } from "@/lib/chat/activity-trail-summary";
 import {
   collectWebSearchSnapshotsFromParts,
   foldWebSearchResults,
@@ -122,6 +127,7 @@ const AIMessage: FC<ChatMessageProps> = ({
   showActions = true,
 }) => {
   const [pinnedToolIds, setPinnedToolIds] = useState<Record<string, boolean>>({});
+  const [openTrails, setOpenTrails] = useState<Record<number, boolean>>({});
 
   const toggleToolPinned = useCallback((toolInvocationId: string) => {
     setPinnedToolIds((prev) => ({ ...prev, [toolInvocationId]: !prev[toolInvocationId] }));
@@ -138,9 +144,415 @@ const AIMessage: FC<ChatMessageProps> = ({
   const modelLabel = showModelBadge ? getModelDisplayName(getMessageModelId(message)) : null;
 
   const webSearchFold = foldWebSearchResults(collectWebSearchSnapshotsFromParts(message.parts));
-  const reasoningRuns = groupReasoningParts(message.parts);
+  const trails = groupActivityTrails(message.parts);
+  const lastTrail = [...trails.trailsByStartIndex.values()].at(-1);
+
+  const isTrailLive = (trail: ActivityTrail): boolean =>
+    readTrailDuration(message, trail.ordinal) === null &&
+    (trail.hasStreamingMember ||
+      (trail === lastTrail && trails.lastSegmentIsTrail && isActivelyStreaming));
+  // A live trail at the end already shows what is happening; skip the duplicate tail status.
+  const liveTrailOwnsStatus = Boolean(
+    lastTrail && trails.lastSegmentIsTrail && isTrailLive(lastTrail)
+  );
 
   let arcadiaHelpRendered = false;
+
+  const renderPart = (part: MessageParts[number], i: number): ReactNode => {
+    switch (part.type) {
+      case "reasoning":
+        // Every reasoning part belongs to an activity trail.
+        return null;
+
+      case "text":
+        if (showCustomArcadiaHelp) {
+          if (arcadiaHelpRendered) return null;
+          arcadiaHelpRendered = true;
+
+          return <ArcadiaHelpMessage key={`${message.id}-${i}`} />;
+        }
+
+        return (
+          <ChatMessageMarkdown key={`${message.id}-${i}`} content={part.text} id={message.id} />
+        );
+
+      default:
+        if (isToolUIPart(part)) {
+          const toolName = getToolOrDynamicToolName(part);
+          const toolCallId = part.toolCallId;
+
+          if (toolName.startsWith("research_")) {
+            if (part.state === "input-streaming" || part.state === "input-available") {
+              return (
+                <ChatThinking
+                  key={`${message.id}-${i}-research-pending`}
+                  text={toolInvocationInFlightLabel(toolName)}
+                />
+              );
+            }
+            if (part.state === "output-available" || part.state === "output-error") {
+              return (
+                <ResearchToolResult
+                  key={`${message.id}-${i}-research-result`}
+                  toolName={toolName}
+                  output={
+                    part.state === "output-available" ? part.output : { error: part.errorText }
+                  }
+                  threadId={chatId}
+                />
+              );
+            }
+
+            return null;
+          }
+
+          if (toolName === KANBAN_BOARD_TOOL_NAME) {
+            if (part.state === "input-streaming" || part.state === "input-available") {
+              const commandType = peekKanbanCommandType(
+                "input" in part && part.input && typeof part.input === "object"
+                  ? (part.input as { command?: unknown }).command
+                  : undefined
+              );
+              const showFullShell =
+                commandType === "INITIATE_KANBAN" || commandType === "SHOW_VIEW";
+
+              return (
+                <KanbanInFlight
+                  key={`${message.id}-${i}-kanban-stream`}
+                  input={"input" in part ? part.input : undefined}
+                  showFullShell={showFullShell}
+                  thinkingLabel={toolInvocationInFlightLabel(toolName)}
+                  threadId={chatId ?? message.id}
+                />
+              );
+            }
+            if (part.state === "output-available") {
+              return (
+                <KanbanToolResult
+                  key={`${message.id}-${i}-kanban-result`}
+                  output={part.output}
+                  threadId={chatId ?? message.id}
+                />
+              );
+            }
+
+            return null;
+          }
+
+          if (toolName === MANAGE_TASKS_TOOL_NAME) {
+            if (part.state === "output-available") {
+              return (
+                <ErgonTaskResult key={`${message.id}-${i}-ergon-tasks`} output={part.output} />
+              );
+            }
+
+            return null;
+          }
+
+          if (toolName === MISE_PLAN_TOOL_NAME) {
+            if (part.state === "input-streaming" || part.state === "input-available") {
+              return <MiseLoadingShell key={`${message.id}-${i}-mise-stream`} />;
+            }
+            if (part.state === "output-available") {
+              return (
+                <MiseToolResult
+                  key={`${message.id}-${i}-mise-result`}
+                  output={part.output}
+                  threadId={chatId ?? message.id}
+                />
+              );
+            }
+
+            return null;
+          }
+
+          if (toolName === "gather_restaurant") {
+            if (part.state === "input-streaming" || part.state === "input-available") {
+              return (
+                <OrganicToolCallPresence
+                  key={`${message.id}-${i}-gather-restaurant-active`}
+                  inFlightLabel={toolInvocationInFlightLabel(toolName)}
+                  input={"input" in part ? part.input : undefined}
+                  state="in-flight"
+                  toolName={toolName}
+                />
+              );
+            }
+
+            // Prefetch only — restaurant-card UI comes from render_gen_ui.
+            return null;
+          }
+
+          if (toolName === RENDER_GEN_UI_TOOL_NAME) {
+            if (part.state === "input-streaming" || part.state === "input-available") {
+              return (
+                <GenUIStreamingPart
+                  key={`${message.id}-${i}-gen-ui-stream`}
+                  input={"input" in part ? part.input : undefined}
+                />
+              );
+            }
+            if (part.state === "output-available") {
+              return (
+                <GenUIToolResult
+                  key={`${message.id}-${i}-gen-ui-result`}
+                  messageId={message.id}
+                  output={part.output}
+                  partIndex={i}
+                />
+              );
+            }
+            if (part.state === "output-error") {
+              return (
+                <GenUIToolResult
+                  key={`${message.id}-${i}-gen-ui-error`}
+                  messageId={message.id}
+                  output={part.errorText}
+                  partIndex={i}
+                />
+              );
+            }
+
+            return null;
+          }
+
+          if (toolName.toLowerCase() === "make_mermaid_diagram") {
+            if (part.state === "input-streaming" || part.state === "input-available") {
+              return (
+                <OrganicToolCallPresence
+                  key={`${message.id}-${i}-mermaid-active`}
+                  inFlightLabel={toolInvocationInFlightLabel(toolName)}
+                  input={"input" in part ? part.input : undefined}
+                  state="in-flight"
+                  toolName={toolName}
+                />
+              );
+            }
+
+            if (part.state === "output-available" || part.state === "output-error") {
+              const displayBody = part.state === "output-error" ? part.errorText : part.output;
+              const parsed = tryParseMermaidToolOutput(displayBody) ?? {
+                kind: "error" as const,
+                message: "Unexpected tool output.",
+              };
+
+              return (
+                <div key={`${message.id}-${i}-mermaid-result`} className="not-prose">
+                  <MermaidToolAckCard
+                    isPinned={pinnedToolIds[toolCallId] === true}
+                    parsed={parsed}
+                    onTogglePin={() => toggleToolPinned(toolCallId)}
+                  />
+                  {part.state === "output-available" && parsed.kind === "ok" ? (
+                    <MermaidToolDiagram output={part.output} toolCallId={toolCallId} />
+                  ) : null}
+                </div>
+              );
+            }
+
+            return null;
+          }
+
+          if (toolName.toLowerCase() === "web_search") {
+            if (part.state === "input-streaming" || part.state === "input-available") {
+              return (
+                <OrganicToolCallPresence
+                  key={`${message.id}-${i}-tool-active`}
+                  inFlightLabel={toolInvocationInFlightLabel(toolName)}
+                  input={"input" in part ? part.input : undefined}
+                  state="in-flight"
+                  toolName={toolName}
+                />
+              );
+            }
+
+            if (part.state === "output-available" || part.state === "output-error") {
+              if (isClosedWebSearchResult(webSearchFold, toolCallId)) {
+                return null;
+              }
+
+              const parsed =
+                webSearchFold.anchorToolCallId === toolCallId && webSearchFold.combined
+                  ? webSearchFold.combined
+                  : tryParseWebSearchToolOutput(
+                      part.state === "output-error" ? part.errorText : part.output
+                    );
+
+              if (parsed !== null) {
+                return (
+                  <WebSearchToolResultCard
+                    key={`${message.id}-${i}-tool-result`}
+                    isPinned={pinnedToolIds[toolCallId] === true}
+                    parsed={parsed}
+                    onTogglePin={() => toggleToolPinned(toolCallId)}
+                  />
+                );
+              }
+
+              return (
+                <ArcadiaToolResultCard
+                  key={`${message.id}-${i}-tool-result`}
+                  displayBody={part.state === "output-error" ? part.errorText : part.output}
+                  input={"input" in part ? part.input : undefined}
+                  isError={part.state === "output-error"}
+                  isPinned={pinnedToolIds[toolCallId] === true}
+                  toolName={toolName}
+                  onTogglePin={() => toggleToolPinned(toolCallId)}
+                />
+              );
+            }
+
+            return null;
+          }
+
+          if (part.state === "input-streaming" || part.state === "input-available") {
+            return (
+              <OrganicToolCallPresence
+                key={`${message.id}-${i}-tool-active`}
+                inFlightLabel={toolInvocationInFlightLabel(toolName)}
+                input={"input" in part ? part.input : undefined}
+                state="in-flight"
+                toolName={toolName}
+              />
+            );
+          }
+          if (part.state === "output-available") {
+            return (
+              <ArcadiaToolResultCard
+                key={`${message.id}-${i}-tool-result`}
+                displayBody={part.output}
+                input={"input" in part ? part.input : undefined}
+                isPinned={pinnedToolIds[toolCallId] === true}
+                toolName={toolName}
+                onTogglePin={() => toggleToolPinned(toolCallId)}
+              />
+            );
+          }
+          if (part.state === "output-error") {
+            return (
+              <ArcadiaToolResultCard
+                key={`${message.id}-${i}-tool-result`}
+                displayBody={part.errorText}
+                input={"input" in part ? part.input : undefined}
+                isError
+                isPinned={pinnedToolIds[toolCallId] === true}
+                toolName={toolName}
+                onTogglePin={() => toggleToolPinned(toolCallId)}
+              />
+            );
+          }
+
+          return null;
+        }
+        const legacyTool = getLegacyToolInvocationPart(part);
+
+        if (legacyTool) {
+          const tp = legacyTool;
+
+          if (tp.state === "partial-call" || tp.state === "call") {
+            return (
+              <OrganicToolCallPresence
+                key={`${message.id}-${i}-tool-active`}
+                inFlightLabel={toolInvocationInFlightLabel(tp.toolName)}
+                input={tp.args}
+                state="in-flight"
+                toolName={tp.toolName}
+              />
+            );
+          }
+          if (tp.state === "result" || tp.state === "output-error") {
+            if (tp.toolName === "gather_restaurant") {
+              return null;
+            }
+
+            if (tp.toolName.toLowerCase() === "web_search") {
+              if (isClosedWebSearchResult(webSearchFold, tp.toolInvocationId)) {
+                return null;
+              }
+
+              const displayBody = tp.state === "output-error" ? tp.errorText : tp.result;
+              const parsed =
+                webSearchFold.anchorToolCallId === tp.toolInvocationId && webSearchFold.combined
+                  ? webSearchFold.combined
+                  : tryParseWebSearchToolOutput(displayBody);
+
+              if (parsed !== null) {
+                return (
+                  <WebSearchToolResultCard
+                    key={`${message.id}-${i}-tool-result`}
+                    isPinned={pinnedToolIds[tp.toolInvocationId] === true}
+                    parsed={parsed}
+                    onTogglePin={() => toggleToolPinned(tp.toolInvocationId)}
+                  />
+                );
+              }
+            }
+
+            return (
+              <ArcadiaToolResultCard
+                key={`${message.id}-${i}-tool-result`}
+                displayBody={tp.state === "output-error" ? tp.errorText : tp.result}
+                input={tp.args}
+                isError={tp.state === "output-error"}
+                isPinned={pinnedToolIds[tp.toolInvocationId] === true}
+                toolName={tp.toolName}
+                onTogglePin={() => toggleToolPinned(tp.toolInvocationId)}
+              />
+            );
+          }
+        }
+
+        return null;
+    }
+  };
+
+  const renderTrail = (trail: ActivityTrail): ReactNode => {
+    const memberToolIds = trail.memberIndices
+      .map((index) => toolPartCallId(message.parts[index]))
+      .filter((id): id is string => id !== null);
+    // A pinned result keeps its trail open; collapsing the trail releases those pins.
+    const open =
+      openTrails[trail.startIndex] === true || memberToolIds.some((id) => pinnedToolIds[id]);
+    const hasContent = trail.steps.some((step) => step.kind === "tool" || step.text);
+
+    return (
+      <ChatActivityTrail
+        key={`${message.id}-trail-${trail.startIndex}`}
+        hasContent={hasContent}
+        headline={trailLiveHeadline(trail, toolInvocationInFlightLabel)}
+        id={`${message.id}-${trail.startIndex}`}
+        isLive={isTrailLive(trail)}
+        open={open}
+        summary={trailSummaryLabel(message.parts, trail, readTrailDuration(message, trail.ordinal))}
+        onOpenChange={(next) => {
+          if (!next) {
+            setPinnedToolIds((prev) => {
+              const released = { ...prev };
+
+              memberToolIds.forEach((id) => delete released[id]);
+
+              return released;
+            });
+          }
+          setOpenTrails((prev) => ({ ...prev, [trail.startIndex]: next }));
+        }}
+      >
+        {trail.steps.map((step) =>
+          step.kind === "reasoning" ? (
+            step.text ? (
+              <ChatReasoningProse
+                key={`${message.id}-${step.partIndex}`}
+                animate={step.isStreaming && open}
+                text={step.text}
+              />
+            ) : null
+          ) : (
+            renderPart(message.parts[step.partIndex], step.partIndex)
+          )
+        )}
+      </ChatActivityTrail>
+    );
+  };
 
   return (
     <div
@@ -155,379 +567,19 @@ const AIMessage: FC<ChatMessageProps> = ({
       ) : null}
       <div className="ai-message space-y-2 text-foreground max-w-full prose dark:prose-invert">
         {message.parts.map((part, i) => {
-          switch (part.type) {
-            case "reasoning": {
-              // Consecutive reasoning parts render once, as a single disclosure.
-              const run = reasoningRuns.runsByStartIndex.get(i);
+          const trail = trails.trailsByStartIndex.get(i);
 
-              if (!run) return null;
+          if (trail) return renderTrail(trail);
+          if (trails.foldedIndices.has(i)) return null;
 
-              return (
-                <ChatReasoningBlock
-                  key={`${message.id}-${i}`}
-                  id={`${message.id}-${i}`}
-                  isStreaming={run.isStreaming}
-                  text={run.text}
-                />
-              );
-            }
-
-            case "text":
-              if (showCustomArcadiaHelp) {
-                if (arcadiaHelpRendered) return null;
-                arcadiaHelpRendered = true;
-
-                return <ArcadiaHelpMessage key={`${message.id}-${i}`} />;
-              }
-
-              return (
-                <ChatMessageMarkdown
-                  key={`${message.id}-${i}`}
-                  content={part.text}
-                  id={message.id}
-                />
-              );
-
-            default:
-              if (isToolUIPart(part)) {
-                const toolName = getToolOrDynamicToolName(part);
-                const toolCallId = part.toolCallId;
-
-                if (toolName.startsWith("research_")) {
-                  if (part.state === "input-streaming" || part.state === "input-available") {
-                    return (
-                      <ChatThinking
-                        key={`${message.id}-${i}-research-pending`}
-                        text={toolInvocationInFlightLabel(toolName)}
-                      />
-                    );
-                  }
-                  if (part.state === "output-available" || part.state === "output-error") {
-                    return (
-                      <ResearchToolResult
-                        key={`${message.id}-${i}-research-result`}
-                        toolName={toolName}
-                        output={
-                          part.state === "output-available"
-                            ? part.output
-                            : { error: part.errorText }
-                        }
-                        threadId={chatId}
-                      />
-                    );
-                  }
-
-                  return null;
-                }
-
-                if (toolName === KANBAN_BOARD_TOOL_NAME) {
-                  if (part.state === "input-streaming" || part.state === "input-available") {
-                    const commandType = peekKanbanCommandType(
-                      "input" in part && part.input && typeof part.input === "object"
-                        ? (part.input as { command?: unknown }).command
-                        : undefined
-                    );
-                    const showFullShell =
-                      commandType === "INITIATE_KANBAN" || commandType === "SHOW_VIEW";
-
-                    return (
-                      <KanbanInFlight
-                        key={`${message.id}-${i}-kanban-stream`}
-                        input={"input" in part ? part.input : undefined}
-                        showFullShell={showFullShell}
-                        thinkingLabel={toolInvocationInFlightLabel(toolName)}
-                        threadId={chatId ?? message.id}
-                      />
-                    );
-                  }
-                  if (part.state === "output-available") {
-                    return (
-                      <KanbanToolResult
-                        key={`${message.id}-${i}-kanban-result`}
-                        output={part.output}
-                        threadId={chatId ?? message.id}
-                      />
-                    );
-                  }
-
-                  return null;
-                }
-
-                if (toolName === MANAGE_TASKS_TOOL_NAME) {
-                  if (part.state === "output-available") {
-                    return (
-                      <ErgonTaskResult
-                        key={`${message.id}-${i}-ergon-tasks`}
-                        output={part.output}
-                      />
-                    );
-                  }
-
-                  return null;
-                }
-
-                if (toolName === MISE_PLAN_TOOL_NAME) {
-                  if (part.state === "input-streaming" || part.state === "input-available") {
-                    return <MiseLoadingShell key={`${message.id}-${i}-mise-stream`} />;
-                  }
-                  if (part.state === "output-available") {
-                    return (
-                      <MiseToolResult
-                        key={`${message.id}-${i}-mise-result`}
-                        output={part.output}
-                        threadId={chatId ?? message.id}
-                      />
-                    );
-                  }
-
-                  return null;
-                }
-
-                if (toolName === "gather_restaurant") {
-                  if (part.state === "input-streaming" || part.state === "input-available") {
-                    return (
-                      <OrganicToolCallPresence
-                        key={`${message.id}-${i}-gather-restaurant-active`}
-                        inFlightLabel={toolInvocationInFlightLabel(toolName)}
-                        input={"input" in part ? part.input : undefined}
-                        state="in-flight"
-                        toolName={toolName}
-                      />
-                    );
-                  }
-
-                  // Prefetch only — restaurant-card UI comes from render_gen_ui.
-                  return null;
-                }
-
-                if (toolName === RENDER_GEN_UI_TOOL_NAME) {
-                  if (part.state === "input-streaming" || part.state === "input-available") {
-                    return (
-                      <GenUIStreamingPart
-                        key={`${message.id}-${i}-gen-ui-stream`}
-                        input={"input" in part ? part.input : undefined}
-                      />
-                    );
-                  }
-                  if (part.state === "output-available") {
-                    return (
-                      <GenUIToolResult
-                        key={`${message.id}-${i}-gen-ui-result`}
-                        messageId={message.id}
-                        output={part.output}
-                        partIndex={i}
-                      />
-                    );
-                  }
-                  if (part.state === "output-error") {
-                    return (
-                      <GenUIToolResult
-                        key={`${message.id}-${i}-gen-ui-error`}
-                        messageId={message.id}
-                        output={part.errorText}
-                        partIndex={i}
-                      />
-                    );
-                  }
-
-                  return null;
-                }
-
-                if (toolName.toLowerCase() === "make_mermaid_diagram") {
-                  if (part.state === "input-streaming" || part.state === "input-available") {
-                    return (
-                      <OrganicToolCallPresence
-                        key={`${message.id}-${i}-mermaid-active`}
-                        inFlightLabel={toolInvocationInFlightLabel(toolName)}
-                        input={"input" in part ? part.input : undefined}
-                        state="in-flight"
-                        toolName={toolName}
-                      />
-                    );
-                  }
-
-                  if (part.state === "output-available" || part.state === "output-error") {
-                    const displayBody =
-                      part.state === "output-error" ? part.errorText : part.output;
-                    const parsed = tryParseMermaidToolOutput(displayBody) ?? {
-                      kind: "error" as const,
-                      message: "Unexpected tool output.",
-                    };
-
-                    return (
-                      <div key={`${message.id}-${i}-mermaid-result`} className="not-prose">
-                        <MermaidToolAckCard
-                          isPinned={pinnedToolIds[toolCallId] === true}
-                          parsed={parsed}
-                          onTogglePin={() => toggleToolPinned(toolCallId)}
-                        />
-                        {part.state === "output-available" && parsed.kind === "ok" ? (
-                          <MermaidToolDiagram output={part.output} toolCallId={toolCallId} />
-                        ) : null}
-                      </div>
-                    );
-                  }
-
-                  return null;
-                }
-
-                if (toolName.toLowerCase() === "web_search") {
-                  if (part.state === "input-streaming" || part.state === "input-available") {
-                    return (
-                      <OrganicToolCallPresence
-                        key={`${message.id}-${i}-tool-active`}
-                        inFlightLabel={toolInvocationInFlightLabel(toolName)}
-                        input={"input" in part ? part.input : undefined}
-                        state="in-flight"
-                        toolName={toolName}
-                      />
-                    );
-                  }
-
-                  if (part.state === "output-available" || part.state === "output-error") {
-                    if (isClosedWebSearchResult(webSearchFold, toolCallId)) {
-                      return null;
-                    }
-
-                    const parsed =
-                      webSearchFold.anchorToolCallId === toolCallId && webSearchFold.combined
-                        ? webSearchFold.combined
-                        : tryParseWebSearchToolOutput(
-                            part.state === "output-error" ? part.errorText : part.output
-                          );
-
-                    if (parsed !== null) {
-                      return (
-                        <WebSearchToolResultCard
-                          key={`${message.id}-${i}-tool-result`}
-                          isPinned={pinnedToolIds[toolCallId] === true}
-                          parsed={parsed}
-                          onTogglePin={() => toggleToolPinned(toolCallId)}
-                        />
-                      );
-                    }
-
-                    return (
-                      <ArcadiaToolResultCard
-                        key={`${message.id}-${i}-tool-result`}
-                        displayBody={part.state === "output-error" ? part.errorText : part.output}
-                        input={"input" in part ? part.input : undefined}
-                        isError={part.state === "output-error"}
-                        isPinned={pinnedToolIds[toolCallId] === true}
-                        toolName={toolName}
-                        onTogglePin={() => toggleToolPinned(toolCallId)}
-                      />
-                    );
-                  }
-
-                  return null;
-                }
-
-                if (part.state === "input-streaming" || part.state === "input-available") {
-                  return (
-                    <OrganicToolCallPresence
-                      key={`${message.id}-${i}-tool-active`}
-                      inFlightLabel={toolInvocationInFlightLabel(toolName)}
-                      input={"input" in part ? part.input : undefined}
-                      state="in-flight"
-                      toolName={toolName}
-                    />
-                  );
-                }
-                if (part.state === "output-available") {
-                  return (
-                    <ArcadiaToolResultCard
-                      key={`${message.id}-${i}-tool-result`}
-                      displayBody={part.output}
-                      input={"input" in part ? part.input : undefined}
-                      isPinned={pinnedToolIds[toolCallId] === true}
-                      toolName={toolName}
-                      onTogglePin={() => toggleToolPinned(toolCallId)}
-                    />
-                  );
-                }
-                if (part.state === "output-error") {
-                  return (
-                    <ArcadiaToolResultCard
-                      key={`${message.id}-${i}-tool-result`}
-                      displayBody={part.errorText}
-                      input={"input" in part ? part.input : undefined}
-                      isError
-                      isPinned={pinnedToolIds[toolCallId] === true}
-                      toolName={toolName}
-                      onTogglePin={() => toggleToolPinned(toolCallId)}
-                    />
-                  );
-                }
-
-                return null;
-              }
-              const legacyTool = getLegacyToolInvocationPart(part);
-
-              if (legacyTool) {
-                const tp = legacyTool;
-
-                if (tp.state === "partial-call" || tp.state === "call") {
-                  return (
-                    <OrganicToolCallPresence
-                      key={`${message.id}-${i}-tool-active`}
-                      inFlightLabel={toolInvocationInFlightLabel(tp.toolName)}
-                      input={tp.args}
-                      state="in-flight"
-                      toolName={tp.toolName}
-                    />
-                  );
-                }
-                if (tp.state === "result" || tp.state === "output-error") {
-                  if (tp.toolName === "gather_restaurant") {
-                    return null;
-                  }
-
-                  if (tp.toolName.toLowerCase() === "web_search") {
-                    if (isClosedWebSearchResult(webSearchFold, tp.toolInvocationId)) {
-                      return null;
-                    }
-
-                    const displayBody = tp.state === "output-error" ? tp.errorText : tp.result;
-                    const parsed =
-                      webSearchFold.anchorToolCallId === tp.toolInvocationId &&
-                      webSearchFold.combined
-                        ? webSearchFold.combined
-                        : tryParseWebSearchToolOutput(displayBody);
-
-                    if (parsed !== null) {
-                      return (
-                        <WebSearchToolResultCard
-                          key={`${message.id}-${i}-tool-result`}
-                          isPinned={pinnedToolIds[tp.toolInvocationId] === true}
-                          parsed={parsed}
-                          onTogglePin={() => toggleToolPinned(tp.toolInvocationId)}
-                        />
-                      );
-                    }
-                  }
-
-                  return (
-                    <ArcadiaToolResultCard
-                      key={`${message.id}-${i}-tool-result`}
-                      displayBody={tp.state === "output-error" ? tp.errorText : tp.result}
-                      input={tp.args}
-                      isError={tp.state === "output-error"}
-                      isPinned={pinnedToolIds[tp.toolInvocationId] === true}
-                      toolName={tp.toolName}
-                      onTogglePin={() => toggleToolPinned(tp.toolInvocationId)}
-                    />
-                  );
-                }
-              }
-
-              return null;
-          }
+          return renderPart(part, i);
         })}
 
-        {aiActionPayload && shouldShowTailAiAction(aiActionPayload, message.parts) && (
-          <ChatAIAction aiActionPayload={aiActionPayload} />
-        )}
+        {aiActionPayload &&
+          !liveTrailOwnsStatus &&
+          shouldShowTailAiAction(aiActionPayload, message.parts) && (
+            <ChatAIAction aiActionPayload={aiActionPayload} />
+          )}
       </div>
       {showActions && !isActivelyStreaming && (
         <AssistantMessageActions showPinAndCopy={!showCustomArcadiaHelp} text={text} />
@@ -556,6 +608,12 @@ function getLegacyToolInvocationPart(part: MessagePartLike): ToolInvocationPartL
   if (!("toolInvocationId" in part) || typeof part.toolInvocationId !== "string") return null;
 
   return part;
+}
+
+function toolPartCallId(part: MessageParts[number]): string | null {
+  if (isToolUIPart(part)) return part.toolCallId;
+
+  return getLegacyToolInvocationPart(part)?.toolInvocationId ?? null;
 }
 
 function messagePartsIndicateStreaming(parts: MessageParts): boolean {

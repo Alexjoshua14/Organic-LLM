@@ -68,7 +68,7 @@ export const ChatReasoningBlock: FC<ChatReasoningBlockProps> = ({ text, isStream
         className="chat-reasoning__content"
         data-reasoning-id={id}
       >
-        {content}
+        <div className="chat-reasoning__prose">{content}</div>
       </CollapsibleContent>
     </Collapsible>
   );

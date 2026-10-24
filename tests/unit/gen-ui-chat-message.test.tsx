@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
 import type { UIMessage } from "ai";
-import { cleanup } from "@testing-library/react";
+import { cleanup, fireEvent } from "@testing-library/react";
 
 import { ChatMessage } from "@/components/chat/chat-message";
 import { mockModulePreservingReal } from "../helpers/module-mock";
@@ -248,5 +248,117 @@ describe("ChatMessage OrganicToolCallPresence", () => {
     expect(getByText("Navigating branch…")).toBeTruthy();
     expect(container.querySelectorAll("[data-organic-tool-presence]")).toHaveLength(3);
     expect(container.querySelectorAll('[role="img"][data-activity-state]')).toHaveLength(3);
+  });
+});
+
+function webSearchPart(state: "input-available" | "output-available") {
+  return {
+    type: "dynamic-tool" as const,
+    toolName: "web_search",
+    toolCallId: "search-1",
+    state,
+    input: { query: "vercel" },
+    ...(state === "output-available"
+      ? {
+          output: {
+            results: [
+              { url: "https://a.example", title: "A" },
+              { url: "https://b.example", title: "B" },
+            ],
+          },
+        }
+      : {}),
+  } as UIMessage["parts"][number];
+}
+
+describe("ChatMessage activity trail", () => {
+  test("reasoning around a web search coalesces into one trail with its thought time", () => {
+    const message: UIMessage = {
+      id: "msg-trail",
+      role: "assistant",
+      metadata: { activityDurationsMs: { "0": 14_200 } },
+      parts: [
+        { type: "reasoning", text: "Checking the changelog.", state: "done" },
+        webSearchPart("output-available"),
+        { type: "step-start" },
+        { type: "reasoning", text: "Comparing entries.", state: "done" },
+        { type: "text", text: "The answer.", state: "done" },
+      ],
+    };
+    const view = render(<ChatMessage message={message} />);
+    const trigger = view.getByRole("button", { name: "Thought for 14s · searched 2 sources" });
+
+    expect(view.getAllByRole("button", { expanded: false })).toContain(trigger);
+    expect(view.queryByText("2 Search Results")).toBeNull();
+    fireEvent.click(trigger);
+    expect(view.getByText("2 Search Results")).toBeTruthy();
+    expect(view.getByText("Comparing entries.")).toBeTruthy();
+    expect(view.getByText("The answer.")).toBeTruthy();
+  });
+
+  test("a presentational tool stays inline and splits the trail", () => {
+    const message: UIMessage = {
+      id: "msg-split",
+      role: "assistant",
+      parts: [
+        { type: "reasoning", text: "Plan.", state: "done" },
+        {
+          type: "dynamic-tool",
+          toolName: "render_gen_ui",
+          toolCallId: "gen-1",
+          state: "output-available",
+          input: {},
+          output: { block: FIXTURE_ANSWER_CARD },
+        },
+        { type: "reasoning", text: "Follow-up.", state: "done" },
+      ],
+    };
+    const view = render(<ChatMessage message={message} />);
+
+    expect(view.getAllByRole("button", { name: "Reasoning" })).toHaveLength(2);
+    expect(view.getByText(FIXTURE_ANSWER_CARD.tldr)).toBeTruthy();
+  });
+
+  test("a live trail owns the status; no duplicate tail shimmer", () => {
+    const message: UIMessage = {
+      id: "msg-live",
+      role: "assistant",
+      parts: [
+        { type: "reasoning", text: "**Planning the search**", state: "done" },
+        webSearchPart("input-available"),
+      ],
+    };
+    const view = render(
+      <ChatMessage
+        aiActionPayload={{ action: ChatAIActionEnum.Tool, message: "Using tool: web_search" }}
+        message={message}
+      />
+    );
+    const trigger = view.getByRole("button", { name: /Reasoning in progress/ });
+
+    expect(trigger.textContent).toContain("Searching the web");
+    expect(view.container.querySelector(".processing-text-burn")).toBeNull();
+  });
+
+  test("collapsing a trail releases pins inside it", () => {
+    const message: UIMessage = {
+      id: "msg-pin",
+      role: "assistant",
+      parts: [
+        { type: "reasoning", text: "Looking.", state: "done" },
+        webSearchPart("output-available"),
+        { type: "text", text: "Done.", state: "done" },
+      ],
+    };
+    const view = render(<ChatMessage message={message} />);
+    const trigger = view.getByRole("button", { name: "Searched 2 sources" });
+
+    fireEvent.click(trigger);
+    fireEvent.click(view.getByRole("button", { name: "Pin tool output" }));
+    expect(view.getByRole("button", { name: "Unpin tool output" })).toBeTruthy();
+    fireEvent.click(trigger);
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(trigger);
+    expect(view.getByRole("button", { name: "Pin tool output" })).toBeTruthy();
   });
 });
