@@ -1,6 +1,6 @@
 {
   "name": "organic-llm",
-  "version": "0.15.0",
+  "version": "0.16.0",
   "private": true,
   "engines": {
     "node": "22.x"
@@ -26,6 +26,7 @@
   "dependencies": {
     "@ai-sdk/elevenlabs": "^3.0.59",
     "@ai-sdk/gateway": "^4.0.110",
+    "@ai-sdk/mcp": "^2.0.73",
     "@ai-sdk/openai": "^4.0.91",
     "@ai-sdk/otel": "^1.0.136",
     "@ai-sdk/react": "^4.0.139",
@@ -102,7 +103,7 @@
     "mem0ai": "^2.4.6",
     "mermaid": "^11.17.2",
     "nanoid": "^5.1.16",
-    "next": "^16.4.0",
+    "next": "^16.4.2",
     "next-themes": "0.4.6",
     "ogl": "^1.0.11",
     "openai": "^7.30.1",

@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 
+import { auth } from "@clerk/nextjs/server";
+
 import { LiquidChromeSsrFill } from "@/components/background/LiquidChromeSsrFill";
 import Home from "@/components/pages/home";
 import { welcomeCopy } from "@/lib/welcome/copy";
@@ -11,11 +13,13 @@ export const metadata: Metadata = {
   description: welcomeCopy.meta.description,
 };
 
-export default function HomePage() {
+export default async function HomePage() {
+  const { userId } = await auth();
+
   return (
     <>
       <LiquidChromeSsrFill id="home-liquid-chrome-ssr-fill" />
-      <Home />
+      <Home initialSignedOut={!userId} />
     </>
   );
 }

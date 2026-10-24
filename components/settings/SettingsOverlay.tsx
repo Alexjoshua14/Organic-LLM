@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Brain, ExternalLink, Settings2Icon, Sparkles } from "lucide-react";
+import { Brain, ExternalLink, GitBranch, Settings2Icon, Sparkles } from "lucide-react";
 import { useAuth, useUser } from "@clerk/nextjs";
 
 import { QuickSettingRow } from "./quick-setting-row";
@@ -193,6 +193,14 @@ export function SettingsOverlay({ open, onOpenChange, trigger }: SettingsOverlay
                 Memory
               </button>
             </section>
+            <Link
+              className="flex min-h-12 items-center gap-2 rounded-lg py-3 text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+              href="/settings?tab=connectors"
+              onClick={() => onOpenChange(false)}
+            >
+              <GitBranch className="size-4 shrink-0" />
+              Connectors
+            </Link>
             <Link
               className="flex min-h-12 items-center gap-2 rounded-lg py-3 text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground"
               href="/settings"

@@ -4,6 +4,7 @@ import { useReducedMotion } from "framer-motion";
 import { memo, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import { usePageVisible } from "@/components/hooks/use-page-visible";
+import { PAPER_INK_MATERIAL } from "@/lib/background/liquid-chrome-material";
 import { PERF_PHASES } from "@/lib/perf/journeys";
 import { mark } from "@/lib/perf/trace-store";
 import {
@@ -63,8 +64,12 @@ function readIsDarkFromHtmlClass(): boolean {
   return document.documentElement.classList.contains("dark");
 }
 
-function useIsDarkFromHtmlClass(): boolean {
-  return useSyncExternalStore(subscribeToHtmlDarkClass, readIsDarkFromHtmlClass, () => false);
+function useIsDarkFromHtmlClass(): boolean | undefined {
+  return useSyncExternalStore<boolean | undefined>(
+    subscribeToHtmlDarkClass,
+    readIsDarkFromHtmlClass,
+    () => undefined
+  );
 }
 
 function closestDimTrigger(el: EventTarget | null): Element | null {
@@ -88,17 +93,21 @@ const LiquidChromeLayer = memo(function LiquidChromeLayer({
   interactive,
   prefersReducedMotion,
 }: {
-  isDark: boolean;
+  isDark: boolean | undefined;
   pageVisible: boolean;
   speed: number;
   interactive: boolean;
   prefersReducedMotion: boolean;
 }) {
   const baseColor = useMemo<[number, number, number]>(
-    () => (isDark ? [0.03, 0.05, 0.07] : [0.5, 0.48, 0.46]),
+    () => (isDark ? [0.03, 0.05, 0.07] : PAPER_INK_MATERIAL.paperColor),
     [isDark]
   );
-  const amplitude = isDark ? 0.2 : 0.18;
+
+  // The CSS fallback already follows the HTML theme before hydration knows it.
+  if (isDark === undefined) return null;
+
+  const amplitude = isDark ? 0.2 : PAPER_INK_MATERIAL.amplitude;
 
   if (prefersReducedMotion) {
     const center = rgb01ToCss(baseColor);
@@ -113,7 +122,9 @@ const LiquidChromeLayer = memo(function LiquidChromeLayer({
         style={{
           width: "100%",
           height: "100%",
-          background: `radial-gradient(ellipse 120% 80% at 50% 40%, ${center} 0%, ${edge} 100%)`,
+          background: isDark
+            ? `radial-gradient(ellipse 120% 80% at 50% 40%, ${center} 0%, ${edge} 100%)`
+            : "var(--liquid-chrome-fallback-light)",
         }}
       />
     );
@@ -124,6 +135,7 @@ const LiquidChromeLayer = memo(function LiquidChromeLayer({
       amplitude={amplitude}
       baseColor={baseColor}
       interactive={interactive}
+      material={isDark ? "chrome" : "paper-ink"}
       paused={!pageVisible || prefersReducedMotion}
       speed={speed}
     />
@@ -159,7 +171,7 @@ export default function AdaptiveLiquidChrome({
 
   onDimChangeRef.current = onDimChange;
 
-  const baseOpacity = isDark ? 1 : 0.92;
+  const baseOpacity = 1;
 
   useEffect(() => {
     if (chromeFrameMarkedRef.current) return;

@@ -61,7 +61,7 @@ export function diagnoseMemoryStoreFailure(error: unknown): MemoryStoreFailureDi
   ) {
     return {
       kind: "qdrant",
-      hint: "Memory vector store (Qdrant) failed — verify MEMORY_API_HOST, MEMORY_API_PORT, MEMORY_API_SECRET, and that the memories_v2 collection exists.",
+      hint: "Memory vector store (Qdrant) failed — verify MEMORY_API_HOST, MEMORY_API_PORT, MEMORY_API_SECRET, MEMORY_CF_ACCESS_CLIENT_ID/SECRET (if the host is behind Cloudflare Access), and that the memories_v2 collection exists.",
       detail: text,
     };
   }
@@ -84,7 +84,7 @@ export function diagnoseMemoryStoreFailure(error: unknown): MemoryStoreFailureDi
   ) {
     const remote = !isLocalOllamaUrl();
     const authHint = remote
-      ? "Set OLLAMA_API_KEY for remote Ollama proxies."
+      ? "Set OLLAMA_API_KEY for remote Ollama proxies, and OLLAMA_CF_ACCESS_CLIENT_ID/SECRET if the host is behind Cloudflare Access."
       : "Ensure Ollama is running locally and the embed model is pulled.";
 
     if (matchesAny(lower, [/no embedding vector/, /batch embed returned no embeddings/])) {

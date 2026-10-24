@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
 import Page from "@/components/layout/page";
+import { PublicSiteHeader } from "@/components/layout/public-site-header";
 import { PageContentFrame } from "@/components/layout/page-content-frame";
 import ShinyText from "@/components/ShinyText";
 import { glass } from "@/components/design-system/primitives";
@@ -53,6 +54,7 @@ export default function ShowcasePage() {
 
   return (
     <Page
+      chrome="full-bleed"
       liquidChromeBackground
       transparentBackground
       className="items-stretch justify-start overflow-hidden"
@@ -60,7 +62,8 @@ export default function ShowcasePage() {
       <AdaptiveLiquidChrome dimIntensity={0.45} />
       {/* Full-width scroll shell so the scrollbar sits on the viewport edge (same as /sandbox). */}
       <div className="relative z-10 h-full min-h-0 w-full overflow-y-auto pb-16">
-        <PageContentFrame maxWidth="5xl">
+        <PublicSiteHeader className="text-foreground" />
+        <PageContentFrame maxWidth="5xl" className="pt-8 sm:pt-12" clearNavChrome={false}>
           <div className="mb-12 text-center">
             <h1 className="mb-2 font-commissioner text-3xl font-light tracking-tight text-foreground sm:text-4xl">
               Showcase

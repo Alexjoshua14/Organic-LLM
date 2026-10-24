@@ -385,8 +385,10 @@ export async function generateChatTitle(chatId: string): Promise<Result<string>>
 
 export async function summarizeChat(chatId: string): Promise<Result<string, string>> {
   const owner = await getThreadOwnerContext(chatId);
+
   if (!owner.data || owner.error) return { data: null, error: "Thread owner unavailable" };
   const ownerId = owner.data.ownerId;
+
   logger.log("summarizeChat", `Summarizing chat ${chatId}`);
   // Get all chat messages
   let { data: messages, error } = await getMessages(chatId);
@@ -813,6 +815,7 @@ const validateSummary = async (
       modelId: MODEL_SELECTION.validator as string,
       operation: "summary-validator",
     });
+
     await validatorBudget.prepareStep();
     const validatorRes = await generateObject({
       onStepFinish: validatorBudget.onStepFinish,

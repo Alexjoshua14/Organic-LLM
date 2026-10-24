@@ -8,6 +8,7 @@ import { glass } from "../design-system/primitives";
 import { AssistantMessageActions } from "./assistant-message-actions";
 import { ChatMessageMarkdown } from "./chat-message-markdown";
 import { ArcadiaHelpMessage } from "./arcadia-help-message";
+import { ChatReasoningBlock } from "./chat-reasoning-block";
 import { ChatReasoning, ChatThinking, ChatSearching } from "./chat-loading";
 import {
   FullChatHistoryToolResultCard,
@@ -23,12 +24,7 @@ import {
   tryParseMemorySearchToolOutput,
 } from "./memory-search-tool-result";
 import { tryParseWebSearchToolOutput, WebSearchToolResultCard } from "./web-search-tool-result";
-import {
-  ToolResultInlineRow,
-  ToolResultPinButton,
-  toolResultExpandedDetailClass,
-  toolResultSummaryButtonClass,
-} from "./tool-result-inline";
+import { OrganicToolCallPresence } from "./organic-tool-call-presence";
 
 import { ErgonTaskResult } from "@/components/ergon/ErgonTaskResult";
 import { GenUIStreamingPart } from "@/components/chat/gen-ui/GenUIStreamingPart";
@@ -40,6 +36,7 @@ import { MiseLoadingShell } from "@/components/chat/mise/MiseLoadingShell";
 import { MiseToolResult } from "@/components/chat/mise/MiseToolResult";
 import { ARCADIA_HELP_PREFIX } from "@/lib/arcadia/help-response";
 import { messagePartsToCopyMarkdown } from "@/lib/chat/message-copy-markdown";
+import { groupReasoningParts } from "@/lib/chat/reasoning-parts";
 import {
   collectWebSearchSnapshotsFromParts,
   foldWebSearchResults,
@@ -52,9 +49,7 @@ import { MANAGE_TASKS_TOOL_NAME } from "@/lib/schemas/ergon-tasks";
 import { peekKanbanCommandType } from "@/lib/schemas/kanban";
 import { cn } from "@/lib/utils";
 import { ChatAIActionEnum } from "@/types/ai";
-import { MermaidDiagram } from "@/components/blog/mermaid-diagram";
 import { MermaidToolDiagram } from "@/components/mermaid/mermaid-tool-diagram";
-import { extractMermaidCode } from "@/lib/mermaid/source";
 import { getMessageModelId, getModelDisplayName } from "@/lib/chat/message-model";
 
 type ChatMessageProps = {
@@ -63,6 +58,11 @@ type ChatMessageProps = {
   chatId?: string;
   isLastMessage?: boolean;
   showModelBadge?: boolean;
+  /**
+   * When true, omits the outer standalone bubble chrome/padding because the caller
+   * (e.g. Rabbit Hole controller turn pair) already wraps the message.
+   */
+  embedded?: boolean;
   /**
    * When false, hide assistant action row (TTS / pin / copy).
    * Showcase pages pass false so signed-in viewers cannot trigger paid TTS.
@@ -85,6 +85,7 @@ export const ChatMessage = memo<ChatMessageProps>(function ChatMessage(props) {
     aiActionPayload,
     isLatestArcadiaHelp,
     showModelBadge,
+    embedded = false,
     showActions = true,
   } = props;
 
@@ -94,6 +95,7 @@ export const ChatMessage = memo<ChatMessageProps>(function ChatMessage(props) {
         <AIMessage
           aiActionPayload={aiActionPayload}
           chatId={chatId}
+          embedded={embedded}
           isLatestArcadiaHelp={isLatestArcadiaHelp}
           message={message}
           showActions={showActions}
@@ -101,7 +103,7 @@ export const ChatMessage = memo<ChatMessageProps>(function ChatMessage(props) {
         />
       );
     case "user":
-      return <UserMessage message={message} />;
+      return <UserMessage embedded={embedded} message={message} />;
     // Removing system message for now to accomodate Multiagent Heartbeats
     // case "system":
     //   return <SystemMessage message={message} />;
@@ -116,6 +118,7 @@ const AIMessage: FC<ChatMessageProps> = ({
   aiActionPayload,
   isLatestArcadiaHelp,
   showModelBadge,
+  embedded = false,
   showActions = true,
 }) => {
   const [pinnedToolIds, setPinnedToolIds] = useState<Record<string, boolean>>({});
@@ -135,11 +138,14 @@ const AIMessage: FC<ChatMessageProps> = ({
   const modelLabel = showModelBadge ? getModelDisplayName(getMessageModelId(message)) : null;
 
   const webSearchFold = foldWebSearchResults(collectWebSearchSnapshotsFromParts(message.parts));
+  const reasoningRuns = groupReasoningParts(message.parts);
 
   let arcadiaHelpRendered = false;
 
   return (
-    <div className="group/ai-message rounded-lg p-4 flex flex-col gap-2">
+    <div
+      className={cn("group/ai-message flex flex-col gap-2 rounded-lg", embedded ? "p-0" : "p-4")}
+    >
       {modelLabel ? (
         <div className="not-prose mb-1 flex justify-start">
           <span className="rounded-full border border-border/50 bg-background-tertiary/35 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
@@ -150,14 +156,21 @@ const AIMessage: FC<ChatMessageProps> = ({
       <div className="ai-message space-y-2 text-foreground max-w-full prose dark:prose-invert">
         {message.parts.map((part, i) => {
           switch (part.type) {
-            case "reasoning":
-              // Only show the live reasoning shimmer while actively streaming; a
-              // persisted/legacy part (state "done" or undefined) must stay inert.
-              if (part.state !== "streaming") {
-                return null;
-              }
+            case "reasoning": {
+              // Consecutive reasoning parts render once, as a single disclosure.
+              const run = reasoningRuns.runsByStartIndex.get(i);
 
-              return <ChatReasoning key={`${message.id}-${i}`} />;
+              if (!run) return null;
+
+              return (
+                <ChatReasoningBlock
+                  key={`${message.id}-${i}`}
+                  id={`${message.id}-${i}`}
+                  isStreaming={run.isStreaming}
+                  text={run.text}
+                />
+              );
+            }
 
             case "text":
               if (showCustomArcadiaHelp) {
@@ -182,11 +195,28 @@ const AIMessage: FC<ChatMessageProps> = ({
 
                 if (toolName.startsWith("research_")) {
                   if (part.state === "input-streaming" || part.state === "input-available") {
-                    return <ChatThinking key={`${message.id}-${i}-research-pending`} text={toolInvocationInFlightLabel(toolName)} />;
+                    return (
+                      <ChatThinking
+                        key={`${message.id}-${i}-research-pending`}
+                        text={toolInvocationInFlightLabel(toolName)}
+                      />
+                    );
                   }
                   if (part.state === "output-available" || part.state === "output-error") {
-                    return <ResearchToolResult key={`${message.id}-${i}-research-result`} toolName={toolName} output={part.state === "output-available" ? part.output : { error: part.errorText }} threadId={chatId} />;
+                    return (
+                      <ResearchToolResult
+                        key={`${message.id}-${i}-research-result`}
+                        toolName={toolName}
+                        output={
+                          part.state === "output-available"
+                            ? part.output
+                            : { error: part.errorText }
+                        }
+                        threadId={chatId}
+                      />
+                    );
                   }
+
                   return null;
                 }
 
@@ -256,12 +286,13 @@ const AIMessage: FC<ChatMessageProps> = ({
                 if (toolName === "gather_restaurant") {
                   if (part.state === "input-streaming" || part.state === "input-available") {
                     return (
-                      <div
+                      <OrganicToolCallPresence
                         key={`${message.id}-${i}-gather-restaurant-active`}
-                        className="not-prose rounded-lg border border-border/40 bg-background-tertiary/20 px-3 py-2"
-                      >
-                        <ChatThinking text={toolInvocationInFlightLabel(toolName)} />
-                      </div>
+                        inFlightLabel={toolInvocationInFlightLabel(toolName)}
+                        input={"input" in part ? part.input : undefined}
+                        state="in-flight"
+                        toolName={toolName}
+                      />
                     );
                   }
 
@@ -305,12 +336,13 @@ const AIMessage: FC<ChatMessageProps> = ({
                 if (toolName.toLowerCase() === "make_mermaid_diagram") {
                   if (part.state === "input-streaming" || part.state === "input-available") {
                     return (
-                      <div
+                      <OrganicToolCallPresence
                         key={`${message.id}-${i}-mermaid-active`}
-                        className="not-prose rounded-lg border border-border/40 bg-background-tertiary/20 px-3 py-2"
-                      >
-                        <ChatThinking text={toolInvocationInFlightLabel(toolName)} />
-                      </div>
+                        inFlightLabel={toolInvocationInFlightLabel(toolName)}
+                        input={"input" in part ? part.input : undefined}
+                        state="in-flight"
+                        toolName={toolName}
+                      />
                     );
                   }
 
@@ -342,12 +374,13 @@ const AIMessage: FC<ChatMessageProps> = ({
                 if (toolName.toLowerCase() === "web_search") {
                   if (part.state === "input-streaming" || part.state === "input-available") {
                     return (
-                      <div
+                      <OrganicToolCallPresence
                         key={`${message.id}-${i}-tool-active`}
-                        className="not-prose rounded-lg border border-border/40 bg-background-tertiary/20 px-3 py-2"
-                      >
-                        <ChatThinking text={toolInvocationInFlightLabel(toolName)} />
-                      </div>
+                        inFlightLabel={toolInvocationInFlightLabel(toolName)}
+                        input={"input" in part ? part.input : undefined}
+                        state="in-flight"
+                        toolName={toolName}
+                      />
                     );
                   }
 
@@ -378,6 +411,8 @@ const AIMessage: FC<ChatMessageProps> = ({
                       <ArcadiaToolResultCard
                         key={`${message.id}-${i}-tool-result`}
                         displayBody={part.state === "output-error" ? part.errorText : part.output}
+                        input={"input" in part ? part.input : undefined}
+                        isError={part.state === "output-error"}
                         isPinned={pinnedToolIds[toolCallId] === true}
                         toolName={toolName}
                         onTogglePin={() => toggleToolPinned(toolCallId)}
@@ -390,12 +425,13 @@ const AIMessage: FC<ChatMessageProps> = ({
 
                 if (part.state === "input-streaming" || part.state === "input-available") {
                   return (
-                    <div
+                    <OrganicToolCallPresence
                       key={`${message.id}-${i}-tool-active`}
-                      className="not-prose rounded-lg border border-border/40 bg-background-tertiary/20 px-3 py-2"
-                    >
-                      <ChatThinking text={toolInvocationInFlightLabel(toolName)} />
-                    </div>
+                      inFlightLabel={toolInvocationInFlightLabel(toolName)}
+                      input={"input" in part ? part.input : undefined}
+                      state="in-flight"
+                      toolName={toolName}
+                    />
                   );
                 }
                 if (part.state === "output-available") {
@@ -403,6 +439,7 @@ const AIMessage: FC<ChatMessageProps> = ({
                     <ArcadiaToolResultCard
                       key={`${message.id}-${i}-tool-result`}
                       displayBody={part.output}
+                      input={"input" in part ? part.input : undefined}
                       isPinned={pinnedToolIds[toolCallId] === true}
                       toolName={toolName}
                       onTogglePin={() => toggleToolPinned(toolCallId)}
@@ -414,6 +451,8 @@ const AIMessage: FC<ChatMessageProps> = ({
                     <ArcadiaToolResultCard
                       key={`${message.id}-${i}-tool-result`}
                       displayBody={part.errorText}
+                      input={"input" in part ? part.input : undefined}
+                      isError
                       isPinned={pinnedToolIds[toolCallId] === true}
                       toolName={toolName}
                       onTogglePin={() => toggleToolPinned(toolCallId)}
@@ -430,12 +469,13 @@ const AIMessage: FC<ChatMessageProps> = ({
 
                 if (tp.state === "partial-call" || tp.state === "call") {
                   return (
-                    <div
+                    <OrganicToolCallPresence
                       key={`${message.id}-${i}-tool-active`}
-                      className="not-prose rounded-lg border border-border/40 bg-background-tertiary/20 px-3 py-2"
-                    >
-                      <ChatThinking text={toolInvocationInFlightLabel(tp.toolName)} />
-                    </div>
+                      inFlightLabel={toolInvocationInFlightLabel(tp.toolName)}
+                      input={tp.args}
+                      state="in-flight"
+                      toolName={tp.toolName}
+                    />
                   );
                 }
                 if (tp.state === "result" || tp.state === "output-error") {
@@ -471,6 +511,8 @@ const AIMessage: FC<ChatMessageProps> = ({
                     <ArcadiaToolResultCard
                       key={`${message.id}-${i}-tool-result`}
                       displayBody={tp.state === "output-error" ? tp.errorText : tp.result}
+                      input={tp.args}
+                      isError={tp.state === "output-error"}
                       isPinned={pinnedToolIds[tp.toolInvocationId] === true}
                       toolName={tp.toolName}
                       onTogglePin={() => toggleToolPinned(tp.toolInvocationId)}
@@ -539,9 +581,7 @@ function partListHasStreamingReasoning(parts: MessageParts): boolean {
 
 /** True when the message already has inline tool UI (loading or result). */
 function partListHasToolUIPart(parts: MessageParts): boolean {
-  return parts.some(
-    (part) => isToolUIPart(part) || getLegacyToolInvocationPart(part) !== null
-  );
+  return parts.some((part) => isToolUIPart(part) || getLegacyToolInvocationPart(part) !== null);
 }
 
 function partListHasMemorySearchToolPart(parts: MessageParts): boolean {
@@ -640,6 +680,12 @@ const KNOWN_TOOL_IN_FLIGHT_LABELS: Record<string, string> = {
   read_subagent_thread: "Reading a subagent's thread...",
   worktable: "Updating the worktable...",
   dispatch_subagent: "Briefing a subagent...",
+  generate_rabbit_hole_node: "Branching rabbit hole node…",
+  propose_rabbit_hole_node: "Branching rabbit hole node…",
+  create_rabbit_hole_node: "Branching rabbit hole node…",
+  navigate_rabbit_hole_node: "Navigating branch…",
+  search_rabbit_hole_context: "Reading rabbit hole graph…",
+  read_rabbit_hole_node: "Reading rabbit hole graph…",
 };
 
 function toolInvocationInFlightLabel(toolName: string): string {
@@ -655,28 +701,22 @@ function toolInvocationInFlightLabel(toolName: string): string {
   return "Using a tool...";
 }
 
-function stableStringify(value: unknown): string {
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return String(value);
-  }
-}
-
 /** Generic collapsible tool output (JSON / Mermaid); specialized tools use dedicated cards. */
 export const ArcadiaToolResultCard = memo(function ArcadiaToolResultCard({
   toolName,
   displayBody,
+  input,
+  isError = false,
   isPinned,
   onTogglePin,
 }: {
   toolName: string;
   displayBody: unknown;
+  input?: unknown;
+  isError?: boolean;
   isPinned: boolean;
   onTogglePin: () => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
-
   if (toolName.toLowerCase() === "web_search") {
     const parsed = tryParseWebSearchToolOutput(displayBody);
 
@@ -728,50 +768,15 @@ export const ArcadiaToolResultCard = memo(function ArcadiaToolResultCard({
     return <MermaidToolAckCard isPinned={isPinned} parsed={parsed} onTogglePin={onTogglePin} />;
   }
 
-  const githubLabels: Record<string, string> = {
-    github_repo_overview: "Repository overview",
-    github_recent_commits: "Recent commits",
-    github_pull_requests: "Pull requests",
-    github_read_file: "Repository file",
-  };
-  const label =
-    toolName.toLowerCase() === "web_search"
-      ? "Search Results"
-      : toolName.toLowerCase() === "get_full_chat_history"
-        ? "Fetched full chat history"
-        : toolName.toLowerCase() === "search_memories"
-          ? "Memory search"
-          : toolName.toLowerCase() === "make_mermaid_diagram"
-            ? "Mermaid diagram"
-            : (githubLabels[toolName.toLowerCase()] ?? `${toolName}`);
-  const mermaid = extractMermaidCode(displayBody);
-  const json = stableStringify(displayBody);
-
   return (
-    <ToolResultInlineRow
+    <OrganicToolCallPresence
+      input={input}
       isPinned={isPinned}
-      pin={<ToolResultPinButton isPinned={isPinned} onTogglePin={onTogglePin} />}
-    >
-      <button
-        className={toolResultSummaryButtonClass}
-        type="button"
-        onClick={() => setExpanded((open) => !open)}
-      >
-        <span className="truncate">{label}</span>
-        {expanded ? (
-          <span className={`${toolResultExpandedDetailClass} block`}>
-            {mermaid ? (
-              <div className="mt-1">
-                <MermaidDiagram code={mermaid} expandOnDoubleClick />
-              </div>
-            ) : null}
-            <pre className="mt-1 max-h-72 overflow-auto rounded bg-background/60 p-2 text-2xs leading-snug text-foreground/90">
-              {json}
-            </pre>
-          </span>
-        ) : null}
-      </button>
-    </ToolResultInlineRow>
+      output={displayBody}
+      state={isError ? "error" : "complete"}
+      toolName={toolName}
+      onTogglePin={onTogglePin}
+    />
   );
 });
 
@@ -786,38 +791,46 @@ function isLongUserMessage(text: string): boolean {
   return lines > COLLAPSED_LINES || text.length > COLLAPSED_CHAR_THRESHOLD;
 }
 
-const UserMessage: FC<ChatMessageProps> = ({ message }) => {
+const UserMessage: FC<ChatMessageProps> = ({ message, embedded = false }) => {
   const [expanded, setExpanded] = useState(false);
   const text = message.parts.map((part) => (part.type === "text" ? part.text : "")).join("");
   const long = isLongUserMessage(text);
 
+  const innerContent = (
+    <>
+      <div className={cn(long && !expanded && "line-clamp-6")}>
+        {message.parts.map((part, i) => {
+          switch (part.type) {
+            case "text":
+              return (
+                <ChatMessageMarkdown
+                  key={`${message.id}-${i}`}
+                  content={part.text}
+                  id={message.id}
+                />
+              );
+          }
+        })}
+      </div>
+      {long && (
+        <button
+          className="mt-2 text-sm text-muted-foreground hover:text-foreground underline underline-offset-2"
+          type="button"
+          onClick={() => setExpanded((e) => !e)}
+        >
+          {expanded ? "Show less" : "Show more"}
+        </button>
+      )}
+    </>
+  );
+
+  if (embedded) {
+    return <div className="min-w-0 text-foreground">{innerContent}</div>;
+  }
+
   return (
     <div className={"max-w-4/5 w-fit mb-4 text-foreground place-self-end overflow-hidden"}>
-      <div className={`${glass()} p-4 rounded-lg`}>
-        <div className={cn(long && !expanded && "line-clamp-6")}>
-          {message.parts.map((part, i) => {
-            switch (part.type) {
-              case "text":
-                return (
-                  <ChatMessageMarkdown
-                    key={`${message.id}-${i}`}
-                    content={part.text}
-                    id={message.id}
-                  />
-                );
-            }
-          })}
-        </div>
-        {long && (
-          <button
-            className="mt-2 text-sm text-muted-foreground hover:text-foreground underline underline-offset-2"
-            type="button"
-            onClick={() => setExpanded((e) => !e)}
-          >
-            {expanded ? "Show less" : "Show more"}
-          </button>
-        )}
-      </div>
+      <div className={`${glass()} p-4 rounded-lg`}>{innerContent}</div>
     </div>
   );
 };

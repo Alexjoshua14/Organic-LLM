@@ -15,6 +15,7 @@ function registerChatStoreMockForLoadFailure(): void {
     readChat: chatStoreStub,
     saveChat: async () => ({ ok: false, error: new Error("chat-store mocked") }),
     saveMessage: async () => ({ ok: false, error: new Error("chat-store mocked") }),
+    updateChatMessage: async () => ({ ok: false, error: new Error("chat-store mocked") }),
     deleteChatMessage: async () => ({ ok: false, error: new Error("chat-store mocked") }),
     getChats: async () => ({ data: null, error: new Error("chat-store mocked") }),
     getChat: chatStoreStub,

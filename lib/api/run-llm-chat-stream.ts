@@ -17,7 +17,7 @@ import { CHAT_MODEL, measureAsync } from "@/lib/llm/helpers";
 import { CHAT_STREAM_CHUNKING } from "@/lib/llm/chat-stream-chunking";
 import { serializeError } from "@/lib/llm/log-error";
 import { addLatestMessagesToMemoryForUser } from "@/lib/memory/operations";
-import { buildEffortProviderOptions, type ChatEffortLevel } from "@/lib/schemas/chat-effort";
+import { buildChatReasoningProviderOptions, type ChatEffortLevel } from "@/lib/schemas/chat-effort";
 import { gatewayAttribution } from "@/lib/usage/gateway-attribution";
 import { createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
 import { ChatAIActionEnum, type ChatUIMessage } from "@/types/ai";
@@ -123,7 +123,8 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
     if (chunkRing.length > 24) chunkRing.shift();
   };
 
-  const effortProviderOptions = buildEffortProviderOptions(selectedModel.id, effort);
+  // Effort plus reasoning-summary opt-ins so the chat can show provider reasoning.
+  const effortProviderOptions = buildChatReasoningProviderOptions(selectedModel.id, effort);
 
   const providerOptionsSummary = {
     zeroDataRetention: isZeroDataRetention,
@@ -223,14 +224,14 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
     providerOptions: {
       openai: {
         include: ["reasoning.encrypted_content"],
-        ...effortProviderOptions?.openai,
+        ...effortProviderOptions.openai,
       } satisfies OpenAIResponsesProviderOptions,
       gateway: {
         zeroDataRetention: isZeroDataRetention,
         ...gatewayAttribution({ userId: sbUserId, operation: "chat" }),
       } satisfies GatewayProviderOptions,
-      ...(effortProviderOptions?.anthropic ? { anthropic: effortProviderOptions.anthropic } : {}),
-      ...(effortProviderOptions?.google ? { google: effortProviderOptions.google } : {}),
+      ...(effortProviderOptions.anthropic ? { anthropic: effortProviderOptions.anthropic } : {}),
+      ...(effortProviderOptions.google ? { google: effortProviderOptions.google } : {}),
     },
     tools,
     toolChoice: hasTools ? "auto" : "none",

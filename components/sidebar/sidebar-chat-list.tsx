@@ -149,6 +149,11 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
                     : "hover:bg-background",
                   isArcadia ? "text-foreground" : "text-foreground-secondary"
                 )}
+                onContextMenu={(event) => {
+                  if (isEditing) return;
+                  event.preventDefault();
+                  setMenuOpen(thread.id);
+                }}
                 onTouchCancel={handleLongPressEnd}
                 onTouchEnd={handleLongPressEnd}
                 onTouchStart={() => handleLongPressStart(thread.id)}

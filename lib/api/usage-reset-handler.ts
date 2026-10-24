@@ -1,6 +1,7 @@
-import { z } from "zod";
 import type { consumeUsageReset } from "@/data/supabase/account-entitlements";
 import type { getPlanBudgetForUser } from "@/lib/plans/plan-budget";
+
+import { z } from "zod";
 
 type ResetDeps = {
   auth(): Promise<{ userId: string | null }>;
@@ -49,6 +50,7 @@ export function createUsageResetHandler(deps: ResetDeps) {
     if (!parsed.success) return json({ error: "Invalid reset request" }, { status: 400 });
 
     const before = await deps.getPlanBudgetForUser({ clerkUserId: clerkUser.userId, ownerId });
+
     if (before.status === "unavailable")
       return json({ error: "Usage is unavailable. No reset was spent." }, { status: 503 });
     const result = await deps.consumeUsageReset(ownerId, parsed.data.resetVersion);

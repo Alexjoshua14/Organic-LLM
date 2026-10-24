@@ -85,6 +85,7 @@ function formatMemoriesLabel(budget: ContextBudgetEstimate): string {
   if (budget.memoryContext) {
     return String(summarizeContextMemories(budget.memoryContext).total);
   }
+
   return "Not recorded";
 }
 
@@ -135,6 +136,7 @@ function segmentSlices(segments: ContextBudgetSegment[], total: number, fillRati
   if (total <= 0) return [];
 
   const used = segments.filter((segment) => segment.id !== "free");
+
   return used.map((segment) => {
     const pct = (segment.tokens / total) * 100;
 
@@ -186,6 +188,7 @@ export function ContextDonut({
         {usedSegments.map((segment) => {
           const length = (segment.pct / 100) * circumference;
           const offset = cursor;
+
           cursor += length;
           const geometry = {
             cx: diameter / 2,

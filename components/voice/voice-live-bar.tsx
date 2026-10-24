@@ -1,6 +1,6 @@
 "use client";
 
-import type { VoiceScreenContextSnapshot } from "@/hooks/use-realtime-voice";
+import type { VoiceScreenContextSnapshot } from "@/lib/speak/screen-context-delivery";
 
 import { Mic, PhoneOff, X } from "lucide-react";
 
