@@ -724,6 +724,10 @@ const KNOWN_TOOL_IN_FLIGHT_LABELS: Record<string, string> = {
   manage_tasks: "Updating tasks…",
   mise_plan: "Updating plan…",
   fetch_recipe: "Reading recipe…",
+  github_repo_overview: "Reading repository…",
+  github_recent_commits: "Reading commits…",
+  github_pull_requests: "Reading pull requests…",
+  github_read_file: "Reading file…",
   make_mermaid_diagram: "Creating diagram...",
   search_memories: "Searching memories...",
   memory_search: "Searching memories...",
@@ -927,6 +931,10 @@ function toolActionDisplayText(message: string | undefined): string {
       get_full_chat_history: "Getting full chat history...",
       get_more_chat_history: "Getting more chat history...",
       get_messages_from_date: "Getting chat history for that date...",
+      github_repo_overview: "Reading repository…",
+      github_recent_commits: "Reading commits…",
+      github_pull_requests: "Reading pull requests…",
+      github_read_file: "Reading file…",
     };
 
     if (knownLabels[toolName]) {
