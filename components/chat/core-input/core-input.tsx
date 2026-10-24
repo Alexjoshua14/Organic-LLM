@@ -1209,7 +1209,9 @@ export const CoreInput: React.FC<CoreInputProps> = ({
 
   const submitControl = (
     <PromptInputSubmit
-      aria-label={personaActive && status === "ready" ? "Send to Artist assistant" : undefined}
+      // Spread only when set: an explicit `aria-label={undefined}` would override the button's
+      // own "Submit"/"Abort" label, which PromptInputSubmit applies before `...props`.
+      {...(personaActive && status === "ready" ? { "aria-label": "Send to Artist assistant" } : {})}
       className={cn(
         submitVariant === "organic-glass" && !personaActive && organicGlassSubmitClassName,
         personaActive && "overflow-hidden rounded-lg bg-transparent p-0 hover:bg-transparent"
