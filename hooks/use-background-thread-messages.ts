@@ -14,6 +14,7 @@ export function useBackgroundThreadMessages(args: {
   setMessages: (updater: (messages: UIMessage[]) => UIMessage[]) => void;
 }) {
   const current = useRef(args);
+
   current.current = args;
 
   useEffect(() => {
@@ -25,14 +26,18 @@ export function useBackgroundThreadMessages(args: {
       try {
         if (document.visibilityState !== "visible" || current.current.status !== "ready") return;
         const response = await fetch(`/api/chat/${args.threadId}/arcadia/messages`, {
-          cache: "no-store", signal: controller.signal,
+          cache: "no-store",
+          signal: controller.signal,
         });
+
         if (!response.ok || cancelled) return;
-        const payload = await response.json() as { messages: UIMessage[] };
+        const payload = (await response.json()) as { messages: UIMessage[] };
+
         if (cancelled || current.current.status !== "ready") return;
         current.current.setMessages((messages) => {
           const ids = new Set(messages.map((m) => m.id));
           const added = payload.messages.filter((m) => !ids.has(m.id));
+
           return added.length ? [...messages, ...added] : messages;
         });
       } catch {
@@ -41,7 +46,13 @@ export function useBackgroundThreadMessages(args: {
         if (!cancelled) timer = setTimeout(poll, BACKGROUND_MESSAGES_POLL_MS);
       }
     };
+
     void poll();
-    return () => { cancelled = true; controller.abort(); clearTimeout(timer); };
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+      clearTimeout(timer);
+    };
   }, [args.enabled, args.threadId]);
 }

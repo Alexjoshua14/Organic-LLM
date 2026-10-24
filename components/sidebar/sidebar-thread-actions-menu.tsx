@@ -1,7 +1,8 @@
 "use client";
 
 import { useDisclosure } from "@heroui/modal";
-import { Pencil, Pin, PinOff, Sparkles, Trash2 } from "lucide-react";
+import { Copy, Pencil, Pin, PinOff, Sparkles, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { cloneElement, useCallback, useState, type ReactElement, type HTMLAttributes } from "react";
 import { useRouter, usePathname } from "next/navigation";
 
@@ -18,6 +19,7 @@ import { deleteChat } from "@/data/supabase/chat";
 import { createLogger } from "@/lib/logger";
 import { useTitleRegenSession } from "@/lib/chat/title-regen-store";
 import { useSharedChatContext } from "@/lib/context/chat-context";
+import { copyThreadToClipboard } from "@/lib/clipboard/thread-clipboard";
 
 const logger = createLogger("components/sidebar/sidebar-thread-actions-menu.tsx");
 
@@ -127,6 +129,26 @@ export function SidebarThreadActionsMenu({
       <DropdownMenu open={open} onOpenChange={onOpenChange}>
         <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-40">
+          <DropdownMenuItem
+            onSelect={() => {
+              void copyThreadToClipboard(thread.id).then(({ copied, saved }) => {
+                if (copied && saved)
+                  toast.success("Thread copied and saved to your thread clipboard");
+                else if (copied)
+                  toast.success("Thread copied", {
+                    description: "Saved clipboard is currently unavailable.",
+                  });
+                else if (saved)
+                  toast.success("Saved to your thread clipboard", {
+                    description: "Native clipboard access was unavailable.",
+                  });
+                else toast.error("Couldn’t copy thread");
+              });
+            }}
+          >
+            <Copy className="size-4" />
+            Copy thread
+          </DropdownMenuItem>
           <DropdownMenuItem onSelect={handleEditTitle}>
             <Pencil className="size-4" />
             Edit title

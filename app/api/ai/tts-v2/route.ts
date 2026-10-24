@@ -80,6 +80,21 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  if (!process.env.ELEVENLABS_API_KEY?.trim()) {
+    return NextResponse.json(
+      {
+        error:
+          "ELEVENLABS_API_KEY is not configured. Add your ElevenLabs API key to synthesize audio.",
+      },
+      {
+        status: 503,
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+  }
+
   const ttsGate = await requireTtsActor(text.length);
 
   if (ttsGate.error != null) {

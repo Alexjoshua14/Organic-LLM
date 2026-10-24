@@ -118,6 +118,9 @@ A message sent straight to one subagent is still delivered verbatim.
 `ARCADIA_ORCHESTRATOR_DISPATCH_ENABLED=false` restores Jev router auto-dispatch. Code:
 `lib/llm/subagents/worktable/`, `lib/llm/subagents/orchestrator/orchestrator-tools.ts`.
 
+Bundle-item selection, excerpts, explicit worker history, input preflight and attachment
+paging are documented in [Subagent dispatch context](./aion/subagent-context.md).
+
 **First-use guidance.** Opening Multiagent registers its controls tip with the existing
 feature-hint system. Dismissal persists; replay tips can show it again. The tip explains
 recipient selection and Ctrl+Q / Ctrl+W. Panel buttons show those shortcuts in tooltips
@@ -154,6 +157,12 @@ bound:
 **Queued composer (optional multi mode):** CoreInput can still take `queueSendMode` when a
 shell wants enqueue-only submits; do not enable it for the Arcadia multitask orchestrator
 window if visible streaming is required. See [`docs/message-send-queue.md`](./message-send-queue.md).
+
+**Side questions (`/btw`):** `/btw <question>` opens an unsaved side thread above the composer.
+It answers from a compact snapshot of the thread (summary plus recent turns, no tools) and
+works while the main turn streams. CoreInput takes the side thread's settings while it is
+open and morphs back on close. See
+[Composer preferences → `/btw`](../content/dev-docs/composer-preferences.md#btw-side-questions-arcadia).
 
 ## Tech + design (3 lines)
 - **Stack**: Next.js (App Router) + React + AI SDK streaming + Clerk + Supabase

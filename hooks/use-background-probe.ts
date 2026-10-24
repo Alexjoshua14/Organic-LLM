@@ -120,7 +120,18 @@ export function useBackgroundProbe(args: {
       });
 
       if (paused) return;
-      if (!isProbeDue({ mode: modeRef.current, lastProbeAt: Math.max(readLastProbeAt(key) ?? 0, lastProbeRef.current?.key === key ? lastProbeRef.current.at : 0) || null, now })) return;
+      if (
+        !isProbeDue({
+          mode: modeRef.current,
+          lastProbeAt:
+            Math.max(
+              readLastProbeAt(key) ?? 0,
+              lastProbeRef.current?.key === key ? lastProbeRef.current.at : 0
+            ) || null,
+          now,
+        })
+      )
+        return;
 
       inFlightRef.current = true;
       lastProbeRef.current = { key, at: now };

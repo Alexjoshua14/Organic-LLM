@@ -56,9 +56,11 @@ function normalizeForScan(text: string): string {
  */
 export function assertNonHumanIdentitySubject(text: string): IdentityPromptValidation {
   const normalized = normalizeForScan(text);
+
   for (const term of IDENTITY_IMAGE_HUMAN_SUBJECT_TERMS) {
     const escaped = term.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const re = new RegExp(`(?:^|[^a-z0-9])${escaped}(?:[^a-z0-9]|$)`);
+
     if (re.test(normalized)) {
       return {
         ok: false,
@@ -67,6 +69,7 @@ export function assertNonHumanIdentitySubject(text: string): IdentityPromptValid
       };
     }
   }
+
   return { ok: true, prompt: text };
 }
 
@@ -77,12 +80,14 @@ export function assertNonHumanIdentitySubject(text: string): IdentityPromptValid
  */
 export function buildSubagentIdentityPrompt(input: IdentityPromptInput): string {
   const traits = input.surfaceTraits.map((t) => t.trim()).filter(Boolean);
+
   if (traits.length === 0) {
     throw new Error("surfaceTraits required for identity image prompt");
   }
 
   for (const trait of traits) {
     const check = assertNonHumanIdentitySubject(trait);
+
     if (!check.ok) {
       throw new Error(check.reason);
     }
@@ -90,6 +95,7 @@ export function buildSubagentIdentityPrompt(input: IdentityPromptInput): string 
 
   for (const field of [input.name, input.displayRole, input.runtimeRole]) {
     const check = assertNonHumanIdentitySubject(field);
+
     if (!check.ok) {
       throw new Error(check.reason);
     }
