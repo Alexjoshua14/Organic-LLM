@@ -9,6 +9,15 @@ feel — so improvements stay consistent and do not regress quality.
 | Doc | When to read |
 |-----|----------------|
 | [Spacing](./spacing.md) | Card density, stack/gap/inset tokens, gen-ui vertical rhythm |
+| [Switches & quick settings](./switches-and-quick-settings.md) | Compact glass switches, caption popovers, quick-settings density |
+| [Context usage](./context-usage.md) | Composer context charts, source colors, percentage ramp, hover labels |
+| [Conversation scrolling](./conversation-scrolling.md) | Native reading, reduced-motion following, and isolated browser regression checks |
+| [Reasoning display](./reasoning-display.md) | Secondary summary typography, stable streaming disclosure, and provider-stream verification |
+| [Subagent identity mark](./subagent-identity-mark.md) | Layered SVG dots, glass diffusion, agent-state motion |
+| [Welcome scene](./welcome-scene.md) | Photographic pane projection, camera motion, and themed floor continuity |
+| [Glass distortion](./glass-distortion.md) | Opt-in refraction of owned backgrounds, Safari compatibility |
+| [Liquid chrome materials](./liquid-chrome-materials.md) | Light-mode paper and ink, dark-mode preservation, refraction and fallback parity |
+| [CoreInput snapshot morph](./core-input-morph.md) | Composer settings morphing between threads, areas, and `/btw`; fast-forward on touch |
 | [Motion & character text timing](./motion-and-text-timing.md) | Any char-by-char / stagger / status-label / loading-state animation |
 | [Sidebar session signals](./sidebar-session-signals.md) | Sidebar rows: experience glyphs, working / new / live signals, gaze hierarchy |
 | [Adaptive background](../adaptive-background.md) + [timing](../adaptive-background-timing.md) | Ambient dim / focus atmospheres |

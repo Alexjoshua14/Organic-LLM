@@ -8,6 +8,7 @@ import { openai } from "@ai-sdk/openai";
 
 import { createTrace, normalizeUsage } from "./trace";
 
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import { generateTitle, generateBranchSuggestions } from "@/lib/llm/rabbit-hole/generation";
 import { REFINE_QUESTION_SYSTEM_PROMPT } from "@/lib/system-prompt/rabbit-hole";
 import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
@@ -136,8 +137,12 @@ export async function runQuestionRefinementScenario(params: {
 
   try {
     const { text, usage } = await generateText({
+      ...(await createAuthenticatedLlmBudgetHooks({
+        modelId: budgetModelId(openai(providerModelSlug(models.openai.luna.id))),
+        operation: "sandbox/pipelines/rabbit-holes",
+      })),
       model: openai(providerModelSlug(models.openai.luna.id)),
-      system: REFINE_QUESTION_SYSTEM_PROMPT,
+      instructions: REFINE_QUESTION_SYSTEM_PROMPT,
       prompt,
       maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     });

@@ -1,22 +1,23 @@
 /**
- * Memory ingest shell layout: fixed dock band (composer only) so `CoreInput` height
- * changes do not steal space from the particle column. Assistant caption lives under
- * the particle field, not in this band.
+ * Memory ingest shell layout: fixed dock band sized to the composer **at rest**
+ * (prompt header + 1 body row + footer/tools). Tray, chips, and the composer are
+ * bottom-anchored in an absolute overlay inside the band, so growth (multiline
+ * typing, chips, session tray) extends upward *over* the particle scene instead of
+ * reflowing it. The band never changes height, so the particle column and caption
+ * budget stay stable.
  *
- * Budget (md+, no attachment strip): sticky `pt-1` + prompt header + body maxRows 5
- * (`md:text-sm`) + footer/tools + `sm:pb-4`.
- *
- * Default breakpoint uses `text-base` body (taller than `md:text-sm`).
+ * Resting budget (md+): sticky `pt-1` + prompt header + 1 body row (`md:text-sm`)
+ * + footer/tools + `sm:pb-4`. Default breakpoint uses `text-base` body (taller).
  *
  * Tailwind classes are literals so JIT can extract them.
  */
-export const memoryIngestDockBandHeightClass = "h-[14.875rem] md:h-[13.5rem]";
+export const memoryIngestDockBandHeightClass = "h-[8.875rem] md:h-[8.5rem]";
 
-/** Dock band height at default breakpoint (14.875rem). */
-export const MEMORY_INGEST_DOCK_HEIGHT_REM = 14.875;
+/** Dock band resting height at default breakpoint (8.875rem). */
+export const MEMORY_INGEST_DOCK_HEIGHT_REM = 8.875;
 
-/** Dock band height at md+ (13.5rem). */
-export const MEMORY_INGEST_DOCK_HEIGHT_MD_REM = 13.5;
+/** Dock band resting height at md+ (8.5rem). */
+export const MEMORY_INGEST_DOCK_HEIGHT_MD_REM = 8.5;
 
 /** Shell top padding (pt-6). */
 export const MEMORY_INGEST_SHELL_TOP_PADDING_REM = 1.5;

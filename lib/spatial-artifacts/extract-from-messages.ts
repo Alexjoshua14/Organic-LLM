@@ -1,6 +1,6 @@
 import type { UIMessage } from "ai";
 
-import { getToolOrDynamicToolName, isToolOrDynamicToolUIPart } from "ai";
+import { getToolOrDynamicToolName, isToolUIPart } from "ai";
 
 import { spatialArtifactId } from "./artifact-id";
 
@@ -32,7 +32,7 @@ export function extractGenUIArtifactsFromMessages(
     if (message.role !== "assistant") continue;
 
     message.parts.forEach((part, partIndex) => {
-      if (!isToolOrDynamicToolUIPart(part)) return;
+      if (!isToolUIPart(part)) return;
       if (getToolOrDynamicToolName(part) !== RENDER_GEN_UI_TOOL_NAME) return;
       if (part.state !== "output-available") return;
 

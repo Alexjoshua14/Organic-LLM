@@ -1,0 +1,831 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  BookOpen,
+  Briefcase,
+  CheckCircle2,
+  Cpu,
+  ExternalLink,
+  FileText,
+  GitBranch,
+  Globe,
+  Link2,
+  RefreshCw,
+  ShieldCheck,
+  Unplug,
+} from "lucide-react";
+
+import { Switch } from "@/components/design-system/switch";
+import { caption } from "@/components/design-system/primitives";
+import { SettingsRow } from "@/components/settings/SettingsRow";
+import {
+  CONNECTOR_SPECIALIST_ROUTES,
+  defaultUserConnectorsProfile,
+  normalizeGithubProfileUrl,
+  normalizeGithubUsername,
+  normalizeUserConnectorsProfile,
+  UserConnectorsProfileSchema,
+  type GithubConnectorSnapshot,
+  type UserConnectorsProfile,
+} from "@/lib/schemas/user-connectors";
+import {
+  DEFAULT_ERGON_MCP_URL,
+  ErgonConnectionPublicSchema,
+  toPublicErgonConnection,
+  type ErgonConnectionPublic,
+} from "@/lib/schemas/ergon-connection";
+import { getUserConnectors, setUserConnectors } from "@/lib/user-settings";
+
+export type ConnectorsSettingsTabProps = {
+  initialProfile?: Partial<UserConnectorsProfile>;
+  onSave?: (profile: UserConnectorsProfile) => void;
+  fetchImpl?: typeof fetch;
+};
+
+export function ConnectorsSettingsTab({
+  initialProfile,
+  onSave,
+  fetchImpl,
+}: ConnectorsSettingsTabProps = {}) {
+  const [formState, setFormState] = useState<UserConnectorsProfile>(() =>
+    normalizeUserConnectorsProfile(initialProfile, getUserConnectors())
+  );
+  const [isDirty, setIsDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const [syncingGithub, setSyncingGithub] = useState(false);
+  const [githubError, setGithubError] = useState<string | null>(null);
+  const [githubSnapshot, setGithubSnapshot] = useState<GithubConnectorSnapshot | null>(
+    () => formState.cachedGithubSnapshot ?? null
+  );
+
+  const [ergonStatus, setErgonStatus] = useState<ErgonConnectionPublic>(
+    () => formState.ergonConnection ?? toPublicErgonConnection(null)
+  );
+  const [ergonBusy, setErgonBusy] = useState(false);
+  const [ergonError, setErgonError] = useState<string | null>(null);
+
+  const doFetch = useMemo(() => fetchImpl ?? fetch, [fetchImpl]);
+
+  useEffect(() => {
+    if (initialProfile) return;
+    const local = getUserConnectors();
+
+    setFormState(local);
+    if (local.cachedGithubSnapshot) {
+      setGithubSnapshot(local.cachedGithubSnapshot);
+    }
+
+    let cancelled = false;
+
+    async function hydrateFromServer() {
+      try {
+        const res = await doFetch("/api/profile/connectors");
+
+        if (!res.ok) return;
+        const payload = (await res.json().catch(() => ({}))) as { data?: unknown };
+        const parsed = UserConnectorsProfileSchema.safeParse(payload.data);
+
+        if (!cancelled && parsed.success) {
+          const remote = parsed.data;
+          const local = getUserConnectors();
+          const hasRemoteContent = Boolean(
+            remote.githubUsername ||
+              remote.githubUrl ||
+              remote.linkedinUrl ||
+              remote.websiteUrl ||
+              remote.educationAndTranscripts ||
+              remote.careerHistory ||
+              remote.resumeText ||
+              remote.workingPreferences
+          );
+          const localStamp = Date.parse(local.updatedAt ?? "") || 0;
+          const remoteStamp = Date.parse(remote.updatedAt ?? "") || 0;
+
+          if (hasRemoteContent && remoteStamp >= localStamp) {
+            const merged = setUserConnectors(remote);
+
+            setFormState(merged);
+            if (merged.cachedGithubSnapshot) {
+              setGithubSnapshot(merged.cachedGithubSnapshot);
+            }
+            if (merged.ergonConnection) {
+              setErgonStatus(merged.ergonConnection);
+            }
+          }
+        }
+      } catch {
+        // Offline or unauthenticated: local settings remain authoritative.
+      }
+
+      try {
+        const ergonRes = await doFetch("/api/profile/connectors/ergon");
+
+        if (!ergonRes.ok || cancelled) return;
+        const ergonPayload = (await ergonRes.json().catch(() => ({}))) as { data?: unknown };
+        const ergonParsed = ErgonConnectionPublicSchema.safeParse(ergonPayload.data);
+
+        if (!cancelled && ergonParsed.success) {
+          const status = ergonParsed.data;
+
+          setErgonStatus(status);
+          setFormState((prev) =>
+            setUserConnectors({
+              ...prev,
+              ergonConnection: status.connected ? status : null,
+            })
+          );
+        }
+      } catch {
+        // Ergon status is optional when offline.
+      }
+    }
+
+    void hydrateFromServer();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [doFetch, initialProfile]);
+
+  const normalizedGithubHandle = useMemo(
+    () =>
+      normalizeGithubUsername(formState.githubUrl) ||
+      normalizeGithubUsername(formState.githubUsername),
+    [formState.githubUrl, formState.githubUsername]
+  );
+
+  const updateField = useCallback(
+    <K extends keyof UserConnectorsProfile>(key: K, value: UserConnectorsProfile[K]) => {
+      setFormState((prev) => {
+        const next = { ...prev, [key]: value };
+
+        if (key === "githubUrl" && typeof value === "string") {
+          const handle = normalizeGithubUsername(value);
+
+          next.githubUsername = handle;
+        } else if (key === "githubUsername" && typeof value === "string") {
+          const handle = normalizeGithubUsername(value);
+
+          next.githubUsername = handle;
+          if (handle) {
+            next.githubUrl = normalizeGithubProfileUrl(handle);
+          }
+        }
+
+        return next;
+      });
+      setIsDirty(true);
+      setSaveMessage(null);
+      setSaveError(null);
+    },
+    []
+  );
+
+  const handleSave = useCallback(
+    async (override?: Partial<UserConnectorsProfile>) => {
+      setSaving(true);
+      setSaveError(null);
+      setSaveMessage(null);
+
+      const candidate = normalizeUserConnectorsProfile(
+        {
+          ...formState,
+          ...(githubSnapshot ? { cachedGithubSnapshot: githubSnapshot } : {}),
+          ...(override ?? {}),
+        },
+        defaultUserConnectorsProfile()
+      );
+
+      const savedLocal = setUserConnectors(candidate);
+
+      setFormState(savedLocal);
+      setIsDirty(false);
+      onSave?.(savedLocal);
+
+      try {
+        const res = await doFetch("/api/profile/connectors", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(savedLocal),
+        });
+
+        if (res.ok) {
+          const payload = (await res.json().catch(() => ({}))) as { data?: unknown };
+          const parsed = UserConnectorsProfileSchema.safeParse(payload.data);
+
+          if (parsed.success) {
+            const synced = setUserConnectors(parsed.data);
+
+            setFormState(synced);
+          }
+          setSaveMessage("Saved to private profile & synced with subagent workbench");
+        } else {
+          setSaveMessage("Saved locally to private profile");
+        }
+      } catch {
+        setSaveMessage("Saved locally to private profile");
+      } finally {
+        setSaving(false);
+      }
+    },
+    [doFetch, formState, githubSnapshot, onSave]
+  );
+
+  const handleConnectErgonOAuth = useCallback(async () => {
+    setErgonBusy(true);
+    setErgonError(null);
+
+    try {
+      const res = await doFetch("/api/profile/connectors/ergon/oauth/start", {
+        headers: { Accept: "application/json" },
+      });
+      const payload = (await res.json().catch(() => ({}))) as {
+        data?: { authorizeUrl?: string };
+        error?: string;
+        oauthReady?: boolean;
+      };
+
+      if (res.status === 503 || payload.oauthReady === false) {
+        setErgonError(
+          payload.error ??
+            "Ergon MCP OAuth is not configured on this deployment yet (missing ERGON_OAUTH_CLIENT_ID / redirect)."
+        );
+        setErgonBusy(false);
+
+        return;
+      }
+
+      if (!res.ok) {
+        throw new Error(payload.error ?? "Could not start Ergon OAuth.");
+      }
+
+      const authorizeUrl = payload.data?.authorizeUrl;
+
+      if (!authorizeUrl) {
+        throw new Error("Ergon OAuth start did not return an authorize URL.");
+      }
+
+      window.location.assign(authorizeUrl);
+    } catch (error) {
+      setErgonError(error instanceof Error ? error.message : "Could not start Ergon OAuth.");
+      setErgonBusy(false);
+    }
+  }, [doFetch]);
+
+  const handleDisconnectErgon = useCallback(async () => {
+    setErgonBusy(true);
+    setErgonError(null);
+
+    try {
+      const res = await doFetch("/api/profile/connectors/ergon", { method: "DELETE" });
+      const payload = (await res.json().catch(() => ({}))) as {
+        data?: unknown;
+        error?: string;
+      };
+
+      if (!res.ok) {
+        throw new Error(payload.error ?? "Could not disconnect Ergon.");
+      }
+
+      const parsed = ErgonConnectionPublicSchema.safeParse(payload.data);
+      const next = parsed.success ? parsed.data : toPublicErgonConnection(null);
+
+      setErgonStatus(next);
+      await handleSave({ ergonConnection: next.connected ? next : null });
+      setSaveMessage(
+        next.source === "env"
+          ? "Disconnected your Ergon OAuth session. Admin env bridge still applies for this account."
+          : "Disconnected Ergon. Reconnect with OAuth to restore Mira and ticket tools."
+      );
+    } catch (error) {
+      setErgonError(error instanceof Error ? error.message : "Could not disconnect Ergon.");
+    } finally {
+      setErgonBusy(false);
+    }
+  }, [doFetch, handleSave]);
+
+  const handleSyncGithub = useCallback(async () => {
+    const rawTarget = formState.githubUrl.trim() || formState.githubUsername.trim();
+    const username = normalizeGithubUsername(rawTarget);
+
+    if (!username) {
+      setGithubError(
+        "Enter a valid GitHub username (e.g. Alexjoshua14) or profile URL (https://github.com/Alexjoshua14) first."
+      );
+
+      return;
+    }
+
+    setSyncingGithub(true);
+    setGithubError(null);
+
+    try {
+      const res = await doFetch(
+        `/api/profile/connectors/github?username=${encodeURIComponent(username)}&refresh=1`
+      );
+      const payload = (await res.json().catch(() => ({}))) as {
+        data?: GithubConnectorSnapshot;
+        error?: string;
+      };
+
+      if (!res.ok || !payload.data) {
+        throw new Error(payload.error ?? `Failed to sync GitHub repos for @${username}`);
+      }
+
+      const snapshot = payload.data;
+
+      setGithubSnapshot(snapshot);
+      await handleSave({
+        githubUsername: snapshot.username,
+        githubUrl: snapshot.profileUrl,
+        cachedGithubSnapshot: snapshot,
+      });
+      setSaveMessage(
+        `Synced ${snapshot.repos.length} public repositories for @${snapshot.username}`
+      );
+    } catch (error) {
+      setGithubError(
+        error instanceof Error ? error.message : "Could not sync GitHub repositories."
+      );
+    } finally {
+      setSyncingGithub(false);
+    }
+  }, [doFetch, formState, handleSave]);
+
+  return (
+    <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-1">
+          <h2 className="text-xl font-semibold text-foreground">Connectors & Personal Dossier</h2>
+          <p className={caption({ className: "max-w-xl" })}>
+            Store your connected developer profiles, academic transcripts, career history, resume,
+            and infrastructure preferences in your private profile. Organic automatically routes
+            each slice to the proper specialist subagent on the workbench.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0 pt-1">
+          <button
+            className="inline-flex items-center gap-1.5 rounded-lg bg-foreground px-3.5 py-2 text-xs font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-50"
+            disabled={saving}
+            type="button"
+            onClick={() => void handleSave()}
+          >
+            <CheckCircle2 className="size-3.5" />
+            {saving ? "Saving..." : "Save Connectors & Dossier"}
+          </button>
+        </div>
+      </div>
+
+      {saveMessage && (
+        <div
+          className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-2.5 text-xs text-emerald-700 dark:text-emerald-300"
+          role="status"
+        >
+          <CheckCircle2 className="size-4 shrink-0" />
+          <span>{saveMessage}</span>
+        </div>
+      )}
+
+      {saveError && (
+        <div
+          className="rounded-lg border border-destructive/30 bg-destructive/5 px-3.5 py-2.5 text-xs text-destructive"
+          role="alert"
+        >
+          {saveError}
+        </div>
+      )}
+
+      {isDirty && !saveMessage && (
+        <p className="text-xs text-amber-600 dark:text-amber-400">
+          You have unsaved connector or dossier edits. Click &ldquo;Save Connectors &amp;
+          Dossier&rdquo; to persist them.
+        </p>
+      )}
+
+      {/* Subagent Routing & Privacy Notice */}
+      <section className="rounded-xl border border-border/70 bg-muted/20 p-4 space-y-4">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="size-4 text-foreground shrink-0" />
+          <h3 className="text-sm font-medium text-foreground">
+            Subagent Mesh Routing &amp; Worktable Interop
+          </h3>
+        </div>
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          Instead of dumping your entire dossier into every prompt, Organic&apos;s orchestrator
+          bundles only the relevant shorthand slice and dispatches the specialist built for that
+          domain:
+        </p>
+        <div className="grid gap-2.5 sm:grid-cols-3">
+          {CONNECTOR_SPECIALIST_ROUTES.map((entry) => (
+            <div
+              key={entry.agentId}
+              className="rounded-lg border border-border/60 bg-background/80 p-3 space-y-1.5"
+            >
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-xs font-semibold text-foreground">{entry.agent}</span>
+                <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                  {entry.role}
+                </span>
+              </div>
+              <p className="font-mono text-[10px] text-muted-foreground">
+                {entry.shorthand.join(" · ")}
+              </p>
+              <p className="text-[11px] leading-snug text-muted-foreground">{entry.description}</p>
+            </div>
+          ))}
+        </div>
+
+        <SettingsRow
+          mainText={
+            formState.autoShareWithSubagents
+              ? "Orchestrator can attach connector:github and connector:dossier slices to Reed, Lyra, and Archer."
+              : "Subagents will not receive automatic connector slices unless you paste them in chat."
+          }
+          subtext="Respects Zero Data Retention and only attaches the slice needed for the active assignment."
+          title="Automatic Subagent Connector Routing"
+        >
+          <Switch
+            aria-label="Automatically share connectors with subagents"
+            isSelected={formState.autoShareWithSubagents}
+            onValueChange={(enabled) => {
+              updateField("autoShareWithSubagents", enabled);
+              void handleSave({ autoShareWithSubagents: enabled });
+            }}
+          />
+        </SettingsRow>
+      </section>
+
+      {/* Connected Accounts Card */}
+      <section className="rounded-xl border border-border/70 bg-background p-5 space-y-5">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <Globe className="size-4 text-foreground" />
+            <h3 className="text-sm font-semibold text-foreground">
+              Connected Profiles &amp; Handles
+            </h3>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Link your GitHub, LinkedIn, personal site, and Ergon workspace so Organic can inspect
+            your public repositories and work engineering tickets on demand.
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          {/* Ergon — MCP OAuth (product path for Mira + ticket tools) */}
+          <div className="space-y-2 rounded-lg border border-border/60 bg-muted/10 p-3.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+                <Link2 className="size-3.5 text-muted-foreground" />
+                Ergon (MCP OAuth)
+              </div>
+              {ergonStatus.connected ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
+                  <CheckCircle2 className="size-3" />
+                  Connected
+                  {ergonStatus.authMode === "oauth" ? " · OAuth" : ""}
+                  {ergonStatus.source === "env" ? " · admin" : ""}
+                </span>
+              ) : (
+                <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
+                  Not connected
+                </span>
+              )}
+            </div>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              Connect via Ergon MCP OAuth (
+              <code className="mx-1">{DEFAULT_ERGON_MCP_URL}</code>
+              ). Organic stores access tokens server-side only; refresh tokens never reach the
+              browser. Mira (<code>agent-planner</code> / <code>connector:ergon</code>) uses the MCP
+              session. Main chat gets write ticket tools when write scope is present.
+            </p>
+
+            {ergonStatus.connected ? (
+              <div className="space-y-2">
+                <div className="rounded-lg border border-border/50 bg-background/80 px-3 py-2 text-xs text-foreground space-y-1">
+                  <div className="font-mono text-[11px] text-muted-foreground break-all">
+                    {ergonStatus.mcpUrl ?? ergonStatus.url}
+                  </div>
+                  {(ergonStatus.authMode || ergonStatus.transport) && (
+                    <div className="text-[11px] text-muted-foreground">
+                      {[
+                        ergonStatus.authMode ? `Auth: ${ergonStatus.authMode}` : null,
+                        ergonStatus.transport ? `Transport: ${ergonStatus.transport}` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </div>
+                  )}
+                  {ergonStatus.scopes.length > 0 && (
+                    <div className="text-[11px] text-muted-foreground">
+                      Scopes: {ergonStatus.scopes.join(", ")}
+                    </div>
+                  )}
+                  {ergonStatus.connectedAt && (
+                    <div className="text-[11px] text-muted-foreground">
+                      Connected {new Date(ergonStatus.connectedAt).toLocaleString()}
+                    </div>
+                  )}
+                </div>
+                {ergonStatus.source === "user" && (
+                  <button
+                    aria-label="Disconnect Ergon"
+                    className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                    disabled={ergonBusy}
+                    type="button"
+                    onClick={() => void handleDisconnectErgon()}
+                  >
+                    <Unplug className="size-3.5" />
+                    {ergonBusy ? "Disconnecting…" : "Disconnect Ergon"}
+                  </button>
+                )}
+              </div>
+            ) : (
+              <button
+                aria-label="Connect Ergon with OAuth"
+                className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-border bg-foreground px-3 py-2 text-xs font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-50"
+                disabled={ergonBusy}
+                type="button"
+                onClick={() => void handleConnectErgonOAuth()}
+              >
+                <Link2 className={`size-3.5 ${ergonBusy ? "animate-pulse" : ""}`} />
+                {ergonBusy ? "Starting OAuth…" : "Connect with Ergon (OAuth)"}
+              </button>
+            )}
+
+            {ergonError && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                {ergonError}
+              </div>
+            )}
+          </div>
+
+          {/* GitHub */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <label
+                className="text-xs font-medium text-foreground flex items-center gap-1.5"
+                htmlFor="connector-github-url"
+              >
+                <GitBranch className="size-3.5 text-muted-foreground" />
+                GitHub Profile URL or Username
+              </label>
+              {normalizedGithubHandle && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 font-mono text-[11px] text-foreground">
+                  @{normalizedGithubHandle}
+                </span>
+              )}
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <input
+                className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                id="connector-github-url"
+                placeholder="https://github.com/Alexjoshua14 or Alexjoshua14"
+                type="text"
+                value={formState.githubUrl}
+                onChange={(e) => updateField("githubUrl", e.target.value)}
+              />
+              <button
+                aria-label="Test / Sync GitHub Repos"
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                disabled={syncingGithub}
+                type="button"
+                onClick={() => void handleSyncGithub()}
+              >
+                <RefreshCw className={`size-3.5 ${syncingGithub ? "animate-spin" : ""}`} />
+                {syncingGithub ? "Syncing GitHub..." : "Test / Sync GitHub Repos"}
+              </button>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Routed to <strong>Reed</strong> (<code>agent-coder</code>) via{" "}
+              <code>connector:github</code> when you ask about your repositories, projects, or code.
+            </p>
+
+            {githubError && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                {githubError}
+              </div>
+            )}
+
+            {githubSnapshot && (
+              <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="text-xs font-medium text-foreground">
+                    Synced {githubSnapshot.repos.length} public{" "}
+                    {githubSnapshot.repos.length === 1 ? "repository" : "repositories"} for{" "}
+                    <span className="font-mono">@{githubSnapshot.username}</span>
+                    {githubSnapshot.profile?.name ? ` (${githubSnapshot.profile.name})` : ""}
+                  </div>
+                  <a
+                    className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground underline"
+                    href={githubSnapshot.profileUrl}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    View on GitHub
+                    <ExternalLink className="size-3" />
+                  </a>
+                </div>
+                {githubSnapshot.profile?.bio && (
+                  <p className="text-[11px] text-muted-foreground">{githubSnapshot.profile.bio}</p>
+                )}
+                {githubSnapshot.repos.length > 0 && (
+                  <ul className="grid gap-1.5 sm:grid-cols-2">
+                    {githubSnapshot.repos.slice(0, 8).map((repo) => (
+                      <li
+                        key={repo.name}
+                        className="rounded border border-border/50 bg-background/70 px-2.5 py-1.5 text-xs"
+                      >
+                        <div className="flex items-center justify-between gap-1.5">
+                          <a
+                            className="font-mono font-medium text-foreground hover:underline truncate"
+                            href={repo.html_url}
+                            rel="noreferrer"
+                            target="_blank"
+                          >
+                            {repo.name}
+                          </a>
+                          {repo.language && (
+                            <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                              {repo.language}
+                            </span>
+                          )}
+                        </div>
+                        {repo.description && (
+                          <p className="mt-0.5 line-clamp-1 text-[11px] text-muted-foreground">
+                            {repo.description}
+                          </p>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* LinkedIn & Website */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <label
+                className="text-xs font-medium text-foreground"
+                htmlFor="connector-linkedin-url"
+              >
+                LinkedIn URL
+              </label>
+              <input
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                id="connector-linkedin-url"
+                placeholder="https://www.linkedin.com/in/your-handle"
+                type="url"
+                value={formState.linkedinUrl}
+                onChange={(e) => updateField("linkedinUrl", e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label
+                className="text-xs font-medium text-foreground"
+                htmlFor="connector-website-url"
+              >
+                Personal Website / Portfolio URL
+              </label>
+              <input
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                id="connector-website-url"
+                placeholder="https://yourdomain.com"
+                type="url"
+                value={formState.websiteUrl}
+                onChange={(e) => updateField("websiteUrl", e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-foreground" htmlFor="connector-x-handle">
+              X / Additional Handle or Links
+            </label>
+            <input
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+              id="connector-x-handle"
+              placeholder="@handle or additional profile links"
+              type="text"
+              value={formState.xHandle}
+              onChange={(e) => updateField("xHandle", e.target.value)}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Personal Dossier Cards */}
+      <section className="rounded-xl border border-border/70 bg-background p-5 space-y-6">
+        <div className="space-y-1">
+          <h3 className="text-sm font-semibold text-foreground">
+            Personal Dossier &amp; Grounding Vault
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            Foundational context you can rely on Organic knowing without re-explaining. Each section
+            can be referenced independently on the subagent worktable.
+          </p>
+        </div>
+
+        {/* Education & Transcripts */}
+        <div className="space-y-1.5">
+          <label
+            className="text-xs font-medium text-foreground flex items-center gap-1.5"
+            htmlFor="dossier-education"
+          >
+            <BookOpen className="size-3.5 text-muted-foreground" />
+            Education &amp; Transcripts (<code>connector:education</code>)
+          </label>
+          <p className="text-[11px] text-muted-foreground">
+            Schools, majors, key coursework, seminars, or pasted transcript notes (e.g. Williams
+            College CS + Studio Art, Multivariable Calculus, Linear Algebra, Heliophysics,
+            Astrophysics, Architecture).
+          </p>
+          <textarea
+            className="min-h-24 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+            id="dossier-education"
+            placeholder="Williams College — B.A. in Computer Science & Studio Art. Coursework: Multivariable Calculus, Linear Algebra, Heliophysics, Astrophysics, Architecture..."
+            rows={4}
+            value={formState.educationAndTranscripts}
+            onChange={(e) => updateField("educationAndTranscripts", e.target.value)}
+          />
+        </div>
+
+        {/* Career History & Projects */}
+        <div className="space-y-1.5">
+          <label
+            className="text-xs font-medium text-foreground flex items-center gap-1.5"
+            htmlFor="dossier-career"
+          >
+            <Briefcase className="size-3.5 text-muted-foreground" />
+            Career History &amp; Systems Built (<code>connector:career</code>)
+          </label>
+          <p className="text-[11px] text-muted-foreground">
+            Roles, organizations, flagship engineering systems, and domain expertise.
+          </p>
+          <textarea
+            className="min-h-24 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+            id="dossier-career"
+            placeholder="Founder / Engineer building Organic LLM, multi-agent orchestration, encrypted memory systems, and physics-driven interfaces..."
+            rows={4}
+            value={formState.careerHistory}
+            onChange={(e) => updateField("careerHistory", e.target.value)}
+          />
+        </div>
+
+        {/* Resume / CV */}
+        <div className="space-y-1.5">
+          <label
+            className="text-xs font-medium text-foreground flex items-center gap-1.5"
+            htmlFor="dossier-resume"
+          >
+            <FileText className="size-3.5 text-muted-foreground" />
+            Resume / CV Markdown or Plain Text (<code>connector:resume</code>)
+          </label>
+          <p className="text-[11px] text-muted-foreground">
+            Paste your full resume or CV so Organic and its writing/research subagents can cite
+            exact dates, metrics, and accomplishments.
+          </p>
+          <textarea
+            className="min-h-28 w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-xs text-foreground placeholder:text-muted-foreground/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+            id="dossier-resume"
+            placeholder="Paste your markdown or plain-text resume / CV here..."
+            rows={5}
+            value={formState.resumeText}
+            onChange={(e) => updateField("resumeText", e.target.value)}
+          />
+        </div>
+
+        {/* Working & Infrastructure Preferences */}
+        <div className="space-y-1.5">
+          <label
+            className="text-xs font-medium text-foreground flex items-center gap-1.5"
+            htmlFor="dossier-preferences"
+          >
+            <Cpu className="size-3.5 text-muted-foreground" />
+            Working &amp; Infrastructure Preferences (<code>connector:preferences</code>)
+          </label>
+          <p className="text-[11px] text-muted-foreground">
+            Hardware, home servers (e.g. MacBook + <code>aetherion</code> Raspberry Pi 5), preferred
+            languages/runtimes (TypeScript, Bun, Rust, Next.js), and architectural taste.
+          </p>
+          <textarea
+            className="min-h-24 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+            id="dossier-preferences"
+            placeholder="Primary workstation: MacBook Pro. Home server: aetherion (Raspberry Pi 5). Stack: TypeScript, Next.js App Router, Bun, Supabase, Rust/WASM..."
+            rows={4}
+            value={formState.workingPreferences}
+            onChange={(e) => updateField("workingPreferences", e.target.value)}
+          />
+        </div>
+      </section>
+    </div>
+  );
+}
+
+export default ConnectorsSettingsTab;

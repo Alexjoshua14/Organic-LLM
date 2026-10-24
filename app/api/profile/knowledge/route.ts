@@ -4,6 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 import { streamText } from "ai";
 import { z } from "zod";
 
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import { getProfile, getSupabaseUserId } from "@/data/supabase/profiles";
 import { formatMemoriesBlock } from "@/lib/knowledge/build-prompt";
 import { KNOWLEDGE_GATEWAY_PROVIDER_OPTIONS } from "@/lib/knowledge/gateway-options";
@@ -13,6 +14,7 @@ import { searchMemoriesForUser } from "@/lib/memory/operations";
 import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
 import { createLogger } from "@/lib/logger";
 import { models } from "@/lib/schemas/chat-models";
+import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
 
 export const maxDuration = 30;
 
@@ -42,6 +44,10 @@ export async function POST(req: Request) {
       headers: { "Content-Type": "application/json" },
     });
   }
+
+  const planGate = await requirePlanBudget({ clerkUserId: user.userId, sbUserId: sbUserId.data });
+
+  if (planGate) return planGate;
 
   const messageLimitResult = await checkLlmMessageLimit(sbUserId.data);
 
@@ -97,13 +103,18 @@ ${memoriesBlock}`;
   const start = performance.now();
 
   const result = streamText({
+    ...(await createAuthenticatedLlmBudgetHooks({
+      modelId: budgetModelId(KNOWLEDGE_MODEL),
+      operation: "/api/profile/knowledge",
+    })),
     model: KNOWLEDGE_MODEL,
-    system,
+    instructions: system,
     prompt,
     maxOutputTokens: 900,
     providerOptions: KNOWLEDGE_GATEWAY_PROVIDER_OPTIONS,
-    onFinish: ({ usage }) => {
+    onEnd: ({ usage }) => {
       recordLlmCall({
+        persist: false,
         model: KNOWLEDGE_MODEL,
         usage,
         durationMs: performance.now() - start,

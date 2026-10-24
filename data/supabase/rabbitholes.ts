@@ -11,6 +11,7 @@ import { Result, SimpleResult } from "@/types";
 import { RabbitHoleSession, RabbitHoleSessionSchema } from "@/lib/schemas/rabbitHoleSchemas";
 import { supabaseServer } from "@/lib/supabase/server";
 import { createLogger } from "@/lib/logger";
+import { sanitizeRabbitHoleArticleHtml } from "@/lib/html/sanitize";
 import { isUnixTimestamp } from "@/lib/utils";
 
 const logger = createLogger("data/supabase/rabbitholes.ts");
@@ -138,6 +139,34 @@ export async function advanceGenerationStep(
 }
 
 /**
+ * Mark a node as the in-flight generation target so a later `after()` or resume
+ * can advance `generation_step`. Safe to call with the admin client when the
+ * user JWT is gone.
+ */
+export async function claimRabbitHoleGeneration(
+  sessionId: string,
+  nodeId: string,
+  step: GenerationStepType,
+  client?: RabbitHolesSupabaseClient
+): Promise<void> {
+  const supabase = client ?? (await supabaseServer());
+  const { error } = await supabase
+    .from("rabbit_hole_sessions")
+    .update({
+      generating_node_id: nodeId,
+      generation_step: step,
+      active_node_id: nodeId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("session_id", sessionId);
+
+  if (error) {
+    logger.error("claimRabbitHoleGeneration", error.message);
+    throw error;
+  }
+}
+
+/**
  * Fetch a full session by ID
  */
 export async function getSessionById(
@@ -259,7 +288,9 @@ export async function getSessionById(
       preview: node.preview ?? null,
       summary: node.summary ?? null,
       keyTakeaways: Array.isArray(node.key_takeaways) ? (node.key_takeaways as string[]) : [],
-      articleHtml: node.article_html,
+      articleHtml: node.article_html
+        ? await sanitizeRabbitHoleArticleHtml(node.article_html)
+        : node.article_html,
       sources: sourcesByNodeId.get(node.node_id) ?? [],
       branchSuggestions: branchesByNodeId.get(node.node_id) ?? [],
       createdAt: typeof node.created_at === "string" ? node.created_at : new Date().toISOString(),
@@ -366,20 +397,20 @@ export async function saveSession(
     }
 
     if (DEBUG_MODE) {
-      logger.log("saveSession", `Deserializing session: ${serialized.substring(0, 100)}...`);
+      logger.log("saveSession", "Deserializing session");
     }
     const session = await deserializeSession(serialized);
 
     if (DEBUG_MODE) {
       logger.log(
         "saveSession",
-        `Deserialized session ${session.sessionId} with ${Object.keys(session.nodesById).length} nodes, ${session.path.length} path segments`
+        `Deserialized session with ${Object.keys(session.nodesById).length} nodes, ${session.path.length} path segments`
       );
     }
 
     // Upsert the main session
     if (DEBUG_MODE) {
-      logger.log("saveSession", `Upserting main session: ${session.sessionId}`);
+      logger.log("saveSession", "Upserting main session");
     }
 
     // Convert timestamps to ISO strings if they're Unix timestamps
@@ -395,7 +426,7 @@ export async function saveSession(
     let ownerId: string | undefined;
 
     if (client) {
-      logger.log("saveSession", `Admin client: fetching owner_id for session ${session.sessionId}`);
+      logger.log("saveSession", "Admin client: fetching session owner");
       const { data: existing } = await supabase
         .from("rabbit_hole_sessions")
         .select("owner_id")
@@ -645,7 +676,7 @@ export async function saveSession(
     }
 
     if (DEBUG_MODE) {
-      logger.log("saveSession", `Successfully saved session ${session.sessionId}`);
+      logger.log("saveSession", "Successfully saved session");
     }
 
     return {

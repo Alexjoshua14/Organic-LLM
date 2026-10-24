@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { setSidebarChatTitle } from "@/lib/context/chat-context";
+import { useSharedChatContext } from "@/lib/context/chat-context";
 import { createLogger } from "@/lib/logger";
 import { SESSION_TITLE_NOTICE_MS } from "@/lib/sidebar/session-signal-timing";
 
@@ -20,10 +20,12 @@ export function titleGenerationFailureMessage(status: number | null): string {
 
 /**
  * AI title regeneration for sidebar rows, with the feedback the click deserves: the row shows
- * the work at once, the new title lands in the list the moment the server returns it, and a
+ * the work at once, the shared title transition applies the returned title, and a
  * failure says why for a few seconds before clearing. `announcement` is for a polite live region.
  */
-export function useThreadTitleGeneration(refreshSidebarChats: () => void) {
+export function useThreadTitleGeneration() {
+  const { isTitleRegenerating, beginTitleRegen, resolveTitleRegen, finishTitleRegen } =
+    useSharedChatContext();
   const [statusById, setStatusById] = useState<ReadonlyMap<string, TitleGenerationStatus>>(
     () => new Map()
   );
@@ -52,9 +54,11 @@ export function useThreadTitleGeneration(refreshSidebarChats: () => void) {
 
   const generateTitle = useCallback(
     async (thread: { id: string; title: string }) => {
-      if (statusRef.current.get(thread.id)?.phase === "pending") return;
+      if (statusRef.current.get(thread.id)?.phase === "pending" || isTitleRegenerating(thread.id))
+        return;
 
       clearTimeout(noticeTimers.current.get(thread.id));
+      beginTitleRegen(thread.id, thread.title);
       setStatus(thread.id, { phase: "pending" });
       setAnnouncement(`Generating a new title for ${thread.title}`);
 
@@ -71,13 +75,14 @@ export function useThreadTitleGeneration(refreshSidebarChats: () => void) {
         const body = (await res.json().catch(() => null)) as { data?: unknown } | null;
         const title = typeof body?.data === "string" ? body.data.trim() : "";
 
-        if (title) await setSidebarChatTitle(thread.id, title);
+        if (title) resolveTitleRegen(thread.id, title);
+        else finishTitleRegen(thread.id);
         setStatus(thread.id, null);
         setAnnouncement(title ? `Title updated: ${title}` : "Title updated");
-        refreshSidebarChats();
       } catch (err) {
         logger.error("generateTitle", err instanceof Error ? err.message : String(err));
 
+        finishTitleRegen(thread.id);
         const message = titleGenerationFailureMessage(status);
 
         setStatus(thread.id, { phase: "failed", message });
@@ -88,7 +93,7 @@ export function useThreadTitleGeneration(refreshSidebarChats: () => void) {
         );
       }
     },
-    [refreshSidebarChats, setStatus]
+    [isTitleRegenerating, beginTitleRegen, resolveTitleRegen, finishTitleRegen, setStatus]
   );
 
   return { titleGeneration: statusById, generateTitle, announcement };

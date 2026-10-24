@@ -112,8 +112,9 @@ export function useMemoryIngestCaptionBudget(): UseMemoryIngestCaptionBudgetResu
     const nextBudget = computeDelphiCaptionBudget(input);
 
     setBudget(nextBudget);
+    // Ceiling, not a fixed size: the caption fits its content and may shrink to a
+    // single line; unused height flows back to the flex-1 particle column above.
     setCaptionStyle({
-      minHeight: nextBudget.visibleHeightPx,
       maxHeight: nextBudget.visibleHeightPx,
     });
   }, []);

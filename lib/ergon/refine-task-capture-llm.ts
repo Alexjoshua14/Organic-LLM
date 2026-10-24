@@ -4,6 +4,7 @@ import type { Result } from "@/types";
 import { generateObject } from "ai";
 import { z } from "zod";
 
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import { KNOWLEDGE_GATEWAY_PROVIDER_OPTIONS } from "@/lib/knowledge/gateway-options";
 import { createLogger } from "@/lib/logger";
 import { recordLlmCall } from "@/lib/llm/metrics";
@@ -91,8 +92,12 @@ export async function refineTasksWithLlm(options: {
 
     const { object, usage } = await withTimeout(
       generateObject({
+        ...(await createAuthenticatedLlmBudgetHooks({
+          modelId: budgetModelId(ERGON_REFINE_MODEL),
+          operation: "ergon/refine-task-capture-llm",
+        })),
         model: ERGON_REFINE_MODEL,
-        system: ERGON_REFINE_SYSTEM,
+        instructions: ERGON_REFINE_SYSTEM,
         prompt,
         schema,
         maxOutputTokens: Math.min(120 * count + 80, 1_200),
@@ -104,6 +109,7 @@ export async function refineTasksWithLlm(options: {
     const durationMs = performance.now() - start;
 
     recordLlmCall({
+      persist: false,
       model: ERGON_REFINE_MODEL,
       usage,
       durationMs,

@@ -49,10 +49,14 @@ function SheetContent({
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: "top" | "right" | "bottom" | "left";
-  /** When true, overlay and content use z-[100] so the sheet sits above surrounding layout (e.g. over chat messages). */
-  overlayPriority?: boolean;
+  /**
+   * Stacking above surrounding chrome:
+   * - `true` → above chat content (`z-[100]`)
+   * - `"chrome"` → above the control cluster (`z-[220]`) so overlay click-away works
+   */
+  overlayPriority?: boolean | "chrome";
 }) {
-  const zClass = overlayPriority ? "z-[100]" : "z-50";
+  const zClass = overlayPriority === "chrome" ? "z-[220]" : overlayPriority ? "z-[100]" : "z-50";
 
   return (
     <SheetPortal>

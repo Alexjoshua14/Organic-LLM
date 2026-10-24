@@ -18,6 +18,7 @@ import {
   type StrataLinkBlockStatusEvent,
   type StrataLinkBlockStreamChunk,
 } from "@/lib/strata/link-block-status";
+import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
 
 export const maxDuration = 30;
 
@@ -38,6 +39,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
   const sbUserId = sbUserIdResult.data;
+  const planGate = await requirePlanBudget({ clerkUserId: clerkUser.userId, sbUserId });
+
+  if (planGate) return planGate;
 
   let bodyJson: unknown;
 

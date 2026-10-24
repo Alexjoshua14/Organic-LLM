@@ -17,7 +17,7 @@ import { ThreadLink } from "@/types";
 import { createLogger } from "@/lib/logger";
 import { useSharedChatContext } from "@/lib/context/chat-context";
 import { useChatId } from "@/hooks/use-chat-id";
-import { SidebarThreadActionsMenu } from "@/components/sidebar/sidebar-thread-actions-menu";
+import { LazySidebarThreadActionsMenu } from "@/components/sidebar/sidebar-thread-actions-menu";
 import { SidebarChatTitle } from "@/components/sidebar/sidebar-chat-title";
 import { SessionGlyph } from "@/components/sidebar/session-glyph";
 import { SessionSignalTray } from "@/components/sidebar/session-signal-tray";
@@ -47,13 +47,12 @@ type SidebarChatListProps = {
 
 export const SidebarChatList: FC<SidebarChatListProps> = ({ threads, signals, activeThreadId }) => {
   const { setOpenMobile, isMobile } = useSidebar();
-  const { setChatId, refreshSidebarChats } = useSharedChatContext();
+  const { setChatId, updateSidebarChat } = useSharedChatContext();
   const pathChatId = useChatId();
   const currentChatId = activeThreadId !== undefined ? activeThreadId : pathChatId;
   const router = useRouter();
   const descriptionIdPrefix = useId();
-  const { titleGeneration, generateTitle, announcement } =
-    useThreadTitleGeneration(refreshSidebarChats);
+  const { titleGeneration, generateTitle, announcement } = useThreadTitleGeneration();
 
   const [editingThreadId, setEditingThreadId] = useState<string | null>(null);
   const [openMenuThreadId, setOpenMenuThreadId] = useState<string | null>(null);
@@ -77,11 +76,12 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads, signals, ac
           `Error saving title for thread: ${threadId}`,
           res.error.message
         );
+      } else {
+        updateSidebarChat(threadId, { title });
       }
-      refreshSidebarChats();
       setEditingThreadId(null);
     },
-    [refreshSidebarChats]
+    [updateSidebarChat]
   );
 
   const togglePinThread = useCallback(
@@ -96,10 +96,10 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads, signals, ac
           res.error.message
         );
       } else {
-        refreshSidebarChats();
+        updateSidebarChat(thread.id, { pinned: !thread.pinned });
       }
     },
-    [refreshSidebarChats]
+    [updateSidebarChat]
   );
 
   const handleLongPressStart = useCallback(
@@ -184,6 +184,11 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads, signals, ac
                     : "hover:bg-background",
                   isArcadia ? "text-foreground" : "text-foreground-secondary"
                 )}
+                onContextMenu={(event) => {
+                  if (isEditing) return;
+                  event.preventDefault();
+                  setMenuOpen(thread.id);
+                }}
                 onTouchCancel={handleLongPressEnd}
                 onTouchEnd={handleLongPressEnd}
                 onTouchStart={() => handleLongPressStart(thread.id)}
@@ -223,6 +228,7 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads, signals, ac
                     />
                     <SidebarChatTitle
                       editing={isEditing}
+                      threadId={thread.id}
                       title={thread.title}
                       onEditingChange={(editing) => setEditingThreadId(editing ? thread.id : null)}
                       onSave={(title) => handleSaveTitle(thread.id, title)}
@@ -245,7 +251,7 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads, signals, ac
                   <div
                     className={`absolute right-0 top-0 bottom-0 flex items-center z-10 pr-1 transition-opacity duration-250 ${isActiveThread || isMenuOpen ? "opacity-100" : "opacity-0 group-hover/thread:opacity-100"}`}
                   >
-                    <SidebarThreadActionsMenu
+                    <LazySidebarThreadActionsMenu
                       open={isMenuOpen}
                       thread={thread}
                       onEditTitle={() => setEditingThreadId(thread.id)}
@@ -265,7 +271,7 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads, signals, ac
                       >
                         <MoreVertical size={18} />
                       </span>
-                    </SidebarThreadActionsMenu>
+                    </LazySidebarThreadActionsMenu>
                   </div>
                 )}
               </div>
@@ -273,7 +279,7 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads, signals, ac
                 <div
                   className={`absolute right-0 top-0 bottom-0 flex items-center z-10 pr-1 ${isActiveThread ? "opacity-100" : "opacity-0 group-hover/thread:opacity-100"}`}
                 >
-                  <SidebarThreadActionsMenu
+                  <LazySidebarThreadActionsMenu
                     open={isMenuOpen}
                     thread={thread}
                     onEditTitle={() => setEditingThreadId(thread.id)}
@@ -293,7 +299,7 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads, signals, ac
                     >
                       <MoreVertical size={18} />
                     </span>
-                  </SidebarThreadActionsMenu>
+                  </LazySidebarThreadActionsMenu>
                 </div>
               )}
               <AnimatePresence>

@@ -3,6 +3,7 @@ import type { Result } from "@/types";
 
 import { generateObject } from "ai";
 
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import { KNOWLEDGE_GATEWAY_PROVIDER_OPTIONS } from "@/lib/knowledge/gateway-options";
 import { createLogger } from "@/lib/logger";
 import { recordLlmCall } from "@/lib/llm/metrics";
@@ -85,8 +86,12 @@ export async function enhanceTaskFields(
 
     const { object, usage } = await withTimeout(
       generateObject({
+        ...(await createAuthenticatedLlmBudgetHooks({
+          modelId: budgetModelId(ERGON_ENHANCE_MODEL),
+          operation: "llm/enhance-task",
+        })),
         model: ERGON_ENHANCE_MODEL,
-        system: ENHANCE_SYSTEM,
+        instructions: ENHANCE_SYSTEM,
         prompt: buildPrompt(ctx, now),
         schema: ErgonEnhanceFieldsSchema,
         maxOutputTokens: 300,
@@ -96,6 +101,7 @@ export async function enhanceTaskFields(
     );
 
     recordLlmCall({
+      persist: false,
       model: ERGON_ENHANCE_MODEL,
       usage,
       durationMs: performance.now() - start,

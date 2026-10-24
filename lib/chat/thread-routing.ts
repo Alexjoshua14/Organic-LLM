@@ -9,6 +9,7 @@ import { generateObject } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
 
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import { createChat } from "@/lib/chat/chat-store";
 import { resolveHomepageCandidateByIndex } from "@/lib/chat/thread-routing-candidates";
 import { loadHomepageRoutingCandidates } from "@/lib/chat/load-homepage-routing-candidates";
@@ -173,8 +174,12 @@ export async function routeHomepagePrompt(params: {
 
   try {
     const { object, usage } = await generateObject({
+      ...(await createAuthenticatedLlmBudgetHooks({
+        modelId: budgetModelId(ROUTING_MODEL),
+        operation: "chat/thread-routing",
+      })),
       model: ROUTING_MODEL,
-      system: ROUTING_SYSTEM,
+      instructions: ROUTING_SYSTEM,
       prompt: buildClassifierPrompt(trimmed, candidates),
       schema: HomepageRoutingDecisionSchema,
       maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
@@ -184,6 +189,7 @@ export async function routeHomepagePrompt(params: {
     classificationMs = performance.now() - llmStart;
 
     recordLlmCall({
+      persist: false,
       model: models.openai.luna.id,
       usage,
       durationMs: classificationMs,

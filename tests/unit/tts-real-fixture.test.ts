@@ -4,8 +4,8 @@
  * These tests use the fixture at tests/fixtures/generate-speech-response.json.
  * If the fixture is missing, they are skipped (not failed).
  *
- * Run `LOG_TTS_FIXTURE=1 bun run dev` and generate speech to capture fixtures.
- * See tests/fixtures/README.md for details.
+ * This fixture came from the retired SSE endpoint. See tests/fixtures/README.md
+ * for its format and the separate active ElevenLabs capture workflow.
  */
 
 import { describe, test, expect } from "bun:test";

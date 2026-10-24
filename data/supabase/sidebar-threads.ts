@@ -3,35 +3,99 @@ import "server-only";
 import type { Result } from "@/types";
 
 import {
+  SIDEBAR_PINNED_MAX,
+  sidebarCursorFilter,
+  sidebarFeatureCondition,
+  toSidebarPage,
+  type SidebarCursor,
+  type SidebarThreadRow,
+  type SidebarThreadScope,
+  type SidebarThreadsPage,
+} from "@/lib/chat/sidebar-threads";
+import {
   resolveSidebarThreadRows,
   type SidebarThreadQueryRow,
-  type SidebarThreadRow,
 } from "@/lib/sidebar/sidebar-thread-rows";
 import { supabaseServer } from "@/lib/supabase/server";
 
-/**
- * The sidebar thread list in one query: the owner's non-archived threads, newest first, each with
- * its rabbit hole (via `rabbit_hole_sessions.chat_thread_id`) and that rabbit hole's root path
- * segment embedded. Replaces a thread query plus two rabbit-hole lookups. Archived threads are
- * never read (`idx_threads_owner_updated_unarchived` matches the predicate).
- *
- * Deliberately separate from `getChats`, whose other callers (tools, sync, Remy) want every thread.
+/*
+ * Not in chat.ts: that file is "use server", so every export there is a
+ * client-callable action. This one takes an owner id and stays route-only.
  */
-export async function getSidebarThreads(ownerId: string): Promise<Result<SidebarThreadRow[]>> {
+
+const SIDEBAR_THREAD_COLUMNS =
+  "id, title, owner_id, created_at, updated_at, pinned, feature, path, rabbit_hole_sessions(root_question, rabbit_hole_path_segments(label))";
+
+/**
+ * One page of the sidebar list for an owner, newest first, keyset-paged on
+ * `(updated_at, id)`. Unpinned rows only; the first page (no cursor) also returns every
+ * pinned thread, fetched in parallel. Feature filtering happens here so hidden threads
+ * never leave the database.
+ *
+ * Needs `threads (owner_id, updated_at desc, id desc)` to stay an index range scan;
+ * see docs/migrations/threads_sidebar_list_index.sql.
+ */
+export async function getSidebarThreadsPage(options: {
+  ownerId: string;
+  scope: SidebarThreadScope;
+  cursor: SidebarCursor | null;
+  limit: number;
+}): Promise<Result<SidebarThreadsPage>> {
+  const { ownerId, scope, cursor, limit } = options;
   const sb = await supabaseServer();
-  const { data, error } = await sb
+  const feature = sidebarFeatureCondition(scope);
+
+  let pageQuery = sb
     .from("threads")
-    .select(
-      "id, title, updated_at, pinned, feature, path, rabbit_hole_sessions(root_question, rabbit_hole_path_segments(label))"
-    )
+    .select(SIDEBAR_THREAD_COLUMNS)
     .eq("owner_id", ownerId)
     .not("archived", "is", true)
     .eq("rabbit_hole_sessions.rabbit_hole_path_segments.position", 0)
-    .order("updated_at", { ascending: false });
+    .not("pinned", "is", true)
+    .filter("feature", feature.op, feature.value);
+
+  if (cursor) pageQuery = pageQuery.or(sidebarCursorFilter(cursor));
+
+  const pagePromise = pageQuery
+    .order("updated_at", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(limit + 1);
+
+  const pinnedPromise = cursor
+    ? null
+    : sb
+        .from("threads")
+        .select(SIDEBAR_THREAD_COLUMNS)
+        .eq("owner_id", ownerId)
+        .not("archived", "is", true)
+        .eq("rabbit_hole_sessions.rabbit_hole_path_segments.position", 0)
+        .eq("pinned", true)
+        .filter("feature", feature.op, feature.value)
+        .order("updated_at", { ascending: false })
+        .limit(SIDEBAR_PINNED_MAX);
+
+  const [pageResult, pinnedResult] = await Promise.all([pagePromise, pinnedPromise]);
+  const error = pageResult.error ?? pinnedResult?.error;
 
   if (error) {
-    return { data: null, error: new Error(error.message) };
+    return { data: null, error: new Error(error.message ?? "Unknown error") };
   }
 
-  return { data: resolveSidebarThreadRows((data ?? []) as SidebarThreadQueryRow[]), error: null };
+  // Compute the cursor before omitting orphaned rabbit-hole rows so paging still advances.
+  const page = toSidebarPage(
+    (pageResult.data ?? []) as SidebarThreadRow[],
+    limit,
+    pinnedResult ? ((pinnedResult.data ?? []) as SidebarThreadRow[]) : undefined
+  );
+  const resolve = (rows: SidebarThreadRow[]) =>
+    resolveSidebarThreadRows(rows as Array<SidebarThreadRow & SidebarThreadQueryRow>);
+
+  return {
+    data: {
+      ...page,
+      data: resolve(page.data),
+      ...(page.pinned ? { pinned: resolve(page.pinned) } : {}),
+    },
+    error: null,
+  };
 }

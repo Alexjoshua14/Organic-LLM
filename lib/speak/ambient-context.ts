@@ -1,17 +1,13 @@
 import "server-only";
 
 import type { UIMessage } from "ai";
+import type { ThreadScreen } from "@/data/supabase/chat";
 import type { RabbitHoleNode, RabbitHoleSession } from "@/lib/schemas/rabbitHoleSchemas";
 import type { SpeakScreenSurface } from "@/lib/schemas/speak-screen-context";
 import type { StrataPageWithSections } from "@/lib/schemas/strata";
 
 import { getSessionById, getRabbitHoleSessionOwnerId } from "@/data/supabase/rabbitholes";
-import {
-  getConversationSummary,
-  getNMessages,
-  getThreadOwnerContext,
-  getThreadTitle,
-} from "@/data/supabase/chat";
+import { getThreadScreen } from "@/data/supabase/chat";
 import { getStrataPageById } from "@/data/supabase/strata";
 import { createLogger } from "@/lib/logger";
 import { collectAncestorNodeIds } from "@/lib/rabbit-holes/collect-related-nodes";
@@ -21,10 +17,10 @@ import { estimateSpeakTokens, SPEAK_CHARS_PER_TOKEN } from "@/lib/speak/token-li
 const logger = createLogger("lib/speak/ambient-context.ts");
 
 /**
- * Ambient context is re-sent on every navigation and every item is re-read on every model turn,
- * so it is budgeted far tighter than the one-off resume preamble
- * (`SPEAK_CONTEXT_MAX_TOKENS`, ~1.8k). A user bouncing between five surfaces during one session
- * should cost roughly what a single resume costs.
+ * The cap on one screen item. Only one is ever in the conversation — each push deletes the last
+ * (`lib/speak/ambient-item.ts`) — but it is re-read on every model turn and re-sent on every
+ * navigation and finished chat exchange, so it is budgeted far tighter than the one-off resume
+ * preamble (`SPEAK_CONTEXT_MAX_TOKENS`, ~1.8k).
  */
 export const SPEAK_AMBIENT_MAX_TOKENS = 600;
 
@@ -69,20 +65,14 @@ const RABBIT_HOLE_GRAPH_HEADING =
 const RABBIT_HOLE_GRAPH_MORE_RESERVE = 40;
 
 export type AmbientContextDeps = {
-  getConversationSummary: typeof getConversationSummary;
-  getNMessages: typeof getNMessages;
-  getThreadOwnerContext: typeof getThreadOwnerContext;
-  getThreadTitle: typeof getThreadTitle;
+  getThreadScreen: typeof getThreadScreen;
   getStrataPageById: typeof getStrataPageById;
   getSessionById: typeof getSessionById;
   getRabbitHoleSessionOwnerId: typeof getRabbitHoleSessionOwnerId;
 };
 
 const defaultDeps: AmbientContextDeps = {
-  getConversationSummary,
-  getNMessages,
-  getThreadOwnerContext,
-  getThreadTitle,
+  getThreadScreen,
   getStrataPageById,
   getSessionById,
   getRabbitHoleSessionOwnerId,
@@ -119,13 +109,6 @@ export function fitAmbientBody(
 
   return text;
 }
-
-export type ChatScreen = {
-  title: string | null;
-  /** Chronological, newest last — as `getNMessages` returns them. */
-  messages: UIMessage[];
-  summary: string | null;
-};
 
 function messageText(message: UIMessage): string {
   return message.parts
@@ -176,7 +159,7 @@ export function buildRecentMessagesSection(messages: UIMessage[], maxChars: numb
  * and is sized to what the budget has left, so `fitAmbientBody` never drops it whole.
  */
 export function buildChatSections(
-  chat: ChatScreen,
+  chat: ThreadScreen,
   maxTokens: number = SPEAK_AMBIENT_MAX_TOKENS
 ): string[] {
   const title = chat.title?.trim();
@@ -484,21 +467,15 @@ export async function buildAmbientContext(
         return { body: AMBIENT_CLEARED_BODY, label: kind };
 
       case "chat": {
-        const owner = await deps.getThreadOwnerContext(surface.id);
+        // One thread-row read, which also checks ownership before any content is touched.
+        const screen = await deps.getThreadScreen(surface.id, {
+          expectedOwnerId: ownerId,
+          messageLimit: CHAT_RECENT_MESSAGE_LIMIT,
+        });
 
-        if (owner.error || !owner.data) return skip("not-found");
-        if (owner.data.ownerId !== ownerId) return skip("not-owner");
+        if (!screen.data) return skip(screen.error ?? "error");
 
-        const [title, messages, summary] = await Promise.all([
-          deps.getThreadTitle(surface.id),
-          deps.getNMessages(surface.id, CHAT_RECENT_MESSAGE_LIMIT),
-          deps.getConversationSummary(surface.id),
-        ]);
-        const chat: ChatScreen = {
-          title: title.data ?? null,
-          messages: messages.data ?? [],
-          summary: summary.data ?? null,
-        };
+        const chat = screen.data;
 
         return {
           body: fitAmbientBody(buildChatSections(chat)),

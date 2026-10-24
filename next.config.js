@@ -12,12 +12,17 @@ try {
 const { version: appVersion } = require("./package.json");
 
 const nextConfig = {
+  // Server Function arguments may contain user/session identifiers or private content.
+  logging: {
+    serverFunctions: false,
+  },
   env: {
     NEXT_PUBLIC_APP_VERSION: appVersion,
   },
   allowedDevOrigins: ["aetherion.local", "192.168.4.31", ...(localConfig?.allowedDevOrigins ?? [])],
   transpilePackages: ["@organic-llm/morph-physics"],
   experimental: {
+    agentUpgrade: "security",
     optimizePackageImports: ["lucide-react", "framer-motion", "@radix-ui/react-icons"],
   },
 };

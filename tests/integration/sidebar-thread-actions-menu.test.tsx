@@ -6,11 +6,17 @@ import { render } from "../helpers/render";
 
 const mockDeleteChat = mock(async () => ({ ok: true, error: null }));
 const mockRefreshSidebarChats = mock(() => {});
+const mockBeginTitleRegen = mock(() => {});
+const mockResolveTitleRegen = mock(() => {});
+const mockFinishTitleRegen = mock(() => {});
+const mockIsTitleRegenerating = mock((_id: string) => false);
+const mockRemoveSidebarChat = mock((_id: string) => {});
 const mockRouterPush = mock(() => {});
 const mockOnOpenChange = mock(() => {});
 const mockOnGenerateTitle = mock(() => {});
 
 let currentPathname = "/";
+let fetchImpl: typeof fetch = async () => new Response(null, { status: 500 });
 
 mock.module("@/data/supabase/chat", () => ({
   deleteChat: mockDeleteChat,
@@ -21,6 +27,8 @@ mock.module("next/navigation", () => ({
   usePathname: () => currentPathname,
 }));
 
+const originalFetch = globalThis.fetch;
+
 mock.module("@/components/third-party/ui/dropdown-menu", () => ({
   DropdownMenu: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   DropdownMenuTrigger: ({ children }: { children: ReactNode }) => <div>{children}</div>,
@@ -29,12 +37,14 @@ mock.module("@/components/third-party/ui/dropdown-menu", () => ({
     children,
     onSelect,
     className,
+    disabled,
   }: {
     children: ReactNode;
     onSelect?: () => void;
     className?: string;
+    disabled?: boolean;
   }) => (
-    <button className={className} onClick={() => onSelect?.()}>
+    <button className={className} disabled={disabled} onClick={() => onSelect?.()}>
       {children}
     </button>
   ),
@@ -54,13 +64,8 @@ mock.module("@heroui/modal", () => {
         onOpenChange: (open: boolean) => setIsOpen(open),
       };
     },
-    Modal: ({
-      children,
-      isOpen,
-    }: {
-      children: ReactNode;
-      isOpen: boolean;
-    }) => (isOpen ? <div>{children}</div> : null),
+    Modal: ({ children, isOpen }: { children: ReactNode; isOpen: boolean }) =>
+      isOpen ? <div>{children}</div> : null,
     ModalContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
     ModalHeader: ({ children }: { children: ReactNode }) => <h2>{children}</h2>,
     ModalBody: ({ children }: { children: ReactNode }) => <div>{children}</div>,
@@ -69,16 +74,13 @@ mock.module("@heroui/modal", () => {
 });
 
 mock.module("@heroui/button", () => ({
-  Button: ({
-    children,
-    onPress,
-  }: {
-    children: ReactNode;
-    onPress?: () => void;
-  }) => <button onClick={() => onPress?.()}>{children}</button>,
+  Button: ({ children, onPress }: { children: ReactNode; onPress?: () => void }) => (
+    <button onClick={() => onPress?.()}>{children}</button>
+  ),
 }));
 
 import { SidebarThreadActionsMenu } from "@/components/sidebar/sidebar-thread-actions-menu";
+import { resetTitleRegenStore, startTitleRegen } from "@/lib/chat/title-regen-store";
 import { ChatContext, type ChatContextValue } from "@/lib/context/chat-context";
 
 const thread = {
@@ -92,16 +94,30 @@ describe("SidebarThreadActionsMenu", () => {
   afterEach(() => {
     cleanup();
     document.body.innerHTML = "";
+    globalThis.fetch = originalFetch;
   });
 
   beforeEach(() => {
     mockDeleteChat.mockReset();
     mockRefreshSidebarChats.mockReset();
+    mockBeginTitleRegen.mockReset();
+    mockResolveTitleRegen.mockReset();
+    mockFinishTitleRegen.mockReset();
+    mockIsTitleRegenerating.mockReset();
+    mockRemoveSidebarChat.mockReset();
     mockRouterPush.mockReset();
     mockOnOpenChange.mockReset();
     mockOnGenerateTitle.mockReset();
     mockDeleteChat.mockResolvedValue({ ok: true, error: null });
+    resetTitleRegenStore();
+    mockIsTitleRegenerating.mockImplementation(() => false);
     currentPathname = "/";
+    fetchImpl = async () =>
+      new Response(JSON.stringify({ data: "Fresh Title" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    globalThis.fetch = ((...args: Parameters<typeof fetch>) => fetchImpl(...args)) as typeof fetch;
   });
 
   function renderMenu(menuThread: typeof thread & { feature?: string } = thread) {
@@ -117,6 +133,14 @@ describe("SidebarThreadActionsMenu", () => {
             isSidebarChatsLoading: false,
             sidebarChatsError: null,
             refreshSidebarChats: mockRefreshSidebarChats,
+            titleRegenThreadIds: new Set(),
+            isTitleRegenerating: mockIsTitleRegenerating,
+            getTitleRegenBurnText: (_id: string, fallback: string) => fallback,
+            beginTitleRegen: mockBeginTitleRegen,
+            resolveTitleRegen: mockResolveTitleRegen,
+            isTitleRegenReadyToCommit: () => false,
+            finishTitleRegen: mockFinishTitleRegen,
+            removeSidebarChat: mockRemoveSidebarChat,
           } as ChatContextValue
         }
       >
@@ -130,7 +154,7 @@ describe("SidebarThreadActionsMenu", () => {
         >
           <button>Open menu</button>
         </SidebarThreadActionsMenu>
-      </ChatContext.Provider>,
+      </ChatContext.Provider>
     );
   }
 
@@ -157,7 +181,7 @@ describe("SidebarThreadActionsMenu", () => {
     expect(view.getByText("Delete thread")).toBeDefined();
   });
 
-  test("deletes the active thread, refreshes chats, and redirects home", async () => {
+  test("deletes the active thread, drops it from the cache, and redirects home", async () => {
     currentPathname = "/chat/thread-1";
     const view = renderMenu();
 
@@ -166,7 +190,8 @@ describe("SidebarThreadActionsMenu", () => {
 
     await waitFor(() => {
       expect(mockDeleteChat).toHaveBeenCalledWith("thread-1");
-      expect(mockRefreshSidebarChats).toHaveBeenCalled();
+      expect(mockRemoveSidebarChat).toHaveBeenCalledWith("thread-1");
+      expect(mockRefreshSidebarChats).not.toHaveBeenCalled();
       expect(mockRouterPush).toHaveBeenCalledWith("/");
     });
   });
@@ -180,8 +205,21 @@ describe("SidebarThreadActionsMenu", () => {
 
     await waitFor(() => {
       expect(mockDeleteChat).toHaveBeenCalledWith("thread-1");
-      expect(mockRefreshSidebarChats).toHaveBeenCalled();
+      expect(mockRemoveSidebarChat).toHaveBeenCalledWith("thread-1");
+      expect(mockRefreshSidebarChats).not.toHaveBeenCalled();
       expect(mockRouterPush).not.toHaveBeenCalled();
     });
+  });
+
+  test("blocks regenerate while that thread is already regenerating", () => {
+    startTitleRegen("thread-1", "Thread One");
+    mockIsTitleRegenerating.mockImplementation((id: string) => id === "thread-1");
+    const view = renderMenu();
+
+    const label = view.getByText("Generating title…");
+    const button = label.closest("button");
+    expect(button?.disabled).toBe(true);
+    fireEvent.click(label);
+    expect(mockBeginTitleRegen).not.toHaveBeenCalled();
   });
 });

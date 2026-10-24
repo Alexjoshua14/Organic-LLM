@@ -51,6 +51,7 @@ function StepRow({
     [];
 
   return (
+    // eslint-disable-next-line jsx-a11y/no-redundant-roles -- explicit role keeps list semantics in Safari/VoiceOver under list-style reset
     <li
       role="listitem"
       aria-current={step.status === "now" ? "step" : undefined}
@@ -194,6 +195,7 @@ export function PlanTimeline({ block, partial, morphIds, variant = "full" }: Pla
         />
       </div>
 
+      {/* eslint-disable-next-line jsx-a11y/no-redundant-roles -- explicit role keeps list semantics in Safari/VoiceOver under list-style reset */}
       <ol role="list" className="relative border-l border-border/40 ml-3 space-y-0">
         {block.steps.map((step) => (
           <StepRow

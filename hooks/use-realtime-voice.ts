@@ -1,7 +1,8 @@
 "use client";
 
 import type { SpeakModalities } from "@/lib/schemas/speak-modalities";
-import type { SpeakScreenSurface } from "@/lib/schemas/speak-screen-context";
+import type { SpeakRealtimeVoice } from "@/lib/schemas/speak-realtime-voice";
+import type { SpeakSubagentSeed } from "@/lib/schemas/speak-subagent-context";
 import type { SpeakThreadPolicy } from "@/lib/schemas/speak-thread";
 import type { SpeakBudgetSnapshot } from "@/lib/speak/types";
 import type { SpeakToolClientEffect } from "@/lib/speak/types";
@@ -12,19 +13,18 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { DEFAULT_COMPOSER_MEMORIES } from "@/lib/chat/composer-tool-defaults";
 import { DEFAULT_SPEAK_MODALITIES } from "@/lib/schemas/speak-modalities";
 import { DEFAULT_SPEAK_THREAD_POLICY } from "@/lib/schemas/speak-thread";
-import { screenSurfaceKey } from "@/lib/schemas/speak-screen-context";
-import {
-  AMBIENT_CLEARED_BODY,
-  AMBIENT_EVENT_PREFIX,
-  buildAmbientContextItem,
-  buildAmbientDeleteEvent,
-  isAmbientClientEvent,
-} from "@/lib/speak/ambient-item";
+import { isAmbientClientEvent } from "@/lib/speak/ambient-item";
 import {
   classifyRealtimeEvent,
   sumRealtimeUsage,
   type RealtimeUsage,
 } from "@/lib/speak/realtime-events";
+import { buildSubagentMilestoneItem } from "@/lib/speak/subagent-milestone-item";
+import { buildSubagentProgressItem } from "@/lib/speak/subagent-progress-item";
+import {
+  createScreenContextDelivery,
+  type VoiceScreenContextSnapshot,
+} from "@/lib/speak/screen-context-delivery";
 import {
   createWebRtcVoiceTransport,
   isRetryableConnectError,
@@ -40,18 +40,6 @@ export type RealtimeTranscriptEntry = {
   role: "user" | "assistant" | "system";
   text: string;
   interim?: boolean;
-};
-
-/**
- * What the model was last told about the screen, for the dev "Sees:" chip. `reason` explains an
- * empty body — the screen was replaced with {@link AMBIENT_CLEARED_BODY} instead.
- */
-export type VoiceScreenContextSnapshot = {
-  surfaceKey: string;
-  label: string;
-  body: string;
-  reason?: string;
-  at: number;
 };
 
 export type ResumedThreadInfo = {
@@ -212,15 +200,21 @@ export function useRealtimeVoice({
   /** When the current utterances began — transcripts arrive later and out of order. */
   const userSpeechStartedAtRef = useRef<number | null>(null);
   const assistantStartedAtRef = useRef<number | null>(null);
-  /** Last surface pushed, so navigating away and back costs nothing. */
-  const ambientSurfaceKeyRef = useRef<string | null>(null);
-  /** Our id for the screen item in the conversation, so the next push can delete it. */
-  const ambientItemIdRef = useRef<string | null>(null);
-  const ambientSeqRef = useRef(0);
   const threadIdRef = useRef<string | null>(null);
   /** Thread a paused call was writing to, so `resume` lands on it rather than the latest. */
   const pausedThreadIdRef = useRef<string | null>(null);
   const pauseForIdleRef = useRef<() => void>(() => undefined);
+  /** What the user is looking at, delivered to the call; see `lib/speak/screen-context-delivery.ts`. */
+  const [screenDelivery] = useState(() =>
+    createScreenContextDelivery({
+      channel: () => ({
+        sessionId: sessionIdRef.current,
+        transport: transportRef.current,
+        connected: connectedRef.current,
+      }),
+      onSnapshot: setScreenContext,
+    })
+  );
   /** See `lib/speak/voice-idle.ts` for what counts as quiet. */
   const [idleTimer] = useState(() =>
     createVoiceIdleTimer({ timeoutMs: idlePauseMs, onIdle: () => pauseForIdleRef.current() })
@@ -344,12 +338,10 @@ export function useRealtimeVoice({
       assistantSpeakingRef.current = false;
       userSpeechStartedAtRef.current = null;
       assistantStartedAtRef.current = null;
-      ambientSurfaceKeyRef.current = null;
-      ambientItemIdRef.current = null;
-      setScreenContext(null);
+      screenDelivery.reset();
       setPhaseSafe("idle");
     },
-    [flushTurns, idleTimer, setPhaseSafe, stopHeartbeat]
+    [flushTurns, idleTimer, screenDelivery, setPhaseSafe, stopHeartbeat]
   );
 
   const sendHeartbeat = useCallback(async () => {
@@ -573,6 +565,8 @@ export function useRealtimeVoice({
       resumeSessionId?: string;
       /** Continue this thread whatever the policy says; the session route checks ownership. */
       threadId?: string;
+      voice?: SpeakRealtimeVoice;
+      subagentSeed?: SpeakSubagentSeed;
     }) => {
       if (connecting || connectedRef.current) return;
 
@@ -600,6 +594,10 @@ export function useRealtimeVoice({
               resumeSessionId,
               retryAfterConnectFailure: retryFailure ?? undefined,
               withoutThreadContext: retryFailure ? true : undefined,
+              voice: options?.voice,
+              // Fresh Speak-to seed only on the first mint; retries keep thread continuity without
+              // re-billing a full subagent preamble rewrite.
+              subagentSeed: retryFailure ? undefined : options?.subagentSeed,
             }),
           });
 
@@ -622,8 +620,7 @@ export function useRealtimeVoice({
           );
           turnBufferRef.current = [];
           pendingUsageRef.current = null;
-          ambientSurfaceKeyRef.current = null;
-          ambientItemIdRef.current = null;
+          screenDelivery.reset();
 
           const audioEl = audioElRef.current ?? document.createElement("audio");
 
@@ -695,6 +692,7 @@ export function useRealtimeVoice({
       handleDataEvent,
       idleTimer,
       onCaptionChange,
+      screenDelivery,
       setPhaseSafe,
       startHeartbeat,
       teardown,
@@ -765,82 +763,90 @@ export function useRealtimeVoice({
   }, [connect, connecting]);
 
   /**
-   * Tells the model what the user is now looking at, as a silent system item that replaces the
-   * previous one.
-   *
-   * The body is assembled server-side (summaries and compiled docs need privileged reads), then
-   * forwarded down the data channel from here because the channel lives in the browser. No
-   * `response.create` follows — see `lib/speak/ambient-item.ts` for why that makes it silent, and
-   * why the previous item is deleted rather than left to pile up.
+   * Silent subagent progress via `POST /api/ai/speak/realtime/progress`.
+   * Updates model context only — no `response.create`.
    */
-  const sendScreenContext = useCallback(async (surface: SpeakScreenSurface) => {
-    const sid = sessionIdRef.current;
-    const transport = transportRef.current;
+  const sendSubagentProgress = useCallback(
+    async (args: {
+      agentId: string;
+      role?: string;
+      name?: string;
+      progress: string;
+    }): Promise<boolean> => {
+      const sid = sessionIdRef.current;
+      const transport = transportRef.current;
 
-    if (!sid || !transport || !connectedRef.current) return;
+      if (!sid || !transport || !connectedRef.current) return false;
 
-    const key = screenSurfaceKey(surface);
+      try {
+        const res = await fetch("/api/ai/speak/realtime/progress", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId: sid, ...args }),
+        });
 
-    if (ambientSurfaceKeyRef.current === key) return;
+        if (!res.ok) return false;
 
-    // Claim the key before awaiting so a fast double-navigation cannot push twice.
-    ambientSurfaceKeyRef.current = key;
+        const data = (await res.json()) as { body?: string };
+        const item = buildSubagentProgressItem(data.body ?? "");
 
-    try {
-      const res = await fetch("/api/ai/speak/realtime/context", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: sid, surface }),
-      });
+        if (item && transportRef.current === transport && connectedRef.current) {
+          transport.send(item);
 
-      if (!res.ok) {
-        if (ambientSurfaceKeyRef.current === key) ambientSurfaceKeyRef.current = null;
-
-        return;
+          return true;
+        }
+      } catch {
+        return false;
       }
 
-      const data = (await res.json()) as { body?: string; label?: string; reason?: string };
+      return false;
+    },
+    []
+  );
 
-      // A newer surface claimed the key while this was in flight — clicking through rabbit-hole
-      // nodes does it constantly — so a late reply would overwrite fresher context. The session
-      // can also end between the request and the response.
-      if (
-        ambientSurfaceKeyRef.current !== key ||
-        transportRef.current !== transport ||
-        !connectedRef.current
-      ) {
-        return;
+  /**
+   * Spoken subagent milestone via `POST /api/ai/speak/realtime/milestone`.
+   * Follows the item with `response.create` so the model announces.
+   */
+  const sendSubagentMilestone = useCallback(
+    async (args: {
+      agentId: string;
+      role?: string;
+      name?: string;
+      milestone: string;
+      progress?: string;
+    }): Promise<boolean> => {
+      const sid = sessionIdRef.current;
+      const transport = transportRef.current;
+
+      if (!sid || !transport || !connectedRef.current) return false;
+
+      try {
+        const res = await fetch("/api/ai/speak/realtime/milestone", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId: sid, ...args }),
+        });
+
+        if (!res.ok) return false;
+
+        const data = (await res.json()) as { body?: string };
+        const item = buildSubagentMilestoneItem(data.body ?? "");
+
+        if (item && transportRef.current === transport && connectedRef.current) {
+          transport.send(item);
+          transport.send({ type: "response.create" });
+
+          return true;
+        }
+      } catch {
+        return false;
       }
 
-      // Nothing to describe still replaces what was there; otherwise the model goes on describing
-      // the page the user just left.
-      const body = data.body?.trim() || AMBIENT_CLEARED_BODY;
-      const seq = ++ambientSeqRef.current;
-      const itemId = `${AMBIENT_EVENT_PREFIX}item_${seq}`;
-      const previous = ambientItemIdRef.current;
-
-      // Add before delete, so there is never a moment with no screen item at all.
-      transport.send(
-        buildAmbientContextItem(body, { itemId, eventId: `${AMBIENT_EVENT_PREFIX}add_${seq}` })!
-      );
-      ambientItemIdRef.current = itemId;
-
-      if (previous) {
-        transport.send(buildAmbientDeleteEvent(previous, `${AMBIENT_EVENT_PREFIX}del_${seq}`));
-      }
-
-      setScreenContext({
-        surfaceKey: key,
-        label: data.label ?? surface.kind,
-        body,
-        reason: data.reason,
-        at: Date.now(),
-      });
-    } catch {
-      // Ambient awareness is an enhancement; a failed push must never disturb the call.
-      if (ambientSurfaceKeyRef.current === key) ambientSurfaceKeyRef.current = null;
-    }
-  }, []);
+      return false;
+    },
+    []
+  );
 
   const disconnect = useCallback(async () => {
     setPaused(false);
@@ -859,6 +865,30 @@ export function useRealtimeVoice({
     onBudgetChange?.(null);
     onCaptionChange?.({ role: "system", text: "" });
   }, [onBudgetChange, onCaptionChange, teardown]);
+
+  /**
+   * Inject a typed/UI text event into the live Realtime conversation (stretch for
+   * Aion presence). Returns false when the data channel is not open.
+   */
+  const sendTextEvent = useCallback((text: string): boolean => {
+    const transport = transportRef.current;
+    const trimmed = text.trim();
+
+    if (!transport || !connectedRef.current || !trimmed) return false;
+
+    const created = transport.send({
+      type: "conversation.item.create",
+      item: {
+        type: "message",
+        role: "user",
+        content: [{ type: "input_text", text: trimmed }],
+      },
+    });
+
+    if (!created) return false;
+
+    return transport.send({ type: "response.create" });
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -889,9 +919,16 @@ export function useRealtimeVoice({
     startNew,
     resume,
     resumeIfActive,
-    sendScreenContext,
+    /**
+     * Tells the model what the user is now looking at, replacing what it was told before. Stable
+     * across renders. See `lib/speak/screen-context-delivery.ts`.
+     */
+    sendScreenContext: screenDelivery.send,
+    sendSubagentProgress,
+    sendSubagentMilestone,
     disconnect,
     resetSession,
+    sendTextEvent,
     setAudioElement: (el: HTMLAudioElement | null) => {
       audioElRef.current = el;
     },

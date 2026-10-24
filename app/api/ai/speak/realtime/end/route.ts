@@ -49,11 +49,7 @@ export async function POST(req: Request) {
   }
 
   if (parsed.data.connectFailure) {
-    logger.error(
-      "POST",
-      `Realtime connect failed for ${parsed.data.sessionId}`,
-      parsed.data.connectFailure
-    );
+    logger.error("POST", "Realtime connect failed", parsed.data.connectFailure);
   }
 
   const session = await endSpeakRealtimeSession({

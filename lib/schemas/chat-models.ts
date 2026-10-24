@@ -6,6 +6,7 @@ export type ChatModelId = GatewayModelId | typeof AUTO_CHAT_MODEL_ID;
 
 export const MODEL_ALIASES = {
   openai: ["flagship", "sol", "terra", "luna", "oss120b", "oss20b", "gpt4oMini"],
+  typesafe: ["jev"],
   google: ["pro", "flash", "flash3", "flashLite", "flashLite_2_5", "flashLite_3_1"],
   anthropic: ["opus", "sonnet", "haiku", "fable"],
   perplexity: ["pro", "reasoningPro"],
@@ -36,7 +37,12 @@ export type ChatModel = {
   /** When false, the row is catalog-only and omitted from the composer picker. Default true. */
   picker?: boolean;
   supportsZeroDataRetention?: boolean;
-  /** Only selectable by admins (profiles.admin); enforced server-side in the chat route. */
+  /**
+   * When true, every call site for this model must force ZDR — user settings cannot
+   * turn it off. Used by the orchestrator thought-router (Jev).
+   */
+  requiresZeroDataRetention?: boolean;
+  /** Only selectable by admin_access members; enforced server-side in the chat route. */
   adminOnly?: boolean;
 };
 
@@ -58,15 +64,15 @@ const catalog: ChatModel[] = [
     supportsZeroDataRetention: true,
   },
   {
-    id: "openai/gpt-6-sol",
-    name: "GPT-6 Sol",
+    id: "openai/gpt-6.1-sol",
+    name: "GPT-6.1 Sol",
     alias: "openai.sol",
     supportsZeroDataRetention: true,
   },
   {
     // GPT-6 dropped Terra; pin the alias to Sol so orchestration keeps a mid-tier family handle.
-    id: "openai/gpt-6-sol",
-    name: "GPT-6 Sol",
+    id: "openai/gpt-6.1-sol",
+    name: "GPT-6.1 Sol",
     alias: "openai.terra",
     picker: false,
     supportsZeroDataRetention: true,
@@ -76,6 +82,19 @@ const catalog: ChatModel[] = [
     name: "GPT-6 Luna",
     alias: "openai.luna",
     supportsZeroDataRetention: true,
+  },
+  {
+    /**
+     * Cheap house routing model for multi-thought orchestrator splits.
+     * Not a worker / Realtime voice model. Catalog-only (not in composer picker).
+     * ZDR is mandatory — see `requiresZeroDataRetention`.
+     */
+    id: "typesafe-ai/jev",
+    name: "Typesafe AI Jev",
+    alias: "typesafe.jev",
+    picker: false,
+    supportsZeroDataRetention: true,
+    requiresZeroDataRetention: true,
   },
   {
     id: "openai/gpt-oss-120b",
@@ -140,14 +159,14 @@ const catalog: ChatModel[] = [
     supportsZeroDataRetention: true,
   },
   {
-    id: "anthropic/claude-sonnet-5",
-    name: "Claude Sonnet 5",
+    id: "anthropic/claude-sonnet-5.5",
+    name: "Claude Sonnet 5.5",
     alias: "anthropic.sonnet",
     supportsZeroDataRetention: true,
   },
   {
-    id: "anthropic/claude-haiku-4.5",
-    name: "Claude Haiku 4.5",
+    id: "anthropic/claude-haiku-5.5",
+    name: "Claude Haiku 5.5",
     alias: "anthropic.haiku",
     supportsZeroDataRetention: true,
   },

@@ -1,8 +1,14 @@
 import { describe, test, expect, mock, beforeEach } from "bun:test";
 
-mock.module("@/lib/rate-limit/llm", () => ({
+import * as llmRateLimit from "@/lib/rate-limit/llm";
+
+import { mockModulePreservingReal } from "../helpers/module-mock";
+
+// Keep the module's other exports: a bare stub leaks into later files and drops
+// `checkLlmCostLimit` / `recordLlmCost` for `aion-presence`. No restore — see module-mock.ts.
+mockModulePreservingReal("@/lib/rate-limit/llm", llmRateLimit, {
   checkLlmMessageLimit: async () => ({ success: true, remaining: 10 }),
-}));
+});
 
 const mockGetMessageCount = mock(async () => ({ data: 2, error: null }));
 const mockGetThreadHasTitle = mock(async () => ({ data: true, error: null }));
@@ -188,8 +194,8 @@ describe("POST /api/ai/aion (integration)", () => {
     const call = streamTextMock.calls[0]!;
     expect(typeof call.model).toBe("string");
     expect(call.model.length > 0).toBe(true);
-    expect(typeof call.system).toBe("string");
-    expect(call.system).toMatch(/\n\nAdditional Info:\nThe current date is \S+Z$/);
+    expect(typeof call.instructions).toBe("string");
+    expect(call.instructions).toMatch(/\n\nAdditional Info:\nThe current date is \S+Z$/);
     expect(call.tools != null).toBe(true);
     expect(call.tools!.search_memories != null).toBe(true);
     expect(call.tools!.show_memories != null).toBe(true);

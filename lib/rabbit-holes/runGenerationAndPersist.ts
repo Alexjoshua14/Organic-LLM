@@ -4,6 +4,7 @@ import { runOneGenerationStep } from "./runOneGenerationStep";
 
 import {
   advanceGenerationStep,
+  getRabbitHoleSessionOwnerId,
   getSessionById,
   saveSession,
   type RabbitHolesSupabaseClient,
@@ -107,6 +108,7 @@ export async function runGenerationAndPersist(sessionId: string, nodeId: string)
     return;
   }
 
+  const ownerId = await getRabbitHoleSessionOwnerId(sessionId, admin);
   // `saveSession` writes the client's copy of `updated_at`, which can be old when generation is
   // scheduled. Refresh it so the sidebar's working signal (stale after 5 min) sees a live run.
   await touchSession(sessionId, admin);
@@ -132,7 +134,7 @@ export async function runGenerationAndPersist(sessionId: string, nodeId: string)
       ) {
         sessionToSave = session;
       } else {
-        const result = await runOneGenerationStep(session, nodeId, step);
+        const result = await runOneGenerationStep(session, nodeId, step, { ownerId });
 
         if (result.error || !result.data) {
           logger.error("runGenerationAndPersist", `Step ${step} failed`, result.error);

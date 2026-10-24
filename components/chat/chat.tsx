@@ -7,9 +7,10 @@ import type { ContextBudgetEstimate } from "@/lib/chat/context-budget";
 import type { DiagramNodeLink } from "@/lib/mermaid/types";
 
 import { UIMessage, useChat } from "@ai-sdk/react";
-import { DefaultChatTransport } from "ai";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { DefaultChatTransport, type ChatTransport, type HttpChatTransportInitOptions } from "ai";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BrainCircuit } from "lucide-react";
+import { AnimatePresence, useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
 
 import { Conversation, ConversationScrollButton } from "../third-party/ai-elements/conversation";
@@ -19,6 +20,7 @@ import { ArcadiaChatSettingsDialog } from "./arcadia-chat-settings-dialog";
 import { CoreInput } from "./core-input";
 import { ChatStylePicker } from "./chat-style-picker";
 import { ChatThreadStyleOverlay } from "./chat-thread-style-overlay";
+import { BtwPanel } from "./btw/btw-panel";
 
 import { DiagramTakeoverShell } from "@/components/mermaid/diagram-takeover-shell";
 import { MemoryEphemeralCards } from "@/components/memory/memory-ephemeral-cards";
@@ -32,7 +34,13 @@ import {
 } from "@/components/third-party/ui/sheet";
 import { isClientPIIRedactionEnabled, redactUIMessages } from "@/lib/pii/redact";
 import { getSettings } from "@/lib/user-settings";
-import { contextEffortForRequest } from "@/lib/memory/context-effort";
+import {
+  contextEffortForRequest,
+  DEFAULT_CONTEXT_EFFORT,
+  type ContextEffortLevel,
+} from "@/lib/memory/context-effort";
+import { coreInputScopes } from "@/lib/core-input/scopes";
+import { useBtwSession } from "@/hooks/use-btw-session";
 import { Thread } from "@/lib/schemas/chat";
 import { createLogger } from "@/lib/logger";
 import { PERF_PHASES } from "@/lib/perf/journeys";
@@ -64,7 +72,34 @@ import { safeParseMiseCommand } from "@/lib/schemas/mise";
 import { DiagramNodeLinksProvider } from "@/lib/mermaid/diagram-node-links-context";
 import { DiagramTakeoverProvider } from "@/lib/mermaid/diagram-takeover-context";
 import { isEditableEventTarget } from "@/lib/dom/is-editable-event-target";
+import { useBackgroundThreadMessages } from "@/hooks/use-background-thread-messages";
+import { useMorphFlip } from "@/hooks/use-morph-flip";
+import { COMPOSER_SHIFT_MIN_PX, COMPOSER_SHIFT_SPRING } from "@/lib/chat/composer-shift-spring";
+import { useMultitaskComposerSlot } from "@/app/sandbox/arcadia/_components/multitask-composer-slot";
+import { useArcadiaMultitaskOptional } from "@/app/sandbox/arcadia/_components/multitask-provider";
 const logger = createLogger("components/chat/chat");
+
+function createChatTransport({
+  onResumeCheck,
+  ...options
+}: HttpChatTransportInitOptions<UIMessage> & {
+  onResumeCheck: (threadId: string) => () => void;
+}): ChatTransport<UIMessage> {
+  const transport = new DefaultChatTransport<UIMessage>(options);
+
+  return {
+    sendMessages: (options) => transport.sendMessages(options),
+    reconnectToStream: async (options) => {
+      const finishCheck = onResumeCheck(options.chatId);
+
+      try {
+        return await transport.reconnectToStream(options);
+      } finally {
+        finishCheck();
+      }
+    },
+  };
+}
 
 export type ChatProps = {
   chatData: { thread: Thread; messages: UIMessage[] } | null;
@@ -91,14 +126,73 @@ export const Chat: React.FC<ChatProps> = ({
   assistantSession,
 }) => {
   const { refreshSidebarChats } = useSharedChatContext();
+  const arcadiaMultitask = useArcadiaMultitaskOptional();
+  const multitaskSendTargetRef = useRef(
+    arcadiaMultitask?.multitaskViewEnabled ? arcadiaMultitask.sendTarget : null
+  );
+  const applyInboundDispatchRef = useRef(arcadiaMultitask?.applyInboundDispatch);
+  const applyAwarenessEventRef = useRef(arcadiaMultitask?.applyAwarenessEvent);
+  const confineInMultitaskDashboard = arcadiaMultitask?.layoutMode === "dashboard";
+  // Condensed multiagent row sits above CoreInput; CoreInput itself keeps its place.
+  const composerSlot = useMultitaskComposerSlot();
+  const composerAnchorRef = useRef<HTMLDivElement | null>(null);
+  const reduceMotion = useReducedMotion();
+
+  // Multitask dashboard uses live sendMessage → /api/chat (same as Arcadia idle chat).
+  // Do not enable CoreInput queueSendMode here: enqueue never appends/streams into the
+  // thread UI, so orchestrator turns look like a no-op. Subagent targeting still rides on
+  // multitaskSendTarget in the request body.
+
+  multitaskSendTargetRef.current = arcadiaMultitask?.multitaskViewEnabled
+    ? arcadiaMultitask.sendTarget
+    : null;
+  applyInboundDispatchRef.current = arcadiaMultitask?.applyInboundDispatch;
+  applyAwarenessEventRef.current = arcadiaMultitask?.applyAwarenessEvent;
 
   const selectedModelRef = useRef<ChatModel>(DEFAULT_COMPOSER_MODEL);
   const selectedEffortRef = useRef<ChatEffortLevel>(DEFAULT_COMPOSER_EFFORT);
   const useWebSearchRef = useRef<boolean>(DEFAULT_COMPOSER_WEB_SEARCH);
   const useMemoriesRef = useRef<boolean>(DEFAULT_COMPOSER_MEMORIES);
   const useSpeechFriendlyRef = useRef<boolean>(false);
+  const contextEffortRef = useRef<ContextEffortLevel>(DEFAULT_CONTEXT_EFFORT);
   const assistantSessionRef = useRef<StrataPageAssistantSession | null | undefined>(
     assistantSession
+  );
+
+  // Per-thread CoreInput settings. Strata's assistant drives its own model, so it stays on
+  // the legacy global prefs.
+  const threadId = chatData?.thread.id;
+  const coreInputArea = experience ?? persona ?? "chat";
+  const scopesEnabled = Boolean(threadId) && experience !== "strata_page" && persona !== "strata";
+  const threadScope = useMemo(
+    () => (scopesEnabled && threadId ? coreInputScopes.thread(coreInputArea, threadId) : undefined),
+    [scopesEnabled, threadId, coreInputArea]
+  );
+  const btwScope = useMemo(
+    () => (threadId ? coreInputScopes.btw(coreInputArea, threadId) : undefined),
+    [threadId, coreInputArea]
+  );
+  const btw = useBtwSession({
+    threadId: threadId ?? "",
+    modelRef: selectedModelRef,
+    effortRef: selectedEffortRef,
+    ephemeralScopeKey: btwScope?.key,
+  });
+
+  useMorphFlip(
+    composerAnchorRef,
+    [
+      arcadiaMultitask?.layoutMode ?? "none",
+      arcadiaMultitask?.chatOpen ?? true,
+      arcadiaMultitask?.shellOpen ?? false,
+      composerSlot ? "slot" : "no-slot",
+      btw.isOpen ? "btw" : "main",
+    ].join(":"),
+    {
+      spring: COMPOSER_SHIFT_SPRING,
+      minShiftPx: COMPOSER_SHIFT_MIN_PX,
+      disabled: Boolean(reduceMotion),
+    }
   );
 
   assistantSessionRef.current = assistantSession;
@@ -130,9 +224,9 @@ export const Chat: React.FC<ChatProps> = ({
   const errorRef = useRef<Error | undefined>(undefined);
   /** Stored when onError runs; useChat may not expose error/status for pre-stream failures (e.g. 429). */
   const [chatError, setChatError] = useState<unknown>(undefined);
-  const [experimentalArcadiaMarkdownPreview, setExperimentalArcadiaMarkdownPreview] = useState(
-    () => getSettings().experimentalArcadiaMarkdownPreview
-  );
+  // Match the server defaults until the settings effect restores local preferences.
+  const [experimentalArcadiaMarkdownPreview, setExperimentalArcadiaMarkdownPreview] =
+    useState(false);
   const [arcadiaStarterKey, setArcadiaStarterKey] = useState<string | null>(
     () => chatData?.thread.arcadia_starter_key ?? null
   );
@@ -144,6 +238,11 @@ export const Chat: React.FC<ChatProps> = ({
   const [arcadiaSettingsOpen, setArcadiaSettingsOpen] = useState(false);
   const wasStreamingRef = useRef(false);
   const diagramNodeLinksRef = useRef<DiagramNodeLink[]>([]);
+  const [resumeCheck, setResumeCheck] = useState({
+    threadId: chatData?.thread.id ?? "",
+    pending: true,
+  });
+  const pendingSendRef = useRef<{ threadId: string } | null>(null);
 
   useEffect(() => {
     const sync = () =>
@@ -169,8 +268,9 @@ export const Chat: React.FC<ChatProps> = ({
     useChat({
       id: chatData?.thread.id ?? "",
       messages: chatData?.messages ?? [],
+      // Navigation can reuse stale thread metadata; the resume endpoint checks current state.
       resume: true,
-      transport: new DefaultChatTransport({
+      transport: createChatTransport({
         api:
           persona === "aion"
             ? "/api/ai/aion"
@@ -178,7 +278,7 @@ export const Chat: React.FC<ChatProps> = ({
               ? "/api/ai/remy"
               : persona === "strata"
                 ? "/api/chat"
-                : (endpoint ?? `/api/chat/${persona ?? ""}`),
+                : (endpoint ?? (persona ? `/api/chat/${persona}` : "/api/chat")),
         prepareSendMessagesRequest({ messages, id }) {
           const lastMessage = messages[messages.length - 1];
           const message = isClientPIIRedactionEnabled()
@@ -206,7 +306,7 @@ export const Chat: React.FC<ChatProps> = ({
             experience,
             memoryEnabled: strataPageTools.memory,
             experimentalContextEffort: settings.experimentalContextEffort,
-            contextEffortLevel: settings.contextEffortLevel,
+            contextEffortLevel: contextEffortRef.current,
           });
 
           const req = {
@@ -223,6 +323,11 @@ export const Chat: React.FC<ChatProps> = ({
               zeroDataRetention: settings.zeroDataRetention,
               coalescenceMode: settings.coalescenceMode,
               ...(contextEffort ? { contextEffort } : {}),
+              // Arcadia multitask dashboard: explicit orchestrator vs subagent destination.
+              // Sent only while Multiagent is enabled; the server checks the saved thread flag.
+              ...(experience === "arcadia" && multitaskSendTargetRef.current
+                ? { multitaskSendTarget: multitaskSendTargetRef.current }
+                : {}),
               // Only include persistedSchemas in payload if true
               ...(usePersistedSchemas.current ? { persistedSchemas: true } : {}),
               ...(diagramNodeLinksRef.current.length > 0
@@ -234,6 +339,16 @@ export const Chat: React.FC<ChatProps> = ({
           logger.log("chat", `Request being sent: ${JSON.stringify(req, null, 2)}`);
 
           return req;
+        },
+        onResumeCheck(threadId) {
+          const check = { threadId, pending: true };
+
+          setResumeCheck(check);
+
+          return () =>
+            setResumeCheck((current) =>
+              current === check ? { threadId, pending: false } : current
+            );
         },
       }),
       onData: (data) => {
@@ -350,6 +465,14 @@ export const Chat: React.FC<ChatProps> = ({
           }
         } else if (data.type === "data-context-budget") {
           setStreamContextBudget(withLastTurnSnapshot(data.data as ContextBudgetEstimate));
+        } else if (data.type === "data-multitask-routing") {
+          applyInboundDispatchRef.current?.(
+            data.data as import("@/lib/schemas/thought-routing").MultitaskInboundDispatch
+          );
+        } else if (data.type === "data-multitask-worker") {
+          applyAwarenessEventRef.current?.(
+            data.data as import("@/lib/schemas/subagent-runtime").WorkerAwarenessEvent
+          );
         }
       },
       onError: (error) => {
@@ -368,6 +491,61 @@ export const Chat: React.FC<ChatProps> = ({
       },
     });
 
+  const isCheckingStream = resumeCheck.threadId !== id || resumeCheck.pending;
+  const messageCountRef = useRef(messages.length);
+
+  messageCountRef.current = messages.length;
+  const openBtw = btw.open;
+  const slashCommands = useMemo(
+    () =>
+      experience === "arcadia" && threadId
+        ? {
+            btw: (question: string) => {
+              if (messageCountRef.current === 0) {
+                toast.info("/btw asks about this thread, so it needs a message first.");
+
+                return;
+              }
+              openBtw(question);
+            },
+          }
+        : undefined,
+    [experience, threadId, openBtw]
+  );
+  const sendStateRef = useRef({ id, status, isCheckingStream });
+
+  sendStateRef.current = { id, status, isCheckingStream };
+  const sendMessageIfIdle = useCallback<typeof sendMessage>(
+    async (...args) => {
+      const current = sendStateRef.current;
+
+      if (
+        current.isCheckingStream ||
+        current.status === "submitted" ||
+        current.status === "streaming" ||
+        pendingSendRef.current?.threadId === current.id
+      )
+        return;
+
+      const submission = { threadId: current.id };
+
+      pendingSendRef.current = submission;
+      try {
+        await sendMessage(...args);
+      } finally {
+        if (pendingSendRef.current === submission) pendingSendRef.current = null;
+      }
+    },
+    [sendMessage]
+  );
+
+  useBackgroundThreadMessages({
+    threadId: id,
+    enabled: experience === "arcadia" && (arcadiaMultitask?.hasSubagentThreads ?? false),
+    status,
+    setMessages,
+  });
+
   // Ambient awareness: while this thread is on screen, a live voice session is told its title,
   // latest messages and rolling summary — re-pushed after each finished exchange.
   useVoiceScreenContext(useChatVoiceSurface(chatData?.thread.id, messages, status));
@@ -384,12 +562,13 @@ export const Chat: React.FC<ChatProps> = ({
       initialMessage &&
       !initialMessageSent.current &&
       messages.length === 0 &&
+      !isCheckingStream &&
       status === "ready"
     ) {
       initialMessageSent.current = true;
-      sendMessage({ text: initialMessage });
+      sendMessageIfIdle({ text: initialMessage });
     }
-  }, [initialMessage, messages.length, status, sendMessage]);
+  }, [initialMessage, messages.length, status, isCheckingStream, sendMessageIfIdle]);
 
   useEffect(() => {
     const fromMessages = getLatestContextBudgetFromMessages(messages);
@@ -473,11 +652,12 @@ export const Chat: React.FC<ChatProps> = ({
     <DiagramNodeLinksProvider linksRef={diagramNodeLinksRef}>
       <DiagramTakeoverProvider>
         <div
+          data-arcadia-chat-root
           className={[
             "w-full",
             "min-w-0",
             "h-full",
-            "sm:max-h-[calc(100dvh-2rem)]",
+            confineInMultitaskDashboard ? "max-h-none" : "sm:max-h-[calc(100dvh-2rem)]",
             "flex",
             "flex-col",
             "overflow-x-hidden",
@@ -496,7 +676,7 @@ export const Chat: React.FC<ChatProps> = ({
               "overscroll-x-none",
             ].join(" ")}
           >
-            {experience === "arcadia" && id ? (
+            {experience === "arcadia" && id && !confineInMultitaskDashboard ? (
               <ChatThreadStyleOverlay threadId={id} visible={messages.length > 0} />
             ) : null}
             <ChatThread
@@ -506,7 +686,7 @@ export const Chat: React.FC<ChatProps> = ({
               contentClassName={persona === "remy" ? MEMORY_PANEL_RESERVE_PADDING : undefined}
               messages={messages}
               renderEmptyState={
-                experience === "arcadia"
+                experience === "arcadia" && !confineInMultitaskDashboard
                   ? () => (
                       <ChatStylePicker
                         chatId={id}
@@ -529,7 +709,7 @@ export const Chat: React.FC<ChatProps> = ({
             <ConversationScrollButton className="bottom-14" />
           </Conversation>
           <div className="shrink-0 px-4 sm:px-7 pb-1 md:pb-4 w-full -mt-10 flex flex-col gap-2">
-            <div className="sm:max-w-[calc(100dvw-2rem)] md:max-w-[calc(100dvw-24rem)] lg:max-w-4xl mx-auto w-full flex flex-col gap-2">
+            <div className="relative mx-auto flex w-full max-w-4xl flex-col gap-2">
               {persona === "remy" && (
                 <Sheet>
                   <SheetTrigger asChild>
@@ -553,35 +733,58 @@ export const Chat: React.FC<ChatProps> = ({
                   </SheetContent>
                 </Sheet>
               )}
-              <CoreInput
-                chatId={chatData?.thread.id}
-                clearError={clearError}
-                composerInject={composerInject}
-                enableMarkdownInputPreview={
-                  experience === "arcadia" && experimentalArcadiaMarkdownPreview
-                }
-                error={error ?? chatError}
-                featureHints={!(experience === "arcadia" && messages.length === 0)}
-                hideWebMemorySpeechToggles={
-                  experience === "strata_page" && Boolean(assistantSession)
-                }
-                initialDraft={initialDraft}
-                isBlankChat={messages.length === 0 && persona !== "strata"}
-                modelRef={selectedModelRef}
-                effortRef={selectedEffortRef}
-                sendMessage={sendMessage}
-                status={status}
-                stop={handleStop}
-                useMemoriesRef={useMemoriesRef}
-                useSpeechFriendlyRef={useSpeechFriendlyRef}
-                useWebSearchRef={useWebSearchRef}
-                streamContextBudget={streamContextBudget}
-                contextBudgetRefreshKey={contextBudgetRefreshKey}
-                threadMessages={messages}
-                experience={experience as ChatExperience | undefined}
-                chatStyle={experience === "arcadia" && id ? getChatStyle(id) : undefined}
-                onErrorCleared={() => setChatError(undefined)}
-              />
+              <AnimatePresence initial={false}>
+                {btw.isOpen ? (
+                  <BtwPanel
+                    key={btw.sessionId}
+                    className="absolute inset-x-0 bottom-full z-30 mb-2"
+                    error={btw.error}
+                    messages={btw.messages}
+                    status={btw.status}
+                    onClose={btw.close}
+                  />
+                ) : null}
+              </AnimatePresence>
+              {composerSlot}
+              <div ref={composerAnchorRef}>
+                {/* While a /btw side thread is open it owns the composer: sends, status,
+                    and settings all switch to it, then snap back when it closes. */}
+                <CoreInput
+                  chatId={chatData?.thread.id}
+                  clearError={btw.isOpen ? btw.clearError : clearError}
+                  disabled={btw.isOpen ? false : isCheckingStream}
+                  composerInject={composerInject}
+                  enableMarkdownInputPreview={
+                    experience === "arcadia" && experimentalArcadiaMarkdownPreview
+                  }
+                  error={btw.isOpen ? btw.error : (error ?? chatError)}
+                  featureHints={!(experience === "arcadia" && messages.length === 0)}
+                  hideWebMemorySpeechToggles={
+                    experience === "strata_page" && Boolean(assistantSession)
+                  }
+                  initialDraft={initialDraft}
+                  isBlankChat={messages.length === 0 && persona !== "strata"}
+                  modelRef={selectedModelRef}
+                  effortRef={selectedEffortRef}
+                  sendMessage={btw.isOpen ? btw.sendMessage : sendMessageIfIdle}
+                  status={btw.isOpen ? btw.status : status}
+                  stop={btw.isOpen ? btw.stop : handleStop}
+                  snapshotScope={btw.isOpen ? btwScope : threadScope}
+                  contextEffortRef={contextEffortRef}
+                  slashCommands={slashCommands}
+                  sideThreadKey={btw.sessionId}
+                  placeholder={btw.isOpen ? "Ask a side question…" : undefined}
+                  useMemoriesRef={useMemoriesRef}
+                  useSpeechFriendlyRef={useSpeechFriendlyRef}
+                  useWebSearchRef={useWebSearchRef}
+                  streamContextBudget={streamContextBudget}
+                  contextBudgetRefreshKey={contextBudgetRefreshKey}
+                  threadMessages={messages}
+                  experience={experience as ChatExperience | undefined}
+                  chatStyle={experience === "arcadia" && id ? getChatStyle(id) : undefined}
+                  onErrorCleared={() => setChatError(undefined)}
+                />
+              </div>
             </div>
           </div>
           <DiagramTakeoverShell />

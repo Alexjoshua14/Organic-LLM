@@ -36,3 +36,16 @@ export function processingTextBurnCharGap(sequenceIndex: number): number {
 
   return sequenceIndex === 0 ? gap - PROCESSING_TEXT_BURN_CHAR_DURATION_S : gap;
 }
+
+/** How long an old→new character burn takes to settle (milliseconds). */
+export function processingTextBurnSwapDurationMs(outgoing: string, incoming: string): number {
+  const outgoingMs =
+    outgoing.length * PROCESSING_TEXT_BURN_OUT_STAGGER_S * 1000 +
+    PROCESSING_TEXT_BURN_CHAR_DURATION_S * 1000;
+  const incomingMs =
+    PROCESSING_TEXT_BURN_IN_INITIAL_DELAY_S * 1000 +
+    Math.max(0, incoming.length - 1) * PROCESSING_TEXT_BURN_IN_STAGGER_S * 1000 +
+    PROCESSING_TEXT_BURN_IN_OPACITY_DURATION_S * 1000;
+
+  return Math.max(outgoingMs, incomingMs) + 60;
+}

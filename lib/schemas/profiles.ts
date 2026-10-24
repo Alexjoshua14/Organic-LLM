@@ -10,7 +10,7 @@ export const ProfileSchema = z.object({
   /** Stored as timestamptz in Supabase; keep as string for client-safe serialization. */
   profile_tree_updated_at: z.string().nullable().optional(),
   profile_tree_source: ProfileTreeSourceSchema.nullable().optional(),
-  /** Admin flag: when true, user sees sandbox gateway etc. Column is admin-only in Supabase. */
+  /** Legacy profile field. Authorization uses the separate admin_access table. */
   admin: z.boolean().optional(),
 });
 

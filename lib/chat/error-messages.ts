@@ -1,3 +1,5 @@
+import { formatResetCountdown } from "@/lib/plans/budget-cycle";
+
 /**
  * User-facing messages keyed by HTTP status code.
  * When the API includes `status` in the JSON body, the client uses it for lookup; otherwise
@@ -27,16 +29,23 @@ const MESSAGE_PATTERNS: { patterns: string[]; status: number }[] = [
  * Map API/LLM errors to user-facing toast copy.
  * Prefers `status` from JSON body when present; else matches message text via MESSAGE_PATTERNS.
  */
-export function getChatErrorMessage(error: unknown): string {
+export function getChatErrorMessage(error: unknown, now: Date = new Date()): string {
   const raw = error instanceof Error ? error.message : typeof error === "string" ? error : "";
   const msg = raw.trim();
 
   let status: number | undefined;
 
   try {
-    const parsed = JSON.parse(msg) as { status?: number };
+    const parsed = JSON.parse(msg) as {
+      status?: number;
+      code?: string;
+      error?: string;
+      resetAt?: string;
+      resetsRemaining?: number | null;
+    };
 
     if (parsed && typeof parsed.status === "number") status = parsed.status;
+    if (parsed?.code === "plan_limit") return planLimitMessage(parsed, now);
   } catch {
     // not JSON, fall through to pattern matching
   }
@@ -53,4 +62,23 @@ export function getChatErrorMessage(error: unknown): string {
   }
 
   return msg || "Something went wrong. Please try again.";
+}
+
+/** A spent weekly plan budget: why, when it resets, and whether a reset is available. */
+function planLimitMessage(
+  body: { error?: string; resetAt?: string; resetsRemaining?: number | null },
+  now: Date
+): string {
+  const parts = [body.error?.trim() || "You've reached this week's plan limit."];
+  const resetAt = body.resetAt ? Date.parse(body.resetAt) : Number.NaN;
+
+  if (Number.isFinite(resetAt))
+    parts.push(`It resets in ${formatResetCountdown(resetAt - now.getTime())}.`);
+  if (typeof body.resetsRemaining === "number" && body.resetsRemaining > 0) {
+    parts.push(
+      `You can start a fresh window now from Usage (${body.resetsRemaining} reset${body.resetsRemaining === 1 ? "" : "s"} left).`
+    );
+  }
+
+  return parts.join(" ");
 }

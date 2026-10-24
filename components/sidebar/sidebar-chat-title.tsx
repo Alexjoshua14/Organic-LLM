@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { motion, useReducedMotion } from "framer-motion";
 
-import { SESSION_TITLE_SETTLE_S } from "@/lib/sidebar/session-signal-timing";
+import { ThreadTitleLine, useThreadTitlePhase } from "@/components/chat/thread-title-line";
 
 type SidebarChatTitleProps = {
+  threadId: string;
   title: string;
   editing: boolean;
   onSave: (title: string) => void;
@@ -16,24 +16,17 @@ type SidebarChatTitleProps = {
 const BLUR_GUARD_MS = 600;
 
 export function SidebarChatTitle({
+  threadId,
   title,
   editing,
   onSave,
   onEditingChange,
   className,
 }: SidebarChatTitleProps) {
+  const { phase, shown, announced, from, to } = useThreadTitlePhase(threadId, title);
   const [editedTitle, setEditedTitle] = useState<string>(title);
   const inputRef = useRef<HTMLInputElement>(null);
   const editStartedAtRef = useRef(0);
-  const reduceMotion = useReducedMotion();
-  // A title that changes in place (regenerated, or first auto-title) settles in rather than
-  // snapping, so the eye registers that the new words are the answer.
-  const shownTitleRef = useRef(title);
-  const titleChanged = shownTitleRef.current !== title;
-
-  useEffect(() => {
-    shownTitleRef.current = title;
-  }, [title]);
 
   useEffect(() => {
     if (!editing) {
@@ -111,21 +104,10 @@ export function SidebarChatTitle({
     );
   }
 
-  // The heading itself animates, never a wrapper inside it: gradient titles (Arcadia) paint with
-  // `bg-clip-text text-transparent`, and a filtered child is composited on its own layer where
-  // the parent's clipped background cannot reach — the text would render fully transparent.
   return (
-    <motion.h3
-      key={title}
-      animate={{ opacity: 1, filter: "blur(0px)", transitionEnd: { filter: "none" } }}
-      className={["flex-1 truncate py-1 min-w-0 cursor-pointer", className]
-        .filter(Boolean)
-        .join(" ")}
-      initial={titleChanged && !reduceMotion ? { opacity: 0, filter: "blur(3px)" } : false}
-      title={title}
-      transition={{ duration: SESSION_TITLE_SETTLE_S, ease: [0.25, 0.46, 0.45, 0.94] }}
-    >
-      {title}
-    </motion.h3>
+    <h3 className="thread-title min-w-0 flex-1 cursor-pointer truncate py-1" title={announced}>
+      <span className="sr-only">{announced}</span>
+      <ThreadTitleLine className={className} from={from} phase={phase} text={shown} to={to} />
+    </h3>
   );
 }

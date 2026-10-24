@@ -23,11 +23,14 @@ export function StrataCreatePageForm({
 
   if (dbAvailable) {
     return (
-      <form action={createAndOpenStrataPageAction} className="flex flex-col gap-3 sm:flex-row">
+      <form
+        action={createAndOpenStrataPageAction}
+        className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:items-center"
+      >
         <input
           className={cn(
             glass(),
-            "h-10 flex-1 rounded-lg border px-3 text-sm text-foreground placeholder:text-muted-foreground"
+            "h-10 w-full min-w-0 flex-1 rounded-lg border px-3 text-sm text-foreground placeholder:text-muted-foreground"
           )}
           name="title"
           placeholder="Optional title"
@@ -36,7 +39,7 @@ export function StrataCreatePageForm({
         <button
           className={cn(
             glass({ opaque: true }),
-            "h-10 shrink-0 rounded-lg border px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted cursor-pointer select-none"
+            "h-10 w-full shrink-0 rounded-lg border px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted cursor-pointer select-none sm:w-auto"
           )}
           type="submit"
         >

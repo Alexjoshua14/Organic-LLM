@@ -2,6 +2,7 @@ import type { Result } from "@/types";
 
 import { generateText } from "ai";
 
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import { KNOWLEDGE_GATEWAY_PROVIDER_OPTIONS } from "@/lib/knowledge/gateway-options";
 import { createLogger } from "@/lib/logger";
 import { recordLlmCall } from "@/lib/llm/metrics";
@@ -67,8 +68,12 @@ export async function generateStrataLinkSummary(args: {
     const started = performance.now();
     const prompt = [`URL: ${args.url}`, `Title hint: ${args.titleHint}`, "", body].join("\n");
     const result = await generateText({
+      ...(await createAuthenticatedLlmBudgetHooks({
+        modelId: budgetModelId(STRATA_LINK_SUMMARY_MODEL),
+        operation: "llm/strata-link-block-summary",
+      })),
       model: STRATA_LINK_SUMMARY_MODEL,
-      system: SYSTEM_PROMPT,
+      instructions: SYSTEM_PROMPT,
       prompt,
       maxOutputTokens: 220,
       providerOptions: KNOWLEDGE_GATEWAY_PROVIDER_OPTIONS,
@@ -76,6 +81,7 @@ export async function generateStrataLinkSummary(args: {
     const durationMs = performance.now() - started;
 
     recordLlmCall({
+      persist: false,
       model: STRATA_LINK_SUMMARY_MODEL,
       usage: result.usage,
       durationMs,

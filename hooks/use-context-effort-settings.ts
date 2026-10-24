@@ -12,10 +12,9 @@ export type ContextEffortSettings = {
 
 /** Reactive beta flag + last chosen Arcadia context-effort tier. */
 export function useContextEffortSettings(): ContextEffortSettings {
-  const [enabled, setEnabled] = useState(() => getSettings().experimentalContextEffort);
-  const [level, setLevel] = useState<ContextEffortLevel>(
-    () => getSettings().contextEffortLevel ?? DEFAULT_CONTEXT_EFFORT
-  );
+  // Local preferences are restored after hydration so the first render matches the server.
+  const [enabled, setEnabled] = useState(false);
+  const [level, setLevel] = useState<ContextEffortLevel>(DEFAULT_CONTEXT_EFFORT);
 
   useEffect(() => {
     const sync = () => {

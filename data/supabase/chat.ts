@@ -1,5 +1,7 @@
 "use server";
 
+import { randomUUID } from "crypto";
+
 import { UIMessage } from "ai";
 import { auth } from "@clerk/nextjs/server";
 
@@ -73,6 +75,26 @@ function decryptMessageRowContent(message: Message, ownerId: string): Message {
       buildMessageContentContext(ownerId, message.thread_id)
     ),
   };
+}
+
+function decodeThreadMessages(messages: Message[], ownerId: string): UIMessage[] {
+  const uiMessages = messages
+    .map((message) => convertMessageToUIMessage(decryptMessageRowContent(message, ownerId)))
+    .filter((message) => message !== null);
+
+  if (uiMessages.length !== messages.length) {
+    logger.error("getMessages", "A message was not converted to UIMessage");
+  }
+
+  return uiMessages;
+}
+
+/** Newest-first rows (as queried) → chronological `UIMessage`s, decrypted for `ownerId`. */
+function decodeRecentMessageRows(rows: Message[], ownerId: string): UIMessage[] {
+  return rows
+    .map((message) => convertMessageToUIMessage(decryptMessageRowContent(message, ownerId)))
+    .filter((message) => message !== null)
+    .reverse();
 }
 
 function encryptThreadSummaryText(summaryText: string, ownerId: string, chatId: string): string {
@@ -306,11 +328,17 @@ export async function loadChat(
 ): Promise<Result<{ thread: Thread; messages: UIMessage[] }>> {
   const sb = await supabaseServer();
 
-  const { data: thread, error: threadErr } = await sb
-    .from("threads")
-    .select("*")
-    .eq("id", chatId)
-    .single();
+  // Both reads use the same authenticated RLS client. The loaded thread supplies the
+  // decryption owner, avoiding another client/token setup and ownership read.
+  const [{ data: thread, error: threadErr }, { data: messages, error: messagesErr }] =
+    await Promise.all([
+      sb.from("threads").select("*").eq("id", chatId).single(),
+      sb
+        .from("messages")
+        .select("*")
+        .eq("thread_id", chatId)
+        .order("created_at", { ascending: true }),
+    ]);
 
   if (threadErr || !thread) {
     return {
@@ -318,9 +346,7 @@ export async function loadChat(
       error: new Error(threadErr?.message ?? "Unknown error"),
     };
   }
-  const { data: uiMessages, error: messagesErr } = await getMessages(chatId);
-
-  if (messagesErr || !uiMessages) {
+  if (messagesErr || !messages) {
     return {
       data: null,
       error: new Error(messagesErr?.message ?? "Unknown error"),
@@ -329,7 +355,7 @@ export async function loadChat(
 
   const chat = {
     thread: ThreadSchema.parse(thread),
-    messages: uiMessages,
+    messages: decodeThreadMessages(messages as Message[], thread.owner_id),
   };
 
   return {
@@ -440,7 +466,10 @@ export async function saveChat(params: {
  * @param chatId - The chat ID
  * @returns Chat ID
  */
-export async function createChat(chatId?: string): Promise<Result<string>> {
+export async function createChat(chatId?: string, experience?: "arcadia"): Promise<Result<string>> {
+  if (experience !== undefined && experience !== "arcadia") {
+    return { data: null, error: new Error("Invalid chat experience") };
+  }
   const { userId: clerkUserId } = await auth();
 
   if (!clerkUserId) {
@@ -461,11 +490,13 @@ export async function createChat(chatId?: string): Promise<Result<string>> {
     };
   }
 
+  const id = chatId ?? randomUUID();
   const { data, error } = await sb
     .from("threads")
     .insert({
-      id: chatId ?? undefined,
+      id,
       owner_id: supabaseUserId.data,
+      ...(experience === "arcadia" ? { feature: "arcadia", path: `/sandbox/arcadia/${id}` } : {}),
     })
     .select("id")
     .single();
@@ -555,13 +586,13 @@ export async function updateMessage(
   }
 
   const row = encryptMessageRowContent(supabaseMessage, threadOwnerContext.data.ownerId);
-
+  // text_excerpt is NOT NULL. UI messages often omit it; writing null rejects the update.
   const { error } = await sb
     .from("messages")
     .update({
       content: row.content,
       role: row.role,
-      text_excerpt: row.text_excerpt ?? null,
+      ...(typeof row.text_excerpt === "string" ? { text_excerpt: row.text_excerpt } : {}),
     })
     .eq("id", messageId)
     .eq("thread_id", threadId);
@@ -673,18 +704,8 @@ export async function getMessages(chatId: string): Promise<Result<UIMessage[]>> 
 
   const ownerId = threadOwnerContext.data.ownerId;
 
-  const uiMessages = messages
-    .map((message) =>
-      convertMessageToUIMessage(decryptMessageRowContent(message as Message, ownerId))
-    )
-    .filter((message) => message !== null);
-
-  if (uiMessages.length !== messages.length) {
-    logger.error("getMessages", "A message was not converted to UIMessage");
-  }
-
   return {
-    data: uiMessages,
+    data: decodeThreadMessages(messages as Message[], ownerId),
     error: null,
   };
 }
@@ -803,13 +824,7 @@ export async function getNMessages(
 
     const ownerId = threadOwnerContext.data.ownerId;
 
-    // Convert to UIMessage format and put into chronological order
-    const uiMessages = messages
-      .map((message) =>
-        convertMessageToUIMessage(decryptMessageRowContent(message as Message, ownerId))
-      )
-      .filter((message) => message !== null)
-      .reverse();
+    const uiMessages = decodeRecentMessageRows(messages as Message[], ownerId);
 
     if (uiMessages.length !== messages.length) {
       logger.error("getNMessages", "A message was not converted to UIMessage");
@@ -889,6 +904,96 @@ export async function getThreadArcadiaStarterKey(chatId: string): Promise<Result
 }
 
 /**
+ * Arcadia multitask dashboard flag + live stream id for the toggle gate.
+ * Column `arcadia_multitask_view` is additive (see docs/migrations/threads_arcadia_multitask_view.sql).
+ */
+export async function getThreadArcadiaMultitaskView(
+  chatId: string
+): Promise<Result<{ enabled: boolean; activeStreamId: string | null }>> {
+  const sb = await supabaseServer();
+  // Column is additive; cast until supabase gen types catch up.
+  const { data, error } = await sb
+    .from("threads")
+    .select("active_stream_id, arcadia_multitask_view")
+    .eq("id", chatId)
+    .single();
+
+  if (error) {
+    // Column missing until migration — treat as off rather than breaking Arcadia.
+    if (error.message?.includes("arcadia_multitask_view")) {
+      const streamOnly = await sb
+        .from("threads")
+        .select("active_stream_id")
+        .eq("id", chatId)
+        .single();
+
+      return {
+        data: {
+          enabled: false,
+          activeStreamId: (streamOnly.data?.active_stream_id as string | null) ?? null,
+        },
+        error: null,
+      };
+    }
+
+    return {
+      data: null,
+      error: new Error(error.message ?? "Unknown error"),
+    };
+  }
+
+  const row = data as { active_stream_id?: string | null; arcadia_multitask_view?: boolean | null };
+
+  return {
+    data: {
+      enabled: row.arcadia_multitask_view === true,
+      activeStreamId: row.active_stream_id ?? null,
+    },
+    error: null,
+  };
+}
+
+/**
+ * Sets the multitask view flag. Refuses while `active_stream_id` is set.
+ */
+export async function setThreadArcadiaMultitaskView(
+  chatId: string,
+  enabled: boolean
+): Promise<SimpleResult & { activeStreamId?: string | null }> {
+  const sb = await supabaseServer();
+  const current = await getThreadArcadiaMultitaskView(chatId);
+
+  if (current.error || !current.data) {
+    return {
+      ok: false,
+      error: current.error ?? new Error("Failed to read multitask view"),
+    };
+  }
+
+  if (current.data.activeStreamId) {
+    return {
+      ok: false,
+      error: new Error("Thread still has an active stream"),
+      activeStreamId: current.data.activeStreamId,
+    };
+  }
+
+  const { error } = await sb
+    .from("threads")
+    .update({ arcadia_multitask_view: enabled } as { arcadia_multitask_view: boolean })
+    .eq("id", chatId);
+
+  if (error) {
+    return {
+      ok: false,
+      error: new Error(error.message ?? "Failed to update multitask view"),
+    };
+  }
+
+  return { ok: true, error: null };
+}
+
+/**
  * Sets or clears the Arcadia starter key. Rejects when the thread already has messages.
  */
 export async function setThreadArcadiaStarterKey(
@@ -945,26 +1050,6 @@ export async function getThreadHasTitle(
 
   return {
     data: hasTitle,
-    error: null,
-  };
-}
-
-/** The thread's title, or `null` when it has none yet. Titles are stored unencrypted. */
-export async function getThreadTitle(chatId: string): Promise<Result<string | null>> {
-  const sb = await supabaseServer();
-  const { data, error } = await sb.from("threads").select("title").eq("id", chatId).single();
-
-  if (error) {
-    return {
-      data: null,
-      error: new Error(error?.message ?? "Unknown error"),
-    };
-  }
-
-  const title = data?.title != null ? String(data.title).trim() : "";
-
-  return {
-    data: title || null,
     error: null,
   };
 }
@@ -1141,6 +1226,84 @@ export async function deleteEmptyChat(chatId: string): Promise<SimpleResult> {
   }
 
   return deleteChat(chatId);
+}
+
+export type ThreadScreen = {
+  title: string | null;
+  /** Chronological, newest last. */
+  messages: UIMessage[];
+  summary: string | null;
+};
+
+/**
+ * What a live voice session needs to describe an open chat — title, latest messages, rolling
+ * summary — in one thread-row read plus two parallel reads. Calling `getNMessages` and
+ * `getConversationSummary` separately looks the owner up once each, on top of the ownership check.
+ *
+ * `expectedOwnerId` is compared against the thread row **before** any message or summary is read
+ * or decrypted, so it can only narrow access: the row read is RLS-scoped like every reader here,
+ * and a mismatch returns `"not-owner"` having touched nothing else. That matters because this is a
+ * Server Action — any client can call it with any arguments.
+ *
+ * Content reads are best-effort: a failed message or summary query yields an empty value rather
+ * than failing the whole screen, since the title alone still orients the listener.
+ */
+export async function getThreadScreen(
+  chatId: string,
+  options: { expectedOwnerId: string; messageLimit: number }
+): Promise<Result<ThreadScreen, "not-found" | "not-owner" | "error">> {
+  try {
+    const sb = await supabaseServer();
+    const { data: thread, error: threadError } = await sb
+      .from("threads")
+      .select("owner_id, title")
+      .eq("id", chatId)
+      .maybeSingle();
+
+    if (threadError) {
+      logger.error("getThreadScreen", `Thread read failed: ${threadError.message}`);
+
+      return { data: null, error: "error" };
+    }
+
+    if (!thread) return { data: null, error: "not-found" };
+    if (thread.owner_id !== options.expectedOwnerId) return { data: null, error: "not-owner" };
+
+    const ownerId = thread.owner_id as string;
+    const [messagesRes, summaryRes] = await Promise.all([
+      sb
+        .from("messages")
+        .select("*")
+        .eq("thread_id", chatId)
+        .order("created_at", { ascending: false })
+        .limit(options.messageLimit),
+      sb.from("thread_summaries").select("summary_text").eq("thread_id", chatId).maybeSingle(),
+    ]);
+
+    if (messagesRes.error) {
+      logger.warn("getThreadScreen", `Message read failed: ${messagesRes.error.message}`);
+    }
+    if (summaryRes.error) {
+      logger.warn("getThreadScreen", `Summary read failed: ${summaryRes.error.message}`);
+    }
+
+    const title = thread.title != null ? String(thread.title).trim() : "";
+
+    return {
+      data: {
+        title: title || null,
+        messages: decodeRecentMessageRows((messagesRes.data ?? []) as Message[], ownerId),
+        summary: summaryRes.data
+          ? decryptThreadSummaryText(summaryRes.data.summary_text, ownerId, chatId)
+          : null,
+      },
+      error: null,
+    };
+  } catch (err) {
+    logger.error("getThreadScreen", err instanceof Error ? err.message : String(err));
+
+    return { data: null, error: "error" };
+  }
 }
 
 export async function getConversationSummary(chatId: string): Promise<Result<string>> {

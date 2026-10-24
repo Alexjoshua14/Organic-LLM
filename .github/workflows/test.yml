@@ -5,6 +5,8 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Lets a branch be tested on the Linux runner without opening a PR to main.
+  workflow_dispatch:
 
 defaults:
   run:
@@ -27,4 +29,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Run tests
+        # Console output stays on in CI: some failures only reproduce on the Linux runner's file order.
+        env:
+          TEST_VERBOSE: "1"
         run: bun run test

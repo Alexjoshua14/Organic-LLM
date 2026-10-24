@@ -9,26 +9,46 @@ const GRADIENT_TITLE =
 describe("SidebarChatTitle", () => {
   afterEach(cleanup);
 
-  test("gradient titles keep their text directly inside the clipped heading", () => {
+  test("gradient titles keep their text directly inside the clipped title line", () => {
     // Regression: wrapping the text in an animated (filtered) element made Arcadia titles
     // invisible — `bg-clip-text` on the heading cannot paint a child on its own layer.
     const view = render(
-      <SidebarChatTitle className={GRADIENT_TITLE} editing={false} title="Arcadia run" onSave={() => {}} />
+      <SidebarChatTitle
+        threadId="thread-arcadia"
+        className={GRADIENT_TITLE}
+        editing={false}
+        title="Arcadia run"
+        onSave={() => {}}
+      />
     );
 
     const heading = view.getByRole("heading", { name: "Arcadia run" });
 
-    expect(heading.className).toContain("bg-clip-text");
-    expect(heading.childNodes).toHaveLength(1);
-    expect(heading.firstChild?.nodeType).toBe(Node.TEXT_NODE);
+    const line = heading.querySelector(".thread-title-line");
+
+    expect(line?.className).toContain("bg-clip-text");
+    expect(line?.childNodes).toHaveLength(1);
+    expect(line?.firstChild?.nodeType).toBe(Node.TEXT_NODE);
   });
 
   test("a changed title replaces the heading and still renders its text", () => {
     const view = render(
-      <SidebarChatTitle editing={false} title="Old title" onSave={() => {}} />
+      <SidebarChatTitle
+        threadId="thread-arcadia"
+        editing={false}
+        title="Old title"
+        onSave={() => {}}
+      />
     );
 
-    view.rerender(<SidebarChatTitle editing={false} title="New title" onSave={() => {}} />);
+    view.rerender(
+      <SidebarChatTitle
+        threadId="thread-arcadia"
+        editing={false}
+        title="New title"
+        onSave={() => {}}
+      />
+    );
 
     expect(view.getByRole("heading", { name: "New title" })).toBeDefined();
     expect(view.queryByText("Old title")).toBeNull();

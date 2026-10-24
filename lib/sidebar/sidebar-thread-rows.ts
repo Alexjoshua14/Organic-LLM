@@ -28,10 +28,10 @@ export type SidebarThreadQueryRow = SidebarThreadRow & {
  *   of deleted rabbit holes);
  * - the embed is stripped so the payload carries only what the sidebar renders.
  */
-export function resolveSidebarThreadRows(
-  rows: readonly SidebarThreadQueryRow[]
-): SidebarThreadRow[] {
-  const resolved: SidebarThreadRow[] = [];
+export function resolveSidebarThreadRows<Row extends SidebarThreadQueryRow>(
+  rows: readonly Row[]
+): Array<Omit<Row, "rabbit_hole_sessions">> {
+  const resolved: Array<Omit<Row, "rabbit_hole_sessions">> = [];
 
   for (const { rabbit_hole_sessions: sessions, ...row } of rows) {
     if (row.feature !== "rabbit_hole") {

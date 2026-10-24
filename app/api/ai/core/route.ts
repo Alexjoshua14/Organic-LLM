@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 import { auth } from "@clerk/nextjs/server";
 import { streamText, UIMessage, convertToModelMessages, smoothStream, consumeStream } from "ai";
 
+import { createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { GENERIC_SERVER_ERROR, logRouteError } from "@/lib/api/client-safe-error";
 import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
@@ -12,6 +13,7 @@ import { ChatRequestSchema, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
 import { CHAT_MODEL } from "@/lib/llm/helpers";
 import { Aion_SYSTEM_INSTRUCTION } from "@/lib/system-prompt/aion";
 import { createCoreToolKit } from "@/lib/llm/core/coreToolKit";
+import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
 // TODO: Make this stream resumable, using some external source to the client for tracking running job
 
 const MAX_STEP_COUNT = 3;
@@ -61,6 +63,10 @@ export async function POST(req: Request) {
   }
   const sbUserId = sbUserIdResult.data;
 
+  const planGate = await requirePlanBudget({ clerkUserId: clerkUser.userId, sbUserId: sbUserId });
+
+  if (planGate) return planGate;
+
   const messageLimitResult = await checkLlmMessageLimit(sbUserId);
 
   if (!messageLimitResult.success) {
@@ -82,7 +88,7 @@ export async function POST(req: Request) {
   let systemPrompt = Aion_SYSTEM_INSTRUCTION.replace("{{currentDateTime}}", currentDateTime);
 
   // Convert message to model format
-  const messages = convertToModelMessages([message]);
+  const messages = await convertToModelMessages([message]);
 
   logger.log(
     "POST",
@@ -96,9 +102,16 @@ export async function POST(req: Request) {
   systemPrompt = systemPrompt.replace("{{ADDITIONAL_INSTRUCTIONS}}", instructions ?? "");
 
   const result = streamText({
+    ...createLlmBudgetHooks({
+      ownerId: sbUserId,
+      clerkUserId: clerkUser.userId,
+      modelId: selectedModel.id,
+      operation: "core",
+      route: "/api/ai/core",
+    }),
     model: selectedModel.id,
     messages: messages,
-    system: systemPrompt,
+    instructions: systemPrompt,
     experimental_transform: smoothStream({
       delayInMs: 5,
       chunking: "word",
@@ -134,7 +147,7 @@ export async function POST(req: Request) {
 
       return GENERIC_SERVER_ERROR;
     },
-    onFinish: async ({ messages }) => {
+    onEnd: async ({ messages }) => {
       logger.log("POST", `Stream finished with ${messages.length} messages`);
 
       // Check for navigation tool calls in the messages

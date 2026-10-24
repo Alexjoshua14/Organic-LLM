@@ -3,19 +3,19 @@
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@radix-ui/react-collapsible";
 import { Pin, ChevronUp } from "lucide-react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 
 import { SidebarGroup, SidebarGroupLabel } from "../third-party/ui/sidebar";
 
 import { SidebarAttentionSummary } from "./sidebar-attention-summary";
 import { SidebarChatList } from "./sidebar-chat-list";
+import { SidebarChatsSkeleton, SidebarThreadRowsSkeleton } from "./sidebar-chats-skeleton";
 
 import { usePageVisible } from "@/components/hooks/use-page-visible";
 import { useVoiceSessionOptional } from "@/components/voice/voice-session-provider";
 import { useChatId } from "@/hooks/use-chat-id";
 import { useSidebarActivity } from "@/hooks/use-sidebar-activity";
 import { useSharedChatContext } from "@/lib/context/chat-context";
-import { MEMORY_INGEST_FEATURE } from "@/lib/chat/memory-ingest";
 import { getSessionExperience } from "@/lib/sidebar/session-experience";
 import {
   deriveSessionSignal,
@@ -23,48 +23,46 @@ import {
   summarizeSessionSignals,
   type SessionSignal,
 } from "@/lib/sidebar/session-signal";
-import { getSettings } from "@/lib/user-settings";
+
+/** Start the next page this far before the end of the list is visible. */
+const LOAD_MORE_ROOT_MARGIN = "400px";
 
 /**
  * Renders the sidebar chat list (pinned + all threads). Data is owned by
  * ChatProvider and loaded via SWR on app mount, so the list is available
- * even when the sidebar starts collapsed.
+ * even when the sidebar starts collapsed. The server filters by scope
+ * (coalescence mode) and pages older threads in as the list scrolls.
  */
 export const SidebarChats = () => {
   const {
-    sidebarChats: chats,
-    isSidebarChatsLoading,
     refreshSidebarChats,
+    sidebarPinnedChats: pinnedChats,
+    sidebarUnpinnedChats: allChats,
+    isSidebarChatsLoading,
+    isSidebarChatsLoadingMore,
+    hasMoreSidebarChats,
+    loadMoreSidebarChats,
   } = useSharedChatContext();
-  const [coalescenceMode, setCoalescenceMode] = useState<boolean>(
-    () => getSettings().coalescenceMode
-  );
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+  const filteredChats = useMemo(() => [...pinnedChats, ...allChats], [pinnedChats, allChats]);
 
   useEffect(() => {
-    const update = () => setCoalescenceMode(getSettings().coalescenceMode);
+    const node = loadMoreRef.current;
 
-    update();
-    window.addEventListener("organic-llm-settings", update);
-    window.addEventListener("storage", update);
+    if (!node || !hasMoreSidebarChats || typeof IntersectionObserver === "undefined") return;
 
-    return () => {
-      window.removeEventListener("organic-llm-settings", update);
-      window.removeEventListener("storage", update);
-    };
-  }, []);
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) loadMoreSidebarChats();
+      },
+      // rootMargin only applies to the root, so observe within the sidebar's scroller.
+      { root: node.closest('[data-sidebar="content"]'), rootMargin: LOAD_MORE_ROOT_MARGIN }
+    );
 
-  const filteredChats = useMemo(() => {
-    // Memory ingest sessions live in their own chamber — never list them among
-    // chats, not even in coalescence mode (which otherwise surfaces all features).
-    const visible = chats.filter((t) => (t.feature ?? "main") !== MEMORY_INGEST_FEATURE);
+    observer.observe(node);
 
-    if (coalescenceMode) return visible;
-
-    return visible.filter((t) => (t.feature ?? "main") === "main");
-  }, [chats, coalescenceMode]);
-
-  const pinnedChats = useMemo(() => filteredChats.filter((t) => t.pinned), [filteredChats]);
-  const allChats = useMemo(() => filteredChats.filter((t) => !t.pinned), [filteredChats]);
+    return () => observer.disconnect();
+  }, [hasMoreSidebarChats, loadMoreSidebarChats]);
 
   // ── Session signals: what each row tells the user without being opened ──
   const { activityById, markSeen, revalidateActivity } = useSidebarActivity();
@@ -194,12 +192,8 @@ export const SidebarChats = () => {
     ) : null;
   }, [pinnedChats, activeThreadId, signals]);
 
-  if (isSidebarChatsLoading && chats.length === 0) {
-    return (
-      <div className="flex items-center justify-center py-8 text-muted-foreground text-sm">
-        Loading threads…
-      </div>
-    );
+  if (isSidebarChatsLoading && pinnedChats.length === 0 && allChats.length === 0) {
+    return <SidebarChatsSkeleton />;
   }
 
   return (
@@ -217,6 +211,8 @@ export const SidebarChats = () => {
           />
         </SidebarGroupLabel>
         {allChatsComponents}
+        {hasMoreSidebarChats && <div ref={loadMoreRef} aria-hidden="true" className="h-px" />}
+        {isSidebarChatsLoadingMore && <SidebarThreadRowsSkeleton rows={3} />}
       </SidebarGroup>
     </div>
   );

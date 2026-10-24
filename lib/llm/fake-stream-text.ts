@@ -10,7 +10,7 @@ import { randomUUID } from "crypto";
  */
 export function fakeStreamText(_args: any): {
   toUIMessageStream: (args: {
-    onFinish?: (args: {
+    onEnd?: (args: {
       messages: UIMessage[];
       isAborted: boolean;
       finishReason?: string;
@@ -18,7 +18,7 @@ export function fakeStreamText(_args: any): {
   }) => ReadableStream<unknown>;
 } {
   return {
-    toUIMessageStream: ({ onFinish }) =>
+    toUIMessageStream: ({ onEnd }) =>
       new ReadableStream({
         start(controller) {
           const assistantMessage: UIMessage = {
@@ -28,7 +28,7 @@ export function fakeStreamText(_args: any): {
           } as UIMessage;
 
           void Promise.resolve(
-            onFinish?.({
+            onEnd?.({
               messages: [assistantMessage],
               isAborted: false,
               finishReason: "stop",
