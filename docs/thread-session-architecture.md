@@ -49,3 +49,9 @@ This document describes the thread/session architecture across encrypted persist
 - **Rate limit:** GET `/api/chats` is rate-limited (240 requests per hour per user, each page counts) to protect the thread-list endpoint; when exceeded, the API returns 429 with a clear message.
 - **Profile id:** every route resolves the Clerk user to a Supabase profile id with `getSupabaseUserId`. That mapping is written once and never changed by app code, so it is cached per server instance for ten minutes (`lib/supabase/profile-id-cache.ts`); failures are not cached.
 - **Attention rate limit:** GET `/api/chats/activity` and POST `/api/chats/[id]/seen` share a separate 1800/hour budget sized for polling.
+
+## 7. Active stream markers
+
+- **What it is:** `threads.active_stream_id` names the resumable stream (Redis, `lib/chat/resumable-sse-stream.ts`) a thread is currently writing. It is set when a chat turn starts streaming and cleared by the final save when the turn finishes. GET `/api/chat/[id]/stream` resumes from it, and a simultaneous-stream cap, where enforced, counts threads that carry one.
+- **Failure mode:** A stream that dies mid-flight — server killed, crashed deploy, failed final save — never clears its marker. The thread then counts as streaming forever: resume points at a dead stream, and enough stuck markers block the owner from sending at all.
+- **Sweep:** `lib/chat/stale-stream-sweep.ts` clears a marker only when the thread row has been idle for 15 minutes **and** Redis reports no live stream under that id (missing, expired, or done), using a compare-and-set so a stream that started meanwhile keeps its marker. When Redis cannot be asked, nothing is cleared. It runs every 5 minutes: Supabase pg_cron POSTs to `/api/cron/sweep-stale-streams` with `CRON_SECRET` (`docs/migrations/stale_stream_sweep_cron.sql`). Scheduling lives in Supabase so the 5-minute cadence does not depend on the Vercel plan (Hobby runs crons at most daily).
