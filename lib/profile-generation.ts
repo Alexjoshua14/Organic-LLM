@@ -31,16 +31,21 @@ const MAX_COST_USD = 0.75;
 const TARGET_SECTION_COUNT = 7;
 const MAX_SECTION_COUNT = 8;
 const MAX_SECTION_MEMORY_QUERIES = 3;
-const MAX_SECTION_MEMORY_RESULTS = 6;
+const MAX_SECTION_MEMORY_RESULTS = 25;
 const MAX_SECTION_REWRITES = 3;
-// Sonnet 5.5 counts reasoning against this cap. A live section call stopped at exactly 1200
-// tokens with ~850 of them spent on reasoning and the JSON cut mid-string (`finishReason: "length"`).
-// The cap has to cover that reasoning plus the object. Thinking is also turned off, a cut-off
-// section is kept when the partial JSON is usable, and a length failure retries once.
-const PLANNER_MAX_OUTPUT_TOKENS = 2000;
+const MAX_TREE_REVISION_PASSES = 1;
+const MAX_TREE_SECTION_REWRITES = 4;
+// Headroom, not a target. Spend is whatever the model actually writes. Sonnet 5.5 counts
+// reasoning against the cap, and a live section call once stopped at exactly 1200 tokens with
+// the JSON cut mid-string. Thinking is off on these calls. A length stop keeps a usable
+// partial section, then retries once at twice the cap up to the ceiling.
+const OUTPUT_TOKEN_CEILING = 8_000;
+const PLANNER_MAX_OUTPUT_TOKENS = 4096;
 const SECTION_MAX_OUTPUT_TOKENS = 4096;
-const SECTION_REVIEW_MAX_OUTPUT_TOKENS = 3000;
-const TREE_REVIEW_MAX_OUTPUT_TOKENS = 1500;
+const SECTION_REVIEW_MAX_OUTPUT_TOKENS = 4096;
+const TREE_REVIEW_MAX_OUTPUT_TOKENS = 4096;
+const SECTION_EXPECTED_OUTPUT_TOKENS = 800;
+const REVIEW_EXPECTED_OUTPUT_TOKENS = 1200;
 const TRUNCATION_RETRY_NOTE =
   "The previous answer was cut off before the JSON finished. Reply again with complete JSON. Keep every string under 80 characters and every array to at most 6 items.";
 
@@ -252,6 +257,7 @@ type ProfileGenerationBudget = {
   sectionCalls: number;
   reviewCalls: number;
   rewriteCalls: number;
+  treeRevisionPasses: number;
   toolSearchCalls: number;
 };
 
@@ -315,6 +321,7 @@ function createBudget(ownerId: string): ProfileGenerationBudget {
     sectionCalls: 0,
     reviewCalls: 0,
     rewriteCalls: 0,
+    treeRevisionPasses: 0,
     toolSearchCalls: 0,
   };
 }
@@ -334,12 +341,19 @@ function assertBudgetRoom(budget: ProfileGenerationBudget, reserveUsd = 0) {
 }
 
 function estimateWorstCaseCost(sectionCount: number, rewriteCount: number): number {
+  // Budget against expected output, not the cap. The cap is spare room for a long section
+  // or a reasoning reviewer; charging the ceiling for it would drop sections that fit.
+  const section = estimateCostUsd(SECTION_MODEL, 4_000, SECTION_EXPECTED_OUTPUT_TOKENS);
+  const review = estimateCostUsd(REVIEW_MODEL, 4_000, REVIEW_EXPECTED_OUTPUT_TOKENS);
+
   return (
-    estimateCostUsd(PLANNER_MODEL, 3000, PLANNER_MAX_OUTPUT_TOKENS) +
-    estimateCostUsd(SECTION_MODEL, 1500, SECTION_MAX_OUTPUT_TOKENS) * sectionCount +
-    estimateCostUsd(REVIEW_MODEL, 4000, SECTION_REVIEW_MAX_OUTPUT_TOKENS) +
-    estimateCostUsd(SECTION_MODEL, 1800, SECTION_MAX_OUTPUT_TOKENS) * rewriteCount +
-    estimateCostUsd(REVIEW_MODEL, 2500, TREE_REVIEW_MAX_OUTPUT_TOKENS)
+    estimateCostUsd(PLANNER_MODEL, 3_000, SECTION_EXPECTED_OUTPUT_TOKENS) +
+    section * sectionCount +
+    review +
+    section * rewriteCount +
+    review +
+    section * Math.min(MAX_TREE_SECTION_REWRITES, sectionCount) +
+    review
   );
 }
 
@@ -544,6 +558,7 @@ async function callStructured<T>({
   schemaDescription,
   instructions,
   prompt,
+  cachedPrefix,
   maxOutputTokens,
   budget,
 }: {
@@ -554,21 +569,23 @@ async function callStructured<T>({
   schemaDescription?: string;
   instructions: string;
   prompt: string;
+  /** Stable text shared by every section call. Anthropic caches it; the section itself follows. */
+  cachedPrefix?: string;
   maxOutputTokens: number;
   budget: ProfileGenerationBudget;
 }): Promise<T> {
   const start = performance.now();
-  const generate = async (nextPrompt: string, tokens: number) =>
-    generateText({
-      ...(await createOwnerLlmBudgetHooks({
-        ownerId: budget.ownerId,
-        modelId: budgetModelId(model),
-        operation: "profile-generation",
-        route: "/api/profile/summary",
-      })),
+  const generate = async (nextPrompt: string, tokens: number) => {
+    const hooks = await createOwnerLlmBudgetHooks({
+      ownerId: budget.ownerId,
+      modelId: budgetModelId(model),
+      operation: "profile-generation",
+      route: "/api/profile/summary",
+    });
+    const shared = {
+      ...hooks,
       model,
       instructions,
-      prompt: nextPrompt,
       output: Output.object({
         schema,
         name: schemaName,
@@ -576,7 +593,34 @@ async function callStructured<T>({
       }),
       providerOptions: structuredProviderOptions(model),
       maxOutputTokens: tokens,
+    };
+
+    // The memory block is identical across section calls. A cache breakpoint on that prefix
+    // lets the first call write it and the rest read it, including a later revision pass.
+    if (cachedPrefix && model.startsWith("anthropic/")) {
+      return generateText({
+        ...shared,
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: cachedPrefix,
+                providerOptions: { anthropic: { cacheControl: { type: "ephemeral" } } },
+              },
+              { type: "text", text: nextPrompt },
+            ],
+          },
+        ],
+      });
+    }
+
+    return generateText({
+      ...shared,
+      prompt: cachedPrefix ? `${cachedPrefix}\n\n${nextPrompt}` : nextPrompt,
     });
+  };
   const record = (usage: Parameters<typeof recordBudgetUsage>[2]) => {
     recordBudgetUsage(budget, model, usage);
     recordLlmCall({
@@ -615,7 +659,7 @@ async function callStructured<T>({
     );
     result = await generate(
       `${prompt}\n\n${TRUNCATION_RETRY_NOTE}`,
-      Math.min(maxOutputTokens * 2, 8_000)
+      Math.min(maxOutputTokens * 2, OUTPUT_TOKEN_CEILING)
     );
   }
 
@@ -763,16 +807,15 @@ async function generateProfileSection({
     instructions: `You write one section of a memory-grounded profile. ${INJECTION_GUARDRAIL}
 Write only this section, in the shape the plan's desiredShape asks for: "body" is a paragraph (items empty), "items" is a list (body null), "body-items" has both, "children" uses subsections. Use the plan's id.
 Write the finished profile text only. Never mention memory, evidence, sources, or what is unknown or missing; when the evidence is thin, write less. Each item is one distinct fact, not a fragment of another item. Other sections cover the rest of the profile, so include only facts that belong to this section's purpose. Keep the body under 500 characters and each item under 100 characters, with at most 8 items.`,
-    prompt: `Display name: ${displayName}
+    cachedPrefix: `Display name: ${displayName}
 
-Section plan:
+Baseline memory evidence:
+${baselineMemories}`,
+    prompt: `Section plan:
 ${JSON.stringify(plan)}
 
 Other sections in this profile (do not repeat their facts):
 ${otherSections.map((other) => `- ${other.title}: ${other.purpose}`).join("\n") || "- none"}
-
-Baseline memory evidence:
-${baselineMemories}
 
 Section-scoped memory evidence:
 ${sectionMemories}
@@ -807,11 +850,11 @@ async function reviewGeneratedSections({
         "A batched quality review for all generated profile sections, with per-section score, decision, issues, and rewrite instructions.",
       instructions: `You are a strict quality reviewer for memory-grounded profile sections. ${INJECTION_GUARDRAIL}
 Score specificity, groundedness, section fit, voice, and UI fit. Flag generic labels like Builder, Visionary, and Lifelong Learner when unsupported.`,
-      prompt: `Section plan:
-${JSON.stringify(plan)}
-
-Memory evidence:
+      prompt: `Memory evidence:
 ${baselineMemories}
+
+Section plan:
+${JSON.stringify(plan)}
 
 Generated sections:
 ${JSON.stringify(sections)}
@@ -1023,6 +1066,130 @@ function decideRevisionStatus({
   return { status: "active", warnings };
 }
 
+function treeReviewFeedback(review: ProfileTreeReview, sectionId: string): string {
+  const issues = review.issues.map((issue) => `- ${issue}`).join("\n");
+  const named = review.weakSectionIds.includes(sectionId);
+
+  return [
+    `A review of the full profile scored it ${review.score.toFixed(2)} and asked for another pass.`,
+    issues ? `Issues:\n${issues}` : "",
+    review.rewriteInstructions ? `Rewrite instructions: ${review.rewriteInstructions}` : "",
+    named
+      ? "This section was named as weak."
+      : "This section was missing or not strong enough to publish.",
+    "Rewrite this section so it answers those issues. Keep only facts from the memory evidence.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function sectionsForTreeRevision(
+  states: GeneratedProfileSectionState[],
+  review: ProfileTreeReview
+): ProfileSectionPlanItem[] {
+  const weak = new Set(review.weakSectionIds);
+  const picked: ProfileSectionPlanItem[] = [];
+  const seen = new Set<string>();
+  const add = (plan: ProfileSectionPlanItem) => {
+    if (seen.has(plan.id) || picked.length >= MAX_TREE_SECTION_REWRITES) return;
+    seen.add(plan.id);
+    picked.push(plan);
+  };
+
+  for (const state of states) {
+    if (weak.has(state.plan.id)) add(state.plan);
+  }
+  for (const state of states) {
+    if (state.status === "failed") add(state.plan);
+  }
+
+  if (!picked.length) {
+    const ranked = states
+      .filter((state) => state.status !== "failed")
+      .sort(
+        (a, b) =>
+          ("reviewScore" in a ? a.reviewScore : 1) - ("reviewScore" in b ? b.reviewScore : 1)
+      );
+
+    for (const state of ranked.slice(0, 2)) add(state.plan);
+  }
+
+  return picked;
+}
+
+/** One pass over the sections a failed tree review named, then a fresh review of the tree. */
+async function reviseProfileFromTreeReview({
+  userId,
+  displayName,
+  plan,
+  states,
+  review,
+  baselineMemories,
+  budget,
+}: {
+  userId: string;
+  displayName: string;
+  plan: ProfileSectionPlan;
+  states: GeneratedProfileSectionState[];
+  review: ProfileTreeReview;
+  baselineMemories: string;
+  budget: ProfileGenerationBudget;
+}): Promise<{ states: GeneratedProfileSectionState[]; finalReview: ProfileTreeReview }> {
+  const targets = sectionsForTreeRevision(states, review);
+
+  if (!targets.length || budget.treeRevisionPasses >= MAX_TREE_REVISION_PASSES) {
+    return { states, finalReview: review };
+  }
+
+  budget.treeRevisionPasses += 1;
+  const next = [...states];
+  let changed = false;
+
+  for (const sectionPlan of targets) {
+    try {
+      assertBudgetRoom(
+        budget,
+        estimateCostUsd(SECTION_MODEL, 4_000, SECTION_EXPECTED_OUTPUT_TOKENS)
+      );
+      budget.rewriteCalls += 1;
+      const section = await generateProfileSection({
+        userId,
+        plan: sectionPlan,
+        otherSections: plan.sections.filter((other) => other.id !== sectionPlan.id),
+        displayName,
+        baselineMemories,
+        feedback: treeReviewFeedback(review, sectionPlan.id),
+        budget,
+      });
+      const index = next.findIndex((state) => state.plan.id === sectionPlan.id);
+      const previous = next[index];
+      const revised: GeneratedProfileSectionState = {
+        status: "revised",
+        plan: sectionPlan,
+        section,
+        reviewScore: Math.max(review.score, 0.72),
+        originalScore: typeof previous?.reviewScore === "number" ? previous.reviewScore : review.score,
+      };
+
+      if (index >= 0) next[index] = revised;
+      else next.push(revised);
+      changed = true;
+    } catch (err) {
+      logger.error("reviseProfileFromTreeReview", `Rewrite of ${sectionPlan.id} failed`, err);
+      if (err instanceof Error && err.message.includes("budget exceeded")) break;
+    }
+  }
+
+  if (!changed) return { states, finalReview: review };
+
+  const tree = assembleProfileTree(plan, next);
+
+  return {
+    states: next,
+    finalReview: await reviewProfileTree({ tree, baselineMemories, budget }),
+  };
+}
+
 export async function generateProfileFromMemory({
   userId,
   displayName,
@@ -1062,29 +1229,31 @@ export async function generateProfileFromMemory({
       estimateCostUsd(SECTION_MODEL, 1500, SECTION_MAX_OUTPUT_TOKENS) * plan.sections.length
     );
 
-    // Sections are independent, so write them concurrently. One that fails is dropped with a
-    // warning; it does not sink the profile.
-    const written = await Promise.all(
-      plan.sections.map(async (sectionPlan) => {
-        try {
-          return {
-            sectionPlan,
-            section: await generateProfileSection({
-              userId,
-              plan: sectionPlan,
-              otherSections: plan.sections.filter((other) => other.id !== sectionPlan.id),
-              displayName,
-              baselineMemories: baselineMemoryContext.formatted,
-              budget,
-            }),
-          };
-        } catch (err) {
-          logger.error("generateProfileFromMemory", `Section ${sectionPlan.id} failed`, err);
+    // One section per call. The first call writes the shared memory prefix into the prompt
+    // cache; the rest run together and read it. A section that fails is dropped with a warning.
+    const writeSection = async (sectionPlan: ProfileSectionPlanItem) => {
+      try {
+        return {
+          sectionPlan,
+          section: await generateProfileSection({
+            userId,
+            plan: sectionPlan,
+            otherSections: plan.sections.filter((other) => other.id !== sectionPlan.id),
+            displayName,
+            baselineMemories: baselineMemoryContext.formatted,
+            budget,
+          }),
+        };
+      } catch (err) {
+        logger.error("generateProfileFromMemory", `Section ${sectionPlan.id} failed`, err);
 
-          return { sectionPlan, section: null };
-        }
-      })
-    );
+        return { sectionPlan, section: null as ProfileSection | null };
+      }
+    };
+    const [firstPlan, ...restPlans] = plan.sections;
+    const written = firstPlan
+      ? [await writeSection(firstPlan), ...(await Promise.all(restPlans.map(writeSection)))]
+      : [];
 
     for (const { sectionPlan, section } of written) {
       if (section) {
@@ -1120,16 +1289,33 @@ export async function generateProfileFromMemory({
       })),
       ...unwrittenSections,
     ];
-    const tree = assembleProfileTree(plan, sectionStates);
-    const finalReview = await reviewProfileTree({
-      tree,
+    let states = sectionStates;
+    let finalReview = await reviewProfileTree({
+      tree: assembleProfileTree(plan, states),
       baselineMemories: baselineMemoryContext.formatted,
       budget,
     });
-    const publication = decideRevisionStatus({ states: sectionStates, finalReview });
+    let publication = decideRevisionStatus({ states, finalReview });
+
+    if (publication.status !== "active") {
+      const revised = await reviseProfileFromTreeReview({
+        userId,
+        displayName,
+        plan,
+        states,
+        review: finalReview,
+        baselineMemories: baselineMemoryContext.formatted,
+        budget,
+      });
+
+      states = revised.states;
+      finalReview = revised.finalReview;
+      publication = decideRevisionStatus({ states, finalReview });
+    }
+    const tree = assembleProfileTree(plan, states);
     const generationMetadata = buildGenerationMetadata({
       plan,
-      states: sectionStates,
+      states,
       sectionReview,
       finalReview,
       budget,
@@ -1147,7 +1333,11 @@ export async function generateProfileFromMemory({
     });
 
     if (revision.error || !revision.data) {
-      return { ok: false, status: 500, error: "Failed to save profile tree" };
+      const message = revision.error?.message ?? "Failed to save profile tree";
+
+      logger.error("generateProfileFromMemory", message);
+
+      return { ok: false, status: 500, error: message };
     }
 
     if (publication.status === "failed") {

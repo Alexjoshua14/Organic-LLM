@@ -73,6 +73,20 @@ const sampleTree = {
   sections: [generatedSections.about, generatedSections.tech, generatedSections.lifestyle],
 };
 
+function promptText(args) {
+  if (typeof args?.prompt === "string" && args.prompt) return args.prompt;
+  const messages = Array.isArray(args?.messages) ? args.messages : [];
+
+  return messages
+    .map((message) => {
+      if (typeof message?.content === "string") return message.content;
+      if (!Array.isArray(message?.content)) return "";
+
+      return message.content.map((part) => part?.text ?? "").join("\n");
+    })
+    .join("\n");
+}
+
 // Sections are structured output: the strict schema means every key is present.
 function sectionObject(promptText) {
   if (!promptText.includes("Section-scoped memory evidence")) return null;
@@ -88,16 +102,16 @@ function sectionObject(promptText) {
 }
 
 const mockAuth = mock(createMockAuth());
-const mockGenerateText = mock(async ({ prompt }) => {
-  const promptText = String(prompt);
-  const generated = sectionObject(promptText);
+const mockGenerateText = mock(async (args) => {
+  const promptTextValue = promptText(args);
+  const generated = sectionObject(promptTextValue);
 
   if (generated) return { output: generated, usage: { inputTokens: 1000, outputTokens: 120 } };
 
-  if (promptText.includes("Plan the ideal ProfileTree sections")) {
+  if (promptTextValue.includes("Plan the ideal ProfileTree sections")) {
     return { output: samplePlan, usage: { inputTokens: 2500, outputTokens: 500 } };
   }
-  if (promptText.includes("Review every generated section")) {
+  if (promptTextValue.includes("Review every generated section")) {
     return {
       output: {
         overallScore: 0.84,
@@ -205,16 +219,16 @@ describe("POST /api/profile/summary", () => {
     mockRecordLlmCall.mockClear();
 
     mockAuth.mockResolvedValue(createMockClerkUser());
-    mockGenerateText.mockImplementation(async ({ prompt }) => {
-      const promptText = String(prompt);
-      const generated = sectionObject(promptText);
+    mockGenerateText.mockImplementation(async (args) => {
+      const text = promptText(args);
+      const generated = sectionObject(text);
 
       if (generated) return { output: generated, usage: { inputTokens: 1000, outputTokens: 120 } };
 
-      if (promptText.includes("Plan the ideal ProfileTree sections")) {
+      if (text.includes("Plan the ideal ProfileTree sections")) {
         return { output: samplePlan, usage: { inputTokens: 2500, outputTokens: 500 } };
       }
-      if (promptText.includes("Review every generated section")) {
+      if (text.includes("Review every generated section")) {
         return {
           output: {
             overallScore: 0.84,
@@ -349,14 +363,15 @@ describe("POST /api/profile/summary", () => {
         prompt: expect.stringContaining("Review the full tree"),
       })
     );
-    expect(mockGenerateText).toHaveBeenCalledWith(
-      expect.objectContaining({
-        prompt: expect.stringContaining("Write this section"),
-        providerOptions: expect.objectContaining({
-          anthropic: { thinking: { type: "between_tools" } },
-        }),
-      })
+    const sectionCall = mockGenerateText.mock.calls.find((call) =>
+      promptText(call[0]).includes("Write this section")
     );
+
+    expect(promptText(sectionCall?.[0])).toContain("Baseline memory evidence");
+    expect(sectionCall?.[0].providerOptions?.anthropic?.thinking?.type).toBe("between_tools");
+    expect(
+      sectionCall?.[0].messages?.[0]?.content?.[0]?.providerOptions?.anthropic?.cacheControl
+    ).toEqual({ type: "ephemeral" });
     // Sections are written from evidence fetched up front; no model-driven tool calls.
     expect(mockGenerateText).not.toHaveBeenCalledWith(
       expect.objectContaining({ tools: expect.anything() })
@@ -407,9 +422,9 @@ describe("POST /api/profile/summary", () => {
   test("rewrites a weak high-priority section exactly once", async () => {
     let aboutCalls = 0;
 
-    mockGenerateText.mockImplementation(async ({ prompt }) => {
-      const promptText = String(prompt);
-      const generated = sectionObject(promptText);
+    mockGenerateText.mockImplementation(async (args) => {
+      const text = promptText(args);
+      const generated = sectionObject(text);
 
       if (generated?.id === "about") {
         aboutCalls += 1;
@@ -424,10 +439,10 @@ describe("POST /api/profile/summary", () => {
       }
       if (generated) return { output: generated, usage: {} };
 
-      if (promptText.includes("Plan the ideal ProfileTree sections")) {
+      if (text.includes("Plan the ideal ProfileTree sections")) {
         return { output: samplePlan, usage: {} };
       }
-      if (promptText.includes("Review every generated section")) {
+      if (text.includes("Review every generated section")) {
         return {
           output: {
             overallScore: 0.7,
@@ -487,16 +502,16 @@ describe("POST /api/profile/summary", () => {
   });
 
   test("persists low-quality partial output as failed revision without publishing", async () => {
-    mockGenerateText.mockImplementation(async ({ prompt }) => {
-      const promptText = String(prompt);
-      const generated = sectionObject(promptText);
+    mockGenerateText.mockImplementation(async (args) => {
+      const text = promptText(args);
+      const generated = sectionObject(text);
 
       if (generated) return { output: generated, usage: { inputTokens: 1000, outputTokens: 120 } };
 
-      if (promptText.includes("Plan the ideal ProfileTree sections")) {
+      if (text.includes("Plan the ideal ProfileTree sections")) {
         return { output: samplePlan, usage: {} };
       }
-      if (promptText.includes("Review every generated section")) {
+      if (text.includes("Review every generated section")) {
         return {
           output: {
             overallScore: 0.84,

@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, mock, test } from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, mock, test } from "bun:test";
 import * as ai from "ai";
 import { NoObjectGeneratedError } from "ai";
 import * as budgetHooks from "@/lib/plans/llm-budget-hooks";
@@ -19,16 +19,45 @@ import {
 const { asSchema } = ai;
 
 type FakeCall = {
-  prompt: string;
+  prompt?: string;
   maxOutputTokens?: number;
   providerOptions?: { anthropic?: { thinking?: { type?: string } } };
+  messages?: Array<{
+    content:
+      | string
+      | Array<{
+          text?: string;
+          providerOptions?: { anthropic?: { cacheControl?: { type?: string } } };
+        }>;
+  }>;
 };
 let failSectionIds = new Set<string>();
 let truncateOnce = new Set<string>();
 let planOverride: Record<string, unknown> | null = null;
+let treeReviews: Array<{
+  score: number;
+  decision: "accept" | "revise";
+  weakSectionIds: string[];
+  issues: string[];
+  rewriteInstructions: string | null;
+}> | null = null;
 let calls: FakeCall[] = [];
 
-function callKind(prompt: string) {
+function promptOf(call: FakeCall): string {
+  if (call.prompt) return call.prompt;
+
+  return (call.messages ?? [])
+    .flatMap((message) =>
+      typeof message.content === "string"
+        ? [message.content]
+        : message.content.map((part) => part.text ?? "")
+    )
+    .join("\n");
+}
+
+function callKind(call: FakeCall) {
+  const prompt = promptOf(call);
+
   if (prompt.includes("Plan the ideal ProfileTree")) return "ProfileSectionPlan";
   if (prompt.includes("Review every generated section")) return "ProfileSectionBatchReview";
   if (prompt.includes("Section-scoped memory evidence")) return "ProfileSection";
@@ -57,11 +86,13 @@ function plan() {
 
 const fakeGenerateText = mock(async (args: FakeCall) => {
   calls.push(args);
-  switch (callKind(args.prompt)) {
+  const prompt = promptOf(args);
+
+  switch (callKind(args)) {
     case "ProfileSectionPlan":
       return { output: planOverride ?? plan(), usage };
     case "ProfileSection": {
-      const id = /"id":"([^"]+)"/.exec(args.prompt)![1]!;
+      const id = /"id":"([^"]+)"/.exec(prompt)![1]!;
 
       if (failSectionIds.has(id)) throw new Error("model returned an invalid object");
       if (truncateOnce.has(id)) {
@@ -98,7 +129,7 @@ const fakeGenerateText = mock(async (args: FakeCall) => {
       };
     }
     case "ProfileSectionBatchReview": {
-      const ids = [...args.prompt.matchAll(/"id":"([^"]+)","title":"Title/g)].map((m) => m[1]!);
+      const ids = [...prompt.matchAll(/"id":"([^"]+)","title":"Title/g)].map((m) => m[1]!);
 
       return {
         output: {
@@ -114,9 +145,11 @@ const fakeGenerateText = mock(async (args: FakeCall) => {
         usage,
       };
     }
-    default:
+    default: {
+      const scripted = treeReviews?.shift();
+
       return {
-        output: {
+        output: scripted ?? {
           score: 0.9,
           decision: "accept",
           weakSectionIds: [],
@@ -125,6 +158,7 @@ const fakeGenerateText = mock(async (args: FakeCall) => {
         },
         usage,
       };
+    }
   }
 });
 
@@ -163,6 +197,10 @@ const run = () =>
   generateProfileFromMemory({ userId: "owner", displayName: "Jordan", email: "j@example.com" });
 
 describe("profile generation", () => {
+  beforeEach(() => {
+    treeReviews = null;
+  });
+
   test("writes every planned section and keeps the plan's section ids", async () => {
     failSectionIds = new Set();
     truncateOnce = new Set();
@@ -182,7 +220,7 @@ describe("profile generation", () => {
     ]);
     expect(result.data.reviewScore).toBe(0.9);
     expect(saved[0]?.status).toBe("active");
-    expect(calls.map((call) => callKind(call.prompt))).toEqual([
+    expect(calls.map((call) => callKind(call))).toEqual([
       "ProfileSectionPlan",
       "ProfileSection",
       "ProfileSection",
@@ -191,11 +229,21 @@ describe("profile generation", () => {
       "ProfileSectionBatchReview",
       "ProfileTreeReview",
     ]);
-    const sectionCall = calls.find((call) => callKind(call.prompt) === "ProfileSection");
-    const planCall = calls.find((call) => callKind(call.prompt) === "ProfileSectionPlan");
+    const sectionCall = calls.find((call) => callKind(call) === "ProfileSection");
+    const planCall = calls.find((call) => callKind(call) === "ProfileSectionPlan");
+    const cachedBlock = sectionCall?.messages?.[0]?.content;
 
     expect(sectionCall?.providerOptions?.anthropic?.thinking?.type).toBe("between_tools");
     expect(planCall?.providerOptions?.anthropic).toBeUndefined();
+    expect(Array.isArray(cachedBlock) ? cachedBlock[0]?.text : "").toContain(
+      "Baseline memory evidence"
+    );
+    const cacheControl = Array.isArray(cachedBlock)
+      ? cachedBlock[0]?.providerOptions?.anthropic?.cacheControl?.type
+      : undefined;
+
+    expect(cacheControl).toBe("ephemeral");
+    expect(Array.isArray(cachedBlock) ? cachedBlock[1]?.text : "").toContain("Section plan");
   });
 
   test("retries a section once when the model stops mid-JSON at the output limit", async () => {
@@ -209,11 +257,11 @@ describe("profile generation", () => {
     if (!result.ok) return;
     expect(result.data.tree.sections.map((section) => section.id)).toContain("work");
     const workCalls = calls.filter(
-      (call) => callKind(call.prompt) === "ProfileSection" && call.prompt.includes('"id":"work"')
+      (call) => callKind(call) === "ProfileSection" && promptOf(call).includes('"id":"work"')
     );
 
     expect(workCalls).toHaveLength(2);
-    expect(workCalls[1]?.prompt).toContain("cut off before the JSON finished");
+    expect(promptOf(workCalls[1]!)).toContain("cut off before the JSON finished");
     expect(workCalls[1]?.maxOutputTokens).toBe(8000);
   });
 
@@ -272,6 +320,46 @@ describe("profile generation", () => {
     expect(result.data.tree.headline.endsWith("…")).toBe(true);
     expect(result.data.tree.roles).toHaveLength(6);
     expect(result.data.tree.signature!.length).toBeLessThanOrEqual(160);
+  });
+
+  test("rewrites the sections a failed tree review names, then publishes the next review", async () => {
+    failSectionIds = new Set();
+    truncateOnce = new Set();
+    planOverride = null;
+    treeReviews = [
+      {
+        score: 0.6,
+        decision: "revise",
+        weakSectionIds: ["about"],
+        issues: ["About is generic"],
+        rewriteInstructions: "Use the ceramicist facts.",
+      },
+      {
+        score: 0.9,
+        decision: "accept",
+        weakSectionIds: [],
+        issues: [],
+        rewriteInstructions: null,
+      },
+    ];
+    calls = [];
+    saved.length = 0;
+    const result = await run();
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.revisionStatus).toBe("active");
+    expect(result.data.reviewScore).toBe(0.9);
+    const aboutCalls = calls.filter(
+      (call) => callKind(call) === "ProfileSection" && promptOf(call).includes('"id":"about"')
+    );
+    const treeCalls = calls.filter((call) => callKind(call) === "ProfileTreeReview");
+
+    expect(aboutCalls).toHaveLength(2);
+    expect(promptOf(aboutCalls[1]!)).toContain("About is generic");
+    expect(promptOf(aboutCalls[1]!)).toContain("Use the ceramicist facts.");
+    expect(treeCalls).toHaveLength(2);
+    expect(saved[0]?.status).toBe("active");
   });
 });
 
