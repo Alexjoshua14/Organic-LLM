@@ -51,7 +51,7 @@ import {
   PromptInputTextarea,
   PromptInputTools,
 } from "@/components/third-party/ai-elements/prompt-input";
-import { formatTokenCount } from "@/lib/chat/context-budget";
+import { estimateDraftTokens, formatTokenCount } from "@/lib/chat/context-budget";
 import { CONTEXT_EFFORT_BUDGETS } from "@/lib/memory/context-effort";
 import { AUTO_CHAT_MODEL, chatModelById, getSelectableChatModels } from "@/lib/schemas/chat";
 import { clampEffortForModel } from "@/lib/schemas/chat-effort";
@@ -124,7 +124,7 @@ export const FOCUS_CONTROLS: readonly FocusControl[] = [
     title: "Context usage badge",
     file: "context-budget-indicator.tsx",
     blurb:
-      "The kelvin-tinted ring in the composer corner and its hover breakdown, driven by a fixture budget.",
+      "The kelvin-tinted ring in the composer corner, the draft's token count beside it while typing, and its hover breakdown, driven by a fixture budget.",
   },
   {
     id: "submit",
@@ -407,13 +407,18 @@ function sendFromSurface(ctx: CardContext, text: string) {
 }
 
 function ToolbarCard(ctx: CardContext) {
-  const { value, chat, budget } = ctx;
+  const { value, chat, budget, state } = ctx;
   const condensed = value.useCondensedLayout;
 
   return (
     <StateCell label="Interactive · production arrangement">
       <MiniComposer
-        corner={<ContextBudgetIndicatorView budget={budget} />}
+        corner={
+          <ContextBudgetIndicatorView
+            budget={budget}
+            draftTokens={estimateDraftTokens(state.draftText)}
+          />
+        }
         footer={
           <>
             <div className="min-w-0 flex-1 overflow-visible">
@@ -621,19 +626,34 @@ function ContextEffortCard({ value }: CardContext) {
   );
 }
 
+/** Draft sizes for the pinned badge row; 9,999 is the widest label below 10k. */
+const LAB_DRAFT_TOKEN_SAMPLES = [12, 1_240, 9_999];
+
 function ContextBudgetCard({ state, value, budget }: CardContext) {
   return (
     <>
       <StateGrid>
         <StateCell label="Badge in the composer corner · hover for breakdown">
           <MiniComposer
-            corner={<ContextBudgetIndicatorView budget={budget} />}
+            corner={
+              <ContextBudgetIndicatorView
+                budget={budget}
+                draftTokens={estimateDraftTokens(state.draftText)}
+              />
+            }
             footer={
               <div className="ml-auto">
                 <PromptInputSubmit status="ready" stop={noop} />
               </div>
             }
           />
+        </StateCell>
+        <StateCell label="Draft count · short, long, widest label">
+          <div className="flex flex-col items-end gap-2 py-2">
+            {LAB_DRAFT_TOKEN_SAMPLES.map((tokens) => (
+              <ContextBudgetIndicatorView key={tokens} budget={budget} draftTokens={tokens} />
+            ))}
+          </div>
         </StateCell>
         <StateCell label="Ring sizes">
           <div className="flex items-center gap-5 py-2">
