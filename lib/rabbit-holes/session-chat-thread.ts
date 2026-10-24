@@ -2,7 +2,7 @@
 
 import { createChat } from "@/lib/chat/chat-store";
 import { loadChat } from "@/lib/chat/chat-store";
-import { updateThreadRouting } from "@/data/supabase/chat";
+import { deleteChat, updateThreadRouting } from "@/data/supabase/chat";
 import { supabaseServer } from "@/lib/supabase/server";
 import { createLogger } from "@/lib/logger";
 
@@ -44,24 +44,62 @@ export async function ensureRabbitHoleChatThread(
 
   const threadId = createRes.data;
   const path = `/rabbitholes?sessionId=${encodeURIComponent(sessionId)}`;
+  const routeThread = () =>
+    updateThreadRouting(threadId, { feature: "rabbit_hole", path }).catch(() => undefined);
 
-  await updateThreadRouting(threadId, {
-    feature: "rabbit_hole",
-    path,
-  }).catch(() => undefined);
+  if (!row) {
+    // No session row to link yet; the thread is still usable client-side.
+    await routeThread();
 
-  const { error: updateError } = await supabase
+    return { ok: true, threadId };
+  }
+
+  // Compare-and-set: link only if no concurrent request linked its thread first. The page mounts
+  // more than one chat composer, and each bootstraps the thread; without this, simultaneous
+  // requests each created a thread and every loser became a duplicate sidebar row whose messages
+  // the rabbit hole never showed again.
+  const { data: claimed, error: claimError } = await supabase
     .from("rabbit_hole_sessions")
     .update({ chat_thread_id: threadId })
-    .eq("session_id", sessionId);
+    .eq("session_id", sessionId)
+    .is("chat_thread_id", null)
+    .select("chat_thread_id")
+    .maybeSingle();
 
-  if (updateError) {
+  if (claimError) {
     logger.warn(
       "ensureRabbitHoleChatThread",
-      `chat_thread_id column update failed: ${updateError.message}`
+      `chat_thread_id column update failed: ${claimError.message}`
     );
     // Thread still usable client-side even if column missing in older DBs.
+    await routeThread();
+
+    return { ok: true, threadId };
   }
+
+  if (!claimed) {
+    // Lost the race: discard ours (it has no messages yet) and use the thread that won.
+    const discarded = await deleteChat(threadId);
+
+    if (!discarded.ok) {
+      logger.warn("ensureRabbitHoleChatThread", "Could not discard losing thread", threadId);
+    }
+
+    const { data: winner, error: winnerError } = await supabase
+      .from("rabbit_hole_sessions")
+      .select("chat_thread_id")
+      .eq("session_id", sessionId)
+      .maybeSingle();
+
+    if (winnerError || !winner?.chat_thread_id) {
+      return { ok: false, error: winnerError?.message ?? "Failed to resolve chat thread" };
+    }
+
+    return { ok: true, threadId: winner.chat_thread_id };
+  }
+
+  // Route only once linked, so a losing thread never appears in the sidebar.
+  await routeThread();
 
   return { ok: true, threadId };
 }

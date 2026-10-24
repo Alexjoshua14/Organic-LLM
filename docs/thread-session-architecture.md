@@ -10,7 +10,7 @@ This document describes the thread/session architecture across encrypted persist
 
 ## 2. Source of truth
 
-- **Supabase** is the source of truth for threads and messages. The thread list from GET `/api/chats` is metadata-only (no message or summary content). Decryption happens only when loading a full thread (e.g. `getMessages` / `loadChat` on the server). The sidebar list is eventually consistent with the backend after `refreshSidebarChats()`.
+- **Supabase** is the source of truth for threads and messages. The thread list from GET `/api/chats` is metadata-only (no message or summary content). It comes from paged queries, `getSidebarThreadsPage` (`data/supabase/sidebar-threads.ts`): non-archived threads only (archived rows are never read), newest first, with each thread's rabbit hole and root path segment embedded through `rabbit_hole_sessions.chat_thread_id`. Rabbit-hole threads are the exception to "title comes from the thread": they take the rabbit hole's own title (root article title, else root question), and the sidebar hides rename for them. Rabbit-hole threads no session links to are dropped from the list. Other `getChats` callers still receive every thread. `ensureRabbitHoleChatThread` links with a compare-and-set, so concurrent bootstraps converge on one thread. Decryption happens only when loading a full thread (e.g. `getMessages` / `loadChat` on the server). The sidebar list is eventually consistent with the backend after `refreshSidebarChats()`.
 
 ## 3. Session semantics
 
@@ -27,6 +27,10 @@ This document describes the thread/session architecture across encrypted persist
   - `refreshSidebarChats()` when the client cannot describe the change (create, new activity, server-side title). Refetches the first page, where new and bumped threads land.
   - `refreshSidebarChats({ allPages: true })` when any loaded thread may have changed (Settings → Chats).
 - **Thread content:** No client-side persistence of decrypted message content. Thread content is always loaded server-side on navigation. Thread load is server-authoritative; there is no optimistic thread content on the client.
+- **Sidebar attention (working / new):** a second SWR key, `"/api/chats/activity"`, owned by `hooks/use-sidebar-activity.ts` and overlaid on the list by `SidebarChats`. It returns only threads that are working or hold unseen content — ids and flags, never content. It polls every `SESSION_ACTIVITY_POLL_WORKING_MS` while anything is working, stops otherwise, and revalidates on focus (throttled) and on navigation. When a working thread finishes, `SidebarChats` calls `refreshSidebarChats()` once so new titles and order arrive.
+  - One round trip: the `sidebar_thread_attention(owner, since)` SQL function. Until its migration is applied, three parallel table queries stand in, and the missing function is remembered for five minutes so polls do not keep calling it.
+  - *Working* = `threads.active_stream_started_at` (set when a reply starts, cleared with the stream) or `rabbit_hole_sessions.generating_node_id`, each ignored once older than `SESSION_WORKING_STALE_MS`.
+  - *New* = `thread_attention.unseen`: `last_activity_at` (stamped when an assistant turn is saved or a rabbit-hole node completes) is later than `last_seen_at`. The open thread in a visible tab is marked seen via POST `/api/chats/[id]/seen`, optimistically. Seen state lives in `thread_attention`, not `threads`, so marking seen never changes the list order. Speak threads are never new. Decision: [sidebar seen state](./architecture/decisions/20260924-sidebar-seen-state.md).
 
 ## 5. Client cache vs encrypted storage
 
@@ -43,6 +47,8 @@ This document describes the thread/session architecture across encrypted persist
 - **Send gating:** Live sends wait for the authoritative resume check and are blocked while a request is submitted or streaming. Synchronous guards reject repeated sends before React publishes the busy status. The composer rejects blocked form submissions before clearing drafts or attachments; Enter requires an enabled Submit button. Explicit queue mode continues to enqueue without starting a competing live stream.
 - **Invariants:** Thread load is server-authoritative. Sidebar list is eventually consistent after refresh. No optimistic thread content on the client.
 - **Rate limit:** GET `/api/chats` is rate-limited (240 requests per hour per user, each page counts) to protect the thread-list endpoint; when exceeded, the API returns 429 with a clear message.
+- **Profile id:** every route resolves the Clerk user to a Supabase profile id with `getSupabaseUserId`. That mapping is written once and never changed by app code, so it is cached per server instance for ten minutes (`lib/supabase/profile-id-cache.ts`); failures are not cached.
+- **Attention rate limit:** GET `/api/chats/activity` and POST `/api/chats/[id]/seen` share a separate 1800/hour budget sized for polling.
 
 ## 7. Active stream markers
 

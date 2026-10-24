@@ -8,6 +8,9 @@ import { render } from "../helpers/render";
 
 const mockRouterPush = mock(() => {});
 const mockSetChatId = mock(() => {});
+const mockBeginTitleRegen = mock(() => {});
+const mockResolveTitleRegen = mock(() => {});
+const mockFinishTitleRegen = mock(() => {});
 const mockRefreshSidebarChats = mock(() => {});
 const mockUpdateSidebarChat = mock((_id: string, _patch: unknown) => {});
 const mockSetOpenMobile = mock(() => {});
@@ -168,6 +171,9 @@ describe("SidebarChatList", () => {
   });
 
   beforeEach(() => {
+    mockBeginTitleRegen.mockReset();
+    mockResolveTitleRegen.mockReset();
+    mockFinishTitleRegen.mockReset();
     mockRouterPush.mockReset();
     mockSetChatId.mockReset();
     mockRefreshSidebarChats.mockReset();
@@ -200,6 +206,10 @@ describe("SidebarChatList", () => {
             sidebarChatsError: null,
             refreshSidebarChats: mockRefreshSidebarChats,
             updateSidebarChat: mockUpdateSidebarChat,
+            isTitleRegenerating: () => false,
+            beginTitleRegen: mockBeginTitleRegen,
+            resolveTitleRegen: mockResolveTitleRegen,
+            finishTitleRegen: mockFinishTitleRegen,
           } as ChatContextValue
         }
       >
@@ -287,5 +297,121 @@ describe("SidebarChatList", () => {
     fireEvent.click(openThreadButton);
 
     expect(mockRouterPush).toHaveBeenCalledWith("/chat/thread-1");
+  });
+
+  test("shows each row's experience and signal: status line while working, lit when new", () => {
+    const hole = {
+      id: "thread-hole",
+      title: "Why did Rome fall?",
+      pinned: false,
+      date: "2026-03-08T02:00:00.000Z",
+      feature: "rabbit_hole",
+      href: "/rabbitholes?sessionId=abc",
+    };
+    const signals = new Map([
+      [hole.id, { kind: "working" as const, step: "article" as const }],
+      [thread.id, { kind: "new" as const }],
+    ]);
+
+    const view = render(
+      <ChatContext.Provider
+        value={
+          {
+            chat: {} as ChatContextValue["chat"],
+            clearChat: () => {},
+            setChatId: mockSetChatId,
+            chatId: "",
+            sidebarChats: [thread, hole],
+            isSidebarChatsLoading: false,
+            sidebarChatsError: null,
+            refreshSidebarChats: mockRefreshSidebarChats,
+          } as ChatContextValue
+        }
+      >
+        <SidebarProvider>
+          <SidebarChatList signals={signals} threads={[thread, hole]} />
+        </SidebarProvider>
+      </ChatContext.Provider>
+    );
+
+    const holeRow = view.container.querySelector('[data-sidebar-thread="thread-hole"]');
+    const chatRow = view.container.querySelector('[data-sidebar-thread="thread-1"]');
+
+    expect(holeRow?.getAttribute("data-session-signal")).toBe("working");
+    expect(holeRow?.querySelector("svg")?.getAttribute("data-experience")).toBe("rabbitHole");
+    expect(view.getByText("Writing article")).toBeDefined();
+    expect(view.getByText("Rabbit hole, writing article")).toBeDefined();
+
+    expect(chatRow?.getAttribute("data-session-signal")).toBe("new");
+    expect(chatRow?.querySelector("svg")?.getAttribute("data-signal")).toBe("new");
+    expect(view.getByText("Chat, new activity")).toBeDefined();
+  });
+
+  describe("title regeneration", () => {
+    const realFetch = globalThis.fetch;
+
+    afterEach(() => {
+      globalThis.fetch = realFetch;
+    });
+
+    test("acknowledges at once, shows progress, then settles on success", async () => {
+      let respond: (res: Response) => void = () => {};
+
+      globalThis.fetch = mock(
+        () => new Promise<Response>((resolve) => (respond = resolve))
+      ) as unknown as typeof fetch;
+
+      const view = renderList();
+      const row = () => view.container.querySelector('[data-sidebar-thread="thread-1"]');
+
+      fireEvent.pointerEnter(view.getByLabelText("Thread options"));
+      fireEvent.click(view.getByText("Regenerate title (AI)"));
+
+      expect(await view.findByText("Generating title")).toBeDefined();
+      expect(row()?.getAttribute("data-session-signal")).toBe("working");
+      expect(view.getByRole("status").textContent).toContain("Generating a new title");
+
+      await act(async () => {
+        respond(new Response(JSON.stringify({ data: "Better Title" }), { status: 200 }));
+      });
+
+      await waitFor(() => expect(row()?.getAttribute("data-session-signal")).toBe("idle"));
+      expect(view.queryByText("Generating title")).toBeNull();
+      expect(view.getByRole("status").textContent).toBe("Title updated: Better Title");
+      expect(mockResolveTitleRegen).toHaveBeenCalledWith("thread-1", "Better Title");
+      expect(mockRefreshSidebarChats).not.toHaveBeenCalled();
+    });
+
+    test("says why when generation is refused", async () => {
+      globalThis.fetch = mock(
+        async () => new Response(JSON.stringify({ error: "Too many" }), { status: 429 })
+      ) as unknown as typeof fetch;
+
+      const view = renderList();
+
+      fireEvent.pointerEnter(view.getByLabelText("Thread options"));
+      fireEvent.click(view.getByText("Regenerate title (AI)"));
+
+      await waitFor(() =>
+        expect(view.getByRole("status").textContent).toBe("Title limit reached — try later")
+      );
+      // Shown on the row itself, and announced.
+      expect(view.getAllByText("Title limit reached — try later").length).toBe(2);
+      expect(
+        view.container
+          .querySelector('[data-sidebar-thread="thread-1"]')
+          ?.getAttribute("data-session-signal")
+      ).toBe("notice");
+      expect(mockRefreshSidebarChats).not.toHaveBeenCalled();
+    });
+  });
+
+  test("rows without a signal are idle and show no status line", () => {
+    const view = renderList();
+    const row = view.container.querySelector('[data-sidebar-thread="thread-1"]');
+
+    expect(row?.getAttribute("data-session-signal")).toBe("idle");
+    expect(view.queryByText("Responding")).toBeNull();
+    expect(view.getByText("Chat")).toBeDefined();
   });
 });
