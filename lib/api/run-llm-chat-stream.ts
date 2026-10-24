@@ -57,7 +57,7 @@ export type RunLLMChatStreamParams = {
    * Parts the route wrote to the stream before the model's own (Arcadia Jev's `data-jev`). The
    * client already shows them; they are prepended to the saved assistant message so a reload does.
    */
-  persistedAssistantParts?: UIMessage["parts"];
+  persistedAssistantParts?: ChatUIMessage["parts"];
   /** End the step loop right after the model calls one of these tools (e.g. `voice_reply`). */
   stopAfterToolNames?: readonly string[];
 };
