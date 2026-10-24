@@ -7,6 +7,8 @@
  */
 import { expect, test } from "@playwright/test";
 
+import { signIn } from "./helpers/auth";
+
 import {
   assertFramesFilled,
   sampleLiquidChromeFramesInPage,
@@ -15,10 +17,10 @@ import {
 } from "./helpers/liquid-chrome-flash";
 
 const CHROME_ROUTES = [
-  { path: "/", name: "home" },
-  { path: "/showcase", name: "showcase gateway" },
-  { path: "/status", name: "status" },
-  { path: "/sandbox/prototypes/glass-fonts", name: "glass fonts prototype" },
+  { path: "/", name: "home", authenticated: false },
+  { path: "/showcase", name: "showcase gateway", authenticated: false },
+  { path: "/status", name: "status", authenticated: true },
+  { path: "/sandbox/prototypes/glass-fonts", name: "glass fonts prototype", authenticated: true },
 ] as const;
 
 const NON_CHROME_ROUTES = [{ path: "/sandbox/tasks", name: "sandbox tasks" }] as const;
@@ -28,6 +30,7 @@ const FRAME_COUNT = 4;
 test.describe("Liquid chrome first-frame regression", () => {
   for (const route of CHROME_ROUTES) {
     test(`${route.name} SSR includes chrome fill marker`, async ({ page }) => {
+      if (route.authenticated) await signIn(page);
       const response = await page.goto(route.path, { waitUntil: "commit" });
 
       expect(response?.ok()).toBeTruthy();
@@ -35,6 +38,7 @@ test.describe("Liquid chrome first-frame regression", () => {
     });
 
     test(`${route.name} keeps chrome fill for first ${FRAME_COUNT} frames`, async ({ page }) => {
+      if (route.authenticated) await signIn(page);
       await page.goto(route.path, { waitUntil: "domcontentloaded" });
 
       const samples = await page.evaluate(sampleLiquidChromeFramesInPage, FRAME_COUNT);
@@ -47,6 +51,7 @@ test.describe("Liquid chrome first-frame regression", () => {
 
   for (const route of NON_CHROME_ROUTES) {
     test(`${route.name} SSR omits chrome fill marker`, async ({ page }) => {
+      await signIn(page);
       const response = await page.goto(route.path, { waitUntil: "commit" });
 
       expect(response?.ok()).toBeTruthy();

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { waitFor } from "@testing-library/react";
 import type { UIMessage } from "ai";
 
 import { resetSpatialArtifactSyncQueue } from "../helpers/spatial-artifacts-sync-queue";
@@ -16,12 +17,15 @@ const mockGetChats = mock(async () => ({
   data: [] as { id: string }[],
   error: null as string | null,
 }));
-const mockGetSpatialArtifactRow = mock(async () => null as {
-  snapshot_updated_at: string | null;
-  thread_title: string | null;
-  pinned: boolean;
-  pinned_at: string | null;
-} | null);
+const mockGetSpatialArtifactRow = mock(
+  async () =>
+    null as {
+      snapshot_updated_at: string | null;
+      thread_title: string | null;
+      pinned: boolean;
+      pinned_at: string | null;
+    } | null
+);
 const mockUpsertSpatialArtifactRow = mock(async () => undefined);
 
 mock.module("@/data/supabase/chat", () => ({
@@ -105,9 +109,9 @@ describe("sync-worker integration", () => {
       messages,
     });
 
-    await new Promise((r) => setTimeout(r, 150));
-
-    expect(mockUpsertSpatialArtifactRow.mock.calls.length).toBeGreaterThanOrEqual(2);
+    await waitFor(() => {
+      expect(mockUpsertSpatialArtifactRow).toHaveBeenCalledTimes(2);
+    });
   });
 
   test("processes sync job and upserts snapshot from loaded chat", async () => {
@@ -127,9 +131,9 @@ describe("sync-worker integration", () => {
       messages: [assistantMessage("call_sync")],
     });
 
-    await new Promise((r) => setTimeout(r, 100));
-
-    expect(mockUpsertSpatialArtifactRow).toHaveBeenCalled();
+    await waitFor(() => {
+      expect(mockUpsertSpatialArtifactRow).toHaveBeenCalledTimes(1);
+    });
     const upsertArg = mockUpsertSpatialArtifactRow.mock.calls[0]?.[0] as {
       id: string;
       thread_title: string;
@@ -161,7 +165,9 @@ describe("sync-worker integration", () => {
       maxThreads: 1,
     });
 
-    await new Promise((r) => setTimeout(r, 150));
+    await waitFor(() => {
+      expect(mockUpsertSpatialArtifactRow).toHaveBeenCalledTimes(1);
+    });
 
     expect(mockGetChats).toHaveBeenCalled();
     expect(mockLoadChat).toHaveBeenCalled();

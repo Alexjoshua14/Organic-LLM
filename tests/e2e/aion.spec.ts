@@ -1,54 +1,10 @@
 import { test, expect } from "@playwright/test";
 
-async function signInIfNeeded(page: import("@playwright/test").Page) {
-  const email = process.env.E2E_CLERK_EMAIL;
-  const password = process.env.E2E_CLERK_PASSWORD;
-
-  test.skip(
-    !email || !password,
-    "Set E2E_CLERK_EMAIL and E2E_CLERK_PASSWORD to run this test.",
-  );
-
-  await page.goto("/");
-
-  // If already signed in, we'll see no obvious sign-in CTA.
-  const signInButton = page.getByRole("button", { name: /sign in/i }).first();
-  if (await signInButton.isVisible().catch(() => false)) {
-    await signInButton.click();
-
-    // Clerk can render in a modal or redirect. Try common selectors.
-    const emailInput = page
-      .locator(
-        'input[type="email"], input[name="identifier"], input[autocomplete="email"]',
-      )
-      .first();
-    await emailInput.waitFor({ state: "visible", timeout: 30_000 });
-    await emailInput.fill(email);
-
-    const continueBtn = page
-      .getByRole("button", { name: /continue|sign in/i })
-      .first();
-    await continueBtn.click();
-
-    const passwordInput = page.locator('input[type="password"]').first();
-    await passwordInput.waitFor({ state: "visible", timeout: 30_000 });
-    await passwordInput.fill(password);
-
-    const submitBtn = page
-      .getByRole("button", { name: /continue|sign in/i })
-      .first();
-    await submitBtn.click();
-  }
-
-  // Heuristic: ensure sidebar isn't showing Sign In anymore.
-  await expect(page.getByRole("button", { name: /sign in/i })).toHaveCount(0, {
-    timeout: 30_000,
-  });
-}
+import { signIn } from "./helpers/auth";
 
 test.describe("Aion API (E2E)", () => {
   test("POST /api/ai/aion returns 200 (authenticated)", async ({ page }) => {
-    await signInIfNeeded(page);
+    await signIn(page);
 
     const result = await page.evaluate(async () => {
       const id =
@@ -80,4 +36,3 @@ test.describe("Aion API (E2E)", () => {
     expect(result.text).toContain("E2E_FAKE_LLM");
   });
 });
-

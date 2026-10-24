@@ -1,10 +1,15 @@
-import { describe, expect, test } from "bun:test";
-import { fireEvent } from "@testing-library/react";
+import { afterEach, describe, expect, test } from "bun:test";
+import { cleanup, fireEvent } from "@testing-library/react";
 
 import { render } from "../helpers/render";
 
-import { DiagramNodeLinksProvider, useDiagramNodeLinks } from "@/lib/mermaid/diagram-node-links-context";
+import {
+  DiagramNodeLinksProvider,
+  useDiagramNodeLinks,
+} from "@/lib/mermaid/diagram-node-links-context";
 import { DIAGRAM_NODE_LINK_CAP } from "@/lib/mermaid/types";
+
+afterEach(() => cleanup());
 
 function Harness() {
   const { links, addLink } = useDiagramNodeLinks();
