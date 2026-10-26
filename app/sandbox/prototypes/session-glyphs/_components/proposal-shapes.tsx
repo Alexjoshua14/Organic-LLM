@@ -38,7 +38,7 @@ export const PROPOSAL_EXPERIENCES: {
   label: string;
   note?: string;
 }[] = [
-  { id: "chat", label: "Chat / Arcadia", note: "Shared · dialogue bubble" },
+  { id: "chat", label: "Chat / Arcadia", note: "Unmarked default · empty at idle" },
   { id: "speak", label: "Speak", note: "Waveform" },
   { id: "rabbitHole", label: "Rabbit hole", note: "Idea branching" },
   { id: "strata", label: "Strata", note: "Lines converging" },
@@ -63,7 +63,7 @@ export const PROPOSALS: {
     id: "mass",
     title: "Mass",
     pitch:
-      "Preferred direction: speech-bubble chat (shared with Arcadia), waveform speak, branching rabbit hole, converging strata, stove Remy, spark Noesis, inward-mirror introspection. Tiny fills for 14px idle weight.",
+      "Preferred direction: Chat/Arcadia are the unmarked default (no glyph at idle; thin ring only when working/new). Waveform speak, branching rabbit hole, converging strata, stove Remy, spark Noesis, inward-mirror introspection.",
   },
   {
     id: "alphabet",
@@ -169,28 +169,33 @@ function instrument(experience: ProposalExperience, stepIndex: number): ReactNod
   }
 }
 
-/** Speech-bubble outline — sweep travels this path. Shared by Chat + Arcadia. */
-const CHAT_BUBBLE =
-  "M3.25 4.25h8.25a1.75 1.75 0 0 1 1.75 1.75v4a1.75 1.75 0 0 1-1.75 1.75H7.1L4.6 13.6V11.75H3.25A1.75 1.75 0 0 1 1.5 10V6a1.75 1.75 0 0 1 1.75-1.75Z";
-
 /** Soft orbit for Noesis sweep — exploration circling a topic spark. */
 const NOESIS_ORBIT = "M8 2.75a5.25 5.25 0 1 1-4.55 2.625";
 
 /** Mirror glass arc for Introspection sweep — looking inward at the self-dot. */
 const INTROSPECTION_MIRROR = "M10.75 3.25a4.75 4.75 0 0 1 0 9.5";
 
-function mass(experience: ProposalExperience, stepIndex: number): ReactNode {
+/**
+ * Chat / Arcadia: unmarked default. Idle = empty spacer (bubble was cliché, idle circle
+ * pointless). When something is happening, a thin ring is only an annunciator for sweep/new —
+ * not an experience identity mark.
+ */
+function massChatAnnunciator(signalKind: SessionSignal["kind"]): ReactNode {
+  if (signalKind === "idle" || signalKind === "paused" || signalKind === "live") {
+    return null;
+  }
+
+  return <SweepRing r={5} />;
+}
+
+function mass(
+  experience: ProposalExperience,
+  stepIndex: number,
+  signalKind: SessionSignal["kind"]
+): ReactNode {
   switch (experience) {
     case "chat":
-      // Dialogue, not a bare ring: bubble outline carries sweep; two message dashes = mass.
-      return (
-        <>
-          <path className="sg-base" d={CHAT_BUBBLE} />
-          <path className="sg-sweep" d={CHAT_BUBBLE} pathLength={100} />
-          <path className="sg-base" d="M4.75 6.5h5.5" strokeWidth={1.5} />
-          <path className="sg-base" d="M4.75 8.85h3.75" strokeWidth={1.5} />
-        </>
-      );
+      return massChatAnnunciator(signalKind);
     case "speak":
       return (
         <>
@@ -391,13 +396,14 @@ function alphabet(experience: ProposalExperience, stepIndex: number): ReactNode 
 function shapeFor(
   proposal: ProposalId,
   experience: ProposalExperience,
-  stepIndex: number
+  stepIndex: number,
+  signalKind: SessionSignal["kind"]
 ): ReactNode {
   switch (proposal) {
     case "instrument":
       return instrument(experience, stepIndex);
     case "mass":
-      return mass(experience, stepIndex);
+      return mass(experience, stepIndex, signalKind);
     case "alphabet":
       return alphabet(experience, stepIndex);
   }
@@ -448,7 +454,7 @@ export function ProposalGlyph({
       style={GLYPH_TIMING}
       viewBox="0 0 16 16"
     >
-      {shapeFor(proposal, experience, rabbitHoleStepIndex(step))}
+      {shapeFor(proposal, experience, rabbitHoleStepIndex(step), signal.kind)}
     </svg>
   );
 }

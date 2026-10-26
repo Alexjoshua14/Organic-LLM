@@ -187,8 +187,9 @@ export function SessionGlyphLab() {
             Session glyphs
           </h1>
           <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            Sidebar experience marks at production size. Chat and Arcadia share one SVG in every
-            proposal. Compare optical weight, silhouette, and signal motion before promoting a set.
+            Sidebar experience marks at production size. Chat and Arcadia share one treatment —
+            in Mass they are the unmarked default (empty at idle). Compare optical weight,
+            silhouette, and signal motion before promoting a set.
           </p>
         </header>
 

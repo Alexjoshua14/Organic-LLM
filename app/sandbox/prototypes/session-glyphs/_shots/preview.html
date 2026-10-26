@@ -108,8 +108,8 @@
   <body>
     <h1>Session glyphs — Mass proposal</h1>
     <p class="lede">
-      Chat and Arcadia share one mark. Mass set: dialogue bubble, waveform, branching idea, converging
-      strata, stovetop Remy, topic spark Noesis, inward-mirror introspection.
+      Chat and Arcadia are the unmarked default (empty at idle). Mass set: waveform Speak, branching
+      rabbit hole, converging Strata, stovetop Remy, topic spark Noesis, inward-mirror introspection.
     </p>
 
     <section id="mass-inspect">
@@ -128,8 +128,6 @@
     </section>
 
     <script>
-      const CHAT_BUBBLE =
-        "M3.25 4.25h8.25a1.75 1.75 0 0 1 1.75 1.75v4a1.75 1.75 0 0 1-1.75 1.75H7.1L4.6 13.6V11.75H3.25A1.75 1.75 0 0 1 1.5 10V6a1.75 1.75 0 0 1 1.75-1.75Z";
       const NOESIS_ORBIT = "M8 2.75a5.25 5.25 0 1 1-4.55 2.625";
       const INTROSPECTION_MIRROR = "M10.75 3.25a4.75 4.75 0 0 1 0 9.5";
 
@@ -137,12 +135,9 @@
         {
           id: "chat",
           label: "Chat / Arcadia",
-          note: "Shared · dialogue bubble",
+          note: "Unmarked default · empty at idle",
           title: "Weekend trip ideas",
-          html: `
-            <path d="${CHAT_BUBBLE}" fill="none"/>
-            <path d="M4.75 6.5h5.5" fill="none" stroke-width="1.5"/>
-            <path d="M4.75 8.85h3.75" fill="none" stroke-width="1.5"/>`,
+          html: ``,
         },
         {
           id: "speak",
