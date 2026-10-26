@@ -41,6 +41,7 @@ const DEFAULT_COST: ModelCost = {
  * Keys match concrete gateway ids (catalog `ChatModel.id` and retired SKUs).
  */
 const MODEL_COSTS: Record<string, ModelCost> = {
+  "typesafe-ai/jev": { inputPerMillion: 0.04, outputPerMillion: 0 },
   "openai/gpt-6-astra": {
     inputPerMillion: 10.0,
     outputPerMillion: 50.0,

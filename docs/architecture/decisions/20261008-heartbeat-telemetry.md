@@ -19,6 +19,11 @@ Heartbeat evaluation metrics alone cannot explain skipped polls, budget rejectio
 - Evaluation cost is a diagnostic duplicate of existing usage accounting, not a new charge or billing source. Keep `llm_usage_events` as the billing source; never sum the two tables together. Heartbeat cost excludes subsequent orchestrator reply generation and may be missing even when a provider incurred cost.
 - Enable RLS and grant application access only to `service_role`; explicitly revoke `PUBLIC`, `anon`, and `authenticated`. Privileged database administrators remain able to operate the table. Profile/thread deletion cascades. Index start time and owner/thread plus start time for time-window investigation and retention.
 
+## Admin review
+
+See [admin heartbeat telemetry](20261025-admin-heartbeat-telemetry.md) for the private dashboard,
+additional snapshot measurements, reporting access controls, and migration deployment order.
+
 ## Retention and consequences
 
 Keep at least **10 days of raw rows**, then compact older rows into `heartbeat_runs_hourly`. This supersedes the original migration's 30-day deletion-only policy. Hourly summaries are retained indefinitely for now; profile deletion cascades to them. They contain no thread IDs or gateway generation IDs, so deleting one thread cannot selectively remove its contribution after aggregation. Raw rows still cascade on thread deletion.
