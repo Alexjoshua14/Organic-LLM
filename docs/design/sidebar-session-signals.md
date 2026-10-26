@@ -43,8 +43,9 @@ Salience, strongest first, maps to urgency:
 All marks sit in one column at one size, so the eye learns a single place to look. On desktop
 that column is the row's right edge, in the actions slot: hovering or focusing a row fades the
 glyph out (150ms) and slides the options menu in from the right (250ms, exit faster than enter),
-so the two never share the slot at once. The menu stays up while it is open. On mobile the glyph
-leads the title and the menu keeps its own slot. The
+so the two never share the slot at once. The menu stays up while it is open. On mobile the
+same slot shows the glyph on every row except the open thread, which shows the menu instead: its
+experience is already on screen. Long-press still opens the menu on any row. The
 header summary ("2 new") is the master light: it sits in the existing label row (no layout
 shift) and jumps focus to the next lit row.
 

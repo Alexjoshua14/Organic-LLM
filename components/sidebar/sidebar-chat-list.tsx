@@ -221,13 +221,6 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads, signals, ac
                   }
                 >
                   <div className="flex min-w-0 items-center gap-2">
-                    {isMobile && (
-                      <SessionGlyph
-                        emphasized={isActiveThread}
-                        experience={experience}
-                        signal={signal}
-                      />
-                    )}
                     <SidebarChatTitle
                       editing={isEditing}
                       threadId={thread.id}
@@ -243,33 +236,32 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads, signals, ac
                       )}
                     />
                   </div>
-                  {/* On mobile, indented past the glyph (14px + 8px gap) so the status reads as the title's. */}
-                  <SessionSignalTray className={cn(isMobile && "pl-5.5")} signal={signal} />
+                  <SessionSignalTray signal={signal} />
                   <span className="sr-only" id={descriptionId}>
                     {describeSessionSignal(SESSION_EXPERIENCES[experience].label, signal)}
                   </span>
                 </div>
-                {!isMobile && (
-                  // The glyph rests in the actions slot; hover or focus swaps it for the menu.
-                  <div
-                    aria-hidden="true"
-                    className={cn(
-                      "pointer-events-none absolute right-0 top-0 bottom-0 z-10 flex items-center pr-1",
-                      "transition-opacity duration-150 ease-out motion-reduce:transition-none",
-                      isMenuOpen
-                        ? "opacity-0"
-                        : "group-hover/thread:opacity-0 group-focus-within/thread:opacity-0"
-                    )}
-                  >
-                    <span className="flex size-7.5 items-center justify-center">
-                      <SessionGlyph
-                        emphasized={isActiveThread}
-                        experience={experience}
-                        signal={signal}
-                      />
-                    </span>
-                  </div>
-                )}
+                {/* The glyph rests in the actions slot. Desktop swaps it for the menu on hover or
+                    focus; mobile shows the menu on the open thread, whose experience is on screen. */}
+                <div
+                  aria-hidden="true"
+                  className={cn(
+                    "pointer-events-none absolute right-0 top-0 bottom-0 z-10 flex items-center pr-1",
+                    "transition-opacity duration-150 ease-out motion-reduce:transition-none",
+                    isMenuOpen || (isMobile && isActiveThread)
+                      ? "opacity-0"
+                      : !isMobile &&
+                          "group-hover/thread:opacity-0 group-focus-within/thread:opacity-0"
+                  )}
+                >
+                  <span className="flex size-7.5 items-center justify-center">
+                    <SessionGlyph
+                      emphasized={isActiveThread}
+                      experience={experience}
+                      signal={signal}
+                    />
+                  </span>
+                </div>
                 {!isMobile && (
                   <div
                     className={cn(
@@ -310,7 +302,11 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads, signals, ac
               </div>
               {isMobile && (
                 <div
-                  className={`absolute right-0 top-0 bottom-0 flex items-center z-10 pr-1 ${isActiveThread ? "opacity-100" : "opacity-0 group-hover/thread:opacity-100"}`}
+                  className={cn(
+                    "absolute right-0 top-0 bottom-0 z-10 flex items-center pr-1",
+                    "transition-opacity duration-250 ease-out motion-reduce:transition-none",
+                    isActiveThread || isMenuOpen ? "opacity-100" : "pointer-events-none opacity-0"
+                  )}
                 >
                   <LazySidebarThreadActionsMenu
                     open={isMenuOpen}
