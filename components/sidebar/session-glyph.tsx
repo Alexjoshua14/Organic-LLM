@@ -50,52 +50,120 @@ function SweepRing({ r = 5 }: { r?: number }) {
   );
 }
 
-const ARCH = "M3.5 13.5V8a4.5 4.5 0 0 1 9 0v5.5";
+/** Soft orbit for the Noesis sweep: exploration circling a topic spark. */
+const NOESIS_ORBIT = "M8 2.75a5.25 5.25 0 1 1-4.55 2.625";
 
-function shape(experience: SessionExperience, stepIndex: number): ReactNode {
+/** Mirror glass arc for the Introspection sweep: looking inward at the self-dot. */
+const INTROSPECTION_MIRROR = "M10.75 3.25a4.75 4.75 0 0 1 0 9.5";
+
+/**
+ * Chat and Arcadia are the unmarked default: the glyph slot stays empty unless something is
+ * happening, when a thin ring is only an annunciator for working / new, not an identity mark.
+ */
+function chatAnnunciator(signalKind: SessionSignal["kind"]): ReactNode {
+  if (signalKind === "idle" || signalKind === "paused" || signalKind === "live") return null;
+
+  return <SweepRing />;
+}
+
+/** The glyph's drawing for one experience; exported so the sandbox lab can render it directly. */
+export function sessionGlyphShape(
+  experience: SessionExperience,
+  stepIndex: number,
+  signalKind: SessionSignal["kind"]
+): ReactNode {
   switch (experience) {
     case "chat":
-      return <SweepRing />;
     case "arcadia":
-      // Chat's lab variant: a different container, not a different mark (subway circle vs diamond).
-      return (
-        <>
-          <path className="sg-base" d={ARCH} />
-          <path className="sg-sweep" d={ARCH} pathLength={100} />
-          <circle className="sg-base" cx="8" cy="10" r="1.5" />
-        </>
-      );
+      return chatAnnunciator(signalKind);
     case "noesis":
+      // Topic spark: filled core + rays, with a partial orbit carrying the sweep.
       return (
         <>
-          <SweepRing />
-          <circle className="sg-base" cx="8" cy="8" r="2" />
+          <path className="sg-base" d={NOESIS_ORBIT} />
+          <path className="sg-sweep" d={NOESIS_ORBIT} pathLength={100} />
+          <path
+            className="sg-base"
+            d="M8 4.6v1.35M8 10.05v1.35M4.6 8h1.35M10.05 8h1.35M5.55 5.55l.95.95M9.5 9.5l.95.95M9.5 5.55l-.95.95M5.55 9.5l.95-.95"
+          />
+          <circle className="sg-base" cx="8" cy="8" fill="currentColor" r="1.55" stroke="none" />
         </>
       );
     case "introspection":
       return (
         <>
-          <SweepRing />
-          <path className="sg-base" d="M8 3v10" />
+          <path className="sg-base" d={INTROSPECTION_MIRROR} />
+          <path className="sg-sweep" d={INTROSPECTION_MIRROR} pathLength={100} />
+          <path className="sg-base" d="M10.75 3.25v9.5" />
+          <circle className="sg-base" cx="5.5" cy="8" fill="currentColor" r="1.85" stroke="none" />
         </>
       );
     case "speak":
       return (
         <>
-          <path className="sg-bar" d="M4.5 6.5v3" style={at(0)} />
-          <path className="sg-bar" d="M8 4v8" style={at(1)} />
-          <path className="sg-bar" d="M11.5 5.5v5" style={at(2)} />
+          <rect
+            className="sg-bar"
+            fill="currentColor"
+            height="3"
+            rx="0.75"
+            stroke="none"
+            style={at(0)}
+            width="1.5"
+            x="3.25"
+            y="6.5"
+          />
+          <rect
+            className="sg-bar"
+            fill="currentColor"
+            height="7"
+            rx="0.75"
+            stroke="none"
+            style={at(1)}
+            width="1.5"
+            x="5.75"
+            y="4.5"
+          />
+          <rect
+            className="sg-bar"
+            fill="currentColor"
+            height="7"
+            rx="0.75"
+            stroke="none"
+            style={at(2)}
+            width="1.5"
+            x="8.75"
+            y="4.5"
+          />
+          <rect
+            className="sg-bar"
+            fill="currentColor"
+            height="3"
+            rx="0.75"
+            stroke="none"
+            style={at(3)}
+            width="1.5"
+            x="11.25"
+            y="6.5"
+          />
         </>
       );
     case "rabbitHole":
       // Parts in generation order: stem = sources, node = article, forks = branch suggestions.
       return (
         <>
-          <path className="sg-part" d="M8 14V9.5" data-state={partState(stepIndex, 0)} />
-          <circle className="sg-part" cx="8" cy="8" data-state={partState(stepIndex, 1)} r="1.5" />
+          <path className="sg-part" d="M8 13.5V9" data-state={partState(stepIndex, 0)} />
+          <circle
+            className="sg-part"
+            cx="8"
+            cy="7.5"
+            data-state={partState(stepIndex, 1)}
+            fill="currentColor"
+            r="1.9"
+            stroke="none"
+          />
           <path
             className="sg-part"
-            d="M6.9 6.9 4 4M9.1 6.9 12 4"
+            d="M8 5.6V3.75M5.25 4.4 3.25 2.5M10.75 4.4 12.75 2.5"
             data-state={partState(stepIndex, 2)}
           />
         </>
@@ -103,22 +171,66 @@ function shape(experience: SessionExperience, stepIndex: number): ReactNode {
     case "strata":
       return (
         <>
-          <path className="sg-cell" d="M3 5h8" style={at(0)} />
-          <path className="sg-cell" d="M5 8h8" style={at(1)} />
-          <path className="sg-cell" d="M3 11h8" style={at(2)} />
+          <path className="sg-cell" d="M2.5 4h9" strokeWidth={1.75} style={at(0)} />
+          <path className="sg-cell" d="M4.5 8h9" strokeWidth={1.75} style={at(1)} />
+          <path className="sg-cell" d="M2.5 12h9" strokeWidth={1.75} style={at(2)} />
         </>
       );
     case "remy":
+      // Stovetop: two burners on, two off.
       return (
         <>
-          <rect className="sg-cell" height="4" rx="1" style={at(0)} width="4" x="3" y="3" />
-          <rect className="sg-cell" height="4" rx="1" style={at(1)} width="4" x="9" y="3" />
-          <rect className="sg-cell" height="4" rx="1" style={at(3)} width="4" x="9" y="9" />
-          <rect className="sg-cell" height="4" rx="1" style={at(2)} width="4" x="3" y="9" />
+          <rect
+            className="sg-cell"
+            fill="currentColor"
+            height="4.5"
+            rx="1"
+            stroke="none"
+            style={at(0)}
+            width="4.5"
+            x="2.75"
+            y="2.75"
+          />
+          <rect
+            className="sg-cell"
+            height="4.5"
+            rx="1"
+            style={at(1)}
+            width="4.5"
+            x="8.75"
+            y="2.75"
+          />
+          <rect
+            className="sg-cell"
+            height="4.5"
+            rx="1"
+            style={at(2)}
+            width="4.5"
+            x="2.75"
+            y="8.75"
+          />
+          <rect
+            className="sg-cell"
+            fill="currentColor"
+            height="4.5"
+            rx="1"
+            stroke="none"
+            style={at(3)}
+            width="4.5"
+            x="8.75"
+            y="8.75"
+          />
         </>
       );
     case "other":
-      return <path className="sg-breathe" d="M8 3.5 12.5 8 8 12.5 3.5 8Z" />;
+      return (
+        <path
+          className="sg-breathe"
+          d="M8 2.75 13.25 8 8 13.25 2.75 8Z"
+          fill="currentColor"
+          fillOpacity={0.22}
+        />
+      );
   }
 }
 
@@ -155,7 +267,7 @@ export function SessionGlyph({ experience, signal, emphasized, className }: Sess
       style={GLYPH_TIMING}
       viewBox="0 0 16 16"
     >
-      {shape(experience, rabbitHoleStepIndex(step))}
+      {sessionGlyphShape(experience, rabbitHoleStepIndex(step), signal.kind)}
     </svg>
   );
 }

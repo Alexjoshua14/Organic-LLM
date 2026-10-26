@@ -189,7 +189,7 @@ export function SessionGlyphLab() {
           <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
             Sidebar experience marks at production size. Chat and Arcadia share one treatment —
             in Mass they are the unmarked default (empty at idle). Compare optical weight,
-            silhouette, and signal motion before promoting a set.
+            silhouette, and signal motion against the shipped set.
           </p>
         </header>
 
@@ -220,8 +220,8 @@ export function SessionGlyphLab() {
             <div>
               <h2 className="text-lg font-medium text-foreground">Shipped</h2>
               <p className="text-xs text-muted-foreground">
-                Production <code className="text-foreground/80">SessionGlyph</code> — Arcadia is
-                still a separate arch mark; proposals unify it with Chat.
+                Production <code className="text-foreground/80">SessionGlyph</code> — the Mass set,
+                promoted. Chat and Arcadia are the unmarked default.
               </p>
             </div>
             <button
@@ -242,8 +242,7 @@ export function SessionGlyphLab() {
               <GlyphCell
                 key={experience}
                 label={SESSION_EXPERIENCES[experience].label}
-                note={experience === "arcadia" ? "Diverges from chat" : undefined}
-                sizeClass={sizeClass}
+                                sizeClass={sizeClass}
                 glyph={
                   <SessionGlyph
                     className={sizeClass}
