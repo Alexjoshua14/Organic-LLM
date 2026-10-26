@@ -49,14 +49,13 @@ comes from `components/agents/activity-mark-glass.ts`.
 
 | State | Material opacity | Blur | Brightness | Tint |
 |-------|------------------|------|------------|------|
-| idle | 72% | 1.25px | 100% | Theme neutral |
-| working | 28% | 0.5px | 108% | Theme neutral with 8% Organic accent |
-| waiting | 72% | 1.25px | 100% | Theme neutral |
-| blocked | 72% | 1.25px | 100% | Theme neutral with 8% warm amber |
-| complete | 72% | 1.25px | 100% | Theme neutral |
+| idle | 50% | 4.25px | 115% | Theme neutral |
+| working | 28% | 5px | 175% | Theme neutral with 8% Organic accent |
+| waiting | 67% | 4.25px | 170% | Theme neutral |
+| blocked | 10% | 5.5px | 200% | Theme neutral with 8% warm amber |
+| complete | 25% | 5.5px | 155% | Theme neutral |
 
-Idle uses light 1.25px diffusion with 72% material opacity; working uses a 0.5px radius
-and lighter 28% material fill. Brightness applies to the backdrop,
+Opacity is the material fill; blur is the backdrop radius. Brightness applies to the backdrop,
 including the dots and grain, rather than filtering the cover's own border.
 The cover writes the owned group's `filter` directly from each spring pose (blur
 and brightness), with saturation 1.12 matching `glass()`. The SSR baseline uses the
@@ -98,7 +97,7 @@ scheduler failure apply the target immediately. The primitive's reduced-transpar
 and high-contrast CSS rules still override the material and disable backdrop filters.
 Interpolating blur can add GPU/compositing work that the CPU health budget cannot
 attribute or measure directly; the prototype bench exposes the measurable costs.
-The bench's blur slider spans 0–14px; production presets are 0.5px (working), 4.25px (idle, waiting), and 5.5px (blocked, complete). Both
+The bench's blur slider spans 0–14px; production presets run 4.25–5.5px. Both
 material targets and actual spring positions use that same bound. Physics component modules opt into Next's
 `// @refresh reset` during development: code edits dispose/remount their spring
 instances rather than preserving hook state from an older effect dependency list.

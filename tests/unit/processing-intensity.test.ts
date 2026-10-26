@@ -187,7 +187,7 @@ describe("intensity-modulated glass profile and dot physics", () => {
     });
     expect(activityGlassForState("working")).toEqual({
       opacity: 0.28,
-      blur: 0.5,
+      blur: 5,
       brightness: 1.75,
       tint: "color-mix(in oklch, var(--background) 92%, var(--accent))",
     });

@@ -24,7 +24,7 @@ export const ACTIVITY_GLASS_TINTS = {
 
 export const ACTIVITY_GLASS_BY_STATE: Record<AgentDotState, ActivityGlassAppearance> = {
   idle: { opacity: 0.5, blur: 4.25, brightness: 1.15, tint: ACTIVITY_GLASS_TINTS.neutral },
-  working: { opacity: 0.28, blur: 0.5, brightness: 1.75, tint: ACTIVITY_GLASS_TINTS.organic },
+  working: { opacity: 0.28, blur: 5, brightness: 1.75, tint: ACTIVITY_GLASS_TINTS.organic },
   waiting: { opacity: 0.67, blur: 4.25, brightness: 1.7, tint: ACTIVITY_GLASS_TINTS.neutral },
   blocked: { opacity: 0.1, blur: 5.5, brightness: 2, tint: ACTIVITY_GLASS_TINTS.amber },
   complete: { opacity: 0.25, blur: 5.5, brightness: 1.55, tint: ACTIVITY_GLASS_TINTS.neutral },
