@@ -31,6 +31,11 @@ export type SubagentHeartbeatDeps = {
     digest: string | null;
     at: string | null;
   } | null>;
+  observeSnapshot?(args: {
+    previous: SubagentThreadSnapshot[];
+    current: SubagentThreadSnapshot[];
+    durationMs: number;
+  }): void;
   /** Timestamp compare-and-set; a crashed evaluation is retried after the lease expires. */
   claim(args: { previousAt: string | null; at: string }): Promise<boolean>;
   complete(args: {
@@ -81,6 +86,7 @@ export async function runSubagentHeartbeat(args: {
     return { status: "too-soon" };
   }
 
+  const snapshotStartedAt = now();
   const current = await Promise.all(
     children.map(async (row) =>
       buildSubagentThreadSnapshot(
@@ -90,6 +96,11 @@ export async function runSubagentHeartbeat(args: {
       )
     )
   );
+  deps.observeSnapshot?.({
+    previous: state.baseline ?? [],
+    current,
+    durationMs: Math.max(0, now() - snapshotStartedAt),
+  });
   const digest = digestSubagentSnapshots(current);
 
   if (digest === state.digest) return { status: "unchanged" };

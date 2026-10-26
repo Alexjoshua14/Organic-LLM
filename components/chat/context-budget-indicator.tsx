@@ -7,6 +7,7 @@ import type { ContextBudgetEstimate } from "@/lib/chat/context-budget";
 
 import { useMemo, useState } from "react";
 
+import { CompositionBar, CompositionBarDetail } from "@/components/design-system/composition-bar";
 import { glass } from "@/components/design-system/primitives";
 import {
   HoverCard,
@@ -243,39 +244,20 @@ function ContextCompositionBar({ budget }: { budget: ContextBudgetEstimate }) {
 
   return (
     <div>
-      <div className="flex h-6 w-full items-center" aria-label="Breakdown of used input tokens">
-        {rows.map((segment) => (
-          <button
-            key={segment.id}
-            type="button"
-            aria-label={`${segment.label}: ${segment.tokens.toLocaleString()} estimated tokens`}
-            title={`${segment.label} · ${segment.tokens.toLocaleString()} tokens`}
-            aria-pressed={selectedId === segment.id}
-            onMouseEnter={() => setSelectedId(segment.id)}
-            onMouseLeave={() => setSelectedId(null)}
-            onFocus={() => setSelectedId(segment.id)}
-            onBlur={() => setSelectedId(null)}
-            onClick={() => setSelectedId(segment.id)}
-            className="relative h-full shrink-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-            style={{ width: `${total > 0 ? (segment.tokens / total) * 100 : 0}%` }}
-          >
-            <span
-              className="pointer-events-none absolute inset-x-px top-1/2 h-1 -translate-y-1/2 rounded-full"
-              style={{
-                backgroundColor: contextSegmentColor(segment.id, budget.fillRatio),
-                boxShadow: `0 0 4px ${contextSegmentColor(segment.id, budget.fillRatio, 0.4)}`,
-              }}
-            >
-              <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 rounded-full bg-white/55" />
-            </span>
-          </button>
-        ))}
-      </div>
-      <div
-        className="-mt-1 h-8 text-xs leading-4 text-muted-foreground"
-        role="status"
-        aria-live="polite"
-      >
+      <CompositionBar
+        label="Breakdown of used input tokens"
+        selectedId={selectedId}
+        onSelectionChange={setSelectedId}
+        segments={rows.map((segment) => ({
+          id: segment.id,
+          value: segment.tokens,
+          color: contextSegmentColor(segment.id, budget.fillRatio),
+          glowColor: contextSegmentColor(segment.id, budget.fillRatio, 0.4),
+          ariaLabel: `${segment.label}: ${segment.tokens.toLocaleString()} estimated tokens`,
+          title: `${segment.label} · ${segment.tokens.toLocaleString()} tokens`,
+        }))}
+      />
+      <CompositionBarDetail>
         {selected ? (
           <>
             <span className="block truncate text-foreground">{selected.label}</span>
@@ -285,7 +267,7 @@ function ContextCompositionBar({ budget }: { budget: ContextBudgetEstimate }) {
             </span>
           </>
         ) : null}
-      </div>
+      </CompositionBarDetail>
     </div>
   );
 }

@@ -2,6 +2,10 @@ import type { SubagentHeartbeatDeps, SubagentHeartbeatOutcome } from "./run-hear
 
 import { randomUUID } from "crypto";
 
+import { resolveEffectiveSubagentStatus } from "../threads/status";
+
+import { buildHeartbeatPrompt } from "./evaluate";
+
 import { readGatewayBilledCostUsd } from "@/lib/usage/gateway-attribution";
 
 export type HeartbeatStage =
@@ -27,6 +31,9 @@ export type HeartbeatRunTelemetry = {
   status: SubagentHeartbeatOutcome["status"] | "blocked-budget" | "invalid-target";
   stage: HeartbeatStage;
   subagent_count: number | null;
+  working_subagent_count: number | null;
+  snapshot_chars: number | null;
+  snapshot_duration_ms: number | null;
   evaluation_attempted: boolean;
   evaluation_duration_ms: number | null;
   event_count: number;
@@ -69,6 +76,9 @@ export function createHeartbeatTelemetry(args: {
     status: "error",
     stage: "budget",
     subagent_count: null,
+    working_subagent_count: null,
+    snapshot_chars: null,
+    snapshot_duration_ms: null,
     evaluation_attempted: false,
     evaluation_duration_ms: null,
     event_count: 0,
@@ -107,9 +117,20 @@ export function createHeartbeatTelemetry(args: {
             const children = await deps.listChildren();
 
             row.subagent_count = children.length;
+            row.working_subagent_count = children.filter(
+              (child) => resolveEffectiveSubagentStatus(child.status, child.statusAt) === "working"
+            ).length;
 
             return children;
           }),
+        observeSnapshot: (snapshot) => {
+          row.working_subagent_count = snapshot.current.filter(
+            (s) => s.status === "working"
+          ).length;
+          row.snapshot_chars = buildHeartbeatPrompt(snapshot).length;
+          row.snapshot_duration_ms = snapshot.durationMs;
+          deps.observeSnapshot?.(snapshot);
+        },
         getState: () => measure("load-state", deps.getState),
         loadMessages: (...params) => measure("load-messages", () => deps.loadMessages(...params)),
         claim: (params) => measure("claim", () => deps.claim(params)),
