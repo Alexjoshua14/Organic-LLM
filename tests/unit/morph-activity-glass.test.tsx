@@ -84,14 +84,14 @@ test("material springs interpolate all channels, retain momentum on retarget, st
   const physics = new GlassMorphPhysics(initial);
   physics.morphTo(target);
   const before = { ...physics.step(16) };
-  expect(before.blur).toBeLessThan(initial.blur);
-  expect(before.blur).toBeGreaterThan(target.blur);
+  expect(before.blur).toBeGreaterThan(initial.blur);
+  expect(before.blur).toBeLessThan(target.blur);
   expect(before.opacity).toBeLessThan(initial.opacity);
   expect(before.brightness).toBeGreaterThan(initial.brightness);
   physics.morphTo(initial);
   expect(physics.current).toEqual(before);
-  // The existing downward velocity survives instead of snapping/restarting at zero.
-  expect(physics.step(1).blur).toBeLessThan(before.blur);
+  // The existing upward velocity survives instead of snapping/restarting at zero.
+  expect(physics.step(1).blur).toBeGreaterThan(before.blur);
   for (let frame = 0; frame < 200 && !physics.settled; frame++) physics.step(16);
   expect(physics.current).toEqual({
     blur: initial.blur,
@@ -149,18 +149,16 @@ test("the actual cover hydrates a stable baseline, springs CSS values and stops 
   expect(cover.style.getPropertyValue("--activity-glass-blur")).toBe("4.25px");
   fixture.frame(16);
   const blur = Number.parseFloat(cover.style.getPropertyValue("--activity-glass-blur"));
-  expect(blur).toBeGreaterThan(0.5);
-  expect(blur).toBeLessThan(4.25);
+  expect(blur).toBeGreaterThan(4.25);
+  expect(blur).toBeLessThan(5);
   expect(cover.style.getPropertyValue("backdrop-filter")).toStartWith(`blur(${blur}px)`);
   expect(
     Number.parseFloat(cover.style.getPropertyValue("--activity-glass-brightness"))
   ).toBeGreaterThan(1);
   for (let frame = 0; frame < 200 && fixture.frames.size; frame++) fixture.frame(16);
-  expect(cover.style.getPropertyValue("--activity-glass-blur")).toBe("0.5px");
+  expect(cover.style.getPropertyValue("--activity-glass-blur")).toBe("5px");
   expect(cover.style.getPropertyValue("--activity-glass-brightness")).toBe("1.75");
-  expect(cover.style.getPropertyValue("backdrop-filter")).toStartWith(
-    "blur(0.5px) brightness(1.75)"
-  );
+  expect(cover.style.getPropertyValue("backdrop-filter")).toStartWith("blur(5px) brightness(1.75)");
   expect(fixture.frames.size).toBe(0);
   expect(profiledUpdates).toBeGreaterThan(0);
 
@@ -209,13 +207,13 @@ test("the cover spring paints the composed background and never adds a second ba
   fixture.frame(16);
   const cover = view.container.querySelector<HTMLElement>('[data-activity-layer="glass"]')!;
   const blur = Number.parseFloat(cover.style.getPropertyValue("--activity-glass-blur"));
-  expect(blur).toBeGreaterThan(0.5);
-  expect(blur).toBeLessThan(4.25);
+  expect(blur).toBeGreaterThan(4.25);
+  expect(blur).toBeLessThan(5);
   expect(background.current!.style.filter).toStartWith(`blur(${blur}px)`);
   expect(cover.style.getPropertyValue("backdrop-filter")).toBe("none");
   expect(background.current!.contains(view.getByTestId("noise"))).toBe(true);
   for (let frame = 0; frame < 200 && fixture.frames.size; frame++) fixture.frame(16);
-  expect(background.current!.style.filter).toBe("blur(0.5px) brightness(1.75) saturate(1.12)");
+  expect(background.current!.style.filter).toBe("blur(5px) brightness(1.75) saturate(1.12)");
   expect(fixture.frames.size).toBe(0);
 });
 
@@ -247,7 +245,7 @@ test("offscreen and hidden covers pause without losing their spring and unmount 
   expect(fixture.frames.size).toBe(0);
   fixture.hide(false);
   fixture.frame(16);
-  expect(Number.parseFloat(cover.style.getPropertyValue("--activity-glass-blur"))).toBeLessThan(
+  expect(Number.parseFloat(cover.style.getPropertyValue("--activity-glass-blur"))).toBeGreaterThan(
     Number.parseFloat(before)
   );
   view.unmount();
@@ -277,7 +275,7 @@ test("reduced motion and same-tab/cross-tab lightweight settings snap to the tar
     media.dispatchEvent(new window.Event("change"));
   });
   const cover = view.container.firstElementChild as HTMLElement;
-  expect(cover.style.getPropertyValue("--activity-glass-blur")).toBe("0.5px");
+  expect(cover.style.getPropertyValue("--activity-glass-blur")).toBe("5px");
   expect(fixture.frames.size).toBe(0);
   reduced = false;
   media.dispatchEvent(new window.Event("change"));
@@ -306,7 +304,7 @@ test("reduced motion and same-tab/cross-tab lightweight settings snap to the tar
   localStorage.setItem(USER_SETTINGS_STORAGE_KEY, JSON.stringify({ lightweightMode: true }));
   window.dispatchEvent(new window.StorageEvent("storage", { key: USER_SETTINGS_STORAGE_KEY }));
   expect(fixture.frames.size).toBe(0);
-  expect(cover.style.getPropertyValue("--activity-glass-blur")).toBe("0.5px");
+  expect(cover.style.getPropertyValue("--activity-glass-blur")).toBe("5px");
 });
 
 test("scheduler failure settles the cover explicitly, leaving no animation retry loop", () => {
@@ -333,7 +331,7 @@ test("scheduler failure settles the cover explicitly, leaving no animation retry
   expect(fixture.scheduler.failure).toBe("engine-error");
   expect(fixture.frames.size).toBe(0);
   const cover = view.container.firstElementChild as HTMLElement;
-  expect(cover.style.getPropertyValue("--activity-glass-blur")).toBe("0.5px");
+  expect(cover.style.getPropertyValue("--activity-glass-blur")).toBe("5px");
   view.rerender(
     <MorphActivityGlass
       appearance={activityGlassForState("idle")}

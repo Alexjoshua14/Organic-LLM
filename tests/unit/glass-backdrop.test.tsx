@@ -260,7 +260,7 @@ test("agent defaults keep the approved state materials and enable refraction wit
       waiting: { filter: "blur(4.25px) brightness(1.7) saturate(1.12)", opacity: 67 },
       blocked: { filter: "blur(5.5px) brightness(2) saturate(1.12)", opacity: 10 },
       complete: { filter: "blur(5.5px) brightness(1.55) saturate(1.12)", opacity: 25 },
-      working: { filter: "blur(0.5px) brightness(1.75) saturate(1.12)", opacity: 28 },
+      working: { filter: "blur(5px) brightness(1.75) saturate(1.12)", opacity: 28 },
     }[state];
     expect(background.style.filter).toBe(expected.filter);
     expect(Number.parseFloat(cover.style.getPropertyValue("--activity-glass-opacity"))).toBeCloseTo(
