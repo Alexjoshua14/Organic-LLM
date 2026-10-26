@@ -3,6 +3,9 @@
 import { useState } from "react";
 import useSWR from "swr";
 
+import { HeartbeatSummary } from "./HeartbeatSummary";
+import { formatDuration as ms, formatNumber as number, formatUsd as usd } from "./heartbeat-format";
+
 import { Button } from "@/components/third-party/ui/button";
 import {
   HEARTBEAT_PAGE_SIZE,
@@ -12,21 +15,6 @@ import {
 
 const inputClass =
   "h-9 rounded-md border border-border bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
-const number = (value: number | null) =>
-  value === null
-    ? "—"
-    : new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(value);
-const ms = (value: number | null) => (value === null ? "—" : `${number(value)} ms`);
-const usd = (value: number | null) =>
-  value === null
-    ? "—"
-    : new Intl.NumberFormat(undefined, {
-        style: "currency",
-        currency: "USD",
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 8,
-      }).format(value);
-const rate = (part: number, total: number) => (total ? `${number((part / total) * 100)}%` : "—");
 
 async function fetchTelemetry(url: string): Promise<HeartbeatDashboardResponse> {
   const response = await fetch(url, { cache: "no-store", credentials: "same-origin" });
@@ -55,19 +43,18 @@ export function HeartbeatDashboard() {
     fetchTelemetry,
     { revalidateOnFocus: false, revalidateOnReconnect: false, shouldRetryOnError: false }
   );
-  const summary = data?.summary;
   const refresh = () => {
     if (query.offset || query.until) setQuery({ ...query, offset: 0, until: "" });
     else void mutate();
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="space-y-1">
         <h2 className="text-lg font-medium">Multiagent heartbeats</h2>
         <p className="max-w-3xl text-sm text-muted-foreground">
-          System metrics across all accounts. Snapshot contents and account identifiers are
-          excluded. Measurements describe observed polls; collection is best effort.
+          Observed heartbeat polls across all accounts. Best-effort telemetry; snapshot contents and
+          account identifiers are excluded.
         </p>
       </div>
       <div className="flex flex-wrap items-end gap-3">
@@ -118,124 +105,9 @@ export function HeartbeatDashboard() {
           {error.message}
         </p>
       ) : null}
-      {summary ? (
+      {data ? (
         <>
-          <section
-            aria-label="Heartbeat overview"
-            className="grid grid-cols-2 gap-3 lg:grid-cols-4"
-          >
-            {[
-              [
-                "Observed polls",
-                number(summary.runs),
-                `${number(summary.evaluations)} evaluated · ${rate(summary.evaluations, summary.runs)}`,
-              ],
-              [
-                "Notable updates",
-                number(summary.notable),
-                `${rate(summary.notable, summary.evaluations)} of evaluations`,
-              ],
-              [
-                "Input tokens",
-                number(summary.input_tokens),
-                `${number(summary.token_samples)} calls with input usage`,
-              ],
-              [
-                "Reported evaluation cost",
-                usd(summary.reported_cost),
-                `${number(summary.cost_samples)} calls with reported cost`,
-              ],
-            ].map(([label, value, detail]) => (
-              <div key={label} className="min-w-0 space-y-2 rounded-lg border border-border p-4">
-                <h3 className="text-xs text-muted-foreground">{label}</h3>
-                <p className="break-words text-xl font-medium tabular-nums">{value}</p>
-                <p className="text-xs text-muted-foreground">{detail}</p>
-              </div>
-            ))}
-          </section>
-          <div className="grid gap-6 md:grid-cols-2">
-            <section aria-labelledby="measurements-heading" className="space-y-3">
-              <h3 id="measurements-heading" className="text-sm font-medium">
-                Measurements
-              </h3>
-              <dl className="divide-y divide-border rounded-lg border border-border px-4 text-xs">
-                {[
-                  [
-                    "Input tokens · p50 / p95 / max",
-                    `${number(summary.input_p50)} / ${number(summary.input_p95)} / ${number(summary.input_max)}`,
-                  ],
-                  ["Input tokens · mean per measured call", number(summary.input_avg)],
-                  ["Output tokens · total", number(summary.output_tokens)],
-                  [
-                    "Heartbeat duration · p50 / p95",
-                    `${ms(summary.duration_p50)} / ${ms(summary.duration_p95)}`,
-                  ],
-                  [
-                    "Jev duration · p50 / p95",
-                    `${ms(summary.evaluation_p50)} / ${ms(summary.evaluation_p95)}`,
-                  ],
-                  [
-                    "Working agents per poll · mean / max",
-                    `${number(summary.working_avg)} / ${number(summary.working_max)}`,
-                  ],
-                  ["Working-agent count · measured polls", number(summary.working_samples)],
-                  ["Snapshot text · mean characters", number(summary.snapshot_chars_avg)],
-                  ["Snapshot collection · mean duration", ms(summary.snapshot_duration_avg)],
-                  ["Jev estimate · measured input × $0.04/M", usd(summary.jev_estimated_cost)],
-                  ["Jev estimate · measured calls", number(summary.jev_estimate_samples)],
-                  [
-                    "Errors · share of polls",
-                    `${number(summary.errors)} · ${rate(summary.errors, summary.runs)}`,
-                  ],
-                ].map(([label, value]) => (
-                  <div key={label} className="flex justify-between gap-4 py-3">
-                    <dt className="text-muted-foreground">{label}</dt>
-                    <dd className="text-right tabular-nums">{value}</dd>
-                  </div>
-                ))}
-              </dl>
-            </section>
-            <section aria-labelledby="outcomes-heading" className="space-y-3">
-              <h3 id="outcomes-heading" className="text-sm font-medium">
-                Poll outcomes
-              </h3>
-              <div className="space-y-4 rounded-lg border border-border p-4">
-                {data.statuses.length ? (
-                  data.statuses.map((item) => (
-                    <div key={item.status} className="space-y-2 text-xs">
-                      <div className="flex justify-between gap-3">
-                        <span>{item.status}</span>
-                        <span className="tabular-nums">
-                          {number(item.runs)} · {rate(item.runs, summary.runs)}
-                        </span>
-                      </div>
-                      <div aria-hidden="true" className="h-1 rounded-full bg-muted">
-                        <div
-                          className="h-1 rounded-full bg-foreground/60"
-                          style={{ width: `${(item.runs / summary.runs) * 100}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    No heartbeats recorded in this window.
-                  </p>
-                )}
-              </div>
-              <p className="text-xs leading-relaxed text-muted-foreground">
-                Working agents are counted per orchestrator poll, not globally distinct agents.
-                Snapshot characters cover PREVIOUS + CURRENT text, excluding decision instructions.
-                Duration starts after authentication and request validation, and ends before
-                background queue dispatch and telemetry persistence.
-              </p>
-              <p className="text-xs leading-relaxed text-muted-foreground">
-                Costs cover the heartbeat evaluator only. Orchestrator replies, tools, and workers
-                are excluded. Reported cost and the Jev estimate overlap; do not add them together
-                or add them to the billing ledger. Missing values appear as —.
-              </p>
-            </section>
-          </div>
+          <HeartbeatSummary data={data} />
           <section aria-labelledby="runs-heading" className="space-y-3">
             <h3 id="runs-heading" className="text-sm font-medium">
               Individual polls
@@ -257,7 +129,7 @@ export function HeartbeatDashboard() {
                       "Reported cost",
                       "Details",
                     ].map((label) => (
-                      <th scope="col" key={label} className="p-3 font-medium">
+                      <th scope="col" key={label} className="px-3 py-2 font-medium">
                         {label}
                       </th>
                     ))}
@@ -266,21 +138,23 @@ export function HeartbeatDashboard() {
                 <tbody>
                   {data.runs.map((run) => (
                     <tr key={run.id} className="border-b border-border/40 align-top last:border-0">
-                      <td className="whitespace-nowrap p-3">
+                      <td className="whitespace-nowrap px-3 py-2">
                         {new Date(run.started_at).toLocaleString()}
                       </td>
-                      <td className="p-3">{run.status}</td>
-                      <td className="whitespace-nowrap p-3 tabular-nums">
+                      <td className="px-3 py-2">{run.status}</td>
+                      <td className="whitespace-nowrap px-3 py-2 tabular-nums">
                         {number(run.working_subagent_count)} / {number(run.subagent_count)}
                       </td>
-                      <td className="whitespace-nowrap p-3 tabular-nums">
+                      <td className="whitespace-nowrap px-3 py-2 tabular-nums">
                         {number(run.input_tokens)} / {number(run.output_tokens)}
                       </td>
-                      <td className="whitespace-nowrap p-3 tabular-nums">
+                      <td className="whitespace-nowrap px-3 py-2 tabular-nums">
                         {ms(run.duration_ms)} / {ms(run.evaluation_duration_ms)}
                       </td>
-                      <td className="whitespace-nowrap p-3 tabular-nums">{usd(run.cost_usd)}</td>
-                      <td className="min-w-48 p-3">
+                      <td className="whitespace-nowrap px-3 py-2 tabular-nums">
+                        {usd(run.cost_usd)}
+                      </td>
+                      <td className="min-w-48 px-3 py-2">
                         <details>
                           <summary className="cursor-pointer rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                             {run.event_count} events · {run.stage}
@@ -334,14 +208,14 @@ export function HeartbeatDashboard() {
               </Button>
               <span className="text-xs tabular-nums text-muted-foreground">
                 {data.runs.length ? `${query.offset + 1}–${query.offset + data.runs.length}` : "0"}{" "}
-                of {number(summary.runs)}
+                of {number(data.summary.runs)}
               </span>
               <Button
                 size="sm"
                 variant="ghost"
                 disabled={
                   isValidating ||
-                  query.offset + HEARTBEAT_PAGE_SIZE >= summary.runs ||
+                  query.offset + HEARTBEAT_PAGE_SIZE >= data.summary.runs ||
                   query.offset >= 10_000
                 }
                 onClick={() =>
@@ -358,10 +232,6 @@ export function HeartbeatDashboard() {
           </section>
         </>
       ) : null}
-      <p className="text-xs text-muted-foreground">
-        Recent raw telemetry only (up to seven days). Older runs compact into hourly summaries after
-        ten days. Historical rows may lack newly added measurements. Refresh manually to update.
-      </p>
     </div>
   );
 }

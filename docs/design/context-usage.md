@@ -31,3 +31,10 @@ This applies [Carbon's distinction between categorical and ordered palettes](htt
 and its [text-contrast guidance](https://www.carbondesignsystem.com/building-blocks/foundations/accessibility/color)
 within the existing Organic LLM theme. Metrics and counting rules live in
 [chat transparency](../chat-llm-transparency.md), not this design reference.
+
+The segmented stroke and its pointer, tap, and keyboard selection live in
+[`CompositionBar`](../../components/design-system/composition-bar.tsx). Context keeps the
+default 4px glowing variant and the reserved detail label. The heartbeat dashboard uses its
+6px solid variant with a persistent count/share legend. Callers supply category colors,
+accessible labels, and units; poll outcomes do not inherit token-source meanings. Both
+variants normalize segments against the displayed composition and omit zero-value segments.
