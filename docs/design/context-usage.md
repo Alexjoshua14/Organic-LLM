@@ -35,6 +35,8 @@ within the existing Organic LLM theme. Metrics and counting rules live in
 The segmented stroke and its pointer, tap, and keyboard selection live in
 [`CompositionBar`](../../components/design-system/composition-bar.tsx). Context keeps the
 default 4px glowing variant and the reserved detail label. The heartbeat dashboard uses its
-6px solid variant with a persistent count/share legend. Callers supply category colors,
+6px solid variant with the same reserved detail area: hover, focus, or tap reveals the
+outcome name, poll count, and share. Both use `CompositionBarDetail` to keep the label area
+32px tall and clear it on pointer exit or blur. Callers supply category colors,
 accessible labels, and units; poll outcomes do not inherit token-source meanings. Both
 variants normalize segments against the displayed composition and omit zero-value segments.

@@ -7,7 +7,7 @@ import type { ContextBudgetEstimate } from "@/lib/chat/context-budget";
 
 import { useMemo, useState } from "react";
 
-import { CompositionBar } from "@/components/design-system/composition-bar";
+import { CompositionBar, CompositionBarDetail } from "@/components/design-system/composition-bar";
 import { glass } from "@/components/design-system/primitives";
 import {
   HoverCard,
@@ -257,11 +257,7 @@ function ContextCompositionBar({ budget }: { budget: ContextBudgetEstimate }) {
           title: `${segment.label} · ${segment.tokens.toLocaleString()} tokens`,
         }))}
       />
-      <div
-        className="-mt-1 h-8 text-xs leading-4 text-muted-foreground"
-        role="status"
-        aria-live="polite"
-      >
+      <CompositionBarDetail>
         {selected ? (
           <>
             <span className="block truncate text-foreground">{selected.label}</span>
@@ -271,7 +267,7 @@ function ContextCompositionBar({ budget }: { budget: ContextBudgetEstimate }) {
             </span>
           </>
         ) : null}
-      </div>
+      </CompositionBarDetail>
     </div>
   );
 }

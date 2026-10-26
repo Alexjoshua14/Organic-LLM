@@ -1,5 +1,7 @@
 "use client";
 
+import type { ReactNode } from "react";
+
 import { cn } from "@/lib/utils";
 
 export type CompositionSegment = {
@@ -18,6 +20,20 @@ type CompositionBarProps = {
   onSelectionChange: (id: string | null) => void;
   variant?: "glow" | "solid";
 };
+
+/** Keeps inspection labels from shifting the content below either composition variant. */
+export function CompositionBarDetail({ children }: { children: ReactNode }) {
+  return (
+    <div
+      className="-mt-1 h-8 text-xs leading-4 text-muted-foreground"
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+    >
+      {children}
+    </div>
+  );
+}
 
 /** Shared composition of a whole: callers own category colors, units, and detail labels. */
 export function CompositionBar({

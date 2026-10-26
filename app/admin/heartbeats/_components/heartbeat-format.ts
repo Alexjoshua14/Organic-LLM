@@ -6,6 +6,11 @@ export const formatNumber = (value: number | null) =>
 export const formatDuration = (value: number | null) =>
   value === null ? "—" : `${formatNumber(value)} ms`;
 
+export const formatSeconds = (milliseconds: number | null) =>
+  milliseconds === null
+    ? "—"
+    : new Intl.NumberFormat(undefined, { maximumFractionDigits: 4 }).format(milliseconds / 1_000);
+
 export const formatUsd = (value: number | null) =>
   value === null
     ? "—"

@@ -21,12 +21,13 @@ test("associates every percentile with its metric and column, including missing 
   expect(table.getByRole("rowheader", { name: "Input tokens" }).parentElement?.textContent).toBe(
     "Input tokens3,5673,627.83,637"
   );
-  expect(table.getByRole("rowheader", { name: "Heartbeat (ms)" }).parentElement?.textContent).toBe(
-    "Heartbeat (ms)1,02412,400.5—"
+  expect(table.getByRole("rowheader", { name: "Heartbeat s" }).parentElement?.textContent).toBe(
+    "Heartbeat s1.02412.4005—"
   );
-  expect(table.getByRole("rowheader", { name: "Jev (ms)" }).parentElement?.textContent).toBe(
-    "Jev (ms)8154,113.5—"
+  expect(table.getByRole("rowheader", { name: "Jev s" }).parentElement?.textContent).toBe(
+    "Jev s0.8154.1135—"
   );
+  expect(table.getByText("12.4005").getAttribute("title")).toBe("12,400.5 ms");
 });
 
 test("outcome shares cover the window rather than the visible page, with keyboard and tap selection", () => {
@@ -35,13 +36,38 @@ test("outcome shares cover the window rather than the visible page, with keyboar
   const notable = bar.getByRole("button", { name: "Notable: 3 polls, 10.7%" });
 
   expect(bar.getAllByRole("button")).toHaveLength(4);
-  expect(view.getByText("22 · 78.6%")).toBeTruthy();
+  const detail = within(view.getByRole("region", { name: "Poll outcomes" })).getByRole("status");
+  expect(detail.textContent).toBe("");
+  fireEvent.mouseEnter(bar.getByRole("button", { name: "Unchanged: 22 polls, 78.6%" }));
+  expect(detail.textContent).toBe("Unchanged22 polls · 78.6%");
+  fireEvent.mouseLeave(bar.getByRole("button", { name: "Unchanged: 22 polls, 78.6%" }));
+  expect(detail.textContent).toBe("");
   fireEvent.focus(notable);
   expect(notable.getAttribute("aria-pressed")).toBe("true");
+  expect(detail.textContent).toBe("Notable3 polls · 10.7%");
   fireEvent.blur(notable);
   expect(notable.getAttribute("aria-pressed")).toBe("false");
+  expect(detail.textContent).toBe("");
   fireEvent.click(notable);
   expect(notable.getAttribute("aria-pressed")).toBe("true");
+});
+
+test("duration formatting preserves sub-millisecond precision and a measured zero", () => {
+  const view = render(
+    <HeartbeatSummary
+      data={{
+        ...heartbeatDashboardFixture,
+        summary: {
+          ...heartbeatDashboardFixture.summary,
+          duration_p50: 0.1,
+          snapshot_duration_avg: 0,
+        },
+      }}
+    />
+  );
+
+  expect(view.getByTitle("0.1 ms").textContent).toBe("0.0001");
+  expect(view.getByTitle("0 ms").parentElement?.textContent).toBe("0 s");
 });
 
 test("all supported outcomes render, and zero counts create no invisible chart controls", () => {
@@ -50,7 +76,9 @@ test("all supported outcomes render, and zero counts create no invisible chart c
   const view = render(<HeartbeatSummary data={data} />);
 
   expect(
-    within(view.getByRole("list", { name: "Poll outcome counts" })).getAllByRole("listitem")
+    within(view.getByRole("group", { name: "Breakdown of observed poll outcomes" })).getAllByRole(
+      "button"
+    )
   ).toHaveLength(HEARTBEAT_STATUSES.length);
   view.rerender(
     <HeartbeatSummary
