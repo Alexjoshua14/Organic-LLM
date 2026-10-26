@@ -2,6 +2,7 @@ import type { CSSProperties, ReactNode } from "react";
 import type { SessionExperience } from "@/lib/sidebar/session-experience";
 import type { SessionSignal } from "@/lib/sidebar/session-signal";
 
+import { sessionGlyphShape } from "@/components/sidebar/session-glyph";
 import { SESSION_EXPERIENCES } from "@/lib/sidebar/session-experience";
 import { rabbitHoleStepIndex } from "@/lib/sidebar/session-signal";
 import {
@@ -41,7 +42,7 @@ export const PROPOSAL_EXPERIENCES: {
   { id: "chat", label: "Chat / Arcadia", note: "Unmarked default · empty at idle" },
   { id: "speak", label: "Speak", note: "Waveform" },
   { id: "rabbitHole", label: "Rabbit hole", note: "Idea branching" },
-  { id: "strata", label: "Strata", note: "Lines converging" },
+  { id: "strata", label: "Strata", note: "Stacked lines" },
   { id: "remy", label: "Remy", note: "Stovetop · 2 on" },
   { id: "noesis", label: "Noesis", note: "Topic spark" },
   { id: "introspection", label: "Introspection", note: "Inward mirror" },
@@ -63,7 +64,7 @@ export const PROPOSALS: {
     id: "mass",
     title: "Mass",
     pitch:
-      "Preferred direction: Chat/Arcadia are the unmarked default (no glyph at idle; thin ring only when working/new). Waveform speak, branching rabbit hole, converging strata, stove Remy, spark Noesis, inward-mirror introspection.",
+      "Preferred direction: Chat/Arcadia are the unmarked default (no glyph at idle; thin ring only when working/new). Waveform speak, branching rabbit hole, stacked strata, stove Remy, spark Noesis, inward-mirror introspection.",
   },
   {
     id: "alphabet",
@@ -169,172 +170,6 @@ function instrument(experience: ProposalExperience, stepIndex: number): ReactNod
   }
 }
 
-/** Soft orbit for Noesis sweep — exploration circling a topic spark. */
-const NOESIS_ORBIT = "M8 2.75a5.25 5.25 0 1 1-4.55 2.625";
-
-/** Mirror glass arc for Introspection sweep — looking inward at the self-dot. */
-const INTROSPECTION_MIRROR = "M10.75 3.25a4.75 4.75 0 0 1 0 9.5";
-
-/**
- * Chat / Arcadia: unmarked default. Idle = empty spacer (bubble was cliché, idle circle
- * pointless). When something is happening, a thin ring is only an annunciator for sweep/new —
- * not an experience identity mark.
- */
-function massChatAnnunciator(signalKind: SessionSignal["kind"]): ReactNode {
-  if (signalKind === "idle" || signalKind === "paused" || signalKind === "live") {
-    return null;
-  }
-
-  return <SweepRing r={5} />;
-}
-
-function mass(
-  experience: ProposalExperience,
-  stepIndex: number,
-  signalKind: SessionSignal["kind"]
-): ReactNode {
-  switch (experience) {
-    case "chat":
-      return massChatAnnunciator(signalKind);
-    case "speak":
-      return (
-        <>
-          <rect
-            className="sg-bar"
-            fill="currentColor"
-            height="3"
-            rx="0.75"
-            stroke="none"
-            style={at(0)}
-            width="1.5"
-            x="3.25"
-            y="6.5"
-          />
-          <rect
-            className="sg-bar"
-            fill="currentColor"
-            height="7"
-            rx="0.75"
-            stroke="none"
-            style={at(1)}
-            width="1.5"
-            x="5.75"
-            y="4.5"
-          />
-          <rect
-            className="sg-bar"
-            fill="currentColor"
-            height="7"
-            rx="0.75"
-            stroke="none"
-            style={at(2)}
-            width="1.5"
-            x="8.75"
-            y="4.5"
-          />
-          <rect
-            className="sg-bar"
-            fill="currentColor"
-            height="3"
-            rx="0.75"
-            stroke="none"
-            style={at(3)}
-            width="1.5"
-            x="11.25"
-            y="6.5"
-          />
-        </>
-      );
-    case "rabbitHole":
-      return (
-        <>
-          <path className="sg-part" d="M8 13.5V9" data-state={partState(stepIndex, 0)} />
-          <circle
-            className="sg-part"
-            cx="8"
-            cy="7.5"
-            data-state={partState(stepIndex, 1)}
-            fill="currentColor"
-            r="1.9"
-            stroke="none"
-          />
-          <path
-            className="sg-part"
-            d="M8 5.6V3.75M5.25 4.4 3.25 2.5M10.75 4.4 12.75 2.5"
-            data-state={partState(stepIndex, 2)}
-          />
-        </>
-      );
-    case "strata":
-      // Three seams converging to one join — layers coming together, not parallel strata only.
-      return (
-        <>
-          <path className="sg-cell" d="M2.5 3.75 13.25 8" style={at(0)} strokeWidth={1.6} />
-          <path className="sg-cell" d="M2.5 8h10.75" style={at(1)} strokeWidth={1.6} />
-          <path className="sg-cell" d="M2.5 12.25 13.25 8" style={at(2)} strokeWidth={1.6} />
-          <circle className="sg-cell" cx="13.25" cy="8" fill="currentColor" r="1.15" stroke="none" style={at(1)} />
-        </>
-      );
-    case "remy":
-      return (
-        <>
-          <rect
-            className="sg-cell"
-            fill="currentColor"
-            height="4.5"
-            rx="1"
-            stroke="none"
-            style={at(0)}
-            width="4.5"
-            x="2.75"
-            y="2.75"
-          />
-          <rect className="sg-cell" height="4.5" rx="1" style={at(1)} width="4.5" x="8.75" y="2.75" />
-          <rect className="sg-cell" height="4.5" rx="1" style={at(2)} width="4.5" x="2.75" y="8.75" />
-          <rect
-            className="sg-cell"
-            fill="currentColor"
-            height="4.5"
-            rx="1"
-            stroke="none"
-            style={at(3)}
-            width="4.5"
-            x="8.75"
-            y="8.75"
-          />
-        </>
-      );
-    case "noesis":
-      // Topic spark: filled core + rays (explore outward). Partial orbit carries the sweep.
-      // Deliberately not a ring+dot — that read as "chat cousin."
-      return (
-        <>
-          <path className="sg-base" d={NOESIS_ORBIT} />
-          <path className="sg-sweep" d={NOESIS_ORBIT} pathLength={100} />
-          <path
-            className="sg-base"
-            d="M8 4.6v1.35M8 10.05v1.35M4.6 8h1.35M10.05 8h1.35M5.55 5.55l.95.95M9.5 9.5l.95.95M9.5 5.55l-.95.95M5.55 9.5l.95-.95"
-          />
-          <circle className="sg-base" cx="8" cy="8" fill="currentColor" r="1.55" stroke="none" />
-        </>
-      );
-    case "introspection":
-      // Mirror glass on the right; filled self-dot on the left — review looking inward.
-      return (
-        <>
-          <path className="sg-base" d={INTROSPECTION_MIRROR} />
-          <path className="sg-sweep" d={INTROSPECTION_MIRROR} pathLength={100} />
-          <path className="sg-base" d="M10.75 3.25v9.5" />
-          <circle className="sg-base" cx="5.5" cy="8" fill="currentColor" r="1.85" stroke="none" />
-        </>
-      );
-    case "other":
-      return (
-        <path className="sg-breathe" d="M8 2.75 13.25 8 8 13.25 2.75 8Z" fill="currentColor" fillOpacity={0.22} />
-      );
-  }
-}
-
 function alphabet(experience: ProposalExperience, stepIndex: number): ReactNode {
   switch (experience) {
     case "chat":
@@ -403,7 +238,8 @@ function shapeFor(
     case "instrument":
       return instrument(experience, stepIndex);
     case "mass":
-      return mass(experience, stepIndex, signalKind);
+      // Mass is the shipped set; the lab renders production's drawing directly.
+      return sessionGlyphShape(experience, stepIndex, signalKind);
     case "alphabet":
       return alphabet(experience, stepIndex);
   }

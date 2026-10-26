@@ -40,27 +40,32 @@ Salience, strongest first, maps to urgency:
 | Value (title brightness/weight) | New, active | Steps the title forward from `foreground-secondary` without new ink. |
 | Shape | Experience type | Read on demand, while scanning the glyph column. |
 
-All marks sit in one left column at one size, so the eye learns a single place to look. The
+All marks sit in one column at one size, so the eye learns a single place to look. On desktop
+that column is the row's right edge, in the actions slot: hovering or focusing a row fades the
+glyph out (150ms) and slides the options menu in from the right (250ms, exit faster than enter),
+so the two never share the slot at once. The menu stays up while it is open. On mobile the glyph
+leads the title and the menu keeps its own slot. The
 header summary ("2 new") is the master light: it sits in the existing label row (no layout
 shift) and jumps focus to the next lit row.
 
 ## Glyph system
 
 Every glyph is drawn on a 16-unit grid, 1.25 stroke, round caps, rendered at 14px — one family
-(Aicher / GMUNK grid discipline). Variants change the container, not the mark (Vignelli's
-circle vs diamond): Arcadia is chat's ring inside an arch.
+(Aicher / GMUNK grid discipline). The shipped set is "Mass": small fills keep idle marks legible at
+14px without leaning on motion. Chat and Arcadia are the unmarked default — the slot is empty at
+idle, and a thin ring appears only as an annunciator while working or when something is new.
+The proposal comparison lives in the sandbox lab at `/sandbox/prototypes/session-glyphs`.
 
 | Experience | Mark | Working motion idiom |
 |------------|------|----------------------|
-| Chat | ring | sweep — a light segment travels the outline |
-| Arcadia | arch + inner ring | sweep |
-| Noesis | ring + inner ring | sweep |
-| Introspection | ring + divider | sweep |
-| Rabbit hole | stem, node, forks | grow — parts light in step order: sources → article → branches |
-| Strata | offset layers | cascade |
-| Remy | 2×2 cells | cascade (clockwise) |
-| Voice (Speak) | three bars | level while live; bars flatten when paused |
-| Other | diamond | breathe |
+| Chat, Arcadia | none at idle; thin ring when working / new | sweep — a light segment travels the outline |
+| Noesis | topic spark: filled core, rays, partial orbit | sweep |
+| Introspection | mirror arc and divider, filled self-dot | sweep |
+| Rabbit hole | stem, filled node, forks | grow — parts light in step order: sources → article → branches |
+| Strata | three offset parallel lines | cascade |
+| Remy | 2×2 stovetop, two burners filled | cascade (clockwise) |
+| Voice (Speak) | four filled bars | level while live; bars flatten when paused |
+| Other | tinted diamond | breathe |
 
 Four motions plus a fallback — not one per experience — so there is little to learn.
 
