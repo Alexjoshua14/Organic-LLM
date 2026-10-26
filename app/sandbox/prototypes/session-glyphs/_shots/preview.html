@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Session glyph proposals — Mass</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #1a1a1a;
+        --muted: #6b6b6b;
+        --paper: #f4f3f0;
+        --card: #ffffff;
+        --line: rgba(0, 0, 0, 0.08);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font: 14px/1.4 ui-sans-serif, system-ui, -apple-system, sans-serif;
+        color: var(--ink);
+        background: var(--paper);
+        padding: 32px;
+      }
+      h1 {
+        font-weight: 560;
+        font-size: 22px;
+        margin: 0 0 6px;
+      }
+      .lede {
+        color: var(--muted);
+        margin: 0 0 28px;
+        max-width: 52rem;
+      }
+      section {
+        margin-bottom: 36px;
+      }
+      h2 {
+        font-size: 15px;
+        font-weight: 560;
+        margin: 0 0 12px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+      }
+      .cell {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 16px 12px 14px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        min-height: 140px;
+      }
+      .glyph {
+        width: 56px;
+        height: 56px;
+        color: var(--ink);
+      }
+      .glyph-sm {
+        width: 14px;
+        height: 14px;
+        color: var(--ink);
+      }
+      .label {
+        font-size: 12px;
+        font-weight: 560;
+        text-align: center;
+      }
+      .note {
+        font-size: 11px;
+        color: var(--muted);
+        text-align: center;
+      }
+      .row-strip {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 8px;
+        max-width: 320px;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        border-radius: 8px;
+      }
+      .row:hover {
+        background: rgba(0, 0, 0, 0.04);
+      }
+      .row-title {
+        font-size: 13px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .sets {
+        display: grid;
+        gap: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Session glyphs — Mass proposal</h1>
+    <p class="lede">
+      Chat and Arcadia are the unmarked default (empty at idle). Mass set: waveform Speak, branching
+      rabbit hole, converging Strata, stovetop Remy, topic spark Noesis, inward-mirror introspection.
+    </p>
+
+    <section id="mass-inspect">
+      <h2>Mass · inspect (56px)</h2>
+      <div class="grid" id="mass-grid"></div>
+    </section>
+
+    <section id="mass-row">
+      <h2>Mass · sidebar strip (14px)</h2>
+      <div class="row-strip" id="mass-strip"></div>
+    </section>
+
+    <section id="compare" class="sets">
+      <h2>All proposals at a glance (14px idle)</h2>
+      <div id="compare-root"></div>
+    </section>
+
+    <script>
+      const NOESIS_ORBIT = "M8 2.75a5.25 5.25 0 1 1-4.55 2.625";
+      const INTROSPECTION_MIRROR = "M10.75 3.25a4.75 4.75 0 0 1 0 9.5";
+
+      const items = [
+        {
+          id: "chat",
+          label: "Chat / Arcadia",
+          note: "Unmarked default · empty at idle",
+          title: "Weekend trip ideas",
+          html: ``,
+        },
+        {
+          id: "speak",
+          label: "Speak",
+          note: "Waveform",
+          title: "Voice — kitchen timer",
+          html: `
+            <rect fill="currentColor" height="3" rx="0.75" stroke="none" width="1.5" x="3.25" y="6.5"/>
+            <rect fill="currentColor" height="7" rx="0.75" stroke="none" width="1.5" x="5.75" y="4.5"/>
+            <rect fill="currentColor" height="7" rx="0.75" stroke="none" width="1.5" x="8.75" y="4.5"/>
+            <rect fill="currentColor" height="3" rx="0.75" stroke="none" width="1.5" x="11.25" y="6.5"/>`,
+        },
+        {
+          id: "rabbitHole",
+          label: "Rabbit hole",
+          note: "Idea branching",
+          title: "Why do cats purr?",
+          html: `
+            <path d="M8 13.5V9" fill="none"/>
+            <circle cx="8" cy="7.5" r="1.9" fill="currentColor" stroke="none"/>
+            <path d="M8 5.6V3.75M5.25 4.4 3.25 2.5M10.75 4.4 12.75 2.5" fill="none"/>`,
+        },
+        {
+          id: "strata",
+          label: "Strata",
+          note: "Lines converging",
+          title: "Strata · travel notes",
+          html: `
+            <path d="M2.5 3.75 13.25 8" fill="none" stroke-width="1.6"/>
+            <path d="M2.5 8h10.75" fill="none" stroke-width="1.6"/>
+            <path d="M2.5 12.25 13.25 8" fill="none" stroke-width="1.6"/>
+            <circle cx="13.25" cy="8" r="1.15" fill="currentColor" stroke="none"/>`,
+        },
+        {
+          id: "remy",
+          label: "Remy",
+          note: "Stovetop · 2 on",
+          title: "Thu meal plan",
+          html: `
+            <rect fill="currentColor" height="4.5" rx="1" stroke="none" width="4.5" x="2.75" y="2.75"/>
+            <rect height="4.5" rx="1" width="4.5" x="8.75" y="2.75" fill="none"/>
+            <rect height="4.5" rx="1" width="4.5" x="2.75" y="8.75" fill="none"/>
+            <rect fill="currentColor" height="4.5" rx="1" stroke="none" width="4.5" x="8.75" y="8.75"/>`,
+        },
+        {
+          id: "noesis",
+          label: "Noesis",
+          note: "Topic spark",
+          title: "Topic explore",
+          html: `
+            <path d="${NOESIS_ORBIT}" fill="none"/>
+            <path d="M8 4.6v1.35M8 10.05v1.35M4.6 8h1.35M10.05 8h1.35M5.55 5.55l.95.95M9.5 9.5l.95.95M9.5 5.55l-.95.95M5.55 9.5l.95-.95" fill="none"/>
+            <circle cx="8" cy="8" r="1.55" fill="currentColor" stroke="none"/>`,
+        },
+        {
+          id: "introspection",
+          label: "Introspection",
+          note: "Inward mirror",
+          title: "Weekly review",
+          html: `
+            <path d="${INTROSPECTION_MIRROR}" fill="none"/>
+            <path d="M10.75 3.25v9.5" fill="none"/>
+            <circle cx="5.5" cy="8" r="1.85" fill="currentColor" stroke="none"/>`,
+        },
+        {
+          id: "other",
+          label: "Other",
+          note: "Fallback diamond",
+          title: "Untitled session",
+          html: `<path d="M8 2.75 13.25 8 8 13.25 2.75 8Z" fill="currentColor" fill-opacity="0.22"/>`,
+        },
+      ];
+
+      function svg(inner, cls) {
+        return `<svg class="${cls}" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
+      }
+
+      const grid = document.getElementById("mass-grid");
+      const strip = document.getElementById("mass-strip");
+      for (const item of items) {
+        const cell = document.createElement("div");
+        cell.className = "cell";
+        cell.innerHTML = `${svg(item.html, "glyph")}<div class="label">${item.label}</div><div class="note">${item.note}</div>`;
+        grid.appendChild(cell);
+
+        const row = document.createElement("div");
+        row.className = "row";
+        row.innerHTML = `${svg(item.html, "glyph-sm")}<div class="row-title">${item.title}</div>`;
+        strip.appendChild(row);
+      }
+    </script>
+  </body>
+</html>

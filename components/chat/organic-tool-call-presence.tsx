@@ -127,6 +127,26 @@ export function resolveOrganicToolVisualIdentity(
   const inputRec = asRecord(input);
   const outputRec = asRecord(output);
 
+  const githubTitles: Record<string, { inFlight: string; completed: string }> = {
+    github_repo_overview: { inFlight: "Reading repository…", completed: "Repository overview" },
+    github_recent_commits: { inFlight: "Reading commits…", completed: "Recent commits" },
+    github_pull_requests: { inFlight: "Reading pull requests…", completed: "Pull requests" },
+    github_read_file: { inFlight: "Reading file…", completed: "Repository file" },
+  };
+  const githubTitle = githubTitles[key];
+
+  if (githubTitle) {
+    return {
+      seed: `tool-${key}`,
+      category: "GitHub",
+      inFlightTitle: inFlightLabelOverride ?? githubTitle.inFlight,
+      completedTitle: githubTitle.completed,
+      subtitle: null,
+      specialistName: null,
+      intensity: 0.58,
+    };
+  }
+
   if (key === "dispatch_subagent" || key === "delegate_subagent") {
     const specialist = resolveSpecialist(inputRec, outputRec);
     const brief = firstNonEmptyString(

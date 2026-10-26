@@ -1,4 +1,4 @@
-import { describe, expect, mock, test } from "bun:test";
+import { afterEach, describe, expect, mock, test } from "bun:test";
 
 mock.module("server-only", () => ({}));
 mock.module("@/config/memory-qdrant-client", () => ({
@@ -19,13 +19,30 @@ describe("mem0-config embedder", () => {
 });
 
 describe("installMem0OllamaFetch", () => {
+  const originalFetch = globalThis.fetch;
+  const originalUrl = process.env.OLLAMA_URL;
+  const originalApiKey = process.env.OLLAMA_API_KEY;
+  const originalClientId = process.env.OLLAMA_CF_ACCESS_CLIENT_ID;
+  const originalClientSecret = process.env.OLLAMA_CF_ACCESS_CLIENT_SECRET;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    if (originalUrl === undefined) delete process.env.OLLAMA_URL;
+    else process.env.OLLAMA_URL = originalUrl;
+    if (originalApiKey === undefined) delete process.env.OLLAMA_API_KEY;
+    else process.env.OLLAMA_API_KEY = originalApiKey;
+    if (originalClientId === undefined) delete process.env.OLLAMA_CF_ACCESS_CLIENT_ID;
+    else process.env.OLLAMA_CF_ACCESS_CLIENT_ID = originalClientId;
+    if (originalClientSecret === undefined) delete process.env.OLLAMA_CF_ACCESS_CLIENT_SECRET;
+    else process.env.OLLAMA_CF_ACCESS_CLIENT_SECRET = originalClientSecret;
+  });
+
   test("adds Authorization for requests to OLLAMA_URL", async () => {
     process.env.OLLAMA_URL = "https://ollama.example.com";
     process.env.OLLAMA_API_KEY = "test-token";
     process.env.OLLAMA_CF_ACCESS_CLIENT_ID = "id.access";
     process.env.OLLAMA_CF_ACCESS_CLIENT_SECRET = "access-secret";
 
-    const originalFetch = globalThis.fetch;
     const calls: Array<{ url: string; headers: Headers }> = [];
 
     globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -39,7 +56,10 @@ describe("installMem0OllamaFetch", () => {
       return new Response(JSON.stringify({ embeddings: [[0.1]] }), { status: 200 });
     };
 
-    const { installMem0OllamaFetch } = await import("@/lib/memory/install-mem0-ollama-fetch");
+    // Each run needs a fresh installation guard because it replaces global fetch.
+    const { installMem0OllamaFetch } = await import(
+      `@/lib/memory/install-mem0-ollama-fetch?test=${crypto.randomUUID()}`
+    );
 
     installMem0OllamaFetch();
 
@@ -59,11 +79,5 @@ describe("installMem0OllamaFetch", () => {
     expect(calls[1]?.headers.get("Authorization")).toBeNull();
     expect(calls[1]?.headers.get("CF-Access-Client-Id")).toBeNull();
     expect(calls[1]?.headers.get("CF-Access-Client-Secret")).toBeNull();
-
-    globalThis.fetch = originalFetch;
-    delete process.env.OLLAMA_API_KEY;
-    delete process.env.OLLAMA_CF_ACCESS_CLIENT_ID;
-    delete process.env.OLLAMA_CF_ACCESS_CLIENT_SECRET;
-    delete process.env.OLLAMA_URL;
   });
 });

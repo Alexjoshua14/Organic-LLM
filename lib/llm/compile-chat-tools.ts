@@ -31,6 +31,7 @@ import {
   createDelphiMemoryTools,
 } from "@/lib/llm/delphi-memory-tools";
 import { createRenderGenUiTool } from "@/lib/llm/gen-ui-tool";
+import { createGithubReadTools } from "@/lib/llm/github-tools";
 import { createGatherRestaurantTool } from "@/lib/llm/restaurant-tool";
 import {
   createGetFullChatHistoryTool,
@@ -46,6 +47,7 @@ import {
   DELPHI_GEN_UI_TOOL_INSTRUCTIONS,
   GEN_UI_TOOL_INSTRUCTIONS,
 } from "@/lib/system-prompt/gen-ui";
+import { GITHUB_TOOL_INSTRUCTIONS } from "@/lib/system-prompt/github";
 import { RESTAURANT_TOOL_INSTRUCTIONS } from "@/lib/system-prompt/restaurant";
 import { createStrataHubAssistantTools } from "@/lib/llm/strata-assistant-tools";
 import { createStrataKnowledgeGraphTools } from "@/lib/llm/strata-knowledge-graph-tools";
@@ -316,6 +318,11 @@ async function compileBaseChatTools({
     tools["gather_restaurant"] = createGatherRestaurantTool({ sbUserId });
     toolInstructions += `${GEN_UI_TOOL_INSTRUCTIONS}\n`;
     toolInstructions += `${RESTAURANT_TOOL_INSTRUCTIONS}\n`;
+
+    if (experience === "arcadia") {
+      Object.assign(tools, createGithubReadTools({ sbUserId }));
+      toolInstructions += `${GITHUB_TOOL_INSTRUCTIONS}\n`;
+    }
 
     if (chatStyle === "ergon") {
       tools["kanban_board"] = createKanbanBoardTool({

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
 import {
   buildBootstrapPayloadFromContent,
@@ -22,6 +22,7 @@ import {
 const FIXTURES = join(import.meta.dir, "fixtures");
 const TEST_SECRET = Buffer.alloc(32, 7).toString("base64");
 const GOLDEN_IV = new Uint8Array(12).fill(1);
+const originalSecret = process.env.INTROSPECTION_ORGANIC_SHARED_SECRET;
 
 function loadJson<T>(name: string): T {
   return JSON.parse(readFileSync(join(FIXTURES, name), "utf8")) as T;
@@ -29,6 +30,11 @@ function loadJson<T>(name: string): T {
 
 beforeEach(() => {
   process.env.INTROSPECTION_ORGANIC_SHARED_SECRET = TEST_SECRET;
+});
+
+afterEach(() => {
+  if (originalSecret === undefined) delete process.env.INTROSPECTION_ORGANIC_SHARED_SECRET;
+  else process.env.INTROSPECTION_ORGANIC_SHARED_SECRET = originalSecret;
 });
 
 describe("organic-relay contract", () => {
@@ -56,7 +62,10 @@ describe("organic-relay contract", () => {
     });
 
     expect(wire).toBe(expectedWire);
-    expect(decryptBootstrapPayload(wire, { secret: TEST_SECRET })).toEqual(bootstrap);
+    // The golden ciphertext stays valid as a contract fixture after its fixed expiry.
+    expect(decryptBootstrapPayload(wire, { secret: TEST_SECRET, skipExpiryCheck: true })).toEqual(
+      bootstrap
+    );
   });
 
   test("organic handoff content fixture parses", () => {

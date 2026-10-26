@@ -180,15 +180,15 @@ describe("computeLlmProcessingIntensity", () => {
 describe("intensity-modulated glass profile and dot physics", () => {
   test("preserves exact baseline glass profile when intensity is omitted", () => {
     expect(activityGlassForState("idle")).toEqual({
-      opacity: 0.72,
-      blur: 1.25,
-      brightness: 1,
+      opacity: 0.5,
+      blur: 4.25,
+      brightness: 1.15,
       tint: "var(--background)",
     });
     expect(activityGlassForState("working")).toEqual({
       opacity: 0.28,
       blur: 0.5,
-      brightness: 1.08,
+      brightness: 1.75,
       tint: "color-mix(in oklch, var(--background) 92%, var(--accent))",
     });
   });

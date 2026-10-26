@@ -9,41 +9,11 @@ import { test, expect } from "@playwright/test";
  * /sandbox is Clerk-protected, so this signs in like aion.spec.ts and skips when
  * E2E_CLERK_EMAIL / E2E_CLERK_PASSWORD are not provided.
  */
-async function signInIfNeeded(page: import("@playwright/test").Page) {
-  const email = process.env.E2E_CLERK_EMAIL;
-  const password = process.env.E2E_CLERK_PASSWORD;
-
-  test.skip(!email || !password, "Set E2E_CLERK_EMAIL and E2E_CLERK_PASSWORD to run this test.");
-
-  await page.goto("/");
-
-  const signInButton = page.getByRole("button", { name: /sign in/i }).first();
-  if (await signInButton.isVisible().catch(() => false)) {
-    await signInButton.click();
-
-    const emailInput = page
-      .locator('input[type="email"], input[name="identifier"], input[autocomplete="email"]')
-      .first();
-    await emailInput.waitFor({ state: "visible", timeout: 30_000 });
-    await emailInput.fill(email!);
-
-    const continueBtn = page.getByRole("button", { name: /continue|sign in/i }).first();
-    await continueBtn.click();
-
-    const passwordInput = page.locator('input[type="password"]').first();
-    await passwordInput.waitFor({ state: "visible", timeout: 30_000 });
-    await passwordInput.fill(password!);
-
-    const submitBtn = page.getByRole("button", { name: /continue|sign in/i }).first();
-    await submitBtn.click();
-  }
-
-  await expect(page.getByRole("button", { name: /sign in/i })).toHaveCount(0, { timeout: 30_000 });
-}
+import { signIn } from "./helpers/auth";
 
 test.describe("Mermaid render harness", () => {
   test.beforeEach(async ({ page }) => {
-    await signInIfNeeded(page);
+    await signIn(page);
     await page.goto("/sandbox/prototypes/mermaid");
     await expect(page.getByRole("heading", { name: "Mermaid render harness" })).toBeVisible();
   });

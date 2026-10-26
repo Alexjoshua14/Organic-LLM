@@ -9,7 +9,6 @@ import { cn } from "@/lib/utils";
 const links = [
   { href: "/chat", label: "Chat" },
   { href: "/sandbox/arcadia", label: "Arcadia" },
-  { href: "/sandbox/prototypes/strata", label: "Strata" },
   { href: "/rabbitholes/browse", label: "Rabbit holes" },
   { href: "/showcase", label: "Showcase" },
 ] as const;

@@ -32,6 +32,25 @@ export type PrototypeEntry = {
 
 export const prototypes: PrototypeEntry[] = [
   {
+    slug: "session-glyphs",
+    title: "Session glyphs",
+    description:
+      "Sidebar experience marks — shipped set vs Instrument / Mass / Alphabet proposals. Chat and Arcadia share one SVG.",
+    about: {
+      what: "A comparison lab for the 14px sidebar session glyphs that differentiate chat, speak, rabbit holes, strata, remy, and related experiences — including three redesign proposals grounded in Refero / Awwwards / instrument-UI research.",
+      authorThoughts:
+        "Shape alone carries experience identity; motion is reserved for working/live. Chat and Arcadia must share one mark. Proposals prioritize equal optical weight and distinct outer silhouettes at row size.",
+      howToUse:
+        "Toggle idle / working / live / new, inspect at 14px and 56px, pin a set into the fake sidebar strip, then pick a direction to promote into SessionGlyph.",
+    },
+    ranking: {
+      importance: 9,
+      frequency: 6,
+      createdAt: "2026-10-25",
+      updatedAt: "2026-10-25",
+    },
+  },
+  {
     slug: "organic-agent",
     title: "Organic Agent",
     description:

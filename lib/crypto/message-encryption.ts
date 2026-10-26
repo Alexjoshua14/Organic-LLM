@@ -33,6 +33,9 @@ export type EncryptionFieldName =
   | "ergon_connection.oauth"
   | "threads.research_ledger"
   | "research_ledgers.payload"
+  | "persona_sessions.state"
+  | "persona_sessions.log"
+  | "persona_sessions.photo"
   | "stage.events";
 
 export type EncryptionContext = {

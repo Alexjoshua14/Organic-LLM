@@ -11,6 +11,8 @@
 - [Activated memories](./architecture/decisions/20261002-activated-memories-on-user-messages.md) — retain automatic recall on its user message within the history window
 - [Chat model aliases](./architecture/decisions/20260909-chat-model-aliases.md) — `models.provider.family` vs picker `name` / persisted gateway ids
 - [Arcadia context effort](./architecture/decisions/20260914-arcadia-context-effort.md) — Instant / Quick / Heavy memory compilation; 50k history window unchanged
+- [Arcadia GitHub read](./architecture/decisions/20261002-arcadia-github-read.md) — allowlisted repository reads distilled by cheaper ZDR models
+- [Sidebar seen state](./architecture/decisions/20260924-sidebar-seen-state.md) — "new since last look" is a server column; Speak threads are never new
 - [End-to-end encryption overview](./e2ee.md)
 
 ## Product hub
@@ -48,6 +50,7 @@ Canon for the product: what we're building, who owns which kind of truth, how ag
 ## Design & UI
 
 - **[Design backbone](./design/README.md)** — agent-facing design standards (start here for UI/motion quality)
+- [Sidebar session signals](./design/sidebar-session-signals.md) — experience glyphs, working / new signals, gaze hierarchy
   - [Spacing](./design/spacing.md) — stack/gap/inset tokens, card density
   - [Switches & quick settings](./design/switches-and-quick-settings.md) — shared glass switches and compact caption popovers
   - [Context usage](./design/context-usage.md) — composer charts, source colors, percentage ramp, hover labels
@@ -88,6 +91,8 @@ Public routes under `/blog` — see the [blog index](../app/blog/page.tsx) or ru
 
 ## Maintainer notes
 
+- [Profile generation](./architecture/decisions/20261022-profile-generation-structured-output.md) — strict structured output, clamped in code; why every generation failed
+- [Invites](./invites.md) — invite-only sign-up, branded invitation email, and which surfaces invited accounts can open
 - [Shared gateway visibility](./architecture/decisions/20261009-shared-gateway-visibility.md) — request deduplication, session isolation, fresh server authorization, and identifier logging
 - [Performance journeys](./perf-journeys.md) — dev HUD for home load, Chat, and Arcadia transition timings (`?perf=1`)
 - [Chat and Arcadia initial load](./architecture/decisions/20261009-chat-arcadia-initial-load.md) — direct creation navigation, parallel owned reads, stream resumption, and worker discovery

@@ -98,7 +98,7 @@ scheduler failure apply the target immediately. The primitive's reduced-transpar
 and high-contrast CSS rules still override the material and disable backdrop filters.
 Interpolating blur can add GPU/compositing work that the CPU health budget cannot
 attribute or measure directly; the prototype bench exposes the measurable costs.
-The bench's blur slider spans 0–14px; production presets stay at 0.5–1.25px. Both
+The bench's blur slider spans 0–14px; production presets are 0.5px (working), 4.25px (idle, waiting), and 5.5px (blocked, complete). Both
 material targets and actual spring positions use that same bound. Physics component modules opt into Next's
 `// @refresh reset` during development: code edits dispose/remount their spring
 instances rather than preserving hook state from an older effect dependency list.

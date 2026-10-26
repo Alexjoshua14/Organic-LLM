@@ -315,7 +315,7 @@ test("one owner state synchronizes dots and glass while per-state material overr
   const noise = mark.querySelector<HTMLElement>('[data-activity-layer="noise"]')!;
   const cover = mark.lastElementChild as HTMLElement;
   expect(cover.style.getPropertyValue("--activity-glass-blur")).toBe("0.5px");
-  expect(cover.style.getPropertyValue("--activity-glass-brightness")).toBe("1.08");
+  expect(cover.style.getPropertyValue("--activity-glass-brightness")).toBe("1.75");
   expect(Number.parseFloat(cover.style.getPropertyValue("--activity-glass-opacity"))).toBeCloseTo(
     28
   );
@@ -365,8 +365,8 @@ test("one owner state synchronizes dots and glass while per-state material overr
     />
   );
   expect(Number.parseFloat(cover.style.getPropertyValue("--activity-glass-opacity"))).toBeCloseTo(
-    72
+    67
   );
-  expect(cover.style.getPropertyValue("--activity-glass-blur")).toBe("1.25px");
+  expect(cover.style.getPropertyValue("--activity-glass-blur")).toBe("4.25px");
   expect(cover.style.getPropertyValue("--activity-glass-tint")).toBe("var(--background)");
 });

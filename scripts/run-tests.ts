@@ -31,7 +31,7 @@ if (!process.execArgv.includes("--no-env-file")) {
 const PRELOADS = ["./tests/jsdom-preload.ts", "./tests/preload.ts", "./tests/quiet-preload.ts"];
 
 const SUITES = {
-  unit: ["tests/unit", "tests/getNMessages.test.ts", "tests/organicStateProtocol.test.ts"],
+  unit: ["tests/unit", "tests/getNMessages.test.ts", "tests/organicStateProtocol.test.ts", "lib/organic-relay/contract.test.ts"],
   integration: ["tests/integration"],
 } as const;
 
