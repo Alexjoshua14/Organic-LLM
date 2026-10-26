@@ -11,8 +11,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   }
 
   return (
-    <div className="min-h-dvh w-full bg-background text-foreground">
-      <header className="border-b border-border px-4 py-3 sm:px-6">
+    <div className="flex h-dvh w-full flex-col overflow-hidden bg-background text-foreground">
+      <header className="shrink-0 border-b border-border px-4 py-3 sm:px-6">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
           <div>
             <p className="text-2xs uppercase tracking-wider text-muted-foreground">Admin</p>
@@ -40,7 +40,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </nav>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">{children}</main>
+      <main className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6">{children}</div>
+      </main>
     </div>
   );
 }
