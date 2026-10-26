@@ -199,14 +199,14 @@ test("glass tuning blurs both owned layers once, bounds oversized input and incl
   expect(background.contains(dots)).toBe(true);
   expect(background.contains(noise)).toBe(true);
   expect(background.contains(cover)).toBe(false);
-  expect(background.style.filter).toBe("blur(1.25px) brightness(1) saturate(1.12)");
-  expect(cover.style.getPropertyValue("--activity-glass-opacity")).toBe("72%");
+  expect(background.style.filter).toBe("blur(4.25px) brightness(1.15) saturate(1.12)");
+  expect(cover.style.getPropertyValue("--activity-glass-opacity")).toBe("50%");
   for (const blur of [-5, 0, 14, 200]) {
     view.rerender(
       <OrganicActivityMark renderer="v0" state="working" glassByState={{ working: { blur } }} />
     );
     expect(background.style.filter).toBe(
-      `blur(${Math.max(0, Math.min(blur, 14))}px) brightness(1.08) saturate(1.12)`
+      `blur(${Math.max(0, Math.min(blur, 14))}px) brightness(1.75) saturate(1.12)`
     );
     expect(cover.style.getPropertyValue("backdrop-filter")).toBe("none");
     expect(view.container.querySelector("[data-dot-renderer]")).toBe(dots);
@@ -214,7 +214,7 @@ test("glass tuning blurs both owned layers once, bounds oversized input and incl
   }
   view.rerender(<OrganicActivityMark imageUrl="/identity.png" state="waiting" />);
   expect(background.contains(view.container.querySelector("img"))).toBe(true);
-  expect(background.style.filter).toBe("blur(1.25px) brightness(1) saturate(1.12)");
+  expect(background.style.filter).toBe("blur(4.25px) brightness(1.7) saturate(1.12)");
   // JSDOM does not retain the prefixed property; check its server delivery instead.
   expect(renderToString(<OrganicActivityMark renderer="v0" />)).toContain(
     "-webkit-backdrop-filter:none"
@@ -255,13 +255,16 @@ test("agent defaults keep the approved state materials and enable refraction wit
   expect(source.dataset.glassDistortion).toBe("on");
   for (const state of ["idle", "waiting", "blocked", "complete", "working"] as const) {
     view.rerender(<OrganicActivityMark renderer="v0" state={state} />);
-    expect(background.style.filter).toBe(
-      state === "working"
-        ? "blur(0.5px) brightness(1.08) saturate(1.12)"
-        : "blur(1.25px) brightness(1) saturate(1.12)"
-    );
+    const expected = {
+      idle: { filter: "blur(4.25px) brightness(1.15) saturate(1.12)", opacity: 50 },
+      waiting: { filter: "blur(4.25px) brightness(1.7) saturate(1.12)", opacity: 67 },
+      blocked: { filter: "blur(5.5px) brightness(2) saturate(1.12)", opacity: 10 },
+      complete: { filter: "blur(5.5px) brightness(1.55) saturate(1.12)", opacity: 25 },
+      working: { filter: "blur(0.5px) brightness(1.75) saturate(1.12)", opacity: 28 },
+    }[state];
+    expect(background.style.filter).toBe(expected.filter);
     expect(Number.parseFloat(cover.style.getPropertyValue("--activity-glass-opacity"))).toBeCloseTo(
-      state === "working" ? 28 : 72
+      expected.opacity
     );
     expect(cover.style.getPropertyValue("--activity-glass-tint")).toBe(
       state === "blocked"
@@ -365,8 +368,8 @@ test("failed clipboard writes expose selectable JSX; stale writes cannot mark a 
   await act(async () => fireEvent.click(view.getByRole("button", { name: "Copy style" })));
   const fallback = view.getByRole("textbox", { name: "Style to copy" }) as HTMLTextAreaElement;
   expect(fallback.value).toContain('state="idle"');
-  expect(fallback.value).toContain('"opacity": 0.72');
-  expect(fallback.value).toContain('"blur": 1.25');
+  expect(fallback.value).toContain('"opacity": 0.5');
+  expect(fallback.value).toContain('"blur": 4.25');
   expect(fallback.value).toContain("glassDistortion={true}");
   await act(async () => fallback.focus());
   expect(fallback.selectionStart).toBe(0);

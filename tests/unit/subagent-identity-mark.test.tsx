@@ -24,7 +24,7 @@ describe("SubagentIdentityMark & OrganicActivityMark intensity modulation", () =
     const mark = view.getByRole("img", { name: "Lyra identity mark" });
     const backdrop = mark.querySelector<HTMLElement>('[data-activity-layer="backdrop"]')!;
 
-    expect(backdrop.style.filter).toBe("blur(0.5px) brightness(1.08) saturate(1.12)");
+    expect(backdrop.style.filter).toBe("blur(0.5px) brightness(1.75) saturate(1.12)");
   });
 
   test("modulates backdrop glass filter and exposes data-intensity attributes when intensity is provided", () => {
