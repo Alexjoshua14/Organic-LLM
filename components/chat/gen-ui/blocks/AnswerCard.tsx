@@ -16,8 +16,6 @@ const CONFIDENCE_DOT: Record<NonNullable<AnswerCardBlock["footer"]>["confidence"
   low: "bg-rose-500",
 };
 
-const VISIBLE_KEY_POINTS = 5;
-
 type AnswerCardProps = {
   block: AnswerCardBlock;
   partial?: boolean;
@@ -34,9 +32,6 @@ function KeyPoint({ children }: { children: React.ReactNode }) {
 
 export function AnswerCard({ block, partial }: AnswerCardProps) {
   const confidence = block.footer?.confidence;
-
-  const visible = block.keyPoints.slice(0, VISIBLE_KEY_POINTS);
-  const overflow = block.keyPoints.slice(VISIBLE_KEY_POINTS);
 
   return (
     <div className="space-y-4">
@@ -60,28 +55,14 @@ export function AnswerCard({ block, partial }: AnswerCardProps) {
           <p className="mb-2 text-2xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
             Key points
           </p>
+          {/* All points show: the schema caps them at 7, so the list never needs collapsing. */}
           <ul className="space-y-2 text-sm text-foreground/90">
-            {visible.map((p, i) => (
+            {block.keyPoints.map((p, i) => (
               <KeyPoint key={i}>
                 <GenUIMarkdown inline>{p}</GenUIMarkdown>
               </KeyPoint>
             ))}
           </ul>
-          {overflow.length > 0 ? (
-            <details className="group mt-2.5 text-sm">
-              <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-accent">
-                Show {overflow.length} more
-                <span className="transition-transform group-open:rotate-90">›</span>
-              </summary>
-              <ul className="mt-2 space-y-2 text-foreground/90">
-                {overflow.map((p, i) => (
-                  <KeyPoint key={i}>
-                    <GenUIMarkdown inline>{p}</GenUIMarkdown>
-                  </KeyPoint>
-                ))}
-              </ul>
-            </details>
-          ) : null}
         </div>
       ) : partial ? (
         <div className="space-y-2">
