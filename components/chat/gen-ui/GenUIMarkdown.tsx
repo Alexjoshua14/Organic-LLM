@@ -55,7 +55,11 @@ const INLINE_ELEMENTS = ["p", "strong", "em", "del", "code", "a", "br"];
 
 const blockComponents: Components = {
   ...inlineComponents,
-  p: ({ node: _node, ...props }) => <p {...props} />,
+  // `globals.css` sets every `<p>` to `text-base leading-snug`; inherit the card's own size and
+  // leading instead, so a paragraph matches the list items beside it.
+  p: ({ node: _node, ...props }) => (
+    <p {...props} className="text-[length:inherit] leading-[inherit]" />
+  ),
   ul: ({ node: _node, ...props }) => (
     <ul {...props} className="list-disc space-y-1 pl-4 marker:text-muted-foreground/60" />
   ),

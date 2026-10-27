@@ -90,6 +90,15 @@ describe("GenUIMarkdown", () => {
     expect(link?.getAttribute("rel")).toBe("noopener noreferrer");
   });
 
+  test("block paragraphs inherit the card's text size over the global <p> style", () => {
+    const { container } = render(<GenUIMarkdown className="text-sm">{"para"}</GenUIMarkdown>);
+    const className = container.querySelector("p")?.className ?? "";
+
+    // `globals.css` sets `p { text-base }`; without these the paragraph outgrows its list items.
+    expect(className).toContain("text-[length:inherit]");
+    expect(className).toContain("leading-[inherit]");
+  });
+
   test("block mode keeps single newlines as line breaks", () => {
     const { container } = render(<GenUIMarkdown>{"line one\nline two"}</GenUIMarkdown>);
 
