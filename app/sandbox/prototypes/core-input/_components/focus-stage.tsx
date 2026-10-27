@@ -5,6 +5,7 @@ import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { ContextBudgetEstimate } from "@/lib/chat/context-budget";
 import type { CoreInputControlsValue } from "@/components/chat/core-input/core-input-context";
 import type { OrganicSubmitState } from "@/components/chat/core-input/submit/submit-glyph";
+import type { SteerAction } from "@/components/chat/core-input/footer/steer-action";
 import type { ChatEffortLevel } from "@/lib/schemas/chat-effort";
 import type { FocusLabState, LabPatch } from "../_lib/lab-state";
 import type { SimulatedChat } from "../_lib/use-simulated-chat";
@@ -15,22 +16,24 @@ import { MicIcon, PlusIcon } from "lucide-react";
 import { LAB_BUDGET_FILL_RAMP, makeLabBudget } from "../_lib/lab-budget";
 
 import { ComposerActionButton } from "@/components/chat/composer-action-button";
-import { ComposerAddFilesButton } from "@/components/chat/composer-add-files-button";
-import { ComposerMicButton } from "@/components/chat/composer-mic-button";
-import { ComposerSettingsMenu } from "@/components/chat/composer-settings-menu";
 import {
   ContextBudgetIndicatorView,
   ContextBudgetPopover,
   ContextDonut,
 } from "@/components/chat/context-budget-indicator";
 import { CoreInputControlsProvider } from "@/components/chat/core-input/core-input-context";
+import { ComposerAddFilesButton } from "@/components/chat/core-input/controls/add-files-button";
 import { ComposerContextEffortSlider } from "@/components/chat/core-input/controls/context-effort-slider";
 import { ComposerEffortSelect } from "@/components/chat/core-input/controls/effort-select";
+import { ComposerMicButton } from "@/components/chat/core-input/controls/mic-button";
 import { ComposerModelEffortSelect } from "@/components/chat/core-input/controls/model-effort-select";
 import { ComposerModelSelect } from "@/components/chat/core-input/controls/model-select";
+import { ComposerOverflowMenu } from "@/components/chat/core-input/controls/overflow-menu";
 import { ComposerPreviewChip } from "@/components/chat/core-input/controls/preview-chip";
 import { ComposerSpeechChip } from "@/components/chat/core-input/controls/speech-chip";
 import { ComposerToolToggleGroup } from "@/components/chat/core-input/controls/tool-toggle-group";
+import { CoreInputFooter } from "@/components/chat/core-input/footer/core-input-footer";
+import { resolveFooterPlacement } from "@/components/chat/core-input/footer/footer-placement";
 import {
   organicGlassSubmitClassName,
   PromptInputSubmit,
@@ -83,9 +86,9 @@ export const FOCUS_CONTROLS: readonly FocusControl[] = [
   {
     id: "toolbar",
     title: "Assembled toolbar",
-    file: "core-input/core-input.tsx (footer)",
+    file: "core-input/footer/core-input-footer.tsx · footer-placement.ts",
     blurb:
-      "Every footer control in the production arrangement, minus CoreInput's own state. The place for spacing and grouping work.",
+      "The production footer component, placed by the production placement rules, driven by lab state. The place for spacing, grouping, and menu work.",
   },
   {
     id: "tool-toggles",
@@ -136,13 +139,14 @@ export const FOCUS_CONTROLS: readonly FocusControl[] = [
   {
     id: "settings-menu",
     title: "Overflow menu",
-    file: "composer-settings-menu.tsx",
-    blurb: "Where speech, preview, and steer go when the footer is condensed.",
+    file: "core-input/controls/overflow-menu.tsx",
+    blurb:
+      "Holds every control placed in the menu. Today: speech, preview, and steer on a condensed footer.",
   },
   {
     id: "attachments",
     title: "Add files + mic",
-    file: "composer-add-files-button.tsx · composer-mic-button.tsx",
+    file: "core-input/controls/add-files-button.tsx · mic-button.tsx",
     blurb: "Attachment and dictation actions on the right of the tools row.",
   },
   {
@@ -275,11 +279,15 @@ function ComposerSurface({
 /** Header + textarea + footer, the same slots CoreInput fills, without its state. */
 function MiniComposer({
   footer,
+  footerSlot,
   corner,
   placeholder = "What would you like to know?",
   onSubmit,
 }: {
-  footer: ReactNode;
+  /** Footer contents, wrapped in the production `PromptInputFooter`. */
+  footer?: ReactNode;
+  /** A complete footer (e.g. `CoreInputFooter`) used as-is instead of `footer`. */
+  footerSlot?: ReactNode;
   corner?: ReactNode;
   placeholder?: string;
   onSubmit?: (text: string) => void;
@@ -295,7 +303,7 @@ function MiniComposer({
       <PromptInputBody>
         <PromptInputTextarea placeholder={placeholder} />
       </PromptInputBody>
-      <PromptInputFooter className="overflow-visible">{footer}</PromptInputFooter>
+      {footerSlot ?? <PromptInputFooter className="overflow-visible">{footer}</PromptInputFooter>}
     </PromptInput>
   );
 }
@@ -388,17 +396,31 @@ type CardContext = {
   budget: ContextBudgetEstimate;
 };
 
-function settingsMenuPropsFor({ value, state, chat }: CardContext) {
+/**
+ * Placement for a lab footer: the production rules with every optional control on, as on
+ * Arcadia with Noesis steer. The persona chip stays off because it needs a live session.
+ */
+function labFooterPlacement(value: CoreInputControlsValue) {
+  return resolveFooterPlacement({
+    condensed: value.useCondensedLayout,
+    compact: false,
+    personaEnabled: false,
+    hideWebMemorySpeechToggles: false,
+    hasSpeechFriendly: true,
+    hasMarkdownPreview: true,
+    previewingMarkdown: value.inputMarkdownMode === "preview",
+    hasSteer: true,
+    showContextEffort: value.showContextEffort,
+  });
+}
+
+/** Steer against the panel draft, recorded on the simulated chat. */
+function labSteer({ state, chat }: CardContext): SteerAction {
   return {
-    enableMarkdownInputPreview: true,
-    hasDraft: state.draftText.trim().length > 0,
-    inputMarkdownMode: value.inputMarkdownMode,
-    onMarkdownModeToggle: () =>
-      value.setInputMarkdownMode((mode) => (mode === "edit" ? "preview" : "edit")),
-    onSecondarySubmit: () => chat.recordSteer(state.draftText),
-    secondarySubmitLabel: "Steer assist",
-    useSpeechFriendly: value.useSpeechFriendly,
-    onSpeechFriendlyChange: (next: boolean) => value.setUseSpeechFriendly(next),
+    label: "Steer assist",
+    pending: false,
+    available: state.draftText.trim().length > 0,
+    run: () => chat.recordSteer(state.draftText),
   };
 }
 
@@ -408,10 +430,9 @@ function sendFromSurface(ctx: CardContext, text: string) {
 
 function ToolbarCard(ctx: CardContext) {
   const { value, chat, budget, state } = ctx;
-  const condensed = value.useCondensedLayout;
 
   return (
-    <StateCell label="Interactive · production arrangement">
+    <StateCell label="Interactive · production footer">
       <MiniComposer
         corner={
           <ContextBudgetIndicatorView
@@ -419,28 +440,14 @@ function ToolbarCard(ctx: CardContext) {
             draftTokens={estimateDraftTokens(state.draftText)}
           />
         }
-        footer={
-          <>
-            <div className="min-w-0 flex-1 overflow-visible">
-              <PromptInputTools className="flex min-w-0 w-full items-center justify-between gap-1 overflow-visible">
-                <div className="flex min-w-0 items-center gap-3 overflow-visible">
-                  <ComposerToolToggleGroup />
-                  {!condensed ? <ComposerSpeechChip /> : null}
-                  {!condensed ? <ComposerPreviewChip /> : null}
-                  <ComposerModelEffortSelect />
-                  {value.showContextEffort ? <ComposerContextEffortSlider /> : null}
-                </div>
-                <div className="flex shrink-0 items-center gap-1">
-                  <ComposerAddFilesButton />
-                  <ComposerMicButton />
-                  {condensed ? <ComposerSettingsMenu {...settingsMenuPropsFor(ctx)} /> : null}
-                </div>
-              </PromptInputTools>
-            </div>
-            <div className="flex shrink-0 items-center gap-1.5">
-              <PromptInputSubmit status={chat.status} stop={() => void chat.stop()} />
-            </div>
-          </>
+        footerSlot={
+          <CoreInputFooter
+            placement={labFooterPlacement(value)}
+            steer={labSteer(ctx)}
+            submit={<PromptInputSubmit status={chat.status} stop={() => void chat.stop()} />}
+            // The lab has no reference rail; picking a saved thread does nothing here.
+            onThreadReference={noop}
+          />
         }
         onSubmit={(text) => sendFromSurface(ctx, text)}
       />
@@ -765,7 +772,10 @@ function SubmitCard(ctx: CardContext) {
 }
 
 function SettingsMenuCard(ctx: CardContext) {
-  const props = settingsMenuPropsFor(ctx);
+  const { value } = ctx;
+  // The menu only has items on a condensed footer, so both cells pin that layout.
+  const placement = labFooterPlacement({ ...value, useCondensedLayout: true });
+  const steer = labSteer(ctx);
   const lastSteer = ctx.chat.lastSend?.kind === "steer" ? ctx.chat.lastSend.text : null;
 
   return (
@@ -774,19 +784,19 @@ function SettingsMenuCard(ctx: CardContext) {
         <StateCell label="Interactive · all items">
           <ComposerSurface>
             <div className="ml-auto">
-              <ComposerSettingsMenu {...props} />
+              <ComposerOverflowMenu placement={placement} steer={steer} />
             </div>
           </ComposerSurface>
         </StateCell>
         <StateCell label="Engaged · speech on (pinned)">
           <ComposerSurface>
             <div className="ml-auto">
-              <ComposerSettingsMenu
-                {...props}
-                inputMarkdownMode="edit"
-                useSpeechFriendly
-                onSpeechFriendlyChange={noop}
-              />
+              <Pinned
+                base={value}
+                overrides={{ inputMarkdownMode: "edit", useSpeechFriendly: true }}
+              >
+                <ComposerOverflowMenu placement={placement} steer={steer} />
+              </Pinned>
             </div>
           </ComposerSurface>
         </StateCell>

@@ -40,7 +40,7 @@ These two files total **322 lines**. The old path uses browser speech recognitio
 a text-generation HTTP request. It is not a runtime fallback selected by the current shell.
 
 Keep [`lib/web-speech-recognition.ts`](../../lib/web-speech-recognition.ts): it is also imported
-by [`composer-mic-button.tsx`](../../components/chat/composer-mic-button.tsx) and the shared
+by [`core-input/controls/mic-button.tsx`](../../components/chat/core-input/controls/mic-button.tsx) and the shared
 [`prompt-input.tsx`](../../components/third-party/ai-elements/prompt-input.tsx).
 
 ## Legacy TTS endpoints: no current app callers found

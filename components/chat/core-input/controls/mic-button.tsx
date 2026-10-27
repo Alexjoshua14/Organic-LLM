@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { MicIcon } from "lucide-react";
 
-import { ComposerActionButton } from "./composer-action-button";
-
+import { ComposerActionButton } from "@/components/chat/composer-action-button";
 import {
   getWebSpeechRecognitionCtor,
   type WebSpeechRecognition,
