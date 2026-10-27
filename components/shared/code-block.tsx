@@ -92,6 +92,15 @@ export type CodeInlineProps = ComponentPropsWithoutRef<"code"> & {
 };
 
 /**
+ * Inline code chip, sized in `em` so it scales with surrounding text (chat body, gen-ui cards).
+ * `before`/`after:content-none` drop the literal backticks Tailwind Typography's `prose` adds
+ * around `code`; weight inherits so `**`code`**` reads bold and plain code does not.
+ * These utilities beat the `prose` code rules on source order (same layer, same specificity).
+ */
+export const INLINE_CODE_CHIP_CLASS =
+  "rounded-[0.3em] bg-muted/70 px-[0.35em] py-[0.1em] font-mono text-[0.875em] [font-weight:inherit] box-decoration-clone before:content-none after:content-none";
+
+/**
  * Inline or fenced-inner <code> styling. Does not handle mermaid — that stays in chat.
  */
 export function CodeInline({
@@ -104,6 +113,7 @@ export function CodeInline({
     <code
       className={cn(
         !inBlockCode && "max-w-full break-words overflow-x-auto",
+        !inBlockCode && INLINE_CODE_CHIP_CLASS,
         inBlockCode && wrap && "min-w-0 [overflow-wrap:anywhere]",
         className
       )}

@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 
 import { recipeIngredientToText, RECIPE_COMPLEXITY_LABEL } from "@/lib/schemas/gen-ui";
+import { GenUIMarkdown } from "@/components/chat/gen-ui/GenUIMarkdown";
 import { cn } from "@/lib/utils";
 
 type RecipeCardProps = {
@@ -119,14 +120,20 @@ export function RecipeCard({ block, partial }: RecipeCardProps) {
             {block.steps.map((step, i) => (
               <li key={i} className="flex gap-2">
                 <span className="shrink-0 font-medium text-muted-foreground">{i + 1}.</span>
-                <span>{step}</span>
+                <span>
+                  <GenUIMarkdown inline>{step}</GenUIMarkdown>
+                </span>
               </li>
             ))}
           </ol>
         </div>
       </div>
 
-      {block.notes ? <p className="text-xs text-muted-foreground">{block.notes}</p> : null}
+      {block.notes ? (
+        <p className="text-xs text-muted-foreground">
+          <GenUIMarkdown inline>{block.notes}</GenUIMarkdown>
+        </p>
+      ) : null}
 
       {block.sourceUrl ? (
         <a
