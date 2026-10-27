@@ -6,6 +6,7 @@ import { RabbitHoleContext } from "../context/rabbithole-context";
 
 import { analyzeSource, generateQuickPreview } from "./actions";
 import { RABBIT_HOLE_UNTITLED } from "./constants";
+import { buildEmptyRabbitHoleSession } from "./new-session";
 
 import {
   RabbitHoleSession,
@@ -96,16 +97,7 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
    */
   function newSession(): Result<RabbitHoleSession, Error> {
     try {
-      const newSession: RabbitHoleSession = {
-        sessionId: clientRandomUUID(),
-        rootQuestion: "",
-        activeNodeId: null,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        path: [],
-        nodesById: {},
-        edges: [],
-      };
+      const newSession = buildEmptyRabbitHoleSession({ sessionId: clientRandomUUID() });
 
       return {
         data: newSession,
