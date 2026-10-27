@@ -1,5 +1,7 @@
 "use client";
 
+import { useMemo } from "react";
+
 import { GenUIFallbackMarkdown } from "./GenUIFallbackMarkdown";
 import { GEN_UI_REGISTRY } from "./registry";
 
@@ -27,8 +29,12 @@ function renderBlock(block: GenUIBlock, partial: boolean) {
 }
 
 export function GenUIRenderer({ data, messageId }: GenUIRendererProps) {
-  const raw = extractGenUIBlockFromToolOutput(data);
-  const parsed = safeParseGenUIBlock(raw);
+  // Schema validation walks the whole block; redo it only when the tool output changes.
+  const { raw, parsed } = useMemo(() => {
+    const raw = extractGenUIBlockFromToolOutput(data);
+
+    return { raw, parsed: safeParseGenUIBlock(raw) };
+  }, [data]);
 
   if (parsed.ok) {
     return renderBlock(parsed.block, parsed.hadPartialFailures);

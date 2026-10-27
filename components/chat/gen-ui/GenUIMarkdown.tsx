@@ -1,7 +1,6 @@
 "use client";
 
-import type { ComponentPropsWithoutRef } from "react";
-
+import { memo, type ComponentPropsWithoutRef } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -19,6 +18,9 @@ import { cn } from "@/lib/utils";
  *   (bold, italic, strike, code, links); paragraphs unwrap so the caller's element owns layout.
  * - default (block): multi-line fields (section bodies, report summaries). Lists, paragraphs,
  *   and fenced code render; single newlines stay line breaks, as `whitespace-pre-wrap` did.
+ *
+ * Memoized on its (primitive) props, like chat's `MemoizedMarkdownBlock`: a card re-rendering
+ * while it streams in only re-parses the fields whose text actually changed.
  */
 
 type MarkdownNodeProps<T extends keyof React.JSX.IntrinsicElements> =
@@ -92,7 +94,11 @@ type GenUIMarkdownProps = {
   className?: string;
 };
 
-export function GenUIMarkdown({ children, inline = false, className }: GenUIMarkdownProps) {
+export const GenUIMarkdown = memo(function GenUIMarkdown({
+  children,
+  inline = false,
+  className,
+}: GenUIMarkdownProps) {
   if (typeof children !== "string" || children.length === 0) return null;
 
   if (inline) {
@@ -115,4 +121,4 @@ export function GenUIMarkdown({ children, inline = false, className }: GenUIMark
       </ReactMarkdown>
     </div>
   );
-}
+});
