@@ -81,7 +81,13 @@ run; `-t "name"` filters by test name.
 
 **Ask first**
 
-- Major architectural changes, or new dependencies.
+- New dependencies.
+- Fundamental or architectural changes: root providers and layouts, rendering or caching
+  strategy, auth wiring, data loading, persistence, or anything most of the app depends on.
+  These need the user's explicit approval before any code. Request it with a proposal in
+  `organic-llm-hub/decisions/` (`YYYYMMDD-<topic>-proposed.md`, **Status: Proposed**): the
+  problem, the solution, a concise why, and its impacts (performance, security, behaviour,
+  code touched, rollback). Then stop and wait for the decision.
 - Creating Linear or Notion resources. Notion is agent-owned; Linear holds open questions only,
   and implementation issues are gated — see `docs/hub/phases.md`.
 - Bumping the major version — see `.cursor/skills/app-semver/SKILL.md`.
