@@ -163,6 +163,50 @@ Always on in the **Remy** route (`/api/ai/remy`); in Arcadia it's the **Remy** c
 
 ---
 
+## Rabbit hole toolset
+
+*Gives an agent the user's rabbit hole library: browse it, read it at a chosen depth, and grow it.* Registered for **Arcadia** and for the **rabbit hole drawer** agent. The toolset has two categories, and a caller takes whichever it needs — a future surface could take read-only or create-only.
+
+**Read**
+
+| Tool | Returns |
+|------|---------|
+| `list_rabbit_holes` | The user's sessions, newest first: id, title, description, dates, node count, link. |
+| `search_rabbit_holes` | Keyword search over session titles/questions and node titles, questions, key takeaways and summaries (never article bodies), ranked, with the nodes that matched. |
+| `get_rabbit_hole` | One session by id at a `detail` level (below). |
+| `get_rabbit_hole_node` | One node by id at a `detail` level. |
+| `get_rabbit_hole_node_section` | One article section as plain text, by `sectionIndex` or `sectionId` from the node's section outline. |
+
+`detail` is `high_level` (title, description, dates, and the node graph with ids and titles; for a node, its relatives and section outline), `overview` (adds key takeaways), or `detailed` (adds the full article text, sources and branch suggestions).
+
+**Create**
+
+| Tool | Does |
+|------|------|
+| `create_rabbit_hole` | Starts a new session with one generating root node. |
+| `create_rabbit_hole_node` | Adds one generating node to an existing session. `parentNodeId` is validated against the session; omit it to attach under the root (the drawer uses the active node). |
+
+Both return immediately with a link while the article generates in the background.
+
+**Approval lives with the agent, not the tool** (locked 2026-10-27). The create tools never ask the user anything. The calling agent's instructions say an explicit request ("create this as a rabbit hole") is approval, and that an agent proposing one on its own waits for a yes. Arcadia is also told to search first and extend a matching session instead of starting a disjoint one.
+
+What the tools do enforce, whoever calls them:
+
+- **Ownership.** Every session id the model supplies is checked against the signed-in user; a foreign id and a missing id get the same "not found".
+- **Spend gates.** The same node rate limit and weekly plan budget as `POST /api/rabbitholes/[sessionId]/generate`.
+- **One creation per assistant turn**, and no new node while another is generating in that session (a flag older than 10 minutes is treated as abandoned).
+- **Response size.** Temporary development cap of ~150k tokens (chars ÷ 4) per read call, applied in the tool wrappers rather than the shaping functions. Over the cap, the call is refused with advice to read narrower.
+
+Provisional: default parent when none is given; the 10-minute staleness window; one creation per turn.
+
+Limits today: search is keyword-only, and the caller must pick (or default) the parent for a new node.
+
+The rabbit hole drawer keeps its older `generate_rabbit_hole_node` (branch from the node being viewed) alongside these.
+
+- Implementation: [`lib/llm/rabbit-hole-toolset/`](../lib/llm/rabbit-hole-toolset/) · wired in [`compile-chat-tools.ts`](../lib/llm/compile-chat-tools.ts)
+
+---
+
 ## Connected-app tools (hard-set tool policy)
 
 These are registered only when a hard-set subagent's tool policy forces them on, in its shell, its
@@ -248,7 +292,8 @@ Export is a **user/UI** feature, not part of `compileChatTools`, but it pairs we
 | Experience | Typical tools |
 |------------|----------------|
 | **Main chat** | Memory, web, history (per settings); Arcadia-style tools when configured |
-| **Arcadia** | + Mermaid, Gen UI, GitHub read; + kanban when Ergon style; + meal planning when Remy style |
+| **Arcadia** | + Mermaid, Gen UI, GitHub read, rabbit hole toolset; + kanban when Ergon style; + meal planning when Remy style |
+| **Rabbit hole drawer** | Session graph tools (`navigate_rabbit_hole_node`, `generate_rabbit_hole_node`, `search_rabbit_hole_context`), the rabbit hole toolset, read-only memory, subagent mesh |
 | **Remy** (`/api/ai/remy`) | Culinary persona + Mem0; `mise_plan` + `prep_plan` + `fetch_recipe` always on |
 | **Delphi** | Memory search + propose/commit/link/flag workflow |
 | **Strata hub** | Navigate + search Strata pages |
