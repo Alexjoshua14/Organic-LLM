@@ -75,6 +75,9 @@ run; `-t "name"` filters by test name.
   follow its [maintenance protocol](docs/hub/maintenance-protocol.md) when you decide something.
 - Follow [`docs/design/README.md`](docs/design/README.md) for anything the user sees or feels.
 - Sensitivity-check every doc you write. **This repository is public.**
+- Write guides you produce for the user (lab guides, implementation walkthroughs, how-tos) to
+  the private hub (`organic-llm-hub/`, e.g. `organic-llm-hub/design/`), not this repo, unless
+  the user says otherwise. Refer to code there by repo path, not relative link.
 
 **Ask first**
 
