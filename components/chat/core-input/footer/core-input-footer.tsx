@@ -32,7 +32,7 @@ export type CoreInputFooterProps = {
   /** Where each control renders. Build it with `resolveFooterPlacement`. */
   placement: FooterPlacementMap;
   /**
-   * False until the client has applied the saved settings (see `settingsReady` in CoreInput).
+   * True for a server seed or client-only mount; otherwise waits for saved settings to load.
    * Until then the leading settings controls keep their space but stay hidden, so the server's
    * defaults never paint. Defaults to true for callers with nothing to restore (the lab).
    */

@@ -5,6 +5,7 @@ import type { ChatExperience } from "@/lib/chat/chat-experience";
 import type { ChatStyle } from "@/lib/chat/chat-style";
 import type { ContextBudgetEstimate } from "@/lib/chat/context-budget";
 import type { ContextEffortLevel } from "@/lib/memory/context-effort";
+import type { CoreInputInitialSettings } from "@/lib/core-input/settings-cookie";
 import type { CoreInputScope } from "@/lib/core-input/scopes";
 import type { CoreInputSettings, CoreInputSettingField } from "@/lib/core-input/settings";
 import type { SteerAction } from "./footer/steer-action";
@@ -82,6 +83,8 @@ import {
   CORE_INPUT_MORPH_PULSE_MS,
 } from "@/lib/core-input/morph-timing";
 import { changedSettingFields, settingsEqual } from "@/lib/core-input/settings";
+import { writeSettingsCookie } from "@/lib/core-input/settings-cookie";
+import { useHydrated } from "@/hooks/use-hydrated";
 import { coreInputSnapshots } from "@/lib/core-input/snapshot-store";
 import { coreInputSnapshotSync } from "@/lib/core-input/snapshot-sync";
 import { parseSlashCommand } from "@/lib/chat/slash-command";
@@ -104,6 +107,8 @@ import { ThreadReferenceCard } from "@/components/chat/thread-reference/thread-r
 import { parseThreadPointer, threadReferenceMarker } from "@/lib/chat/thread-reference";
 
 type CoreInputProps = {
+  /** Validated display seed for this scope, supplied by the request page. */
+  initialSettings?: CoreInputInitialSettings | null;
   modelRef: React.RefObject<ChatModel>;
   effortRef?: React.RefObject<ChatEffortLevel>;
   useWebSearchRef: React.RefObject<boolean>;
@@ -297,6 +302,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   queueTargetAgentId,
   personaEnabled = false,
   snapshotScope,
+  initialSettings,
   contextEffortRef,
   slashCommands,
   sideThreadKey = null,
@@ -325,13 +331,33 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   const recentlySentTextRef = useRef<string>(""); // So restore effect sees value before state flushes
   const pendingSendRef = useRef<{ threadId: string | undefined } | null>(null);
   const [pendingSend, setPendingSend] = useState<typeof pendingSendRef.current>(null);
-  const [model, setModel] = useState<ChatModel>(defaultModel);
-  const [effort, setEffort] = useState<ChatEffortLevel>(defaultEffort);
+  const hydrated = useHydrated();
+  const seed =
+    initialSettings?.scopeKey === snapshotScope?.key && !snapshotScope?.ephemeral
+      ? initialSettings
+      : null;
+  // Client navigation starts from the last displayed frame; hydration must use the server seed.
+  const [initialFrame] = useState<CoreInputSettings>(
+    () =>
+      (hydrated && snapshotScope ? lastDisplayedSettings : null) ??
+      seed?.settings ?? {
+        modelId: defaultModel.id,
+        effort: defaultEffort,
+        contextEffort: DEFAULT_CONTEXT_EFFORT,
+        webSearch: defaultWebSearch,
+        memories: defaultMemories,
+        speechFriendly: false,
+      }
+  );
+  const [model, setModel] = useState<ChatModel>(
+    () => ChatModels.find((entry) => entry.id === initialFrame.modelId) ?? defaultModel
+  );
+  const [effort, setEffort] = useState<ChatEffortLevel>(initialFrame.effort);
   const isAdmin = useIsAdmin();
   const selectableModels = useMemo(() => getSelectableChatModels(isAdmin === true), [isAdmin]);
-  const [useWebSearch, setUseWebSearch] = useState<boolean>(defaultWebSearch);
-  const [useMemories, setUseMemories] = useState<boolean>(defaultMemories);
-  const [useSpeechFriendly, setUseSpeechFriendly] = useState<boolean>(false);
+  const [useWebSearch, setUseWebSearch] = useState<boolean>(initialFrame.webSearch);
+  const [useMemories, setUseMemories] = useState<boolean>(initialFrame.memories);
+  const [useSpeechFriendly, setUseSpeechFriendly] = useState<boolean>(initialFrame.speechFriendly);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [threadReferences, setThreadReferences] = useState<string[]>([]);
   const addThreadReference = (id: string) => {
@@ -346,27 +372,27 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   const toolsRef = useRef<HTMLDivElement | null>(null);
   const { showLabels, isCondensed } = useCoreInputLayout(toolsRef);
   const { enabled: experimentalContextEffort, level: savedContextEffort } =
-    useContextEffortSettings();
-  const [contextEffort, setContextEffort] = useState<ContextEffortLevel>(DEFAULT_CONTEXT_EFFORT);
+    useContextEffortSettings(
+      seed
+        ? { enabled: seed.experimentalContextEffort, level: seed.settings.contextEffort }
+        : undefined
+    );
+  const [contextEffort, setContextEffort] = useState<ContextEffortLevel>(
+    initialFrame.contextEffort
+  );
   const showContextEffort = experience === "arcadia" && useMemories && experimentalContextEffort;
   const [inputMarkdownMode, setInputMarkdownMode] = useState<InputMarkdownMode>("edit");
   const reduceMotion = useReducedMotion();
   const morphRootRef = useRef<HTMLDivElement | null>(null);
   const morphRef = useRef<MorphTimeline | null>(null);
   const [morphing, setMorphing] = useState(false);
-  const settingsRef = useRef<CoreInputSettings>({
-    modelId: defaultModel.id,
-    effort: defaultEffort,
-    contextEffort: DEFAULT_CONTEXT_EFFORT,
-    webSearch: defaultWebSearch,
-    memories: defaultMemories,
-    speechFriendly: false,
-  });
+  const settingsRef = useRef<CoreInputSettings>(initialFrame);
   const snapshotScopeRef = useRef(snapshotScope);
 
   snapshotScopeRef.current = snapshotScope;
   const scopeKey = snapshotScope?.key ?? null;
   const hasHydratedRef = useRef(false);
+  const seededOnMount = useRef(Boolean(seed));
   const appliedInitialDraft = useRef(false);
   const appliedComposerInjectId = useRef<number | null>(null);
 
@@ -666,17 +692,9 @@ export const CoreInput: React.FC<CoreInputProps> = ({
 
   useEffect(() => () => morphRef.current?.cancel(), []);
 
-  /**
-   * False on the server render and the hydration pass, true from the first client commit.
-   * Saved settings live in browser storage, so the server paints defaults (Auto model, no
-   * context slider, no preview). The footer hides its settings controls until this flips, so
-   * the first paint holds their space instead of showing values that swap a moment later.
-   *
-   * Set in a passive effect on purpose: the other mount-time settings reads (context effort
-   * here, Arcadia's markdown preview in `Chat`) are passive effects too, and React batches
-   * their updates into the same render, so every control appears together with its real value.
-   */
-  const [settingsReady, setSettingsReady] = useState(false);
+  // Seeds paint immediately. Without a cookie, wait until all passive preference reads
+  // settle. Client-only remounts keep the controls visible while the scope morph runs.
+  const [settingsReady, setSettingsReady] = useState(Boolean(seed) || hydrated);
 
   useEffect(() => setSettingsReady(true), []);
 
@@ -695,10 +713,16 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     // A remount (navigating between areas) has no frame of its own; start from the last shown.
     const from = hasHydratedRef.current
       ? settingsRef.current
-      : scope
-        ? lastDisplayedSettings
-        : null;
+      : seededOnMount.current
+        ? initialFrame
+        : scope
+          ? lastDisplayedSettings
+          : null;
 
+    writeSettingsCookie({
+      experimentalContextEffort: getSettings().experimentalContextEffort,
+      experimentalArcadiaMarkdownPreview: getSettings().experimentalArcadiaMarkdownPreview,
+    });
     hasHydratedRef.current = true;
     userChangedInScopeRef.current = false;
     if (scope) coreInputSnapshotSync.start();
@@ -708,6 +732,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     morphTo(target, from);
   }, [
     scopeKey,
+    initialFrame,
     legacyPrefKeys,
     defaultEffort,
     defaultMemories,
