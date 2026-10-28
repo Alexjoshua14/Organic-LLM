@@ -937,6 +937,10 @@ export const PromptInputTextarea = ({
       enterKeyHint={canSubmitOnEnter ? "send" : "enter"}
       maxRows={5}
       minRows={1}
+      // TextareaAutosize only sizes itself in the browser. The server renders a plain
+      // <textarea>, which defaults to 2 rows, so match minRows here or the composer paints
+      // taller and shrinks on hydration.
+      rows={1}
       name="message"
       placeholder={placeholder}
       onCompositionEnd={() => setIsComposing(false)}

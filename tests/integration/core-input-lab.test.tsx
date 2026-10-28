@@ -568,3 +568,57 @@ describe("CoreInput snapshot scopes", () => {
     expect(textarea.value).toBe("/unknown thing");
   });
 });
+
+describe("CoreInput first paint", () => {
+  afterEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+    localStorage.clear();
+  });
+
+  const makeUi = () => (
+    <Providers>
+      <CoreInput
+        modelRef={{ current: DEFAULT_COMPOSER_MODEL }}
+        useWebSearchRef={{ current: true }}
+        useMemoriesRef={{ current: false }}
+        sendMessage={mock(async () => {})}
+        stop={async () => {}}
+        status="ready"
+        featureHints={false}
+        showContextBudget={false}
+      />
+    </Providers>
+  );
+  /** The leading settings cluster: the element that wraps the model picker. */
+  const settingsCluster = (root: ParentNode) =>
+    root.querySelector('[data-core-input-field="model"]')?.parentElement ?? null;
+
+  test("the server render hides the settings controls, holding their space", async () => {
+    const { renderToString } = await import("react-dom/server");
+    const host = document.createElement("div");
+
+    host.innerHTML = renderToString(makeUi());
+    const cluster = settingsCluster(host);
+
+    expect(cluster?.classList.contains("invisible")).toBe(true);
+    expect(cluster?.getAttribute("aria-hidden")).toBe("true");
+    // Trailing controls don't depend on saved settings and paint immediately.
+    const addFiles = host.querySelector('[aria-label="Add files"]');
+
+    expect(addFiles).toBeTruthy();
+    expect(addFiles?.closest(".invisible")).toBeNull();
+  });
+
+  test("the client reveals them once saved settings are applied", async () => {
+    const view = render(makeUi());
+
+    await waitFor(() =>
+      expect(settingsCluster(view.container)?.classList.contains("visible")).toBe(true)
+    );
+    const cluster = settingsCluster(view.container);
+
+    expect(cluster?.classList.contains("invisible")).toBe(false);
+    expect(cluster?.hasAttribute("aria-hidden")).toBe(false);
+  });
+});

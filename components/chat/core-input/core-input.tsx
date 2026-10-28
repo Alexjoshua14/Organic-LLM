@@ -666,6 +666,20 @@ export const CoreInput: React.FC<CoreInputProps> = ({
 
   useEffect(() => () => morphRef.current?.cancel(), []);
 
+  /**
+   * False on the server render and the hydration pass, true from the first client commit.
+   * Saved settings live in browser storage, so the server paints defaults (Auto model, no
+   * context slider, no preview). The footer hides its settings controls until this flips, so
+   * the first paint holds their space instead of showing values that swap a moment later.
+   *
+   * Set in a passive effect on purpose: the other mount-time settings reads (context effort
+   * here, Arcadia's markdown preview in `Chat`) are passive effects too, and React batches
+   * their updates into the same render, so every control appears together with its real value.
+   */
+  const [settingsReady, setSettingsReady] = useState(false);
+
+  useEffect(() => setSettingsReady(true), []);
+
   // Resolve settings on mount and on every scope change, morphing from what was on screen.
   useLayoutEffect(() => {
     const scope = snapshotScopeRef.current;
@@ -1210,6 +1224,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       <CoreInputFooter
         locked={Boolean(disabled) || showSentShimmer}
         placement={footerPlacement}
+        settingsReady={settingsReady}
         // Coachmark anchors move into the menu or shrink on a condensed footer, so hints wait.
         showFeatureHints={featureHints && !useCondensedLayout}
         steer={steer}

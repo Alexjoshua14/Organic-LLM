@@ -21,3 +21,11 @@ export const CORE_INPUT_MORPH_FAST_FORWARD_RATE = 5;
 
 /** Per-field highlight when its value lands. */
 export const CORE_INPUT_MORPH_PULSE_MS = 220;
+
+/**
+ * Fade-in for the footer's settings controls on first load. The server can't read the saved
+ * settings (they live in browser storage), so those controls render hidden and appear once the
+ * client has applied them, instead of painting defaults and swapping. Brief, so it reads as
+ * arrival rather than an animation; reduced motion shows them instantly.
+ */
+export const CORE_INPUT_SETTINGS_REVEAL_MS = 150;

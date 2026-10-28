@@ -18,6 +18,8 @@ import { ComposerToolToggleGroup } from "../controls/tool-toggle-group";
 
 import { hasOverflowItems } from "./footer-placement";
 
+import { CORE_INPUT_SETTINGS_REVEAL_MS } from "@/lib/core-input/morph-timing";
+import { cn } from "@/lib/utils";
 import { ThreadClipboardPicker } from "@/components/chat/thread-reference/thread-clipboard-picker";
 import { FeatureHint } from "@/components/onboarding/feature-hint";
 import { ComposerPersonaChip } from "@/components/personas/persona-chip";
@@ -29,6 +31,12 @@ import {
 export type CoreInputFooterProps = {
   /** Where each control renders. Build it with `resolveFooterPlacement`. */
   placement: FooterPlacementMap;
+  /**
+   * False until the client has applied the saved settings (see `settingsReady` in CoreInput).
+   * Until then the leading settings controls keep their space but stay hidden, so the server's
+   * defaults never paint. Defaults to true for callers with nothing to restore (the lab).
+   */
+  settingsReady?: boolean;
   /**
    * First-run coachmarks anchored to the tool toggles, model picker, and steer button. CoreInput
    * turns them off on a condensed footer, where those anchors move or shrink.
@@ -83,6 +91,7 @@ function hinted(show: boolean, id: FeatureHintId, node: ReactNode, showWhen?: bo
  */
 export function CoreInputFooter({
   placement,
+  settingsReady = true,
   showFeatureHints = false,
   steerHintShowWhen = true,
   toolsRef,
@@ -102,7 +111,15 @@ export function CoreInputFooter({
         <PromptInputTools className="flex min-w-0 w-full items-center justify-between gap-1 overflow-visible">
           {/* Leading: settings for the next turn. `gap-3` separates control groups; the
               tighter `gap-1` inside each group is owned by the group itself. */}
-          <div className="flex min-w-0 items-center gap-3 overflow-visible">
+          <div
+            aria-hidden={settingsReady ? undefined : true}
+            className={cn(
+              "flex min-w-0 items-center gap-3 overflow-visible",
+              "transition-[opacity,visibility] ease-out motion-reduce:transition-none",
+              settingsReady ? "visible opacity-100" : "invisible opacity-0"
+            )}
+            style={{ transitionDuration: `${CORE_INPUT_SETTINGS_REVEAL_MS}ms` }}
+          >
             {inline("persona") ? <ComposerPersonaChip showLabel={showLabels} /> : null}
             {inline("toolToggles")
               ? hinted(showFeatureHints, "composer-search-memory", <ComposerToolToggleGroup />)
