@@ -239,8 +239,10 @@ mobile keyboard opens or closes.
 
 `COMPOSER_SHIFT_SPRING` in `lib/chat/composer-shift-spring.ts` uses stiffness 380, damping 36,
 and mass 1 for brief motion with little overshoot. Subpixel shifts below 1px do not start a
-spring. Reduced motion lands immediately and cancels any active spring. The wrapper keeps
-CoreInput mounted, including focus and an unsent draft. No View Transition snapshot or extra
+spring. Translation and width advance in solver steps no larger than 8ms, including when
+rendering leaves 50–100ms between animation frames. This keeps sidebar toggles from throwing
+the composer past its bounds on a busy frame. Reduced motion lands immediately and cancels
+any active spring. The wrapper keeps CoreInput mounted, including focus and an unsent draft. No View Transition snapshot or extra
 composer instance is needed.
 
 ## Multiagent recipient disclosure

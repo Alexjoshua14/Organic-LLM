@@ -225,4 +225,31 @@ describe("composer viewport transitions", () => {
     expect(frames.size).toBe(0);
     expect(visibleBox(el)).toEqual(layout);
   });
+
+  test.each([true, false])(
+    "slow sidebar frames stay within layout bounds (opening: %s)",
+    (opening) => {
+      const view = render(<Composer />);
+      const el = view.getByTestId("composer");
+      const before = visibleBox(el);
+
+      layout = { ...layout, left: opening ? 520 : 80, width: opening ? 580 : 1020 };
+      act(() => observers[0]!.emit());
+      // Sidebar CSS transitions and a busy render can leave 50–100ms between frames.
+      // A single Euler step at that interval throws the composer past its new position.
+      for (const delta of [64, 80, 100, 64, 80, 100]) {
+        paint(delta);
+        const box = visibleBox(el);
+
+        expect(box.left).toBeGreaterThanOrEqual(Math.min(before.left, layout.left) - 2);
+        expect(box.left).toBeLessThanOrEqual(Math.max(before.left, layout.left) + 2);
+        expect(box.width).toBeGreaterThanOrEqual(Math.min(before.width, layout.width) - 2);
+        expect(box.width).toBeLessThanOrEqual(Math.max(before.width, layout.width) + 2);
+      }
+      settle();
+      expect(visibleBox(el)).toEqual(layout);
+      expect(el.style.transform).toBe("");
+      expect(frames.size).toBe(0);
+    }
+  );
 });

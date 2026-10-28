@@ -10,6 +10,28 @@ type Layout = Offset & { width: number };
 const SETTLE_OFFSET_PX = 0.5;
 const SETTLE_VELOCITY_PX_S = 4;
 
+// The Euler solver becomes unstable if a busy frame is integrated as one 50–100ms step.
+// Advance translation and width in small steps while keeping the full elapsed frame time.
+const MAX_SPRING_STEP_MS = 8;
+
+function solveFlipSpring(
+  position: number,
+  target: number,
+  velocity: number,
+  spring: SpringConfig,
+  deltaTimeMs: number
+) {
+  const steps = Math.max(1, Math.ceil(deltaTimeMs / MAX_SPRING_STEP_MS));
+  const stepMs = deltaTimeMs / steps;
+  let state = { position, velocity };
+
+  for (let i = 0; i < steps; i += 1) {
+    state = solveSpring(state.position, target, state.velocity, spring, stepMs);
+  }
+
+  return state;
+}
+
 /**
  * One spring step of a FLIP offset toward zero. Pure — exported for tests.
  */
@@ -19,8 +41,8 @@ export function stepFlipOffset(
   spring: SpringConfig,
   deltaTimeMs: number
 ): { offset: Offset; velocity: Offset; settled: boolean } {
-  const x = solveSpring(offset.x, 0, velocity.x, spring, deltaTimeMs);
-  const y = solveSpring(offset.y, 0, velocity.y, spring, deltaTimeMs);
+  const x = solveFlipSpring(offset.x, 0, velocity.x, spring, deltaTimeMs);
+  const y = solveFlipSpring(offset.y, 0, velocity.y, spring, deltaTimeMs);
   const settled =
     Math.abs(x.position) < SETTLE_OFFSET_PX &&
     Math.abs(y.position) < SETTLE_OFFSET_PX &&
@@ -115,7 +137,7 @@ export function useMorphFlip(
       if (loop) return;
       const frames = new FrameLoop(({ deltaTime }) => {
         const next = stepFlipOffset(offset, velocity, spring, deltaTime);
-        const width = solveSpring(scale, 1, scaleVelocity, spring, deltaTime);
+        const width = solveFlipSpring(scale, 1, scaleVelocity, spring, deltaTime);
 
         offset = next.offset;
         velocity = next.velocity;
