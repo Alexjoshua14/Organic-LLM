@@ -230,10 +230,13 @@ Opt out of sustain with `sustainShimmer={false}`.
 CoreInput fits its local container up to `max-w-4xl`; viewport-based width caps must not
 subtract a fixed sidebar width or introduce a width cliff at a breakpoint. The existing
 `useMorphFlip` wrapper preserves the last visible bottom-left anchor and width through
-window resize, CSS resize observations, and React layout commits. New targets retarget the
-running morph-physics spring with its velocity intact, so reversing a resize does not restart
-or snap the composer. One transform owns the wrapper; CSS owns the final layout. Height-only
-growth while typing updates the baseline without an animation.
+snapped window resizes and discrete React layout commits. New targets retarget the running
+morph-physics spring with its velocity intact, so reversing a resize does not restart or snap
+the composer. While a related CSS layout transition is running (including the sidebar gap's
+width or a pane's grid tracks), the wrapper follows CSS directly through its final resize
+observation. Adding a second spring would hold the composer outside the pane's moving clip
+and make controls disappear briefly. Decorative opacity/transform transitions do not suppress
+the layout spring. Height-only growth while typing updates the baseline without an animation.
 Height-only viewport changes also land immediately, keeping the composer docked when a
 mobile keyboard opens or closes.
 
@@ -242,8 +245,16 @@ and mass 1 for brief motion with little overshoot. Subpixel shifts below 1px do 
 spring. Translation and width advance in solver steps no larger than 8ms, including when
 rendering leaves 50–100ms between animation frames. This keeps sidebar toggles from throwing
 the composer past its bounds on a busy frame. Reduced motion lands immediately and cancels
-any active spring. The wrapper keeps CoreInput mounted, including focus and an unsent draft. No View Transition snapshot or extra
-composer instance is needed.
+any active spring. The wrapper keeps CoreInput mounted, including focus and an unsent draft.
+No View Transition snapshot or extra composer instance is needed.
+
+`tests/e2e/composer-resize.playwright.config.ts` runs isolated headless Chromium and WebKit
+checks of the actual hook under sidebar CSS transitions, including rapid reversals and draft
+focus. It needs no app server, account, or desktop browser. The fixture uses minimal layout
+styles, so these checks verify clipping geometry rather than the full application's appearance.
+The browser executables must match the installed Playwright version; optional
+`PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` and `PLAYWRIGHT_WEBKIT_EXECUTABLE_PATH` overrides support
+existing compatible test binaries.
 
 ## Multiagent recipient disclosure
 

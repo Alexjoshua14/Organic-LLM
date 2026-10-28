@@ -58,6 +58,27 @@ export function stepFlipOffset(
       };
 }
 
+/** A layout transition on an ancestor or its sibling already moves this element smoothly. */
+function hasRelatedLayoutTransition(el: HTMLElement): boolean {
+  return (el.ownerDocument.getAnimations?.() ?? []).some((animation) => {
+    if (animation.playState !== "running" || !("transitionProperty" in animation)) return false;
+    const property = (animation as CSSTransition).transitionProperty;
+
+    if (
+      !/^(width|height|min-width|max-width|min-height|max-height|inline-size|block-size|margin(-.+)?|padding(-.+)?|grid-template-(columns|rows)|flex-(basis|grow|shrink)|left|right|top|bottom|inset(-.+)?)$/.test(
+        property
+      )
+    )
+      return false;
+    const target = (animation.effect as KeyframeEffect | null)?.target;
+
+    return (
+      target instanceof Element &&
+      (target.contains(el) || Boolean(target.parentElement?.contains(el)))
+    );
+  });
+}
+
 /**
  * Keep an element's position and width continuous across layout and viewport changes. CSS owns
  * the final layout; one bottom-left transform springs from the previous visible bounds to it.
@@ -86,6 +107,7 @@ export function useMorphFlip(
     let scaleVelocity = 0;
     let loop: FrameLoop | null = null;
     let viewportWidth = window.innerWidth;
+    let followingCssLayout = false;
 
     const clear = () => {
       loop?.stop();
@@ -105,7 +127,21 @@ export function useMorphFlip(
     const apply = () => {
       el.style.transform = `translate3d(${offset.x}px, ${offset.y}px, 0) scaleX(${scale})`;
     };
+    // Do not spring behind a pane that CSS is already moving: overflow clips the old box.
+    // Also follow its final observation, which may arrive after the transition has finished.
+    const followCssLayout = () => {
+      const active = hasRelatedLayoutTransition(el);
+
+      if (!active && !followingCssLayout) return false;
+      followingCssLayout = active;
+      clear();
+      resting = measure();
+
+      return true;
+    };
     const transition = () => {
+      if (followCssLayout()) return;
+
       const before = resting;
       const after = measure();
 
@@ -159,6 +195,7 @@ export function useMorphFlip(
     // Width changes can arrive before React's breakpoint commit. Preserve the visible box
     // through both steps; height-only growth (typing) just updates the bottom-left baseline.
     const observe = () => {
+      if (followCssLayout()) return;
       const after = measure();
 
       if (resting && Math.abs(after.width - resting.width) >= minShiftPx) transition();
