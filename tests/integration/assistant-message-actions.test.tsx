@@ -36,6 +36,7 @@ mock.module("@/lib/user-settings", () => ({
     coalescenceMode: false,
     experimentalArcadiaMarkdownPreview: false,
     experimentalContextEffort: false,
+    experimentalKnowledgeCapsuleTitles: false,
     contextEffortLevel: "quick",
   }),
   // Bun module mocks are process-wide; later files import composer code that needs this export.

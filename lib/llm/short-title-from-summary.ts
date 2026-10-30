@@ -10,7 +10,8 @@ import { TITLE_PIPELINE_SHORT_TITLE_MODEL } from "@/lib/llm/title-models";
 
 const logger = createLogger("lib/llm/short-title-from-summary.ts");
 
-const CHAT_TITLE_SYSTEM = `
+/** Legacy short-title system prompt (non–knowledge-capsule path). Exported for the lab. */
+export const CHAT_TITLE_SYSTEM = `
 You name Organic LLM chat threads for the sidebar. You receive a short conversation summary (not raw messages).
 
 ## Output

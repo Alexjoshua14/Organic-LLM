@@ -342,6 +342,7 @@ export const Chat: React.FC<ChatProps> = ({
               ...(strataPageId ? { strataPageId } : {}),
               zeroDataRetention: settings.zeroDataRetention,
               coalescenceMode: settings.coalescenceMode,
+              experimentalKnowledgeCapsuleTitles: settings.experimentalKnowledgeCapsuleTitles,
               ...(contextEffort ? { contextEffort } : {}),
               // Arcadia multitask dashboard: explicit orchestrator vs subagent destination.
               // Sent only while Multiagent is enabled; the server checks the saved thread flag.

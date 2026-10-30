@@ -32,6 +32,10 @@ import {
 import { Result } from "@/types";
 import { createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
 import { recordLlmCall } from "@/lib/llm/metrics";
+import {
+  generateKnowledgeCapsuleTitleFromSummary,
+  KNOWLEDGE_CAPSULE_SUMMARIZER_SYSTEM,
+} from "@/lib/llm/knowledge-capsule-title";
 import { generateShortTitleFromSummary } from "@/lib/llm/short-title-from-summary";
 import { TITLE_PIPELINE_SUMMARIZER_MODEL } from "@/lib/llm/title-models";
 import { models } from "@/lib/schemas/chat-models";
@@ -39,6 +43,12 @@ import {
   exchangeCountFromPersistedMessageCount,
   shouldRefreshSummary,
 } from "@/lib/chat/summary-title-cadence";
+
+/** Options for chat title generation. Beta knowledge-capsule path is opt-in. */
+export type GenerateChatTitleOptions = {
+  /** When true, use the knowledge-capsule prompt + grammar pipeline instead of legacy short titles. */
+  knowledgeCapsule?: boolean;
+};
 
 /** Model Selections: Each ZDR compatible */
 const MODEL_SELECTION: Record<string, LanguageModel> = {
@@ -218,7 +228,10 @@ function trimMessagesToTokenBudget(
   return chronologicalMessages.slice(startIndex);
 }
 
-export async function ensureChatHasTitle(chatId: string): Promise<Result<string>> {
+export async function ensureChatHasTitle(
+  chatId: string,
+  options?: GenerateChatTitleOptions
+): Promise<Result<string>> {
   const sb = await supabaseServer();
 
   logger.log("ensureChatHasTitle", `Ensuring chat has title: ${chatId}`);
@@ -244,10 +257,15 @@ export async function ensureChatHasTitle(chatId: string): Promise<Result<string>
   }
   logger.log("ensureChatHasTitle", `Chat does not have title: ${chatId}`);
 
-  return await generateChatTitle(chatId);
+  return await generateChatTitle(chatId, options);
 }
 
-export async function generateChatTitle(chatId: string): Promise<Result<string>> {
+export async function generateChatTitle(
+  chatId: string,
+  options?: GenerateChatTitleOptions
+): Promise<Result<string>> {
+  const useKnowledgeCapsule = options?.knowledgeCapsule === true;
+
   const sb = await supabaseServer();
   const threadOwnerContext = await getThreadOwnerContext(chatId);
 
@@ -311,6 +329,12 @@ export async function generateChatTitle(chatId: string): Promise<Result<string>>
   const messagesForTitleClean = convertToolCallsToTextForSummarizer(messagesForTitle);
 
   let conversationSummary: string;
+  const summarizerInstructions = useKnowledgeCapsule
+    ? KNOWLEDGE_CAPSULE_SUMMARIZER_SYSTEM
+    : ChatTitleSummarizerSystemPrompt;
+  const summarizerTask = useKnowledgeCapsule
+    ? "Summarize the conversation above for a knowledge-capsule chat title."
+    : "Summarize the conversation above for a short chat title.";
 
   try {
     const summaryStart = performance.now();
@@ -319,12 +343,12 @@ export async function generateChatTitle(chatId: string): Promise<Result<string>>
       ...createLlmBudgetHooks({
         ownerId,
         modelId: MODEL_SELECTION.summarizer as string,
-        operation: "chat-summary",
+        operation: useKnowledgeCapsule ? "chatTitle-capsule-summary" : "chat-summary",
       }),
-      instructions: ChatTitleSummarizerSystemPrompt,
+      instructions: summarizerInstructions,
       messages: appendSummarizerTask(
         await convertToModelMessages(messagesForTitleClean),
-        "Summarize the conversation above for a short chat title."
+        summarizerTask
       ),
       maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     });
@@ -334,7 +358,10 @@ export async function generateChatTitle(chatId: string): Promise<Result<string>>
       model: MODEL_SELECTION.summarizer as string,
       usage: summaryResult.usage,
       durationMs: summaryDuration,
-      metadata: { operation: "chatTitle-summary", contextId: chatId },
+      metadata: {
+        operation: useKnowledgeCapsule ? "chatTitle-capsule-summary" : "chatTitle-summary",
+        contextId: chatId,
+      },
     });
     conversationSummary = summaryResult.text ?? "";
   } catch (err) {
@@ -349,22 +376,49 @@ export async function generateChatTitle(chatId: string): Promise<Result<string>>
     };
   }
 
-  const shortTitleResult = await generateShortTitleFromSummary(conversationSummary, {
-    contextId: chatId,
-    operation: "chatTitle-title",
-    ownerId,
-    subject: "chat",
-  });
+  let finalTitle: string;
 
-  if (shortTitleResult.error) {
-    return {
-      data: null,
-      error: shortTitleResult.error,
-    };
+  if (useKnowledgeCapsule) {
+    const capsuleResult = await generateKnowledgeCapsuleTitleFromSummary(conversationSummary, {
+      contextId: chatId,
+      operation: "chatTitle-capsule-title",
+      ownerId,
+    });
+
+    if (capsuleResult.error) {
+      return {
+        data: null,
+        error: capsuleResult.error,
+      };
+    }
+
+    const titleIdea = capsuleResult.data?.title ?? "";
+    finalTitle = titleIdea.length > 0 ? titleIdea : "Chat";
+
+    if (capsuleResult.data && capsuleResult.data.status !== "ok") {
+      logger.log(
+        "generateChatTitle",
+        `Knowledge capsule title ${capsuleResult.data.status}: ${capsuleResult.data.notes.join("; ")}`
+      );
+    }
+  } else {
+    const shortTitleResult = await generateShortTitleFromSummary(conversationSummary, {
+      contextId: chatId,
+      operation: "chatTitle-title",
+      ownerId,
+      subject: "chat",
+    });
+
+    if (shortTitleResult.error) {
+      return {
+        data: null,
+        error: shortTitleResult.error,
+      };
+    }
+
+    const titleIdea = shortTitleResult.data ?? "";
+    finalTitle = titleIdea.length > 0 ? titleIdea : "Chat";
   }
-
-  const titleIdea = shortTitleResult.data ?? "";
-  const finalTitle = titleIdea.length > 0 ? titleIdea : "Chat";
 
   const res = await updateChatTitle(chatId, finalTitle);
 

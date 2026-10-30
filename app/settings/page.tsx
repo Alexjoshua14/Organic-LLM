@@ -38,6 +38,8 @@ export default function SettingsPage() {
   const [experimentalArcadiaMarkdownPreview, setExperimentalArcadiaMarkdownPreview] =
     useState(false);
   const [experimentalContextEffort, setExperimentalContextEffort] = useState(false);
+  const [experimentalKnowledgeCapsuleTitles, setExperimentalKnowledgeCapsuleTitles] =
+    useState(false);
   const { userId } = useAuth();
   const { user } = useUser();
   const clerkEmail = user?.primaryEmailAddress?.emailAddress ?? null;
@@ -65,6 +67,7 @@ export default function SettingsPage() {
       setCoalescenceMode(getSettings().coalescenceMode);
       setExperimentalArcadiaMarkdownPreview(getSettings().experimentalArcadiaMarkdownPreview);
       setExperimentalContextEffort(getSettings().experimentalContextEffort);
+      setExperimentalKnowledgeCapsuleTitles(getSettings().experimentalKnowledgeCapsuleTitles);
     }
   }, []);
 
@@ -256,6 +259,24 @@ export default function SettingsPage() {
                       onValueChange={(enabled) => {
                         setExperimentalContextEffort(enabled);
                         setSettings({ experimentalContextEffort: enabled });
+                      }}
+                    />
+                  </SettingsRow>
+                  <SettingsRow
+                    title="Knowledge capsule titles"
+                    mainText={
+                      experimentalKnowledgeCapsuleTitles
+                        ? "New and regenerated titles use the knowledge-capsule grammar (≤5 words)."
+                        : "Titles use the current short-title phrasing."
+                    }
+                    subtext="Experimental / Coalescence. Capsules convey contents, needs, or notifs as action + subject + optional additional (≤2 words each; combined max 5). Lab: /sandbox/prototypes/knowledge-capsules. May change or move."
+                  >
+                    <Switch
+                      aria-label="Knowledge capsule titles (experimental)"
+                      isSelected={experimentalKnowledgeCapsuleTitles}
+                      onValueChange={(enabled) => {
+                        setExperimentalKnowledgeCapsuleTitles(enabled);
+                        setSettings({ experimentalKnowledgeCapsuleTitles: enabled });
                       }}
                     />
                   </SettingsRow>

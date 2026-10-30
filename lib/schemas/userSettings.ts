@@ -28,6 +28,11 @@ export const UserSettingsSchema = z.object({
   experimentalArcadiaMarkdownPreview: z.boolean().default(false),
   /** Beta: Arcadia composer shows a context-effort slider (Instant / Quick / Heavy). */
   experimentalContextEffort: z.boolean().default(false),
+  /**
+   * Experimental / Coalescence: thread titles use the knowledge-capsule grammar pipeline
+   * (action ≤2 / subject ≤2 / additional ≤2 / combined ≤5 words) instead of legacy short titles.
+   */
+  experimentalKnowledgeCapsuleTitles: z.boolean().default(false),
   /** Last chosen Arcadia context-effort tier (used when the beta control is on). */
   contextEffortLevel: ContextEffortLevelSchema.default(DEFAULT_CONTEXT_EFFORT),
   /** Ergon page: animated liquid chrome background. */
@@ -50,6 +55,7 @@ export const defaultUserSettings = (): UserSettings => ({
   coalescenceMode: false,
   experimentalArcadiaMarkdownPreview: false,
   experimentalContextEffort: false,
+  experimentalKnowledgeCapsuleTitles: false,
   contextEffortLevel: DEFAULT_CONTEXT_EFFORT,
   ergonLiquidChrome: true,
   replayFeatureHints: false,
