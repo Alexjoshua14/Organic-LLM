@@ -12,7 +12,7 @@ const note: StageWidget = {
   kind: "note",
   title: "Research",
   text: "Before",
-  rect: { x: 0, y: 0, w: 7, h: 6 },
+  rect: { x: 8, y: 4, w: 7, h: 6 },
 };
 const plan: DesignPlan = {
   operations: [
@@ -45,9 +45,9 @@ describe("stage design reconciliation", () => {
     ]);
   });
 
-  test("honors an explicitly requested 6 by 20 chat and its stable server IDs", () => {
+  test("honors an explicitly requested 6 by 18 chat and its stable server IDs", () => {
     const base = emptyStageState();
-    const rect = { x: 0, y: 0, w: 6, h: 20 };
+    const rect = { x: 8, y: 4, w: 6, h: 18 };
     const chat: DesignPlan = {
       operations: [
         { ...plan.operations[0], operation: "upsert", kind: "chat", targetId: null, rect },
@@ -69,10 +69,10 @@ describe("stage design reconciliation", () => {
       kind: "chat",
       title: "Chat",
       threadId,
-      rect: { x: 0, y: 0, w: 6, h: 20 },
+      rect: { x: 8, y: 4, w: 6, h: 18 },
     };
     const base = { ...emptyStageState(), widgets: [chat] };
-    const rect = { x: 25, y: 1, w: 6, h: 20 };
+    const rect = { x: 25, y: 4, w: 6, h: 18 };
     const moved = mergeStageDesignPlan(
       base,
       base,

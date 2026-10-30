@@ -13,12 +13,12 @@ type Upsert = Extract<DesignPlan["operations"][number], { operation: "upsert" }>
 
 function dimensions(kind: StageWidget["kind"]) {
   return kind === "chat"
-    ? ([9, 10] as const)
+    ? ([11, 16] as const)
     : kind === "recipe"
-      ? ([9, 9] as const)
+      ? ([11, 16] as const)
       : kind === "mermaid"
-        ? ([10, 8] as const)
-        : ([7, 6] as const);
+        ? ([11, 16] as const)
+        : ([11, 12] as const);
 }
 
 function proposedWidget(
@@ -106,7 +106,11 @@ export function mergeStageDesignPlan(
         // Its thread is server-owned and stays attached to the stable widget ID.
         widgets[target.index] = { ...target.original, title: operation.title, rect };
       } else {
-        widgets[target.index] = { ...proposedWidget(operation, rect), id: target.original.id };
+        widgets[target.index] = {
+          ...proposedWidget(operation, rect),
+          id: target.original.id,
+          ...(target.original.source ? { source: target.original.source } : {}),
+        };
       }
       continue;
     }
@@ -118,6 +122,7 @@ export function mergeStageDesignPlan(
   }
   try {
     validateStageLayout(widgets, stageReservedRects(current));
+
     return widgets;
   } catch (error) {
     if (!(error instanceof StageLayoutError)) throw error;
@@ -125,6 +130,7 @@ export function mergeStageDesignPlan(
     const unchanged = widgets.filter((widget) => current.widgets.includes(widget));
     const changed = widgets.filter((widget) => !current.widgets.includes(widget));
     const repaired = repairStageLayout({ ...current, widgets: [...unchanged, ...changed] });
+
     return widgets.map((widget) => repaired.widgets.find((piece) => piece.id === widget.id)!);
   }
 }

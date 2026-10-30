@@ -1,6 +1,6 @@
 import type { StageState } from "./schema";
 
-import { placeStageArtifacts } from "./artifacts";
+import { placeStageWorkerPieces } from "./artifacts";
 import { repairStageLayout } from "./layout";
 
 /** Bring prior preview snapshots onto the current reservation and response contracts. */
@@ -25,7 +25,7 @@ export function restoreStageLayout(state: StageState): StageState {
     next = { ...next, messages };
   for (const agent of next.subagents ?? [])
     if (agent.status === "done" && agent.result)
-      next = placeStageArtifacts(next, agent.result, agent.name);
+      next = placeStageWorkerPieces(next, [], { id: agent.id, name: agent.name }, agent.result);
 
   return next;
 }

@@ -3,7 +3,7 @@
 import type { StageState } from "@/lib/stage/schema";
 
 import { useState } from "react";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, Maximize2, Minimize2 } from "lucide-react";
 
 import { ChatMessageMarkdown } from "@/components/chat/chat-message-markdown";
 import { stageCaptionText, stageDiagramSources } from "@/lib/stage/artifacts";
@@ -12,9 +12,19 @@ import { stageCaptionText, stageDiagramSources } from "@/lib/stage/artifacts";
 export function StageResponse({
   state,
   onOpenConversation,
+  selectedAuthor,
+  onSelectAuthor,
+  expanded = false,
+  onToggleExpanded,
+  compact = false,
 }: {
   state: StageState;
   onOpenConversation: () => void;
+  selectedAuthor?: string;
+  onSelectAuthor?: (id: string) => void;
+  expanded?: boolean;
+  onToggleExpanded?: () => void;
+  compact?: boolean;
 }) {
   const [selected, setSelected] = useState("organic");
   const [read, setRead] = useState<Record<string, string>>({});
@@ -33,7 +43,25 @@ export function StageResponse({
       .slice(-2)
       .map((message) => ({ key: message.author!.id, name: message.author!.name, message })),
   ];
-  const active = outputs.find((output) => output.key === selected) ?? outputs[0];
+
+  if (selectedAuthor && !outputs.some((o) => o.key === selectedAuthor)) {
+    const agent = state.subagents?.find((a) => a.id === selectedAuthor);
+    const designer = state.design?.id === selectedAuthor ? state.design : null;
+    const name = agent?.name ?? (designer ? "Designer" : null);
+
+    if (name)
+      outputs.push({
+        key: selectedAuthor,
+        name,
+        message: {
+          id: selectedAuthor,
+          role: "assistant",
+          text: designer ? `Arranging the stage: ${designer.brief}` : `Working on: ${agent!.goal}`,
+        },
+      });
+  }
+  const active =
+    outputs.find((output) => output.key === (selectedAuthor ?? selected)) ?? outputs[0];
 
   if (!active) return null;
   const sources = stageDiagramSources(active.message.text);
@@ -54,6 +82,7 @@ export function StageResponse({
             className="stage-response-author"
             onClick={() => {
               setSelected(output.key);
+              onSelectAuthor?.(output.key);
               setRead((current) => ({ ...current, [output.key]: output.message.id }));
             }}
           >
@@ -65,6 +94,17 @@ export function StageResponse({
             ) : null}
           </button>
         ))}
+        {onToggleExpanded && (
+          <button
+            aria-label={expanded ? "Return to stage pieces" : "Give response more room"}
+            aria-pressed={expanded}
+            className="stage-icon-button"
+            type="button"
+            onClick={onToggleExpanded}
+          >
+            {expanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+          </button>
+        )}
         <button
           aria-label="Read full conversation"
           className="stage-icon-button"
@@ -75,17 +115,19 @@ export function StageResponse({
         </button>
       </div>
       {/* eslint-disable jsx-a11y/no-noninteractive-tabindex -- Named scroll region supports keyboard reading. */}
-      <div
-        aria-label={`${active.name}’s response`}
-        className="stage-response-copy stage-prose"
-        role="region"
-        tabIndex={0}
-      >
-        <ChatMessageMarkdown
-          content={stageCaptionText(active.message.text, diagramAvailable)}
-          id={active.message.id}
-        />
-      </div>
+      {!compact && (
+        <div
+          aria-label={`${active.name}’s response`}
+          className="stage-response-copy stage-prose"
+          role="region"
+          tabIndex={0}
+        >
+          <ChatMessageMarkdown
+            content={stageCaptionText(active.message.text, diagramAvailable)}
+            id={active.message.id}
+          />
+        </div>
+      )}
       {/* eslint-enable jsx-a11y/no-noninteractive-tabindex */}
     </div>
   );

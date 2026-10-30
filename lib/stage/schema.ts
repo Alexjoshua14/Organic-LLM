@@ -4,14 +4,19 @@ import { ChatEffortLevelSchema } from "@/lib/schemas/chat-effort";
 import { RecipeCardBlockSchema } from "@/lib/schemas/gen-ui/recipe-card";
 
 export const STAGE_SIZE = 32;
-export const STAGE_AGENT_RECT = { x: 12, y: 8, w: 8, h: 14 } as const;
+// The grid covers the whole Stage, including the response and composer.
+export const STAGE_HEADER_RECT = { x: 0, y: 0, w: 32, h: 3 } as const;
+export const STAGE_CONTENT_RECT = { x: 8, y: 4, w: 24, h: 18 } as const;
+export const STAGE_RESPONSE_RECT = { x: 8, y: 23, w: 24, h: 5 } as const;
+export const STAGE_COMPOSER_RECT = { x: 8, y: 29, w: 24, h: 3 } as const;
+export const STAGE_AGENT_RECT = { x: 0, y: 5, w: 7, h: 8 } as const;
 export const STAGE_MAX_WIDGETS = 48;
 export const STAGE_MAX_PENDING_DESIGNS = 8;
 export const STAGE_MAX_SUBAGENTS = 2;
-export const STAGE_SUBAGENT_RECT = { x: 7, y: 23, w: 18, h: 8 } as const;
+export const STAGE_SUBAGENT_RECT = { x: 0, y: 14, w: 7, h: 13 } as const;
 export const STAGE_CHILD_RECTS = [
-  { x: 7, y: 23, w: 8, h: 8 },
-  { x: 17, y: 23, w: 8, h: 8 },
+  { x: 0, y: 14, w: 7, h: 6 },
+  { x: 0, y: 21, w: 7, h: 6 },
 ] as const;
 
 export const StageRectSchema = z
@@ -28,6 +33,7 @@ const base = {
   id: z.string().uuid(),
   title: z.string().trim().min(1).max(100),
   rect: StageRectSchema,
+  source: z.object({ id: z.string().uuid(), name: z.string().max(40) }).optional(),
 };
 
 export const StageWidgetSchema = z.discriminatedUnion("kind", [

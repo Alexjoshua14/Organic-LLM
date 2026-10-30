@@ -1,6 +1,10 @@
 import {
   STAGE_AGENT_RECT,
   STAGE_CHILD_RECTS,
+  STAGE_HEADER_RECT,
+  STAGE_RESPONSE_RECT,
+  STAGE_COMPOSER_RECT,
+  STAGE_CONTENT_RECT,
   type StageState,
   STAGE_MAX_WIDGETS,
   StageWidgetSchema,
@@ -10,6 +14,12 @@ import {
 } from "./schema";
 
 export class StageLayoutError extends Error {}
+
+export const stageChromeReservations = [
+  STAGE_HEADER_RECT,
+  STAGE_RESPONSE_RECT,
+  STAGE_COMPOSER_RECT,
+];
 
 export function touchesWithGap(a: StageRect, b: StageRect) {
   return a.x < b.x + b.w + 1 && a.x + a.w + 1 > b.x && a.y < b.y + b.h + 1 && a.y + a.h + 1 > b.y;
@@ -23,6 +33,19 @@ export function validateStageLayout(widgets: StageWidget[], reserved: StageRect[
     StageWidgetSchema.parse(widget);
     if (ids.has(widget.id)) throw new StageLayoutError("Duplicate widget ID");
     ids.add(widget.id);
+    const { x, y, w, h } = widget.rect;
+
+    if (
+      x < STAGE_CONTENT_RECT.x ||
+      y < STAGE_CONTENT_RECT.y ||
+      x + w > 32 ||
+      y + h > STAGE_CONTENT_RECT.y + STAGE_CONTENT_RECT.h
+    )
+      throw new StageLayoutError(
+        "Widget needs artifact cells between navigation, response, and composer"
+      );
+    if (stageChromeReservations.some((rect) => touchesWithGap(widget.rect, rect)))
+      throw new StageLayoutError("Widget overlaps Stage navigation, response, or composer cells");
     if (reserved.some((rect) => touchesWithGap(widget.rect, rect)))
       throw new StageLayoutError("Widget overlaps active subagents");
     if (touchesWithGap(widget.rect, STAGE_AGENT_RECT)) {
@@ -175,10 +198,27 @@ export function repairStageLayout(state: StageState): StageState {
   }
   if (!conflicts.length) return state;
   for (const widget of conflicts) {
-    const rect = findStagePlacement(placed, widget.rect.w, widget.rect.h, reserved);
+    const rect =
+      findStagePlacement(
+        placed,
+        Math.min(widget.rect.w, STAGE_CONTENT_RECT.w),
+        Math.min(widget.rect.h, STAGE_CONTENT_RECT.h),
+        reserved
+      ) ??
+      findStagePlacement(placed, 4, 4, reserved) ??
+      findStagePlacement(placed, 1, 1, reserved);
 
-    if (!rect)
-      throw new StageLayoutError("No free cells for this layout. Remove or resize a piece first");
+    if (!rect) {
+      // Older snapshots may contain more work than the new frame can show at once.
+      // Preserve every piece in compact logical cells; the viewport pages it at reading size.
+      const compact: StageWidget[] = [];
+      for (const original of state.widgets) {
+        const cell = findStagePlacement(compact, 1, 1, reserved);
+        if (!cell) throw new StageLayoutError("No free cells for this layout");
+        compact.push({ ...original, rect: cell });
+      }
+      return { ...state, widgets: compact };
+    }
     placed.push({ ...widget, rect });
   }
 

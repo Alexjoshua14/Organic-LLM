@@ -4,15 +4,18 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion, useIsPresent, useReducedMotion } from "framer-motion";
 import { Square } from "lucide-react";
 
+import { STAGE_AGENT_GLASS } from "./stage-agent";
+
 import { OrganicActivityMark } from "@/components/agents/organic-activity-mark";
 import { stageAgentReservations } from "@/lib/stage/layout";
 import {
-  STAGE_SUBAGENT_RECT,
   STAGE_CHILD_RECTS,
   emptyStageState,
   type StageState,
   type StageSubagent,
+  type StageRect,
 } from "@/lib/stage/schema";
+import { stageCellStyle } from "@/lib/stage/frame";
 
 // Functional presence stays brief; exit settles and clears faster than entry.
 const CHILD_ENTER_SECONDS = 0.22;
@@ -24,10 +27,14 @@ function Child({
   agent,
   slot,
   onCancel,
+  onSelect,
+  rect,
 }: {
   agent: StageSubagent;
   slot: number;
   onCancel: Cancel;
+  onSelect?: (id: string) => void;
+  rect: StageRect;
 }) {
   const present = useIsPresent();
   const reducedMotion = useReducedMotion();
@@ -45,10 +52,8 @@ function Child({
       aria-label={`${agent.name}: ${status}`}
       className="stage-subagent"
       data-agent-slot={slot}
-      style={{
-        gridColumn: `${STAGE_CHILD_RECTS[slot].x - STAGE_SUBAGENT_RECT.x + 1} / span ${STAGE_CHILD_RECTS[slot].w}`,
-        gridRow: "1 / span 8",
-      }}
+      data-agent-id={agent.id}
+      style={stageCellStyle(rect)}
       initial={reducedMotion ? false : { opacity: 0, y: -4 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{
@@ -58,16 +63,24 @@ function Child({
       }}
       transition={{ duration: reducedMotion ? 0 : CHILD_ENTER_SECONDS, ease: "easeOut" }}
     >
-      <OrganicActivityMark
-        seed={agent.id}
-        size="sm"
-        state={!present ? "complete" : agent.status === "working" ? "working" : "waiting"}
-      />
-      <div className="stage-subagent-copy">
-        <span>{agent.name}</span>
-        <span role="status">{status}</span>
-        <p title={agent.goal}>{agent.goal}</p>
-      </div>
+      <button
+        className="stage-subagent-identity"
+        type="button"
+        title={agent.goal}
+        aria-label={`View ${agent.name}’s work`}
+        onClick={() => onSelect?.(agent.id)}
+      >
+        <OrganicActivityMark
+          className="stage-subagent-mark"
+          glassByState={STAGE_AGENT_GLASS}
+          seed={agent.id}
+          state={!present ? "complete" : agent.status === "working" ? "working" : "waiting"}
+        />
+        <span className="stage-subagent-name">{agent.name}</span>
+      </button>
+      <span className="stage-subagent-status" role="status">
+        {status}
+      </span>
       <button
         aria-label={`Stop ${agent.name}`}
         className="stage-icon-button stage-subagent-stop"
@@ -86,10 +99,14 @@ export function StageSubagents({
   agents,
   design,
   onCancel,
+  onSelect,
+  rects = STAGE_CHILD_RECTS,
 }: {
   agents: StageSubagent[];
   design?: StageState["design"];
   onCancel: Cancel;
+  onSelect?: (id: string) => void;
+  rects?: readonly StageRect[];
 }) {
   const reservations = stageAgentReservations({
     ...emptyStageState(),
@@ -123,10 +140,6 @@ export function StageSubagents({
     <div
       aria-label="Organic’s active specialists"
       className="stage-subagent-tree"
-      style={{
-        gridColumn: `${STAGE_SUBAGENT_RECT.x + 1} / span ${STAGE_SUBAGENT_RECT.w}`,
-        gridRow: `${STAGE_SUBAGENT_RECT.y + 1} / span ${STAGE_SUBAGENT_RECT.h}`,
-      }}
       data-active={active.length > 0 || settling}
       data-children={active.length}
     >
@@ -136,7 +149,14 @@ export function StageSubagents({
         }}
       >
         {active.map(({ agent, slot }) => (
-          <Child key={agent.id} agent={agent} slot={slot} onCancel={onCancel} />
+          <Child
+            key={agent.id}
+            agent={agent}
+            slot={slot}
+            rect={rects[slot]}
+            onCancel={onCancel}
+            onSelect={onSelect}
+          />
         ))}
       </AnimatePresence>
     </div>

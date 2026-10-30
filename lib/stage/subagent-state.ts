@@ -1,4 +1,6 @@
-import { placeStageArtifacts } from "./artifacts";
+import type { StageWorkerPiece } from "./worker-output";
+
+import { placeStageWorkerPieces } from "./artifacts";
 import {
   STAGE_MAX_SUBAGENTS,
   stageSubagentActive,
@@ -43,7 +45,8 @@ export function settleStageSubagent(
   state: StageState,
   id: string,
   status: "done" | "failed" | "canceled",
-  result: string | null
+  result: string | null,
+  pieces: StageWorkerPiece[] = []
 ): StageState | null {
   const agent = state.subagents?.find((item) => item.id === id);
 
@@ -75,6 +78,6 @@ export function settleStageSubagent(
   };
 
   return finalStatus === "done" && result
-    ? placeStageArtifacts(settled, result, agent.name)
+    ? placeStageWorkerPieces(settled, pieces, { id: agent.id, name: agent.name }, result)
     : settled;
 }

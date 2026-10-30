@@ -1,5 +1,7 @@
 "use client";
 
+import "./auto-model-lumen-pill.css";
+
 import type { CSSProperties } from "react";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
@@ -271,7 +273,7 @@ export function AutoModelLumenPill({
       ...(lumenFrame.cssVars as unknown as CSSProperties),
       width: `${targetGeometry.w}px`,
       height: `${targetGeometry.h}px`,
-      backgroundImage: `${lumenFrame.backdropCausticCss}, ${FEATHERED_DARK_WELL_CSS}, ${lumenFrame.borderSheenCss}`,
+      "--auto-pill-dark-well": `${lumenFrame.backdropCausticCss}, ${FEATHERED_DARK_WELL_CSS}, ${lumenFrame.borderSheenCss}`,
     }),
     [lumenFrame, targetGeometry.w, targetGeometry.h]
   );
@@ -283,7 +285,7 @@ export function AutoModelLumenPill({
       className={cn(
         "auto-model-lumen-pill relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-[7px] py-0.5",
         condensed ? "px-2" : "px-2.5",
-        "border border-white/[0.07] bg-transparent text-xs font-medium tracking-tight text-foreground/95 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]",
+        "border border-transparent bg-transparent text-xs font-medium tracking-tight text-foreground/95",
         className
       )}
       data-activity-state={activityState}
@@ -303,7 +305,7 @@ export function AutoModelLumenPill({
       {/* Faded black-to-transparent caustic backdrop layer */}
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 rounded-[7px]"
+        className="auto-model-lumen-caustic pointer-events-none absolute inset-0 rounded-[7px]"
         style={{
           background: lumenFrame.backdropCausticCss,
           opacity: lumenFrame.pillOpacity,

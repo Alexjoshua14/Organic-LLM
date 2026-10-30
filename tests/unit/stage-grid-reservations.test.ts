@@ -45,7 +45,7 @@ test("repairs a piece occupying a parent's caption cells without losing its cont
       title: "Preserve",
       kind: "note",
       text: "User content",
-      rect: { x: 12, y: 16, w: 8, h: 5 },
+      rect: { x: 0, y: 9, w: 7, h: 4 },
     },
   ];
   const fixed = repairStageLayout(state);

@@ -1,15 +1,18 @@
 "use client";
 
 import type { StageWidget as Widget } from "@/lib/stage/schema";
+import type { StageRect } from "@/lib/stage/schema";
 
 import dynamic from "next/dynamic";
-import { Component, type CSSProperties, type ReactNode } from "react";
-import { ArrowUpRight, MessageSquare, Move, Waypoints, FileText, CookingPot } from "lucide-react";
+import { Component, memo, type ReactNode } from "react";
+import { motion, useReducedMotion } from "framer-motion";
+import { ArrowUpRight, Move } from "lucide-react";
 
 import { StageChat } from "./stage-chat";
 
 import { RecipeCard } from "@/components/chat/gen-ui/blocks/RecipeCard";
 import { ChatMessageMarkdown } from "@/components/chat/chat-message-markdown";
+import { stageCellStyle } from "@/lib/stage/frame";
 
 const Diagram = dynamic(
   () => import("@/components/blog/mermaid-diagram").then((m) => m.MermaidDiagram),
@@ -18,8 +21,6 @@ const Diagram = dynamic(
     loading: () => <p className="stage-muted">Opening diagram…</p>,
   }
 );
-const ICONS = { note: FileText, mermaid: Waypoints, recipe: CookingPot, chat: MessageSquare };
-const LABELS = { note: "Note", mermaid: "Diagram", recipe: "Recipe", chat: "Conversation" };
 
 class PieceBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
   state = { failed: false };
@@ -36,36 +37,54 @@ class PieceBoundary extends Component<{ children: ReactNode }, { failed: boolean
   }
 }
 
-export function StageWidget({
+// Geometry changes never re-run Markdown, recipe, or Mermaid rendering.
+const PieceContent = memo(
+  function PieceContent({ widget }: { widget: Widget }) {
+    return (
+      <PieceBoundary>
+        {widget.kind === "note" && (
+          <div className="stage-prose">
+            <ChatMessageMarkdown content={widget.text} id={widget.id} wrapCodeBlocks />
+          </div>
+        )}
+        {widget.kind === "mermaid" && (
+          <Diagram code={widget.code} diagramId={widget.id} title={widget.title} variant="canvas" />
+        )}
+        {widget.kind === "recipe" && <RecipeCard block={widget.recipe} />}
+        {widget.kind === "chat" && <StageChat threadId={widget.threadId} widgetId={widget.id} />}
+      </PieceBoundary>
+    );
+  },
+  (a, b) =>
+    JSON.stringify({ ...a.widget, rect: undefined }) ===
+    JSON.stringify({ ...b.widget, rect: undefined })
+);
+
+export const StageWidget = memo(function StageWidget({
   widget,
   selected,
   onSelect,
+  rect = widget.rect,
 }: {
   widget: Widget;
   selected: boolean;
   onSelect: () => void;
+  rect?: StageRect;
 }) {
-  const Icon = ICONS[widget.kind];
-  const { x, y, w, h } = widget.rect;
-  const style: CSSProperties = {
-    gridColumn: `${x + 1} / span ${w}`,
-    gridRow: `${y + 1} / span ${h}`,
-  };
+  const reduced = useReducedMotion();
 
   return (
-    <article
+    <motion.article
       aria-label={widget.title}
       className="stage-piece"
       data-kind={widget.kind}
       data-selected={selected}
       data-widget-id={widget.id}
-      style={style}
+      style={stageCellStyle(rect)}
+      layout="position"
+      transition={{ layout: { duration: reduced ? 0 : 0.14, ease: "easeOut" } }}
     >
-      <header className="stage-piece-header">
-        <span className="stage-piece-type">
-          <Icon aria-hidden size={12} />
-          {LABELS[widget.kind]}
-        </span>
+      <div className="stage-piece-actions">
         <button
           aria-label={`Arrange ${widget.title}`}
           aria-pressed={selected}
@@ -76,39 +95,20 @@ export function StageWidget({
         >
           <Move size={14} />
         </button>
-      </header>
-      <h2 className="stage-piece-title">{widget.title}</h2>
-      <div className="stage-piece-content">
-        <PieceBoundary>
-          {widget.kind === "note" && (
-            <div className="stage-prose">
-              <ChatMessageMarkdown content={widget.text} id={widget.id} wrapCodeBlocks />
-            </div>
-          )}
-          {widget.kind === "mermaid" && (
-            <Diagram code={widget.code} diagramId={widget.id} title={widget.title} />
-          )}
-          {widget.kind === "recipe" && <RecipeCard block={widget.recipe} />}
-          {widget.kind === "chat" && <StageChat threadId={widget.threadId} widgetId={widget.id} />}
-        </PieceBoundary>
-      </div>
-      <footer className="stage-piece-footer">
-        <span>
-          {String(x + 1).padStart(2, "0")}:{String(y + 1).padStart(2, "0")}
-        </span>
-        {widget.kind === "chat" ? (
+        {widget.kind === "chat" && (
           <a
+            className="stage-icon-button"
             aria-label={`Open ${widget.title} as a full conversation`}
             href={`/chat/${widget.threadId}`}
           >
-            <ArrowUpRight size={13} />
+            <ArrowUpRight size={14} />
           </a>
-        ) : (
-          <span>
-            {w} × {h}
-          </span>
         )}
-      </footer>
-    </article>
+      </div>
+      {widget.kind === "chat" && <h2 className="stage-piece-title">{widget.title}</h2>}
+      <div className="stage-piece-content">
+        <PieceContent widget={widget} />
+      </div>
+    </motion.article>
   );
-}
+});
