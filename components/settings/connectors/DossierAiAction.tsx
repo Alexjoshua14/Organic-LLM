@@ -2,6 +2,8 @@
 
 import type { OpenInChatProvider } from "@/lib/export/prompts";
 
+import { Sparkles } from "lucide-react";
+
 import { OpenInChat } from "@/components/design-system/OpenInChat";
 import {
   DOSSIER_PROMPTS,
@@ -19,7 +21,9 @@ export function DossierAiAction({ field }: { field: DossierField }) {
         providers={DOSSIER_AI_PROVIDERS}
         query={getDossierPrompt(field)}
         triggerAriaLabel={`Ask AI for ${DOSSIER_PROMPTS[field].label}`}
-        triggerClassName="min-h-11 gap-inline-sm border-border bg-background px-inset-sm py-inset-sm text-xs font-medium normal-case tracking-normal text-muted-foreground hover:text-foreground"
+        triggerClassName="h-7 gap-inline-sm px-inset-sm py-0 text-xs font-medium text-muted-foreground hover:text-foreground"
+        triggerIcon={<Sparkles aria-hidden="true" className="size-3.5" />}
+        triggerVariant="ghost"
         triggerLabel="Ask AI"
       />
     </div>

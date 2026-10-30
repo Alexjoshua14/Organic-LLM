@@ -2,12 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  BookOpen,
-  Briefcase,
   CheckCircle2,
-  Cpu,
   ExternalLink,
-  FileText,
   GitBranch,
   Globe,
   Link2,
@@ -16,8 +12,9 @@ import {
   Unplug,
 } from "lucide-react";
 
-import { DossierAiAction } from "./DossierAiAction";
+import { DOSSIER_FIELDS, DossierFieldEditor } from "./DossierFieldEditor";
 
+import { QuickSettingRow } from "@/components/settings/quick-setting-row";
 import { SettingsHelp } from "@/components/settings/settings-help";
 import { Switch } from "@/components/design-system/switch";
 import { caption } from "@/components/design-system/primitives";
@@ -363,17 +360,17 @@ export function ConnectorsSettingsTab({
   }, [doFetch, formState, handleSave]);
 
   return (
-    <div className="flex flex-col gap-8">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-1">
+    <div className="flex flex-col gap-stack-2xl">
+      <div className="flex flex-col gap-inline-sm sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-stack-xs">
           <h2 className="text-xl font-semibold text-foreground">Connectors & Personal Dossier</h2>
           <p className={caption({ className: "max-w-xl" })}>
             Connect accounts and add background for more relevant help.
           </p>
         </div>
-        <div className="flex items-center gap-2 shrink-0 pt-1">
+        <div className="flex items-center gap-inline-sm shrink-0 pt-1">
           <button
-            className="inline-flex items-center gap-1.5 rounded-lg bg-foreground px-3.5 py-2 text-xs font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="inline-flex items-center gap-inline-sm rounded-lg bg-foreground px-inset-lg py-inset-sm text-xs font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-50"
             disabled={saving}
             type="button"
             onClick={() => void handleSave()}
@@ -386,7 +383,7 @@ export function ConnectorsSettingsTab({
 
       {saveMessage && (
         <div
-          className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-2.5 text-xs text-emerald-700 dark:text-emerald-300"
+          className="flex items-center gap-inline-sm rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-inset-lg py-inset-md text-xs text-emerald-700 dark:text-emerald-300"
           role="status"
         >
           <CheckCircle2 className="size-4 shrink-0" />
@@ -396,7 +393,7 @@ export function ConnectorsSettingsTab({
 
       {saveError && (
         <div
-          className="rounded-lg border border-destructive/30 bg-destructive/5 px-3.5 py-2.5 text-xs text-destructive"
+          className="rounded-lg border border-destructive/30 bg-destructive/5 px-inset-lg py-inset-md text-xs text-destructive"
           role="alert"
         >
           {saveError}
@@ -411,9 +408,9 @@ export function ConnectorsSettingsTab({
       )}
 
       {/* Sharing stays visible; routing details are optional. */}
-      <section className="rounded-xl border border-border/70 bg-muted/20 p-4">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
+      <section className="rounded-xl border border-border/70 bg-muted/20 p-inset-lg">
+        <div className="flex items-center justify-between gap-inline-md">
+          <div className="flex items-center gap-inline-sm">
             <ShieldCheck aria-hidden="true" className="size-4 shrink-0 text-foreground" />
             <h3 className="text-sm font-medium text-foreground" id="connector-sharing-label">
               Share relevant context with specialists
@@ -435,11 +432,11 @@ export function ConnectorsSettingsTab({
               ? "Specialists receive only the profile context relevant to the current task."
               : "Specialists will not receive automatic connector slices. You can still share context in chat."}
           </p>
-          <div className="grid gap-2.5 sm:grid-cols-3">
+          <div className="grid gap-inline-md sm:grid-cols-3">
             {CONNECTOR_SPECIALIST_ROUTES.map((entry) => (
               <div
                 key={entry.agentId}
-                className="space-y-1.5 rounded-lg border border-border/60 bg-background/80 p-3"
+                className="space-y-stack-xs rounded-lg border border-border/60 bg-background/80 p-inset-md"
               >
                 <div className="flex flex-wrap items-center justify-between gap-1">
                   <span className="font-semibold text-foreground">{entry.agent}</span>
@@ -454,9 +451,9 @@ export function ConnectorsSettingsTab({
       </section>
 
       {/* Connected Accounts Card */}
-      <section className="rounded-xl border border-border/70 bg-background p-5 space-y-5">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
+      <section className="rounded-xl border border-border/70 bg-background p-inset-lg space-y-stack-lg">
+        <div className="space-y-stack-xs">
+          <div className="flex items-center gap-inline-sm">
             <Globe className="size-4 text-foreground" />
             <h3 className="text-sm font-semibold text-foreground">
               Connected Profiles &amp; Handles
@@ -465,11 +462,11 @@ export function ConnectorsSettingsTab({
           <p className="text-xs text-muted-foreground">Manage the accounts Organic can use.</p>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-stack-lg">
           {/* Ergon — MCP OAuth (product path for Mira + ticket tools) */}
-          <div className="space-y-2 rounded-lg border border-border/60 bg-muted/10 p-3.5">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+          <div className="space-y-stack-xs rounded-lg border border-border/60 bg-muted/10 p-inset-lg">
+            <div className="flex flex-wrap items-center justify-between gap-inline-sm">
+              <div className="flex items-center gap-inline-sm text-xs font-medium text-foreground">
                 <Link2 className="size-3.5 text-muted-foreground" />
                 Ergon
               </div>
@@ -499,7 +496,7 @@ export function ConnectorsSettingsTab({
                 <code>{ergonStatus.mcpUrl ?? ergonStatus.url ?? DEFAULT_ERGON_MCP_URL}</code>
               </p>
               {ergonStatus.connected && (
-                <div className="space-y-1">
+                <div className="space-y-stack-xs">
                   {(ergonStatus.authMode || ergonStatus.transport) && (
                     <p>
                       {[
@@ -519,11 +516,11 @@ export function ConnectorsSettingsTab({
             </SettingsHelp>
 
             {ergonStatus.connected ? (
-              <div className="space-y-2">
+              <div className="space-y-stack-xs">
                 {ergonStatus.source === "user" && (
                   <button
                     aria-label="Disconnect Ergon"
-                    className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                    className="inline-flex items-center justify-center gap-inline-sm rounded-lg border border-border bg-muted/40 px-inset-md py-inset-sm text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
                     disabled={ergonBusy}
                     type="button"
                     onClick={() => void handleDisconnectErgon()}
@@ -536,7 +533,7 @@ export function ConnectorsSettingsTab({
             ) : (
               <button
                 aria-label="Connect Ergon with OAuth"
-                className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-border bg-foreground px-3 py-2 text-xs font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-50"
+                className="inline-flex w-full items-center justify-center gap-inline-sm rounded-lg border border-border bg-foreground px-inset-md py-inset-sm text-xs font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-50"
                 disabled={ergonBusy}
                 type="button"
                 onClick={() => void handleConnectErgonOAuth()}
@@ -548,7 +545,7 @@ export function ConnectorsSettingsTab({
 
             {ergonError && (
               <div
-                className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive"
+                className="rounded-lg border border-destructive/30 bg-destructive/5 px-inset-md py-inset-sm text-xs text-destructive"
                 role="alert"
               >
                 <p>{ergonError}</p>
@@ -560,24 +557,29 @@ export function ConnectorsSettingsTab({
           </div>
 
           {/* GitHub */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <label
-                className="text-xs font-medium text-foreground flex items-center gap-1.5"
-                htmlFor="connector-github-url"
+          <div className="space-y-stack-xs">
+            <div className="[&_h3]:text-xs">
+              <QuickSettingRow
+                caption="Reed uses your public repositories to help with coding tasks. Only relevant GitHub context is shared when automatic sharing is on."
+                icon={
+                  <GitBranch
+                    aria-hidden="true"
+                    className="size-3.5 shrink-0 text-muted-foreground"
+                  />
+                }
+                label="GitHub Profile URL or Username"
               >
-                <GitBranch className="size-3.5 text-muted-foreground" />
-                GitHub Profile URL or Username
-              </label>
-              {normalizedGithubHandle && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 font-mono text-[11px] text-foreground">
-                  @{normalizedGithubHandle}
-                </span>
-              )}
+                {normalizedGithubHandle && (
+                  <span className="rounded-full bg-muted px-inset-sm py-0.5 font-mono text-[11px] text-foreground">
+                    @{normalizedGithubHandle}
+                  </span>
+                )}
+              </QuickSettingRow>
             </div>
-            <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="flex flex-col gap-inline-sm sm:flex-row">
               <input
-                className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                className="flex-1 rounded-lg border border-border bg-background px-inset-md py-inset-sm text-sm text-foreground placeholder:text-muted-foreground/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                aria-label="GitHub Profile URL or Username"
                 id="connector-github-url"
                 placeholder="https://github.com/coalescence-labs or coalescence-labs"
                 type="text"
@@ -586,7 +588,7 @@ export function ConnectorsSettingsTab({
               />
               <button
                 aria-label="Test / Sync GitHub Repos"
-                className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                className="inline-flex items-center justify-center gap-inline-sm rounded-lg border border-border bg-muted/40 px-inset-md py-inset-sm text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
                 disabled={syncingGithub}
                 type="button"
                 onClick={() => void handleSyncGithub()}
@@ -595,22 +597,16 @@ export function ConnectorsSettingsTab({
                 {syncingGithub ? "Syncing GitHub..." : "Test / Sync GitHub Repos"}
               </button>
             </div>
-            <SettingsHelp title="How GitHub is used">
-              <p>
-                Reed uses your public repositories for coding tasks through{" "}
-                <code>connector:github</code>.
-              </p>
-            </SettingsHelp>
 
             {githubError && (
-              <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+              <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-inset-md py-inset-sm text-xs text-destructive">
                 {githubError}
               </div>
             )}
 
             {githubSnapshot && (
-              <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-2.5">
-                <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="rounded-lg border border-border/60 bg-muted/20 p-inset-md space-y-stack-md">
+                <div className="flex flex-wrap items-center justify-between gap-inline-sm">
                   <div className="text-xs font-medium text-foreground">
                     Synced {githubSnapshot.repos.length} public{" "}
                     {githubSnapshot.repos.length === 1 ? "repository" : "repositories"} for{" "}
@@ -631,13 +627,13 @@ export function ConnectorsSettingsTab({
                   <p className="text-[11px] text-muted-foreground">{githubSnapshot.profile.bio}</p>
                 )}
                 {githubSnapshot.repos.length > 0 && (
-                  <ul className="grid gap-1.5 sm:grid-cols-2">
+                  <ul className="grid gap-inline-sm sm:grid-cols-2">
                     {githubSnapshot.repos.slice(0, 8).map((repo) => (
                       <li
                         key={repo.name}
                         className="rounded border border-border/50 bg-background/70 px-2.5 py-1.5 text-xs"
                       >
-                        <div className="flex items-center justify-between gap-1.5">
+                        <div className="flex items-center justify-between gap-inline-sm">
                           <a
                             className="font-mono font-medium text-foreground hover:underline truncate"
                             href={repo.html_url}
@@ -666,8 +662,8 @@ export function ConnectorsSettingsTab({
           </div>
 
           {/* LinkedIn & Website */}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
+          <div className="grid gap-inline-lg sm:grid-cols-2">
+            <div className="space-y-stack-xs">
               <label
                 className="text-xs font-medium text-foreground"
                 htmlFor="connector-linkedin-url"
@@ -675,7 +671,7 @@ export function ConnectorsSettingsTab({
                 LinkedIn URL
               </label>
               <input
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                className="w-full rounded-lg border border-border bg-background px-inset-md py-inset-sm text-sm text-foreground placeholder:text-muted-foreground/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
                 id="connector-linkedin-url"
                 placeholder="https://www.linkedin.com/in/your-handle"
                 type="url"
@@ -684,7 +680,7 @@ export function ConnectorsSettingsTab({
               />
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-stack-xs">
               <label
                 className="text-xs font-medium text-foreground"
                 htmlFor="connector-website-url"
@@ -692,7 +688,7 @@ export function ConnectorsSettingsTab({
                 Personal Website / Portfolio URL
               </label>
               <input
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                className="w-full rounded-lg border border-border bg-background px-inset-md py-inset-sm text-sm text-foreground placeholder:text-muted-foreground/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
                 id="connector-website-url"
                 placeholder="https://yourdomain.com"
                 type="url"
@@ -702,12 +698,12 @@ export function ConnectorsSettingsTab({
             </div>
           </div>
 
-          <div className="space-y-1.5">
+          <div className="space-y-stack-xs">
             <label className="text-xs font-medium text-foreground" htmlFor="connector-x-handle">
               X / Additional Handle or Links
             </label>
             <input
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+              className="w-full rounded-lg border border-border bg-background px-inset-md py-inset-sm text-sm text-foreground placeholder:text-muted-foreground/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
               id="connector-x-handle"
               placeholder="@handle or additional profile links"
               type="text"
@@ -719,124 +715,22 @@ export function ConnectorsSettingsTab({
       </section>
 
       {/* Personal Dossier Cards */}
-      <section className="rounded-xl border border-border/70 bg-background p-5 space-y-6">
-        <div className="space-y-1">
+      <section className="rounded-xl border border-border/70 bg-background p-inset-lg space-y-stack-2xl">
+        <div className="space-y-stack-xs">
           <h3 className="text-sm font-semibold text-foreground">Personal Dossier</h3>
           <p className="text-xs text-muted-foreground">
             Ask AI to draft a section, then paste its full reply below.
           </p>
         </div>
 
-        {/* Education & Transcripts */}
-        <div className="space-y-1.5">
-          <div className="flex flex-wrap items-center justify-between gap-inline-sm">
-            <label
-              className="min-w-0 flex-1 text-xs font-medium text-foreground flex items-center gap-inline-sm"
-              htmlFor="dossier-education"
-            >
-              <BookOpen className="size-3.5 text-muted-foreground" />
-              Education &amp; Transcripts
-            </label>
-            <DossierAiAction field="educationAndTranscripts" />
-          </div>
-          <SettingsHelp title="What to include in education">
-            <p>
-              Schools, degrees, coursework, or transcript notes. Used as{" "}
-              <code>connector:education</code>.
-            </p>
-          </SettingsHelp>
-          <textarea
-            className="min-h-24 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-            id="dossier-education"
-            placeholder="Schools, degrees, and coursework"
-            rows={3}
-            value={formState.educationAndTranscripts}
-            onChange={(e) => updateField("educationAndTranscripts", e.target.value)}
+        {DOSSIER_FIELDS.map(({ field }) => (
+          <DossierFieldEditor
+            key={field}
+            field={field}
+            value={formState[field]}
+            onValueChange={(value) => updateField(field, value)}
           />
-        </div>
-
-        {/* Career History & Projects */}
-        <div className="space-y-1.5">
-          <div className="flex flex-wrap items-center justify-between gap-inline-sm">
-            <label
-              className="min-w-0 flex-1 text-xs font-medium text-foreground flex items-center gap-inline-sm"
-              htmlFor="dossier-career"
-            >
-              <Briefcase className="size-3.5 text-muted-foreground" />
-              Career History &amp; Projects
-            </label>
-            <DossierAiAction field="careerHistory" />
-          </div>
-          <SettingsHelp title="What to include in career history">
-            <p>
-              Roles, organizations, projects, and expertise. Used as <code>connector:career</code>.
-            </p>
-          </SettingsHelp>
-          <textarea
-            className="min-h-24 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-            id="dossier-career"
-            placeholder="Roles, projects, and accomplishments"
-            rows={3}
-            value={formState.careerHistory}
-            onChange={(e) => updateField("careerHistory", e.target.value)}
-          />
-        </div>
-
-        {/* Resume / CV */}
-        <div className="space-y-1.5">
-          <div className="flex flex-wrap items-center justify-between gap-inline-sm">
-            <label
-              className="min-w-0 flex-1 text-xs font-medium text-foreground flex items-center gap-inline-sm"
-              htmlFor="dossier-resume"
-            >
-              <FileText className="size-3.5 text-muted-foreground" />
-              Resume / CV
-            </label>
-            <DossierAiAction field="resumeText" />
-          </div>
-          <SettingsHelp title="How your resume is used">
-            <p>
-              Paste plain text or Markdown so writing and research tasks can use exact dates,
-              metrics, and accomplishments. Used as <code>connector:resume</code>.
-            </p>
-          </SettingsHelp>
-          <textarea
-            className="min-h-28 w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-xs text-foreground placeholder:text-muted-foreground/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-            id="dossier-resume"
-            placeholder="Paste your resume or CV"
-            rows={4}
-            value={formState.resumeText}
-            onChange={(e) => updateField("resumeText", e.target.value)}
-          />
-        </div>
-
-        {/* Working & Infrastructure Preferences */}
-        <div className="space-y-1.5">
-          <div className="flex flex-wrap items-center justify-between gap-inline-sm">
-            <label
-              className="min-w-0 flex-1 text-xs font-medium text-foreground flex items-center gap-inline-sm"
-              htmlFor="dossier-preferences"
-            >
-              <Cpu className="size-3.5 text-muted-foreground" />
-              Working Preferences
-            </label>
-            <DossierAiAction field="workingPreferences" />
-          </div>
-          <SettingsHelp title="What to include in working preferences">
-            <p>
-              Hardware, servers, preferred languages, runtimes, and architecture choices. Used as{" "}
-              <code>connector:preferences</code>.
-            </p>
-          </SettingsHelp>
-          <textarea
-            className="min-h-24 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-            id="dossier-preferences"
-            placeholder="Tools, hardware, and how you like to work"
-            rows={3}
-            value={formState.workingPreferences}
-            onChange={(e) => updateField("workingPreferences", e.target.value)}
-          />
-        </div>
+        ))}
       </section>
     </div>
   );

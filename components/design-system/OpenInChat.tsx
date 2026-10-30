@@ -1,5 +1,6 @@
 "use client";
 
+import type { ComponentProps, ReactNode } from "react";
 import type { OpenInChatProvider } from "@/lib/export/prompts";
 
 import { useState } from "react";
@@ -29,6 +30,8 @@ export type OpenInChatProps = {
   triggerLabel?: string;
   triggerAriaLabel?: string;
   triggerClassName?: string;
+  triggerVariant?: ComponentProps<typeof Button>["variant"];
+  triggerIcon?: ReactNode;
 };
 
 export function OpenInChat({
@@ -39,6 +42,8 @@ export function OpenInChat({
   triggerLabel = "Open in chat",
   triggerClassName,
   triggerAriaLabel,
+  triggerVariant = "outline",
+  triggerIcon,
 }: OpenInChatProps) {
   const [open, setOpen] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -53,13 +58,15 @@ export function OpenInChat({
         <Button
           aria-label={triggerAriaLabel}
           className={cn(
-            "inline-flex items-center gap-2 rounded-md border border-sky-400/30 bg-sky-400/12 px-3 py-2 text-xs font-medium uppercase tracking-[0.12em] text-sky-300",
+            triggerVariant === "outline" &&
+              "inline-flex items-center gap-2 rounded-md border border-sky-400/30 bg-sky-400/12 px-3 py-2 text-xs font-medium uppercase tracking-[0.12em] text-sky-300",
             triggerClassName
           )}
           disabled={disabled}
           type="button"
-          variant="outline"
+          variant={triggerVariant}
         >
+          {triggerIcon}
           {triggerLabel}
           <ChevronDownIcon className="size-3.5" />
         </Button>

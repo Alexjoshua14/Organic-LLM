@@ -9,7 +9,6 @@ import { Switch } from "@/components/design-system/switch";
 import { BackgroundActivitySetting } from "@/components/settings/background-activity-setting";
 import { LightweightModeSetting } from "@/components/settings/lightweight-mode-setting";
 import Page from "@/components/layout/page";
-import { PageTopBar } from "@/components/layout/page-top-bar";
 import { ReturnButton } from "@/components/ReturnButton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/third-party/ui/tabs";
 import { Profile } from "@/lib/schemas/profiles";
@@ -105,13 +104,12 @@ export default function SettingsPage() {
 
   return (
     <Page>
-      <PageTopBar
-        eyebrow={<ReturnButton compactOnMobile />}
-        layout="stacked"
-        title={SETTINGS_PAGE_TITLE}
-        trailing={<span />}
-        withTopClearance
-      />
+      <header className="w-full shrink-0 px-inset-lg pt-[calc(3.5rem+env(safe-area-inset-top,0px))] md:px-8 md:pt-inset-lg">
+        <div className="mx-auto flex w-full max-w-2xl items-center gap-inline-sm">
+          <ReturnButton compactOnMobile />
+          <h1 className="text-lg font-semibold text-foreground">{SETTINGS_PAGE_TITLE}</h1>
+        </div>
+      </header>
       <div className="flex-1 w-full overflow-auto px-4 py-6 md:px-8">
         <Tabs
           className="w-full max-w-2xl mx-auto"

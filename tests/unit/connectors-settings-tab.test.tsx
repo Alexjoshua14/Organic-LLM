@@ -131,7 +131,7 @@ test("syncs a GitHub profile and refuses an invalid handle", async () => {
   expect(view.getByText(/Enter a valid GitHub username/)).toBeTruthy();
 
   await act(async () => {
-    fireEvent.change(view.getByLabelText(/GitHub Profile URL/), {
+    fireEvent.change(view.getByRole("textbox", { name: "GitHub Profile URL or Username" }), {
       target: { value: "https://github.com/Alexjoshua14" },
     });
   });
