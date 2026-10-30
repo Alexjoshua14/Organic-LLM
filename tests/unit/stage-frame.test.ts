@@ -1,6 +1,5 @@
 import { expect, test } from "bun:test";
-
-import { resolveStageFrame } from "@/lib/stage/frame";
+import { resolveStageFrame, stageRectPixels } from "@/lib/stage/frame";
 import {
   repairStageLayout,
   stageChromeReservations,
@@ -23,7 +22,7 @@ test("top-level Stage reservations include the latest response and composer", ()
     expect(() => validateStageLayout([{ ...note(8), rect }])).toThrow();
 });
 
-test("fits content, agents, reading and a growing composer in one viewport without overlap", () => {
+test("one grid fits its chrome and saved placements without overlap or coordinate projection", () => {
   const state = { ...emptyStageState(), widgets: [note(8), note(20)] };
   for (const [width, height] of [
     [1920, 900],
@@ -34,6 +33,8 @@ test("fits content, agents, reading and a growing composer in one viewport witho
     for (const composerHeight of [78, 190]) {
       for (const reading of [false, true]) {
         const frame = resolveStageFrame(state, { width, height, composerHeight, reading });
+        expect(frame.rows).toHaveLength(32);
+        expect(frame.rowOffsets.at(-1)).toBeCloseTo(height);
         const rects = [
           frame.header,
           frame.parent,
@@ -50,58 +51,47 @@ test("fits content, agents, reading and a growing composer in one viewport witho
           expect(rects.slice(i + 1).some((other) => intersects(rect, other))).toBe(false);
         }
         if (!reading) {
-          expect(frame.pieces.length).toBeGreaterThan(0);
-          expect((frame.pieces[0].rect.h * height) / 32).toBeGreaterThanOrEqual(
-            composerHeight > 110 ? 128 : 200
-          );
-        } else expect((frame.reply.h * height) / 32).toBeGreaterThan(200);
+          expect(frame.pieces.map((p) => p.rect)).toEqual(state.widgets.map((w) => w.rect));
+          expect(stageRectPixels(frame, frame.pieces[0].rect).h).toBeGreaterThan(180);
+        } else expect(stageRectPixels(frame, frame.reply).h).toBeGreaterThan(200);
+        expect(stageRectPixels(frame, frame.composer).h).toBeCloseTo(composerHeight);
       }
     }
   }
 });
 
-test("focus gives a selected author's piece the reading area and pages excess work", () => {
+test("author and piece navigation only filter visibility; they cannot resize or relocate work", () => {
   const source = { id: crypto.randomUUID(), name: "Timing checker" };
-  const state = { ...emptyStageState(), widgets: [note(8), { ...note(20), source }, note(8)] };
-  const frame = resolveStageFrame(state, {
-    width: 1200,
-    height: 700,
-    composerHeight: 78,
-    author: source.id,
-  });
-  expect(frame.pieces).toHaveLength(1);
-  expect(frame.pieces[0].widget.source?.id).toBe(source.id);
-  expect(frame.pages).toBe(1);
-  expect(frame.pieces[0].rect.w).toBe(24);
-  const next = resolveStageFrame(state, { width: 1200, height: 700, composerHeight: 78, page: 2 });
-  expect(next.pieces[0].widget.id).toBe(state.widgets[2].id);
-});
-
-test("short windows retain positive owned agent cells above the composer", () => {
-  const state = { ...emptyStageState(), widgets: [note(8)] };
-  for (const width of [358, 852]) {
-    const frame = resolveStageFrame(state, { width, height: 324, composerHeight: 108 });
-    expect(frame.tiny).toBe(true);
-    for (const rect of [
-      frame.parent,
-      ...frame.children,
-      frame.reply,
-      ...frame.pieces.map((p) => p.rect),
-    ]) {
-      expect(rect.h).toBeGreaterThan(0);
-      expect(rect.y + rect.h).toBeLessThanOrEqual(frame.composer.y);
-    }
-    expect(intersects(frame.parent, frame.children[0])).toBe(false);
-    expect(intersects(frame.children[0], frame.children[1])).toBe(false);
+  const state = { ...emptyStageState(), widgets: [note(8), { ...note(20), source }] };
+  const options = { width: 1200, height: 700, composerHeight: 78 };
+  for (const extra of [{}, { author: source.id }, { pieceId: state.widgets[1].id }]) {
+    const frame = resolveStageFrame(state, { ...options, ...extra });
+    const piece = frame.pieces.find((p) => p.widget.id === state.widgets[1].id)!;
+    expect(piece.rect).toBe(state.widgets[1].rect);
+    expect(stageRectPixels(frame, piece.rect)).toEqual(
+      stageRectPixels(resolveStageFrame(state, options), state.widgets[1].rect)
+    );
   }
 });
 
-test("legacy layouts retain every piece when the new reservations require compaction", () => {
+test("small saved pieces are not silently enlarged by a readability fallback", () => {
+  const widget = { ...note(8), rect: { x: 13, y: 9, w: 4, h: 5 } };
+  const state = { ...emptyStageState(), widgets: [widget] };
+  const frame = resolveStageFrame(state, {
+    width: 1366,
+    height: 692,
+    composerHeight: 80,
+    pieceId: widget.id,
+  });
+  expect(frame.pieces[0].rect).toBe(widget.rect);
+  expect(frame.gridLines).toContain(`${Number(frame.rowOffsets[widget.rect.y].toFixed(3))}px`);
+});
+
+test("legacy repair retains all content and rendering uses the repaired rectangles verbatim", () => {
   const state = { ...emptyStageState(), widgets: Array.from({ length: 48 }, () => note(8)) };
   const restored = repairStageLayout(state);
   expect(restored.widgets.map((w) => w.id)).toEqual(state.widgets.map((w) => w.id));
   expect(() => validateStageLayout(restored.widgets)).not.toThrow();
   const frame = resolveStageFrame(restored, { width: 1200, height: 700, composerHeight: 78 });
-  expect(frame.pages).toBe(48);
-  expect(frame.pieces[0].rect.w).toBe(24);
+  expect(frame.pieces.map((p) => p.rect)).toEqual(restored.widgets.map((w) => w.rect));
 });

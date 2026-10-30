@@ -6,7 +6,7 @@ import type { ChatModel } from "@/lib/schemas/chat";
 import type { ChatEffortLevel } from "@/lib/schemas/chat-effort";
 import type { StageTurnSettings, StageRect } from "@/lib/stage/schema";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { AudioLines, Grid3X3, History, MessageCircle, ArrowUpRight, RotateCcw } from "lucide-react";
 
 import { useStage } from "./use-stage";
@@ -79,7 +79,7 @@ export function Stage() {
     webSearch: searchRef.current,
     memory: memoryRef.current,
     speechFriendly: speechRef.current,
-    presentation: { view, ...size, page, reading: frame.reading },
+    presentation: { view, ...size, reading: frame.reading },
   });
 
   const [showGrid, setShowGrid] = useState(false);
@@ -92,7 +92,6 @@ export function Stage() {
   const appliedCommands = useRef(new Set<string>());
   const [reading, setReading] = useState(false);
 
-  const [page, setPage] = useState(0);
   const [preview, setPreview] = useState<{ id: string; rect: StageRect } | null>(null);
   const arrangePiece = useCallback((id: string) => {
     setPreview(null);
@@ -113,7 +112,7 @@ export function Stage() {
   );
   const frame = useMemo(() => {
     const snapshot = state ?? emptyStageState();
-    const projected = preview
+    const snapshotWithPreview = preview
       ? {
           ...snapshot,
           widgets: snapshot.widgets.map((w) =>
@@ -122,20 +121,17 @@ export function Stage() {
         }
       : snapshot;
 
-    return resolveStageFrame(projected, {
+    return resolveStageFrame(snapshotWithPreview, {
       ...size,
       home: view.kind === "organic",
       author,
       reading,
       pieceId,
-      page,
-      arranging: !!selectedId,
     });
-  }, [state, size, view, author, reading, pieceId, page, selectedId, preview]);
+  }, [state, size, view, author, reading, pieceId, preview]);
 
   const selectView = useCallback((next: StageView) => {
     setView(next);
-    setPage(0);
     setReading(false);
     setSelectedId(null);
     setPreview(null);
@@ -179,7 +175,7 @@ export function Stage() {
       ? {
           kind: "stage",
           revision: String(state.revision),
-          presentation: { view, ...size, page, reading: frame.reading },
+          presentation: { view, ...size, reading: frame.reading },
         }
       : null
   );
@@ -243,10 +239,17 @@ export function Stage() {
     <div
       ref={root}
       className="organic-stage"
+      style={
+        {
+          gridTemplateRows: frame.gridTemplateRows,
+          "--stage-grid-rows": frame.gridLines,
+        } as CSSProperties
+      }
       data-grid={showGrid || !!selected}
       data-empty={empty}
       data-compact={frame.compact}
       data-tiny={frame.tiny}
+      data-short-children={frame.shortChildren}
     >
       <div aria-hidden className="stage-grid-guide" />
       <header className="stage-topbar" style={stageCellStyle(frame.header)}>
@@ -315,47 +318,6 @@ export function Stage() {
           onSelect={chooseAuthor}
           onCancel={cancelSubagent}
         />
-        {!!state?.widgets.length && frame.showPieces && !frame.reading && (
-          <nav
-            className="stage-piece-switcher"
-            aria-label="Stage pieces"
-            style={stageCellStyle(frame.pieceNav)}
-          >
-            {state.widgets
-              .filter((widget) => view.kind !== "author" || widget.source?.id === view.id)
-              .map((widget) => (
-                <button
-                  key={widget.id}
-                  type="button"
-                  aria-pressed={frame.pieces.some((p) => p.widget.id === widget.id)}
-                  title={widget.source ? `${widget.title} · ${widget.source.name}` : widget.title}
-                  onClick={() => {
-                    selectView(
-                      widget.id === pieceId
-                        ? { kind: "overview", id: null }
-                        : { kind: "piece", id: widget.id }
-                    );
-                  }}
-                >
-                  {widget.title}
-                </button>
-              ))}
-            {frame.pages > 1 && !pieceId && (
-              <button
-                type="button"
-                aria-label="Next stage pieces"
-                onClick={() => setPage((p) => (p + 1) % frame.pages)}
-              >
-                {frame.page + 1} / {frame.pages} →
-              </button>
-            )}
-            {pieceId && (
-              <button type="button" onClick={() => selectView({ kind: "overview", id: null })}>
-                All pieces
-              </button>
-            )}
-          </nav>
-        )}
         <StagePieces
           widgets={state?.widgets ?? []}
           visible={frame.pieces}
@@ -396,6 +358,9 @@ export function Stage() {
               state={state!}
               selectedAuthor={author}
               organicActive={view.kind === "organic"}
+              pieces={state!.widgets}
+              selectedPieceId={pieceId}
+              onSelectPiece={(id) => selectView({ kind: "piece", id })}
               onShowPieces={
                 state?.widgets.length ? () => selectView({ kind: "overview", id: null }) : undefined
               }

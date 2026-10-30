@@ -58,6 +58,7 @@ function context(state: StageState, includeContent = false, presentation?: Stage
     kind: widget.kind,
     title: widget.title,
     rect: widget.rect,
+    source: widget.source ?? null,
     ...(includeContent && widget.kind === "note" ? { text: widget.text.slice(0, 1000) } : {}),
     ...(includeContent && widget.kind === "mermaid" ? { code: widget.code.slice(0, 1000) } : {}),
     ...(includeContent && widget.kind === "recipe" ? { recipe: widget.recipe } : {}),
@@ -71,7 +72,7 @@ function context(state: StageState, includeContent = false, presentation?: Stage
     chromeReservations: stageChromeReservations,
     artifactArea: STAGE_CONTENT_RECT,
     viewportRule:
-      "Smaller viewports focus one readable piece at a time. Selected responses can use the main reading area. Never rely on outer canvas scrolling.",
+      "Every view uses the same saved cell rectangles. Navigation only filters visibility; it never enlarges, reflows or pages pieces. Row tracks reserve measured chrome space. Use space.rowHeights and pixel bounds to judge readability, and propose explicit validated move/resize operations when needed. Never rely on renderer overrides or outer canvas scrolling.",
     layoutRule:
       "All agent marks, labels, captions, controls and generated UI must stay within dedicated rectangles, with a one-cell gap. Queued agents have no cells until claimed.",
     queuedDesigns: state.pendingDesigns.length,

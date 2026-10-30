@@ -5,6 +5,8 @@ import type { StageState } from "@/lib/stage/schema";
 import { useState } from "react";
 import { ArrowUpRight, Maximize2, Minimize2 } from "lucide-react";
 
+import { StagePiecePicker } from "./stage-piece-picker";
+
 import { ChatMessageMarkdown } from "@/components/chat/chat-message-markdown";
 import { stageCaptionText, stageDiagramSources } from "@/lib/stage/artifacts";
 
@@ -19,6 +21,9 @@ export function StageResponse({
   compact = false,
   organicActive = true,
   onShowPieces,
+  pieces,
+  selectedPieceId,
+  onSelectPiece,
 }: {
   state: StageState;
   onOpenConversation: () => void;
@@ -29,6 +34,9 @@ export function StageResponse({
   compact?: boolean;
   organicActive?: boolean;
   onShowPieces?: () => void;
+  pieces?: StageState["widgets"];
+  selectedPieceId?: string | null;
+  onSelectPiece?: (id: string) => void;
 }) {
   const [selected, setSelected] = useState("organic");
   const [read, setRead] = useState<Record<string, string>>({});
@@ -46,7 +54,11 @@ export function StageResponse({
 
   if (pinned && !recent.includes(pinned)) recent[0] = pinned;
   const outputs = [
-    ...(organic ? [{ key: "organic", name: "Organic", message: organic }] : []),
+    {
+      key: "organic",
+      name: "Organic",
+      message: organic ?? { id: "stage-home", role: "assistant" as const, text: "" },
+    },
     ...recent.map((message) => ({ key: message.author!.id, name: message.author!.name, message })),
   ];
 
@@ -117,6 +129,13 @@ export function StageResponse({
             >
               Pieces
             </button>
+          )}
+          {!!pieces?.length && onSelectPiece && (
+            <StagePiecePicker
+              pieces={pieces}
+              selectedId={selectedPieceId}
+              onSelect={onSelectPiece}
+            />
           )}
         </div>
         <div className="stage-response-actions">

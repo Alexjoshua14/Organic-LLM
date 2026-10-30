@@ -210,13 +210,16 @@ export function repairStageLayout(state: StageState): StageState {
 
     if (!rect) {
       // Older snapshots may contain more work than the new frame can show at once.
-      // Preserve every piece in compact logical cells; the viewport pages it at reading size.
+      // Preserve every piece in valid cells. Rendering must use these saved rectangles as-is.
       const compact: StageWidget[] = [];
+
       for (const original of state.widgets) {
         const cell = findStagePlacement(compact, 1, 1, reserved);
+
         if (!cell) throw new StageLayoutError("No free cells for this layout");
         compact.push({ ...original, rect: cell });
       }
+
       return { ...state, widgets: compact };
     }
     placed.push({ ...widget, rect });

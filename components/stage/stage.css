@@ -79,8 +79,8 @@
   transform: scaleY(0);
 }
 .stage-grid-guide::after {
-  background: linear-gradient(to bottom, var(--stage-rule) 1px, transparent 1px);
-  background-size: 100% calc(100% / 32);
+  background-image: var(--stage-grid-rows);
+  background-size: 100% 100%;
   transform: scaleX(0);
 }
 .organic-stage[data-grid="true"] .stage-grid-guide::before,
@@ -209,6 +209,10 @@
   overflow: hidden;
   text-wrap: balance;
 }
+.stage-subagent-identity {
+  min-width: 0;
+  max-width: 100%;
+}
 .stage-subagent-status {
   display: block;
   height: 16px;
@@ -243,26 +247,6 @@
 }
 .organic-stage[data-compact="true"] .stage-subagent-name {
   margin-top: 4px;
-}
-.stage-piece-switcher {
-  z-index: 1;
-  display: flex;
-  gap: 16px;
-  align-items: center;
-  min-width: 0;
-  overflow: auto;
-  scrollbar-width: none;
-}
-.stage-piece-switcher button {
-  border: 0;
-  padding: 4px 0;
-  background: none;
-  color: var(--stage-muted);
-  white-space: nowrap;
-  font-size: 11px;
-}
-.stage-piece-switcher button[aria-pressed="true"] {
-  color: var(--stage-ink);
 }
 .stage-piece {
   position: relative;
@@ -765,6 +749,16 @@
   width: 20px;
   height: 20px;
 }
+.organic-stage[data-short-children="true"] .stage-subagent-status {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
 @keyframes stage-appear {
   from {
     opacity: 0;
@@ -788,4 +782,37 @@
     background: var(--stage-paper);
     backdrop-filter: none;
   }
+}
+
+.stage-piece-picker {
+  z-index: 60;
+  width: min(280px, calc(100vw - 32px));
+  max-height: min(360px, var(--radix-popover-content-available-height));
+  overflow: auto;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: 0 12px 32px -18px rgb(0 0 0 / 25%);
+  font-family: var(--font-commissioner), sans-serif;
+}
+.stage-piece-picker button {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 5px;
+  text-align: left;
+  background: none;
+  color: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.stage-piece-picker button:hover,
+.stage-piece-picker button:focus-visible {
+  background: var(--muted);
+}
+.stage-piece-picker button[aria-pressed="true"] {
+  font-weight: 550;
 }

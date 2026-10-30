@@ -9,16 +9,16 @@ export const STAGE_SIZE = 32;
 // The grid covers the whole Stage, including the response and composer.
 export const STAGE_HEADER_RECT = { x: 0, y: 0, w: 32, h: 3 } as const;
 export const STAGE_CONTENT_RECT = { x: 8, y: 4, w: 24, h: 18 } as const;
-export const STAGE_RESPONSE_RECT = { x: 8, y: 23, w: 24, h: 5 } as const;
-export const STAGE_COMPOSER_RECT = { x: 8, y: 29, w: 24, h: 3 } as const;
+export const STAGE_RESPONSE_RECT = { x: 4, y: 23, w: 24, h: 5 } as const;
+export const STAGE_COMPOSER_RECT = { x: 4, y: 29, w: 24, h: 3 } as const;
 export const STAGE_AGENT_RECT = { x: 0, y: 5, w: 7, h: 8 } as const;
 export const STAGE_MAX_WIDGETS = 48;
 export const STAGE_MAX_PENDING_DESIGNS = 8;
 export const STAGE_MAX_SUBAGENTS = 2;
-export const STAGE_SUBAGENT_RECT = { x: 0, y: 14, w: 7, h: 13 } as const;
+export const STAGE_SUBAGENT_RECT = { x: 0, y: 14, w: 7, h: 8 } as const;
 export const STAGE_CHILD_RECTS = [
-  { x: 0, y: 14, w: 7, h: 6 },
-  { x: 0, y: 21, w: 7, h: 6 },
+  { x: 0, y: 14, w: 3, h: 8 },
+  { x: 4, y: 14, w: 3, h: 8 },
 ] as const;
 
 export const StageRectSchema = z

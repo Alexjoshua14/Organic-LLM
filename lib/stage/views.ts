@@ -1,7 +1,7 @@
 import type { StageState } from "./schema";
 
 import { ORGANIC_STAGE_VIEW, type StageView, type StagePresentation } from "./view-schema";
-import { resolveStageFrame } from "./frame";
+import { resolveStageFrame, stageRectPixels } from "./frame";
 
 /** UI and model use the same owner-scoped catalog, including completed work. */
 export function stageViews(state: StageState) {
@@ -86,10 +86,12 @@ export function stageSpaceContext(state: StageState, presentation?: StagePresent
       id: widget.id,
       title: widget.title,
       rect,
+      pixels: stageRectPixels(frame, rect),
     })),
     readingArea: frame.reading ? frame.reply : frame.body,
     regions: { parent: frame.parent, response: frame.reply, composer: frame.composer },
+    rowHeights: frame.rows,
     navigation:
-      "Selecting a view reveals existing work; it never creates, delegates, or redesigns it. Organic tucks pieces away and centers the parent. Hidden pieces remain available. Only the parent/user controls selection; specialist results must not steal focus.",
+      "Cell rectangles are authoritative in every view. Rows reserve space for navigation, response and the growing composer; use rowHeights/pixel bounds to judge readability. Selecting a view only filters existing work; it never creates, delegates, or redesigns it. Organic tucks pieces away and centers the parent. Hidden pieces remain available. Only the parent/user controls selection; specialist results must not steal focus.",
   };
 }

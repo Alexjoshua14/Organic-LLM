@@ -28,14 +28,25 @@ live in `lib/stage/schema.ts`; both designer context and server validation inclu
 the response and composer. Generated pieces stay in the artifact area. Prior
 snapshots are repaired without discarding content.
 
-`lib/stage/frame.ts` fits those responsibilities to the available viewport. A
-ResizeObserver measures the root and natural composer height; it does no work on
-idle frames. Authored arrangements remain when readable. Otherwise Stage shows
-one or two useful pieces at reading size, with explicit selection/paging. Growing
-CoreInput reallocates cells. Selecting a response can give it the main reading
-area; short viewports offer this action instead of a one-line scrolling preview.
-The outer grid has no forced minimum width/height or scrolling canvas. Native
-scrolling remains available inside genuinely long content.
+`lib/stage/frame.ts` sizes one set of 32 CSS grid tracks from the available
+viewport and the composer's measured natural height. Header, response and composer
+keep their owned rows; artifact rows use the remaining space. Track heights may
+differ, and the guide backgrounds draw those exact boundaries. Resizing changes
+pixels per cell, never a piece's row, column, width or height.
+
+Every widget renders its stored `rect` directly. There is no coordinate projection,
+readability reflow, pagination or automatic enlargement for selected pieces. Grid
+only reveals guides; inspecting, saving, closing and filtering views use the same
+geometry. Piece navigation lives with the response controls, so it consumes no
+artifact cells. Long content retains native scrolling inside its explicitly sized
+piece. To give content more space, change its rectangle through a validated
+placement operation; do not override it in the renderer.
+
+Organic's centered home and an explicitly expanded response hide pieces without
+changing their rectangles. Visited pieces stay mounted while hidden. The server
+validator, designer context and rendered workspace use the same chrome/agent
+reservations. Model context includes row heights and actual pixel bounds so it
+can judge the space available for a requested layout.
 
 Diagrams use the shared Mermaid renderer's `canvas` variant: no well, border,
 padding, type label, or repeated title. Recipes own their single heading. Piece

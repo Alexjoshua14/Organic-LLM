@@ -1,7 +1,6 @@
 "use client";
 
 import type { StageWidget as Widget } from "@/lib/stage/schema";
-import type { StageRect } from "@/lib/stage/schema";
 
 import dynamic from "next/dynamic";
 import { Component, memo, type ReactNode } from "react";
@@ -70,13 +69,11 @@ export const StageWidget = memo(function StageWidget({
   widget,
   selected,
   onSelect,
-  rect = widget.rect,
   hidden = false,
 }: {
   widget: Widget;
   selected: boolean;
   onSelect: (id: string) => void;
-  rect?: StageRect;
   hidden?: boolean;
 }) {
   const reduced = useReducedMotion();
@@ -90,7 +87,7 @@ export const StageWidget = memo(function StageWidget({
       data-kind={widget.kind}
       data-selected={selected}
       data-widget-id={widget.id}
-      style={stageCellStyle(rect)}
+      style={stageCellStyle(widget.rect)}
       layout={hidden ? false : "position"}
       transition={{ layout: { duration: reduced ? 0 : 0.14, ease: "easeOut" } }}
     >

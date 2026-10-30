@@ -19,6 +19,7 @@ export const StagePresentationSchema = z
     width: z.number().int().min(0).max(10000),
     height: z.number().int().min(0).max(10000),
     composerHeight: z.number().int().min(0).max(2000),
+    // Accepted for older voice sessions; selection no longer pages or reflows grid pieces.
     page: z.number().int().min(0).max(48).optional(),
     reading: z.boolean().optional(),
   })

@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { emptyStageState } from "@/lib/stage/schema";
 import { stageNavigation, stageSpaceContext, resolveStageView } from "@/lib/stage/views";
-import { resolveStageFrame } from "@/lib/stage/frame";
+import { resolveStageFrame, stageRectPixels } from "@/lib/stage/frame";
 
 const source = { id: crypto.randomUUID(), name: "Prep Planner" };
 const widget = {
@@ -83,7 +83,12 @@ test("agent context describes the actual selection, viewport and owned work", ()
       view: { kind: "organic", id: null },
     }).visiblePieces
   ).toEqual([]);
-  const second = { ...widget, id: crypto.randomUUID(), title: "Finish checklist" };
+  const second = {
+    ...widget,
+    id: crypto.randomUUID(),
+    title: "Finish checklist",
+    rect: { ...widget.rect, x: 20 },
+  };
   const paged = stageSpaceContext(
     { ...state, widgets: [widget, second] },
     {
@@ -94,7 +99,8 @@ test("agent context describes the actual selection, viewport and owned work", ()
       page: 1,
     }
   );
-  expect(paged.visiblePieces[0].id).toBe(second.id);
+  expect(paged.visiblePieces.map((p) => p.id)).toEqual([widget.id, second.id]);
+  expect(paged.visiblePieces[1].rect).toEqual(second.rect);
   const reading = stageSpaceContext(state, {
     width: 1100,
     height: 700,
@@ -132,7 +138,7 @@ test("centered Organic reserves room for active children even in short windows",
     expect(frame.parent.y + frame.parent.h).toBeLessThan(frame.children[0].y);
     for (const child of frame.children) {
       expect(child.y + child.h).toBeLessThanOrEqual(frame.reply.y);
-      expect((child.h * height) / 32).toBeGreaterThanOrEqual(
+      expect(stageRectPixels(frame, child).h).toBeGreaterThanOrEqual(
         frame.tiny ? 66 : frame.compact ? 92 : 116
       );
     }

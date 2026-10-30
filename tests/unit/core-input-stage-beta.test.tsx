@@ -179,3 +179,78 @@ test("Stage returns to centered Organic, retains tucked pieces and applies serve
   fireEvent(window, new CustomEvent(STAGE_VIEW_EVENT, { detail: command }));
   expect(piece.hasAttribute("hidden")).toBe(false);
 });
+
+test("saved placement is identical after closing inspection, hiding guides, switching views and reloading", async () => {
+  const { emptyStageState } = await import("@/lib/stage/schema");
+  const { applyStageOperations } = await import("@/lib/stage/layout");
+  const source = { id: crypto.randomUUID(), name: "Prep Planner" };
+  let state = {
+    ...emptyStageState(),
+    widgets: [
+      {
+        id: crypto.randomUUID(),
+        kind: "note" as const,
+        title: "Prep checklist",
+        text: "Saved work",
+        rect: { x: 8, y: 4, w: 11, h: 16 },
+        source,
+      },
+    ],
+    messages: [
+      {
+        id: crypto.randomUUID(),
+        role: "assistant" as const,
+        text: "Ready",
+        author: { ...source, kind: "subagent" as const },
+      },
+    ],
+  };
+  const patches: unknown[] = [];
+  globalThis.fetch = (async (_url, init) => {
+    if (init?.method === "PATCH") {
+      const body = JSON.parse(String(init.body));
+      patches.push(body);
+      if (body.revision !== state.revision)
+        return Response.json({ error: "Stage changed" }, { status: 409 });
+      state = {
+        ...state,
+        revision: state.revision + 1,
+        widgets: applyStageOperations(state.widgets, body.operations),
+      } as typeof state;
+    }
+    return Response.json({ state });
+  }) as typeof fetch;
+  const app = render(<Stage />);
+  await waitFor(() =>
+    expect(Boolean(app.queryByRole("button", { name: /Prep Planner/ }))).toBe(true)
+  );
+  fireEvent.click(app.getByRole("button", { name: /Prep Planner/ }));
+  fireEvent.click(app.getByRole("button", { name: "Show grid" }));
+  fireEvent.click(app.getByRole("button", { name: "Arrange Prep checklist" }));
+  fireEvent.change(app.getByLabelText("Column"), { target: { value: "16" } });
+  fireEvent.change(app.getByLabelText("Row"), { target: { value: "6" } });
+  const piece = app.getByRole("article", { name: "Prep checklist" });
+  await waitFor(() => expect(piece.style.gridColumn).toBe("16 / span 11"));
+  expect(piece.style.gridRow).toBe("6 / span 16");
+  fireEvent.click(app.getByRole("button", { name: "Place it" }));
+  await waitFor(() =>
+    expect(Boolean(app.queryByRole("dialog", { name: "Arrange Prep checklist" }))).toBe(false)
+  );
+  expect(patches).toHaveLength(1);
+  expect(state.widgets[0].rect).toEqual({ x: 15, y: 5, w: 11, h: 16 });
+  fireEvent.click(app.getByRole("button", { name: "Show grid" }));
+  expect(piece.style.gridColumn).toBe("16 / span 11");
+  expect(piece.style.gridRow).toBe("6 / span 16");
+  fireEvent.click(app.getByRole("button", { name: "Organic", exact: true }));
+  fireEvent.click(app.getByRole("button", { name: /Prep Planner/ }));
+  expect(piece.style.gridColumn).toBe("16 / span 11");
+  app.unmount();
+  const reloaded = render(<Stage />);
+  await waitFor(() =>
+    expect(Boolean(reloaded.queryByRole("button", { name: /Prep Planner/ }))).toBe(true)
+  );
+  fireEvent.click(reloaded.getByRole("button", { name: /Prep Planner/ }));
+  const restored = reloaded.getByRole("article", { name: "Prep checklist" });
+  expect(restored.style.gridColumn).toBe("16 / span 11");
+  expect(restored.style.gridRow).toBe("6 / span 16");
+});
