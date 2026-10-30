@@ -14,6 +14,8 @@ type PageTopBarProps = {
   className?: string;
   /** Clears global sidebar trigger / safe-area on full-bleed pages. */
   withTopClearance?: boolean;
+  /** Reserve horizontal space for sidebar and global controls. */
+  withSideClearance?: boolean;
   /** Bottom border under the header bar. */
   withBorder?: boolean;
   /** `split`: leading | centered title | trailing. `stacked`: eyebrow + title top-left. */
@@ -27,6 +29,7 @@ export function PageTopBar({
   trailing,
   className,
   withTopClearance = false,
+  withSideClearance = true,
   withBorder = false,
   layout = "split",
 }: PageTopBarProps) {
@@ -34,7 +37,7 @@ export function PageTopBar({
 
   if (layout === "stacked") {
     return (
-      <div className={cn("w-full", borderClass, pageTopBarInsets, className)}>
+      <div className={cn("w-full", borderClass, withSideClearance && pageTopBarInsets, className)}>
         <div
           className={cn(
             "flex w-full items-center justify-between",
@@ -60,7 +63,7 @@ export function PageTopBar({
       className={cn(
         "flex w-full items-center justify-between py-3",
         borderClass,
-        pageTopBarInsets,
+        withSideClearance && pageTopBarInsets,
         withTopClearance && triggerInsetY,
         className
       )}

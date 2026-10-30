@@ -2,7 +2,7 @@
 
 import type { ComponentProps } from "react";
 
-import { ChevronDownIcon, ExternalLinkIcon, MessageCircleIcon } from "lucide-react";
+import { ChevronDownIcon, ExternalLinkIcon, MessageCircleIcon, SparklesIcon } from "lucide-react";
 import { createContext, useContext, useMemo } from "react";
 
 import { Button } from "@/components/third-party/ui/button";
@@ -47,6 +47,11 @@ const providers = {
       </svg>
     ),
     title: "Open in Claude",
+  },
+  gemini: {
+    createUrl: (_prompt: string) => "https://gemini.google.com/app",
+    icon: <SparklesIcon />,
+    title: "Copy prompt & open Gemini",
   },
   cursor: {
     createUrl: (text: string) => {
@@ -358,5 +363,5 @@ export function getOpenInProviderHref(id: OpenInChatLinkableId, query: string): 
 }
 
 export function getOpenInProviderMeta(id: OpenInChatLinkableId) {
-  return { icon: providers[id].icon, title: providers[id].title };
+  return { icon: providers[id].icon, title: providers[id].title, copyBeforeOpen: id === "gemini" };
 }

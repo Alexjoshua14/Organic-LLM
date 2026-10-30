@@ -34,7 +34,7 @@ export async function GET(req: Request) {
     return NextResponse.json(
       {
         error:
-          "No valid GitHub username or profile URL provided. Enter a GitHub username (e.g. Alexjoshua14) or URL (https://github.com/Alexjoshua14).",
+          "No valid GitHub username or profile URL provided. Enter a GitHub username (e.g. coalescence-labs) or URL (https://github.com/coalescence-labs).",
       },
       { status: 400 }
     );

@@ -29,8 +29,8 @@ export async function GET(req: Request) {
   if (!config) {
     return NextResponse.json(
       {
-        error:
-          "Ergon MCP OAuth is not configured on this deployment yet (set ERGON_OAUTH_CLIENT_ID and redirect). Ask an admin to register Organic as a WorkOS Connect Application.",
+        error: "Ergon connections aren’t available yet.",
+        code: "ERGON_NOT_CONFIGURED",
         oauthReady: false,
       },
       { status: 503 }

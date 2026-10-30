@@ -45,7 +45,10 @@ const snapshot: GithubConnectorSnapshot = {
 };
 
 function jsonResponse(data: unknown, status = 200): Response {
-  return new Response(JSON.stringify({ data }), { status, headers: { "Content-Type": "application/json" } });
+  return new Response(JSON.stringify({ data }), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
 }
 
 test("shows specialist routing and saves the dossier", async () => {
@@ -59,7 +62,9 @@ test("shows specialist routing and saves the dossier", async () => {
     });
     const sent = init?.body ? (JSON.parse(String(init.body)) as UserConnectorsProfile) : null;
 
-    return jsonResponse(sent ? normalizeUserConnectorsProfile(sent) : normalizeUserConnectorsProfile({}));
+    return jsonResponse(
+      sent ? normalizeUserConnectorsProfile(sent) : normalizeUserConnectorsProfile({})
+    );
   }) as typeof fetch;
 
   const view = render(
@@ -131,7 +136,7 @@ test("syncs a GitHub profile and refuses an invalid handle", async () => {
   expect(view.getByText(/Enter a valid GitHub username/)).toBeTruthy();
 
   await act(async () => {
-    fireEvent.change(view.getByLabelText(/GitHub Profile URL/), {
+    fireEvent.change(view.getByRole("textbox", { name: "GitHub Profile URL or Username" }), {
       target: { value: "https://github.com/Alexjoshua14" },
     });
   });
@@ -139,9 +144,9 @@ test("syncs a GitHub profile and refuses an invalid handle", async () => {
     fireEvent.click(view.getByRole("button", { name: "Test / Sync GitHub Repos" }));
   });
 
-  expect(calls.some((call) => call.includes("/api/profile/connectors/github?username=Alexjoshua14"))).toBe(
-    true
-  );
+  expect(
+    calls.some((call) => call.includes("/api/profile/connectors/github?username=Alexjoshua14"))
+  ).toBe(true);
   expect(calls.some((call) => call.startsWith("PUT /api/profile/connectors"))).toBe(true);
   expect(view.getByText(/organic-llm/)).toBeTruthy();
   expect(view.getByRole("status").textContent).toContain("Synced 1 public");
@@ -165,7 +170,9 @@ test("turning off automatic sharing persists the switch", async () => {
       initialProfile={{ careerHistory: "Research engineer", autoShareWithSubagents: true }}
     />
   );
-  const toggle = view.getByRole("switch", { name: "Automatically share connectors with subagents" });
+  const toggle = view.getByRole("switch", {
+    name: "Automatically share connectors with subagents",
+  });
 
   await act(async () => {
     fireEvent.click(toggle);
@@ -173,4 +180,37 @@ test("turning off automatic sharing persists the switch", async () => {
 
   expect(bodies.at(-1)).toContain('"autoShareWithSubagents":false');
   expect(view.getByText(/will not receive automatic connector slices/)).toBeTruthy();
+});
+
+test.each([
+  [503, "status", "Ergon connections aren’t available yet."],
+  [500, "alert", "Couldn’t connect to Ergon. Please try again."],
+] as const)("Ergon %s responses use production-safe feedback", async (status, role, message) => {
+  const view = render(
+    <ConnectorsSettingsTab
+      initialProfile={{}}
+      fetchImpl={
+        (async () =>
+          new Response(
+            JSON.stringify({
+              error: "Internal setup detail: ERGON_OAUTH_CLIENT_ID and WorkOS registration",
+              ...(status === 503 ? { oauthReady: false } : {}),
+            }),
+            { status }
+          )) as typeof fetch
+      }
+    />
+  );
+
+  await act(async () => {
+    fireEvent.click(view.getByRole("button", { name: "Connect Ergon with OAuth" }));
+  });
+  expect(view.getByRole(role).textContent).toContain(message);
+  expect(view.queryByText("Setup details")).toBeNull();
+  expect(view.container.textContent).not.toContain("ERGON_OAUTH_CLIENT_ID");
+  expect(view.container.textContent).not.toContain("WorkOS");
+  expect(view.getByRole("button", { name: "Connect Ergon with OAuth" })).toHaveProperty(
+    "disabled",
+    false
+  );
 });

@@ -1,7 +1,9 @@
 "use client";
 
+import type { ComponentProps, ReactNode } from "react";
 import type { OpenInChatProvider } from "@/lib/export/prompts";
 
+import { useState } from "react";
 import { ChevronDownIcon, ExternalLinkIcon } from "lucide-react";
 
 import {
@@ -26,7 +28,10 @@ export type OpenInChatProps = {
   presetId: string;
   disabled?: boolean;
   triggerLabel?: string;
+  triggerAriaLabel?: string;
   triggerClassName?: string;
+  triggerVariant?: ComponentProps<typeof Button>["variant"];
+  triggerIcon?: ReactNode;
 };
 
 export function OpenInChat({
@@ -36,23 +41,32 @@ export function OpenInChat({
   disabled,
   triggerLabel = "Open in chat",
   triggerClassName,
+  triggerAriaLabel,
+  triggerVariant = "outline",
+  triggerIcon,
 }: OpenInChatProps) {
+  const [open, setOpen] = useState(false);
+  const [feedback, setFeedback] = useState<string | null>(null);
+
   if (providers.length === 0) return null;
 
   const sorted = sortOpenInProvidersByLastUsed(presetId, providers);
 
   return (
-    <OpenIn query={query}>
+    <OpenIn open={open} query={query} onOpenChange={setOpen}>
       <OpenInTrigger asChild>
         <Button
+          aria-label={triggerAriaLabel}
           className={cn(
-            "inline-flex items-center gap-2 rounded-md border border-sky-400/30 bg-sky-400/12 px-3 py-2 text-xs font-medium uppercase tracking-[0.12em] text-sky-300",
+            triggerVariant === "outline" &&
+              "inline-flex items-center gap-2 rounded-md border border-sky-400/30 bg-sky-400/12 px-3 py-2 text-xs font-medium uppercase tracking-[0.12em] text-sky-300",
             triggerClassName
           )}
           disabled={disabled}
           type="button"
-          variant="outline"
+          variant={triggerVariant}
         >
+          {triggerIcon}
           {triggerLabel}
           <ChevronDownIcon className="size-3.5" />
         </Button>
@@ -69,7 +83,36 @@ export function OpenInChat({
                 href={href}
                 rel="noopener noreferrer"
                 target="_blank"
-                onClick={() => writeLastOpenInProvider(presetId, id)}
+                onClick={async (event) => {
+                  setFeedback(null);
+                  if (!meta.copyBeforeOpen) {
+                    writeLastOpenInProvider(presetId, id);
+
+                    return;
+                  }
+
+                  event.preventDefault();
+                  setOpen(false);
+                  // Open synchronously while user activation is available (including on Safari).
+                  const popup = window.open("about:blank", "_blank");
+
+                  if (popup) popup.opener = null;
+                  try {
+                    await navigator.clipboard.writeText(query);
+                    writeLastOpenInProvider(presetId, id);
+                    if (popup) {
+                      popup.location.href = href;
+                      setFeedback(
+                        "Prompt copied. Paste it into Gemini, then paste the reply here."
+                      );
+                    } else {
+                      setFeedback("Prompt copied. Allow popups or open Gemini and paste it there.");
+                    }
+                  } catch {
+                    popup?.close();
+                    setFeedback("Couldn’t copy the prompt. Allow clipboard access and try again.");
+                  }
+                }}
               >
                 <span className="shrink-0">{meta.icon}</span>
                 <span className="flex-1">{meta.title}</span>
@@ -79,6 +122,11 @@ export function OpenInChat({
           );
         })}
       </OpenInContent>
+      {feedback && (
+        <p className="text-xs leading-relaxed text-muted-foreground" role="status">
+          {feedback}
+        </p>
+      )}
     </OpenIn>
   );
 }
