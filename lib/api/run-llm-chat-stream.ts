@@ -51,6 +51,8 @@ export type RunLLMChatStreamParams = {
   maxSteps: number;
   isZeroDataRetention: boolean;
   coalescenceMode: boolean;
+  /** Experimental: knowledge-capsule title grammar when auto-titling. */
+  experimentalKnowledgeCapsuleTitles?: boolean;
   memoryEnabled: boolean | undefined;
   /** When `delphi` or `topic_explore`, automatic transcript ingest to Mem0 is skipped. */
   experience: ChatExperience | undefined;
@@ -77,6 +79,7 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
     maxSteps,
     isZeroDataRetention,
     coalescenceMode,
+    experimentalKnowledgeCapsuleTitles,
     memoryEnabled,
     experience,
     userMessage,
@@ -461,7 +464,9 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
               })
             ) {
               const { result: titleResult, durationMs } = await measureAsync(() =>
-                ensureChatHasTitle(chatId)
+                ensureChatHasTitle(chatId, {
+                  knowledgeCapsule: experimentalKnowledgeCapsuleTitles === true,
+                })
               );
 
               ensureChatHasTitleMs = durationMs;

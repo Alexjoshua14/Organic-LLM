@@ -40,6 +40,9 @@ export function SettingsOverlay({ open, onOpenChange, trigger }: SettingsOverlay
   const [experimentalContextEffort, setExperimentalContextEffort] = useState(
     () => getSettings().experimentalContextEffort
   );
+  const [experimentalKnowledgeCapsuleTitles, setExperimentalKnowledgeCapsuleTitles] = useState(
+    () => getSettings().experimentalKnowledgeCapsuleTitles
+  );
   const [ergonLiquidChrome, setErgonLiquidChrome] = useState(() => getSettings().ergonLiquidChrome);
   const [replayFeatureHints, setReplayFeatureHints] = useState(
     () => getSettings().replayFeatureHints
@@ -59,6 +62,7 @@ export function SettingsOverlay({ open, onOpenChange, trigger }: SettingsOverlay
       setCoalescenceMode(s.coalescenceMode);
       setExperimentalArcadiaMarkdownPreview(s.experimentalArcadiaMarkdownPreview);
       setExperimentalContextEffort(s.experimentalContextEffort);
+      setExperimentalKnowledgeCapsuleTitles(s.experimentalKnowledgeCapsuleTitles);
       setErgonLiquidChrome(s.ergonLiquidChrome);
       setReplayFeatureHints(s.replayFeatureHints);
     }
@@ -140,6 +144,21 @@ export function SettingsOverlay({ open, onOpenChange, trigger }: SettingsOverlay
                 onValueChange={(enabled) => {
                   setExperimentalContextEffort(enabled);
                   setSettings({ experimentalContextEffort: enabled });
+                  if (userId) void persistUserSettingsToSupabase(userId, getSettings());
+                }}
+              />
+            </QuickSettingRow>
+
+            <QuickSettingRow
+              caption="Thread titles become knowledge capsules: action / subject / additional slots, max 5 words. Off keeps today’s title phrasing."
+              label="Knowledge capsule titles (experimental)"
+            >
+              <Switch
+                aria-label="Knowledge capsule titles (experimental)"
+                isSelected={experimentalKnowledgeCapsuleTitles}
+                onValueChange={(enabled) => {
+                  setExperimentalKnowledgeCapsuleTitles(enabled);
+                  setSettings({ experimentalKnowledgeCapsuleTitles: enabled });
                   if (userId) void persistUserSettingsToSupabase(userId, getSettings());
                 }}
               />
