@@ -60,6 +60,7 @@ import {
   createRabbitHoleAssistantTools,
   type RabbitHoleStreamWriter,
 } from "@/lib/llm/rabbit-hole-assistant-tools";
+import { createRabbitHoleToolset } from "@/lib/llm/rabbit-hole-toolset";
 import { RABBIT_HOLE_TOOL_INSTRUCTIONS } from "@/lib/system-prompt/rabbit-hole-drawer";
 import { RABBIT_HOLE_MAX_DISPATCHES_PER_TURN } from "@/lib/llm/subagents/orchestrator/constants";
 import {
@@ -146,8 +147,15 @@ async function compileBaseChatTools({
       getActiveNodeId: () => rabbitHoleActiveNodeId ?? null,
     });
 
-    const tools: ToolSet = { ...rhTools };
-    let toolInstructions = RABBIT_HOLE_TOOL_INSTRUCTIONS;
+    const rabbitHoleToolset = createRabbitHoleToolset({
+      sbUserId,
+      writer: writer as unknown as RabbitHoleStreamWriter,
+      currentSessionId: rabbitHoleSessionId,
+      getDefaultParentNodeId: (sessionId) =>
+        sessionId === rabbitHoleSessionId ? (rabbitHoleActiveNodeId ?? null) : null,
+    });
+    const tools: ToolSet = { ...rhTools, ...rabbitHoleToolset.tools };
+    let toolInstructions = `${RABBIT_HOLE_TOOL_INSTRUCTIONS}\n\n${rabbitHoleToolset.instructions}`;
 
     if (useMemory) {
       tools.search_memories = createMemorySearchTool(sbUserId, writer);
@@ -322,6 +330,11 @@ async function compileBaseChatTools({
     if (experience === "arcadia") {
       Object.assign(tools, createGithubReadTools({ sbUserId }));
       toolInstructions += `${GITHUB_TOOL_INSTRUCTIONS}\n`;
+
+      const rabbitHoleToolset = createRabbitHoleToolset({ sbUserId });
+
+      Object.assign(tools, rabbitHoleToolset.tools);
+      toolInstructions += `${rabbitHoleToolset.instructions}\n`;
     }
 
     if (chatStyle === "ergon") {

@@ -744,6 +744,12 @@ const KNOWN_TOOL_IN_FLIGHT_LABELS: Record<string, string> = {
   navigate_rabbit_hole_node: "Navigating branch…",
   search_rabbit_hole_context: "Reading rabbit hole graph…",
   read_rabbit_hole_node: "Reading rabbit hole graph…",
+  list_rabbit_holes: "Browsing rabbit holes…",
+  search_rabbit_holes: "Searching rabbit holes…",
+  get_rabbit_hole: "Reading a rabbit hole…",
+  get_rabbit_hole_node: "Reading a rabbit hole node…",
+  get_rabbit_hole_node_section: "Reading a rabbit hole section…",
+  create_rabbit_hole: "Starting a rabbit hole…",
 };
 
 function toolInvocationInFlightLabel(toolName: string): string {
