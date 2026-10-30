@@ -1,0 +1,128 @@
+/* Opt-in only: the production CoreInput layouts keep their existing rules. */
+.core-input-stage-beta [data-prompt-input-shell] {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  border: 1px solid var(--stage-rule);
+  border-radius: 18px;
+  background: var(--stage-glass);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 30%),
+    0 12px 32px -24px rgb(0 0 0 / 22%);
+  backdrop-filter: blur(20px);
+}
+.core-input-stage-beta [data-prompt-input-shell]:focus-within {
+  border-color: color-mix(in srgb, var(--stage-focus) 45%, transparent);
+}
+.core-input-stage-beta-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 10px;
+  min-height: 66px;
+}
+.core-input-stage-beta textarea {
+  flex: 1;
+  width: 0;
+  min-width: 0;
+  min-height: 44px;
+  max-height: 164px;
+  padding: 10px 4px;
+  border: 0;
+  background: none;
+  color: var(--stage-ink);
+  font: inherit;
+  font-size: 13px;
+  line-height: 24px;
+  resize: none;
+  outline: none;
+  box-shadow: none;
+  mask-image: none;
+}
+.core-input-stage-beta textarea::placeholder {
+  color: var(--stage-muted);
+}
+.stage-beta-options-trigger,
+.stage-voice-button {
+  display: grid;
+  place-items: center;
+  flex: 0 0 44px;
+  height: 44px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  color: var(--stage-muted);
+  background: transparent;
+  transition:
+    color var(--stage-feedback),
+    background var(--stage-feedback),
+    border-color var(--stage-feedback);
+}
+.stage-beta-options-trigger:hover,
+.stage-beta-options-trigger[data-state="open"],
+.stage-voice-button:hover {
+  color: var(--stage-ink);
+  background: var(--stage-rule);
+}
+.stage-voice-button[aria-pressed="true"] {
+  color: var(--stage-focus);
+  background: color-mix(in srgb, var(--stage-focus) 10%, transparent);
+  border-color: color-mix(in srgb, var(--stage-focus) 25%, transparent);
+}
+.stage-beta-options-panel {
+  z-index: 100;
+  width: min(340px, calc(100vw - 32px));
+  max-height: var(--radix-popover-content-available-height);
+  overflow: auto;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: 0 18px 48px -20px rgb(0 0 0 / 30%);
+  font-family: var(--font-commissioner), sans-serif;
+}
+.stage-beta-options-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+.stage-beta-options-heading > :last-child {
+  color: var(--muted-foreground);
+  font-size: 10px;
+}
+.stage-beta-options-setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 8px 0;
+}
+.stage-beta-options-setting > span {
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+.stage-beta-options-panel > p {
+  margin-top: 16px;
+  color: var(--muted-foreground);
+  font-size: 10px;
+}
+@media (max-width: 480px) {
+  .core-input-stage-beta-row {
+    gap: 2px;
+    padding: 8px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stage-beta-options-trigger,
+  .stage-voice-button {
+    transition: none;
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .core-input-stage-beta [data-prompt-input-shell] {
+    background: var(--stage-paper);
+    backdrop-filter: none;
+  }
+}

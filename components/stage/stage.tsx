@@ -2,19 +2,27 @@
 
 import "./stage.css";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
-import { ArrowUp, Grid3X3, History, MessageCircle, ArrowUpRight, RotateCcw } from "lucide-react";
+import type { ChatModel } from "@/lib/schemas/chat";
+import type { ChatEffortLevel } from "@/lib/schemas/chat-effort";
+import type { StageTurnSettings } from "@/lib/stage/schema";
+
+import { useEffect, useRef, useState } from "react";
+import { AudioLines, Grid3X3, History, MessageCircle, ArrowUpRight, RotateCcw } from "lucide-react";
 
 import { useStage } from "./use-stage";
 import { StageWidget } from "./stage-widget";
 import { StageInspector } from "./stage-inspector";
 import { StageHistory } from "./stage-history";
 
-import { ThreadReferenceCard } from "@/components/chat/thread-reference/thread-reference-card";
-import { ThreadClipboardPicker } from "@/components/chat/thread-reference/thread-clipboard-picker";
-import { parseThreadPointer, threadReferenceMarker } from "@/lib/chat/thread-reference";
-
+import { ChatMessageMarkdown } from "@/components/chat/chat-message-markdown";
+import { CoreInput } from "@/components/chat/core-input";
+import { useVoiceSessionOptional } from "@/components/voice/voice-session-provider";
+import { useVoiceScreenContext } from "@/hooks/use-voice-screen-context";
+import { DEFAULT_COMPOSER_MODEL } from "@/lib/chat/composer-tool-defaults";
+import { coreInputScopes } from "@/lib/core-input/scopes";
 import { OrganicActivityMark } from "@/components/agents/organic-activity-mark";
+
+const STAGE_COMPOSER_SCOPE = coreInputScopes.area("stage");
 
 const STARTERS = [
   {
@@ -29,15 +37,31 @@ const STARTERS = [
 ];
 
 export function Stage() {
-  const { state, error, loading, sending, saving, send, mutate, refresh, retryDesign } = useStage();
+  const voice = useVoiceSessionOptional();
+  const voiceActive = !!voice && (voice.connected || voice.connecting || voice.paused);
+  const { state, error, loading, sending, saving, send, mutate, refresh, retryDesign } = useStage({
+    voiceActive: !!voice && (voice.connected || voice.connecting),
+  });
+  const modelRef = useRef<ChatModel>(DEFAULT_COMPOSER_MODEL);
+  const effortRef = useRef<ChatEffortLevel>("auto");
+  const searchRef = useRef(false);
+  const memoryRef = useRef(false);
+  const speechRef = useRef(false);
+  const [composerError, setComposerError] = useState<Error | null>(null);
+  const [composerInject, setComposerInject] = useState<{ id: number; text: string } | null>(null);
+  const settings = (): StageTurnSettings => ({
+    model: modelRef.current.id,
+    effort: effortRef.current,
+    webSearch: searchRef.current,
+    memory: memoryRef.current,
+    speechFriendly: speechRef.current,
+  });
+
+  useVoiceScreenContext(state ? { kind: "stage", revision: String(state.revision) } : null);
   const [showGrid, setShowGrid] = useState(false);
   const [panel, setPanel] = useState<"conversation" | "activity" | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [draft, setDraft] = useState("");
-  const [references, setReferences] = useState<string[]>([]);
-  const addReference = (id: string) =>
-    setReferences((current) => [...new Set([...current, id])].slice(0, 3));
-  const composer = useRef<HTMLTextAreaElement>(null);
+  const composer = useRef<HTMLDivElement>(null);
   const selected = state?.widgets.find((widget) => widget.id === selectedId);
   const working = state?.design?.status === "working";
   const failed = state?.design?.status === "failed";
@@ -60,11 +84,11 @@ export function Stage() {
       if (event.key === "Escape") {
         setPanel(null);
         setSelectedId(null);
-        composer.current?.focus();
+        composer.current?.querySelector("textarea")?.focus();
       }
       if ((event.metaKey || event.ctrlKey) && event.key === "/") {
         event.preventDefault();
-        composer.current?.focus();
+        composer.current?.querySelector("textarea")?.focus();
       }
     }
 
@@ -73,20 +97,11 @@ export function Stage() {
     return () => window.removeEventListener("keydown", keydown);
   }, []);
 
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    const text = draft.trim();
-    const sentReferences = references;
-    const message = [text, ...sentReferences.map(threadReferenceMarker)]
-      .filter(Boolean)
-      .join("\n\n");
-
-    if (!message || sending || !state) return;
-    if (await send(message)) {
-      setDraft((current) => (current.trim() === text ? "" : current));
-      setReferences((current) => current.filter((id) => !sentReferences.includes(id)));
-    }
-    composer.current?.focus();
+  function toggleVoice() {
+    if (!voice) return;
+    if (voice.connected || voice.connecting) voice.disconnect();
+    else if (voice.paused && voice.stage) voice.resume();
+    else voice.connect({ stage: true, stageSettings: settings() });
   }
 
   function togglePanel(next: "conversation" | "activity") {
@@ -162,7 +177,7 @@ export function Stage() {
               aria-label="Talk to Organic"
               className="stage-agent-button"
               type="button"
-              onClick={() => composer.current?.focus()}
+              onClick={() => composer.current?.querySelector("textarea")?.focus()}
             >
               <OrganicActivityMark
                 className="stage-agent-mark"
@@ -227,9 +242,9 @@ export function Stage() {
 
       <footer className="stage-footer">
         <div className="stage-reply" aria-live="polite">
-          {error ? (
+          {error || voice?.error ? (
             <div className="stage-error">
-              <p role="alert">{error}</p>
+              <p role="alert">{error || voice?.error}</p>
               {!state && (
                 <button className="stage-text-button" type="button" onClick={() => void refresh()}>
                   <RotateCcw size={13} />
@@ -237,38 +252,38 @@ export function Stage() {
                 </button>
               )}
             </div>
-          ) : failed ? (
-            <div className="stage-error">
-              <p>{state?.design?.error ?? "The designer couldn’t finish this arrangement."}</p>
-              <button
-                className="stage-text-button"
-                type="button"
-                onClick={() => void retryDesign()}
+          ) : latestReply ? (
+            <div className="stage-reply-text">
+              {/* eslint-disable jsx-a11y/no-noninteractive-tabindex -- Named scroll region supports keyboard reading. */}
+              <div
+                aria-label="Organic’s latest response"
+                className="stage-reply-copy stage-prose"
+                role="region"
+                tabIndex={0}
               >
-                Try designer again
+                <ChatMessageMarkdown content={latestReply.text} id={latestReply.id} />
+              </div>
+              {/* eslint-enable jsx-a11y/no-noninteractive-tabindex */}
+              <button
+                aria-label="Read Organic’s response in conversation"
+                className="stage-icon-button"
+                type="button"
+                onClick={() => togglePanel("conversation")}
+              >
+                <ArrowUpRight aria-hidden size={14} />
               </button>
             </div>
-          ) : latestReply ? (
-            <button
-              aria-label="Read Organic’s response in conversation"
-              className="stage-reply-text"
-              type="button"
-              onClick={() => togglePanel("conversation")}
-            >
-              <span>{latestReply.text}</span>
-              <ArrowUpRight aria-hidden size={14} />
-            </button>
           ) : (
             <div className="stage-starters">
               {STARTERS.map((starter) => (
                 <button
                   key={starter.label}
                   className="stage-text-button"
-                  disabled={!state || sending}
+                  disabled={!state || (sending && !voiceActive)}
                   type="button"
                   onClick={() => {
-                    setDraft(starter.prompt);
-                    composer.current?.focus();
+                    setComposerInject({ id: Date.now(), text: starter.prompt });
+                    composer.current?.querySelector("textarea")?.focus();
                   }}
                 >
                   {starter.label}
@@ -278,49 +293,73 @@ export function Stage() {
             </div>
           )}
         </div>
-        <div className="stage-references">
-          {references.map((id) => (
-            <ThreadReferenceCard
-              key={id}
-              id={id}
-              onRemove={() => setReferences((current) => current.filter((item) => item !== id))}
-            />
-          ))}
-        </div>
-        <form aria-label="Talk to Organic" className="stage-composer" onSubmit={submit}>
-          <span aria-hidden className="stage-composer-dot" data-working={sending} />
-          <textarea
-            ref={composer}
-            aria-label="Message Organic"
+        {failed ? (
+          <div className="stage-error stage-design-error">
+            <p role="status">
+              {state?.design?.error ?? "The designer couldn’t finish this arrangement."}
+            </p>
+            <button className="stage-text-button" type="button" onClick={() => void retryDesign()}>
+              Try designer again
+            </button>
+          </div>
+        ) : null}
+        <div ref={composer} className="stage-core-input" data-voice-active={voiceActive}>
+          <CoreInput
+            variant="stage-beta"
+            snapshotScope={STAGE_COMPOSER_SCOPE}
+            modelRef={modelRef}
+            effortRef={effortRef}
+            useWebSearchRef={searchRef}
+            useMemoriesRef={memoryRef}
+            useSpeechFriendlyRef={speechRef}
+            defaultWebSearch={false}
+            defaultMemories={false}
             disabled={!state}
-            maxLength={7800}
+            status={sending ? "submitted" : "ready"}
+            error={composerError}
+            clearError={() => setComposerError(null)}
+            stop={async () => undefined}
+            showContextBudget={false}
+            featureHints={false}
+            composerInject={composerInject}
             placeholder={loading ? "Opening your space…" : "What’s on your mind?"}
-            rows={1}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onPaste={(event) => {
-              const id = parseThreadPointer(event.clipboardData.getData("text/plain"));
-              if (!id || references.length >= 3) return;
-              event.preventDefault();
-              addReference(id);
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
-                event.preventDefault();
-                event.currentTarget.form?.requestSubmit();
+            sendMessage={async (message) => {
+              const text =
+                "text" in (message ?? {}) ? String((message as { text: string }).text) : "";
+
+              setComposerError(null);
+              if (!(await send(text, settings()))) {
+                const failure = new Error("Your message couldn’t be sent. Please try again.");
+
+                setComposerError(failure);
+                throw failure;
               }
             }}
+            voiceControl={
+              voice ? (
+                <button
+                  aria-label={
+                    voice.connected || voice.connecting
+                      ? "End voice session"
+                      : voice.paused && voice.stage
+                        ? "Resume voice session"
+                        : "Start voice session"
+                  }
+                  aria-pressed={voiceActive}
+                  className="stage-voice-button"
+                  disabled={!state || (sending && !voiceActive)}
+                  title={
+                    voice.connected || voice.connecting ? "End voice session" : "Talk with Organic"
+                  }
+                  type="button"
+                  onClick={toggleVoice}
+                >
+                  <AudioLines aria-hidden size={19} />
+                </button>
+              ) : null
+            }
           />
-          <ThreadClipboardPicker onSelect={addReference} />
-          <button
-            aria-label={sending ? "Organic is responding" : "Send message"}
-            className="stage-send"
-            disabled={!state || sending || (!draft.trim() && !references.length)}
-            type="submit"
-          >
-            <ArrowUp size={19} />
-          </button>
-        </form>
+        </div>
         <div className="stage-footer-caption">
           <span>
             {working ? "The designer is working. Keep talking." : "A thought can become a place."}

@@ -1,6 +1,6 @@
 "use client";
 
-import type { StageOperation, StageState } from "@/lib/stage/schema";
+import type { StageOperation, StageState, StageTurnSettings } from "@/lib/stage/schema";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -25,7 +25,7 @@ export async function stageRequest<T>(path: string, init?: RequestInit): Promise
   return data as T;
 }
 
-export function useStage() {
+export function useStage({ voiceActive = false }: { voiceActive?: boolean } = {}) {
   const [state, setState] = useState<StageState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -71,7 +71,7 @@ export function useStage() {
   }, [refresh]);
 
   useEffect(() => {
-    if (state?.design?.status !== "working") return;
+    if (state?.design?.status !== "working" && !voiceActive) return;
     let disposed = false;
     let timer: ReturnType<typeof setTimeout>;
     const poll = async () => {
@@ -85,10 +85,10 @@ export function useStage() {
       disposed = true;
       clearTimeout(timer);
     };
-  }, [state?.design?.id, state?.design?.status, refresh]);
+  }, [state?.design?.id, state?.design?.status, voiceActive, refresh]);
 
   const send = useCallback(
-    async (message: string) => {
+    async (message: string, settings?: StageTurnSettings) => {
       if (sendLock.current || !current.current) return false;
       sendLock.current = true;
       setSending(true);
@@ -102,7 +102,7 @@ export function useStage() {
       try {
         const data = await stageRequest<{ state: StageState }>("/api/stage", {
           method: "POST",
-          body: JSON.stringify(turn),
+          body: JSON.stringify({ ...turn, settings }),
         });
 
         accept(data.state);

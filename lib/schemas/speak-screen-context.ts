@@ -42,6 +42,7 @@ export const SpeakScreenSurfaceSchema = z.discriminatedUnion("kind", [
      */
     activeNodePending: z.boolean().optional(),
   }),
+  z.object({ kind: z.literal("stage"), revision: z.string().max(128).optional() }),
   /** The user navigated somewhere with no registered context; tells the model to let it go stale. */
   z.object({ kind: z.literal("none") }),
 ]);
@@ -69,6 +70,8 @@ export function screenSurfaceKey(surface: SpeakScreenSurface): string {
       return `rabbit-hole:${surface.id}:${surface.activeNodeId ?? "root"}${
         surface.activeNodePending ? ":pending" : ""
       }`;
+    case "stage":
+      return `stage:${surface.revision ?? "current"}`;
     case "none":
       return "none";
   }

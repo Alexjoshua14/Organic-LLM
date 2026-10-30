@@ -1,9 +1,15 @@
 import "server-only";
 
+import type { StageEvent, StageState } from "./schema";
+
+import { describeStageDesignFailure } from "./design-failure";
 import { generateStageDesign, StageGenerationError } from "./agent";
 import { mergeStageDesignPlan } from "./reconcile";
 import { acquireStageLease, mutateStage, readStage, releaseStageLease } from "./store";
-import type { StageEvent, StageState } from "./schema";
+
+import { createLogger } from "@/lib/logger";
+
+const logger = createLogger("lib/stage/design.ts");
 
 const DESIGN_TIMEOUT_MS = 90_000;
 
@@ -15,11 +21,14 @@ export async function runStageDesign(args: {
   brief: string;
 }) {
   const lease = await acquireStageLease(args.ownerId, "design");
+
   if (!lease) return;
   let usage: StageEvent["usage"] = null;
   let model: string | null = null;
+
   try {
     const current = await readStage(args.ownerId);
+
     if (current.state.design?.id !== args.jobId || current.state.design.status !== "working")
       return;
     // Read the durable current layout, including edits made before this worker actually starts.
@@ -30,10 +39,12 @@ export async function runStageDesign(args: {
       state: base,
       brief: args.brief,
     });
+
     usage = result.usage;
     model = result.model;
     const chatIds = new Map<number, string>();
     const widgetIds = new Map<number, string>();
+
     for (const [index, operation] of result.plan.operations.entries()) {
       if (operation.operation !== "upsert" || operation.targetId) continue;
       widgetIds.set(index, crypto.randomUUID());
@@ -41,6 +52,7 @@ export async function runStageDesign(args: {
       if (operation.kind === "chat") chatIds.set(index, crypto.randomUUID());
     }
     const stillCurrent = await readStage(args.ownerId);
+
     if (
       stillCurrent.state.design?.id !== args.jobId ||
       stillCurrent.state.design.status !== "working"
@@ -54,6 +66,7 @@ export async function runStageDesign(args: {
           call: { operation: "design", model: result.model, outcome: "superseded" },
         }
       );
+
       return;
     }
     // Validate before committing; every CAS retry reconciles against concurrent user changes.
@@ -65,6 +78,7 @@ export async function runStageDesign(args: {
         if (state.design?.id !== args.jobId || state.design.status !== "working")
           return { ...state, lastModel: result.model };
         const [next, ...pendingDesigns] = state.pendingDesigns;
+
         return {
           ...state,
           widgets: mergeStageDesignPlan(state, base, result.plan, chatIds, widgetIds),
@@ -80,6 +94,13 @@ export async function runStageDesign(args: {
       usage = error.usage;
       model = error.model;
     }
+    const failure = describeStageDesignFailure(error);
+
+    logger.warn("runStageDesign", "design_failed", {
+      jobId: args.jobId,
+      model,
+      code: failure.code,
+    });
     await mutateStage(
       args.ownerId,
       "design-failed",
@@ -91,7 +112,7 @@ export async function runStageDesign(args: {
             ? {
                 ...state.design,
                 status: "failed",
-                error: "Design could not finish. Retry when ready.",
+                error: failure.message,
               }
             : state.design,
       }),

@@ -1,5 +1,6 @@
 "use client";
 
+import type { StageTurnSettings } from "@/lib/stage/schema";
 import type { SpeakModalities } from "@/lib/schemas/speak-modalities";
 import type { SpeakRealtimeVoice } from "@/lib/schemas/speak-realtime-voice";
 import type { SpeakSubagentSeed } from "@/lib/schemas/speak-subagent-context";
@@ -86,6 +87,8 @@ function connectFailureOf(error: RealtimeConnectError): ConnectFailure {
 }
 
 type SessionMintResponse = {
+  stage?: boolean;
+  stageSettings?: StageTurnSettings;
   clientSecret: string;
   /** Present only when the call speaks as a unified persona. */
   baseInstructions?: string;
@@ -186,6 +189,9 @@ export function useRealtimeVoice({
   const [connected, setConnected] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [stage, setStage] = useState(false);
+  const stageRef = useRef(false);
+  const stageSettingsRef = useRef<StageTurnSettings | undefined>(undefined);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [threadId, setThreadId] = useState<string | null>(null);
   const [budget, setBudget] = useState<SpeakBudgetSnapshot | null>(null);
@@ -698,6 +704,8 @@ export function useRealtimeVoice({
       threadId?: string;
       voice?: SpeakRealtimeVoice;
       subagentSeed?: SpeakSubagentSeed;
+      stage?: boolean;
+      stageSettings?: StageTurnSettings;
     }) => {
       if (connecting || connectedRef.current) return;
 
@@ -724,10 +732,13 @@ export function useRealtimeVoice({
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
+              stage: options?.stage,
+              stageSettings: options?.stageSettings,
               // Subagent calls speak as their worker, never as a persona.
-              personaSessionId: options?.subagentSeed
-                ? undefined
-                : (personaSessionIdRef.current ?? undefined),
+              personaSessionId:
+                options?.subagentSeed || options?.stage
+                  ? undefined
+                  : (personaSessionIdRef.current ?? undefined),
               modalities: modalitiesRef.current,
               memory: memoryEnabledRef.current,
               threadPolicy: options?.threadPolicy ?? threadPolicyRef.current,
@@ -769,6 +780,9 @@ export function useRealtimeVoice({
             ? (personaSessionIdRef.current ?? null)
             : null;
           sessionIdRef.current = mint.sessionId;
+          stageRef.current = mint.stage === true;
+          stageSettingsRef.current = mint.stageSettings ?? options?.stageSettings;
+          setStage(stageRef.current);
           setSessionId(mint.sessionId);
           threadIdRef.current = mint.threadId;
           setThreadId(mint.threadId);
@@ -882,7 +896,12 @@ export function useRealtimeVoice({
    * failure leaves the call paused, so the bar still offers another try.
    */
   const resume = useCallback(
-    () => connect({ threadId: pausedThreadIdRef.current ?? undefined }),
+    () =>
+      connect({
+        threadId: pausedThreadIdRef.current ?? undefined,
+        stage: stageRef.current,
+        stageSettings: stageSettingsRef.current,
+      }),
     [connect]
   );
 
@@ -1125,6 +1144,7 @@ export function useRealtimeVoice({
   }, [teardown]);
 
   return {
+    stage,
     phase,
     /** Persona calls only: what happened to the latest utterance. */
     personaTurn,

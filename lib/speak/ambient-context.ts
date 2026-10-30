@@ -6,6 +6,8 @@ import type { RabbitHoleNode, RabbitHoleSession } from "@/lib/schemas/rabbitHole
 import type { SpeakScreenSurface } from "@/lib/schemas/speak-screen-context";
 import type { StrataPageWithSections } from "@/lib/schemas/strata";
 
+import { readStage } from "@/lib/stage/store";
+import { stageVoiceContext } from "@/lib/stage/voice";
 import { getSessionById, getRabbitHoleSessionOwnerId } from "@/data/supabase/rabbitholes";
 import { getThreadScreen } from "@/data/supabase/chat";
 import { getStrataPageById } from "@/data/supabase/strata";
@@ -65,6 +67,7 @@ const RABBIT_HOLE_GRAPH_HEADING =
 const RABBIT_HOLE_GRAPH_MORE_RESERVE = 40;
 
 export type AmbientContextDeps = {
+  readStage?: typeof readStage;
   getThreadScreen: typeof getThreadScreen;
   getStrataPageById: typeof getStrataPageById;
   getSessionById: typeof getSessionById;
@@ -439,6 +442,7 @@ export type AmbientContext = {
 };
 
 const KIND_LABEL: Record<SpeakScreenSurface["kind"], string> = {
+  stage: "Stage",
   chat: "Chat",
   stratum: "Strata",
   "rabbit-hole": "Rabbit hole",
@@ -466,6 +470,17 @@ export async function buildAmbientContext(
       case "none":
         return { body: AMBIENT_CLEARED_BODY, label: kind };
 
+      case "stage": {
+        const { state } = await (deps.readStage ?? readStage)(ownerId);
+
+        return {
+          body: fitAmbientBody([
+            "The user is on their Stage. Current Stage (quoted data):",
+            stageVoiceContext(state),
+          ]),
+          label: kind,
+        };
+      }
       case "chat": {
         // One thread-row read, which also checks ownership before any content is touched.
         const screen = await deps.getThreadScreen(surface.id, {

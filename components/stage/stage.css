@@ -8,6 +8,8 @@
   --stage-enter: 220ms;
   --stage-feedback: 140ms;
   --stage-breathe: 4s;
+  --stage-grid-enter: 220ms;
+  --stage-grid-exit: 140ms;
   position: relative;
   isolation: isolate;
   display: flex;
@@ -123,22 +125,37 @@
   grid-template-columns: repeat(32, minmax(0, 1fr));
   grid-template-rows: repeat(32, minmax(0, 1fr));
 }
-.stage-surface::before {
+.stage-surface::before,
+.stage-surface::after {
   content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
   opacity: 0;
-  background-image:
-    linear-gradient(to right, var(--stage-rule) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--stage-rule) 1px, transparent 1px);
-  background-size: calc(100% / 32) calc(100% / 32);
-  border-right: 1px solid var(--stage-rule);
-  border-bottom: 1px solid var(--stage-rule);
-  transition: opacity var(--stage-enter);
+  transform-origin: top left;
+  transition:
+    opacity var(--stage-grid-exit) ease-out,
+    transform var(--stage-grid-exit) ease-out;
 }
-.organic-stage[data-grid="true"] .stage-surface::before {
+/* Separate axes draw along the lines, keeping cell spacing fixed. Only two static
+   layers transform; no per-line nodes, masks, timers, or work on idle frames. */
+.stage-surface::before {
+  background-image: linear-gradient(to right, var(--stage-rule) 1px, transparent 1px);
+  background-size: calc(100% / 32) 100%;
+  border-right: 1px solid var(--stage-rule);
+  transform: scaleY(0);
+}
+.stage-surface::after {
+  background-image: linear-gradient(to bottom, var(--stage-rule) 1px, transparent 1px);
+  background-size: 100% calc(100% / 32);
+  border-bottom: 1px solid var(--stage-rule);
+  transform: scaleX(0);
+}
+.organic-stage[data-grid="true"] .stage-surface::before,
+.organic-stage[data-grid="true"] .stage-surface::after {
   opacity: 0.7;
+  transform: none;
+  transition-duration: var(--stage-grid-enter);
 }
 .stage-registration {
   pointer-events: none;
@@ -341,11 +358,13 @@
   line-height: 1.6;
   color: var(--stage-ink);
 }
-.stage-reply-text span {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+.stage-reply-copy {
+  flex: 1;
+  min-width: 0;
+  max-height: min(26dvh, 240px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
 }
 .stage-reply-text svg {
   flex: 0 0 auto;
@@ -783,8 +802,8 @@
   .organic-stage[data-empty="false"] .stage-ruler-side {
     display: none;
   }
-  .organic-stage[data-empty="false"] .stage-surface::before {
-    background-size: calc(100% / 32) 20px;
+  .organic-stage[data-empty="false"] .stage-surface::after {
+    background-size: 100% 20px;
   }
 }
 @media (max-height: 680px) and (min-width: 761px) {
@@ -821,4 +840,25 @@
     background: var(--stage-paper);
     backdrop-filter: none;
   }
+}
+
+.stage-core-input {
+  position: relative;
+}
+.stage-core-input > div {
+  z-index: 20;
+}
+.stage-core-input .core-input-stage-beta {
+  position: relative;
+  z-index: 40;
+}
+
+.stage-design-error {
+  margin: 0 8px 12px;
+  color: var(--stage-muted);
+  font-size: 11px;
+}
+
+.stage-core-input[data-voice-active="true"] {
+  margin-top: 32px;
 }

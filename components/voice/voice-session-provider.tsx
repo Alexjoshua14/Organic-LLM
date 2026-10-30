@@ -1,5 +1,6 @@
 "use client";
 
+import type { StageTurnSettings } from "@/lib/stage/schema";
 import type { SpeakModalities } from "@/lib/schemas/speak-modalities";
 import type { SpeakRealtimeVoice } from "@/lib/schemas/speak-realtime-voice";
 import type { SpeakScreenSurface } from "@/lib/schemas/speak-screen-context";
@@ -37,11 +38,14 @@ export type VoiceCaption = {
 };
 
 export type VoiceConnectOptions = {
+  stage?: boolean;
+  stageSettings?: StageTurnSettings;
   voice?: SpeakRealtimeVoice;
   subagentSeed?: SpeakSubagentSeed;
 };
 
 export type VoiceSessionValue = {
+  stage: boolean;
   phase: LiveVoicePhase;
   connected: boolean;
   connecting: boolean;
@@ -227,6 +231,7 @@ export function VoiceSessionProvider({
 
   const value = useMemo<VoiceSessionValue>(
     () => ({
+      stage: voice.stage,
       phase: voice.phase,
       connected: voice.connected,
       connecting: voice.connecting,

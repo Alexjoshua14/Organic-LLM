@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { ChatEffortLevelSchema } from "@/lib/schemas/chat-effort";
 import { RecipeCardBlockSchema } from "@/lib/schemas/gen-ui/recipe-card";
 
 export const STAGE_SIZE = 32;
@@ -22,6 +23,7 @@ const base = {
   title: z.string().trim().min(1).max(100),
   rect: StageRectSchema,
 };
+
 export const StageWidgetSchema = z.discriminatedUnion("kind", [
   z.object({ ...base, kind: z.literal("note"), text: z.string().max(4000) }).strict(),
   z.object({ ...base, kind: z.literal("mermaid"), code: z.string().max(8000) }).strict(),
@@ -81,9 +83,21 @@ export const StageMutationSchema = z
   })
   .strict();
 
+export const StageTurnSettingsSchema = z
+  .object({
+    model: z.string().max(100).optional(),
+    effort: ChatEffortLevelSchema.optional(),
+    webSearch: z.boolean().optional(),
+    memory: z.boolean().optional(),
+    speechFriendly: z.boolean().optional(),
+  })
+  .strict();
+export type StageTurnSettings = z.infer<typeof StageTurnSettingsSchema>;
+
 export const StageTurnSchema = z
   .object({
     message: z.string().trim().min(1).max(8000),
+    settings: StageTurnSettingsSchema.optional(),
     requestId: z.string().uuid(),
   })
   .strict();
