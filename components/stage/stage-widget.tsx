@@ -61,8 +61,8 @@ const PieceContent = memo(
     );
   },
   (a, b) =>
-    JSON.stringify({ ...a.widget, rect: undefined }) ===
-    JSON.stringify({ ...b.widget, rect: undefined })
+    JSON.stringify({ ...a.widget, rect: undefined, layouts: undefined }) ===
+    JSON.stringify({ ...b.widget, rect: undefined, layouts: undefined })
 );
 
 export const StageWidget = memo(function StageWidget({

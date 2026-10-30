@@ -12,6 +12,8 @@ import {
   type StageRect,
   type StageWidget,
 } from "./schema";
+import { STAGE_OVERVIEW, placeStageWidget, stageViewWidgets, stageWidgetRect } from "./placements";
+import type { StageView } from "./view-schema";
 
 export class StageLayoutError extends Error {}
 
@@ -25,7 +27,11 @@ export function touchesWithGap(a: StageRect, b: StageRect) {
   return a.x < b.x + b.w + 1 && a.x + a.w + 1 > b.x && a.y < b.y + b.h + 1 && a.y + a.h + 1 > b.y;
 }
 
-export function validateStageLayout(widgets: StageWidget[], reserved: StageRect[] = []) {
+export function validateStageLayout(
+  widgets: StageWidget[],
+  reserved: StageRect[] = [],
+  view: StageView = STAGE_OVERVIEW
+) {
   if (widgets.length > STAGE_MAX_WIDGETS) throw new StageLayoutError("Too many widgets");
   const ids = new Set<string>();
 
@@ -33,6 +39,12 @@ export function validateStageLayout(widgets: StageWidget[], reserved: StageRect[
     StageWidgetSchema.parse(widget);
     if (ids.has(widget.id)) throw new StageLayoutError("Duplicate widget ID");
     ids.add(widget.id);
+  }
+  const visible = stageViewWidgets(widgets, view).map((widget) => ({
+    ...widget,
+    rect: stageWidgetRect(widget, view),
+  }));
+  for (const widget of visible) {
     const { x, y, w, h } = widget.rect;
 
     if (
@@ -52,13 +64,26 @@ export function validateStageLayout(widgets: StageWidget[], reserved: StageRect[
       throw new StageLayoutError("Widget overlaps the central agent");
     }
   }
-  for (let i = 0; i < widgets.length; i++) {
-    for (let j = i + 1; j < widgets.length; j++) {
-      if (touchesWithGap(widgets[i].rect, widgets[j].rect)) {
+  for (let i = 0; i < visible.length; i++) {
+    for (let j = i + 1; j < visible.length; j++) {
+      if (touchesWithGap(visible[i].rect, visible[j].rect)) {
         throw new StageLayoutError("Widgets require a one-cell gap");
       }
     }
   }
+}
+
+export function validateStageLayouts(widgets: StageWidget[], reserved: StageRect[] = []) {
+  validateStageLayout(widgets, reserved);
+  for (const id of new Set(
+    widgets.flatMap((widget) => (widget.source ? [widget.source.id] : []))
+  )) {
+    const view: StageView = { kind: "author", id };
+    if (stageViewWidgets(widgets, view).every((widget) => widget.layouts?.author))
+      validateStageLayout(widgets, reserved, view);
+  }
+  for (const widget of widgets)
+    validateStageLayout(widgets, reserved, { kind: "piece", id: widget.id });
 }
 
 export function applyStageOperations(
@@ -78,7 +103,9 @@ export function applyStageOperations(
       next.splice(index, 1);
     } else if (operation.type === "move") {
       if (index < 0) throw new StageLayoutError("Widget does not exist");
-      next[index] = { ...next[index], rect: operation.rect };
+      if (!stageViewWidgets([next[index]], operation.view ?? STAGE_OVERVIEW).length)
+        throw new StageLayoutError("Widget does not belong to this view");
+      next[index] = placeStageWidget(next[index], operation.view ?? STAGE_OVERVIEW, operation.rect);
     } else if (index >= 0) {
       const old = next[index];
 
@@ -90,7 +117,8 @@ export function applyStageOperations(
       ) {
         throw new StageLayoutError("Widget identity cannot change");
       }
-      next[index] = operation.widget;
+      // Older clients/designers may not send placements; don't erase another tab's arrangement.
+      next[index] = { ...operation.widget, layouts: operation.widget.layouts ?? old.layouts };
     } else {
       // Chat thread IDs are minted server-side by the designer, never accepted from a client mutation.
       if (operation.widget.kind === "chat")
@@ -98,9 +126,9 @@ export function applyStageOperations(
       next.push(operation.widget);
     }
   }
-  validateStageLayout(next, reserved);
+  validateStageLayouts(next, reserved);
 
-  return next;
+  return initializeStageViewLayouts(next, reserved);
 }
 
 export function findStagePlacement(
@@ -182,7 +210,7 @@ export function stageReservedRects(state: StageState): StageRect[] {
 }
 
 /** Keep valid pieces fixed; relocate conflicts atomically, never discard their content. */
-export function repairStageLayout(state: StageState): StageState {
+function repairStageOverview(state: StageState): StageState {
   const reserved = stageReservedRects(state);
   const placed: StageWidget[] = [];
   const conflicts: StageWidget[] = [];
@@ -229,4 +257,79 @@ export function repairStageLayout(state: StageState): StageState {
     ...state,
     widgets: state.widgets.map((widget) => placed.find((item) => item.id === widget.id)!),
   };
+}
+
+/** Seed a real saved arrangement on publication/migration, never when a tab is selected. */
+export function initializeStageViewLayouts(widgets: StageWidget[], reserved: StageRect[] = []) {
+  const compactLegacy = widgets.some(
+    (widget) => !widget.layouts?.piece && (widget.rect.w < 4 || widget.rect.h < 4)
+  );
+  let next = widgets.map((widget, index) => {
+    const saved = compactLegacy
+      ? { ...widget, rect: packedStageRect(index, widgets.length) }
+      : widget;
+
+    return saved.layouts?.piece
+      ? saved
+      : {
+          ...saved,
+          layouts: { ...saved.layouts, piece: { ...STAGE_CONTENT_RECT } },
+        };
+  });
+  const authors = new Set(widgets.flatMap((widget) => (widget.source ? [widget.source.id] : [])));
+
+  for (const id of authors) {
+    const view: StageView = { kind: "author", id };
+    const group = stageViewWidgets(next, view);
+    try {
+      if (group.every((widget) => widget.layouts?.author)) {
+        validateStageLayout(next, reserved, view);
+        continue;
+      }
+    } catch (error) {
+      if (!(error instanceof StageLayoutError)) throw error;
+    }
+    // Membership changed or an old arrangement is invalid. Save a balanced layout for this tab.
+    next = next.map((widget) => {
+      const index = group.findIndex((piece) => piece.id === widget.id);
+      if (index < 0) return widget;
+
+      return placeStageWidget(widget, view, packedStageRect(index, group.length));
+    });
+  }
+  // Restore bad focus placements without touching valid authored cells.
+  next = next.map((widget) => {
+    try {
+      validateStageLayout([widget], reserved, { kind: "piece", id: widget.id });
+      return widget;
+    } catch (error) {
+      if (!(error instanceof StageLayoutError)) throw error;
+      return placeStageWidget(widget, { kind: "piece", id: widget.id }, { ...STAGE_CONTENT_RECT });
+    }
+  });
+  validateStageLayouts(next, reserved);
+
+  return next.every((widget, index) => widget === widgets[index]) ? widgets : next;
+}
+
+function packedStageRect(index: number, count: number): StageRect {
+  const area = STAGE_CONTENT_RECT;
+  const columns = Math.min(count, Math.ceil(Math.sqrt((count * area.w) / area.h)));
+  const rows = Math.ceil(count / columns);
+  const w = Math.floor((area.w - columns + 1) / columns);
+  const h = Math.floor((area.h - rows + 1) / rows);
+
+  return {
+    x: area.x + (index % columns) * (w + 1),
+    y: area.y + Math.floor(index / columns) * (h + 1),
+    w,
+    h,
+  };
+}
+
+export function repairStageLayout(state: StageState): StageState {
+  const repaired = repairStageOverview(state);
+  const widgets = initializeStageViewLayouts(repaired.widgets, stageReservedRects(repaired));
+
+  return widgets === repaired.widgets ? repaired : { ...repaired, widgets };
 }

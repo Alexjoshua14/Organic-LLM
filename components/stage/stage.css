@@ -221,9 +221,20 @@
   color: var(--stage-muted);
 }
 .stage-subagent-stop {
-  position: absolute;
-  right: 0;
-  top: 6px;
+  flex: none;
+  margin-top: 4px;
+  min-height: 22px;
+  padding: 2px 7px;
+  border: 1px solid var(--stage-rule);
+  border-radius: 5px;
+  background: none;
+  color: var(--stage-muted);
+  font-size: 10px !important;
+  line-height: 16px;
+}
+.stage-subagent-stop:hover {
+  color: var(--stage-ink);
+  background: var(--stage-glass);
 }
 .organic-stage[data-compact="true"] .stage-agent-mark {
   width: 52px;
@@ -300,6 +311,9 @@
 .stage-piece[data-kind="chat"] .stage-piece-content {
   display: flex;
   flex-direction: column;
+}
+.stage-piece[data-kind="note"] .stage-prose {
+  max-width: 72ch;
 }
 .stage-piece[data-kind="recipe"] .stage-piece-content > div {
   container-type: inline-size;
@@ -728,8 +742,8 @@
   padding-top: 0;
 }
 .organic-stage[data-tiny="true"] .stage-subagent-mark {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
 }
 .organic-stage[data-tiny="true"] .stage-subagent-name {
   height: 10px;
@@ -745,9 +759,11 @@
   line-height: 10px;
 }
 .organic-stage[data-tiny="true"] .stage-subagent-stop {
-  position: static;
-  width: 20px;
+  margin-top: 2px;
+  min-height: 20px;
+  padding: 1px 4px;
   height: 20px;
+  line-height: 16px;
 }
 .organic-stage[data-short-children="true"] .stage-subagent-status {
   position: absolute;
@@ -796,6 +812,12 @@
   color: var(--popover-foreground);
   box-shadow: 0 12px 32px -18px rgb(0 0 0 / 25%);
   font-family: var(--font-commissioner), sans-serif;
+}
+.stage-piece-picker-trigger > span {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .stage-piece-picker button {
   display: block;

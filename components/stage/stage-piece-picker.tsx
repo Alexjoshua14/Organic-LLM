@@ -15,13 +15,16 @@ export function StagePiecePicker({
   selectedId?: string | null;
   onSelect: (id: string) => void;
 }) {
+  const selected = pieces.find((piece) => piece.id === selectedId);
+
   return (
     <Popover.Root>
       <Popover.Trigger
-        className="stage-icon-button"
+        className="stage-icon-button stage-piece-picker-trigger"
         aria-label="Choose a stage piece"
         title="Choose a piece"
       >
+        {selected && <span>{selected.title}</span>}
         <ChevronDown aria-hidden size={12} />
       </Popover.Trigger>
       <Popover.Portal>

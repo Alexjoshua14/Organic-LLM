@@ -1,6 +1,6 @@
 import type { StageWorkerPiece } from "./worker-output";
 
-import { findStagePlacement, stageReservedRects } from "./layout";
+import { findStagePlacement, initializeStageViewLayouts, stageReservedRects } from "./layout";
 import { STAGE_MAX_WIDGETS, type StageState, type StageWidget } from "./schema";
 
 export function stageDiagramSources(text: string): string[] {
@@ -48,7 +48,9 @@ export function placeStageWorkerPieces(
   let next = placeStageArtifacts(state, fallbackText, source.name, source.id);
   const work = pieces.length
     ? pieces
-    : fallbackText.length > 240 && !stageDiagramSources(fallbackText).length
+    : fallbackText.length > 240 &&
+        !stageDiagramSources(fallbackText).length &&
+        !next.widgets.some((widget) => widget.source?.id === source.id)
       ? [
           {
             kind: "note" as const,
@@ -98,7 +100,9 @@ export function placeStageWorkerPieces(
     next = { ...next, widgets: [...next.widgets, widget] };
   }
 
-  return next;
+  const widgets = initializeStageViewLayouts(next.widgets, stageReservedRects(next));
+
+  return widgets === next.widgets ? next : { ...next, widgets };
 }
 
 export function stageCaptionText(text: string, diagramAvailable = false): string {

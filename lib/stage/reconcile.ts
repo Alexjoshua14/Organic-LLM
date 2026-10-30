@@ -3,11 +3,14 @@ import type { StageRect, StageState, StageWidget } from "./schema";
 
 import {
   findStagePlacement,
+  initializeStageViewLayouts,
   repairStageLayout,
   stageReservedRects,
   StageLayoutError,
   validateStageLayout,
 } from "./layout";
+import { STAGE_OVERVIEW, placeStageWidget, stageViewWidgets, stageWidgetRect } from "./placements";
+import type { StageView } from "./view-schema";
 
 type Upsert = Extract<DesignPlan["operations"][number], { operation: "upsert" }>;
 
@@ -89,10 +92,14 @@ export function mergeStageDesignPlan(
       widgets.splice(target.index, 1);
       continue;
     }
+    const view: StageView = operation.view ?? base.presentation?.view ?? STAGE_OVERVIEW;
     if (operation.operation === "move") {
       const target = unchangedTarget(widgets, base, operation.targetId);
+      const targetView =
+        operation.view ??
+        (stageViewWidgets([target.original], view).length ? view : STAGE_OVERVIEW);
 
-      widgets[target.index] = { ...target.original, rect: operation.rect };
+      widgets[target.index] = placeStageWidget(target.original, targetView, operation.rect);
       continue;
     }
     if (operation.targetId) {
@@ -100,15 +107,20 @@ export function mergeStageDesignPlan(
 
       if (target.original.kind !== operation.kind)
         throw new StageLayoutError("Widget kind cannot change");
-      const rect = operation.rect ?? target.original.rect;
+      const targetView =
+        operation.view ??
+        (stageViewWidgets([target.original], view).length ? view : STAGE_OVERVIEW);
+      const rect = operation.rect ?? stageWidgetRect(target.original, targetView);
+      const placed = placeStageWidget(target.original, targetView, rect);
 
       if (operation.kind === "chat") {
         // Its thread is server-owned and stays attached to the stable widget ID.
-        widgets[target.index] = { ...target.original, title: operation.title, rect };
+        widgets[target.index] = { ...placed, title: operation.title };
       } else {
         widgets[target.index] = {
-          ...proposedWidget(operation, rect),
+          ...proposedWidget(operation, placed.rect),
           id: target.original.id,
+          ...(placed.layouts ? { layouts: placed.layouts } : {}),
           ...(target.original.source ? { source: target.original.source } : {}),
         };
       }
@@ -123,7 +135,7 @@ export function mergeStageDesignPlan(
   try {
     validateStageLayout(widgets, stageReservedRects(current));
 
-    return widgets;
+    return initializeStageViewLayouts(widgets, stageReservedRects(current));
   } catch (error) {
     if (!(error instanceof StageLayoutError)) throw error;
     // Keep unchanged pieces anchored; repair only proposed conflicts first.

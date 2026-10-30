@@ -106,7 +106,7 @@ test("Stage returns to centered Organic, retains tucked pieces and applies serve
   const { emptyStageState } = await import("@/lib/stage/schema");
   const { stageNavigation } = await import("@/lib/stage/views");
   const source = { id: crypto.randomUUID(), name: "Prep Planner" };
-  let state = {
+  let state: import("@/lib/stage/schema").StageState = {
     ...emptyStageState(),
     widgets: [
       {
@@ -184,7 +184,7 @@ test("saved placement is identical after closing inspection, hiding guides, swit
   const { emptyStageState } = await import("@/lib/stage/schema");
   const { applyStageOperations } = await import("@/lib/stage/layout");
   const source = { id: crypto.randomUUID(), name: "Prep Planner" };
-  let state = {
+  let state: import("@/lib/stage/schema").StageState = {
     ...emptyStageState(),
     widgets: [
       {
@@ -237,7 +237,8 @@ test("saved placement is identical after closing inspection, hiding guides, swit
     expect(Boolean(app.queryByRole("dialog", { name: "Arrange Prep checklist" }))).toBe(false)
   );
   expect(patches).toHaveLength(1);
-  expect(state.widgets[0].rect).toEqual({ x: 15, y: 5, w: 11, h: 16 });
+  expect(state.widgets[0].rect).toEqual({ x: 8, y: 4, w: 11, h: 16 });
+  expect(state.widgets[0].layouts?.author).toEqual({ x: 15, y: 5, w: 11, h: 16 });
   fireEvent.click(app.getByRole("button", { name: "Show grid" }));
   expect(piece.style.gridColumn).toBe("16 / span 11");
   expect(piece.style.gridRow).toBe("6 / span 16");

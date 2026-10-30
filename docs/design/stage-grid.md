@@ -34,13 +34,28 @@ keep their owned rows; artifact rows use the remaining space. Track heights may
 differ, and the guide backgrounds draw those exact boundaries. Resizing changes
 pixels per cell, never a piece's row, column, width or height.
 
-Every widget renders its stored `rect` directly. There is no coordinate projection,
-readability reflow, pagination or automatic enlargement for selected pieces. Grid
-only reveals guides; inspecting, saving, closing and filtering views use the same
-geometry. Piece navigation lives with the response controls, so it consumes no
-artifact cells. Long content retains native scrolling inside its explicitly sized
-piece. To give content more space, change its rectangle through a validated
-placement operation; do not override it in the renderer.
+Every widget renders the saved rectangle for its tab: `rect` owns All pieces,
+`layouts.author` owns its source author's tab, and `layouts.piece` owns its own
+focused tab. One selector resolves these placements for the renderer, inspector,
+validator and agent context. Pieces in different tabs can reuse the same cells;
+only visible siblings compete for artifact space. There is no render-time
+coordinate projection, readability reflow or pagination. Grid only reveals guides.
+Inspecting, saving and closing use the same active-tab geometry, and switching away
+and back restores that tab's exact saved cells.
+
+Publication/recovery initializes missing focused and author placements as real
+saved data. A single piece gets the full artifact area; siblings share a balanced
+arrangement. Existing valid arrangements are stable; a changed membership or invalid
+legacy layout is repaired before publication. Recovery also redistributes old
+miniature overview pieces once. Full worker results aren't recovered as duplicate
+notes when attributed pieces already exist.
+
+Piece navigation lives with the response controls, so it consumes no artifact
+cells. In specialist and individual-piece tabs, the response contracts to its controls and gives
+the artifact rows more height. The full reply remains available through the
+explicit response expansion or Conversation. Long content retains native scrolling
+inside its explicitly sized piece. To change reading space, save a validated
+placement in the intended tab; do not override it in the renderer.
 
 Organic's centered home and an explicitly expanded response hide pieces without
 changing their rectangles. Visited pieces stay mounted while hidden. The server
@@ -53,12 +68,15 @@ padding, type label, or repeated title. Recipes own their single heading. Piece
 arrangement controls appear on hover/focus and stay available on touch. Agent
 identity uses OrganicActivityMark with a Stage-local, more legible glass profile;
 names/status are secondary and reserve caption metrics.
+The child cancellation control reads **Stop**, separate from the identity button
+that opens its work. Its tooltip and accessible label name the affected child.
 
 ## Placement preview
 
 Valid geometry edits preview after 150ms of inactivity. The existing layout
 validator rejects collisions; invalid edits retain the last valid preview. Closing
-restores saved geometry, and Place it persists the edit. Position changes use a
+restores saved geometry, and Place it persists the edit for the active tab. The
+inspector names that tab; changes preserve other tabs' placements. Position changes use a
 140ms transform transition (instant under reduced motion). Memoized piece content
 keeps geometry edits from regenerating Markdown or Mermaid. Source/title edits
 remain explicit saves.

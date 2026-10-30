@@ -77,7 +77,12 @@ describe("Stage parallel specialist lifecycle", () => {
     state.subagents = state.subagents!.map((agent) => ({ ...agent, status: "working", slot: 0 }));
     const cancel = mock(async (_id: string) => undefined);
     const view = render(<StageSubagents agents={state.subagents!} onCancel={cancel} />);
-    fireEvent.click(view.getByRole("button", { name: "Stop Planner" }));
+    const stop = view.getByRole("button", { name: "Stop Planner" });
+    expect(stop.textContent).toBe("Stop");
+    expect(stop.getAttribute("title")).toBe("Stop Planner’s current task");
+    fireEvent.click(view.getByRole("button", { name: "View Planner’s work" }));
+    expect(cancel).not.toHaveBeenCalled();
+    fireEvent.click(stop);
     expect(cancel).toHaveBeenCalledWith(state.subagents![0].id);
     view.rerender(
       <StageSubagents

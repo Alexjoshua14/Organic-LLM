@@ -27,5 +27,5 @@ export function restoreStageLayout(state: StageState): StageState {
     if (agent.status === "done" && agent.result)
       next = placeStageWorkerPieces(next, [], { id: agent.id, name: agent.name }, agent.result);
 
-  return next;
+  return repairStageLayout(next);
 }

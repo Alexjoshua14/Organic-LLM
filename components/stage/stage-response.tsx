@@ -20,6 +20,7 @@ export function StageResponse({
   onToggleExpanded,
   compact = false,
   organicActive = true,
+  overviewActive = false,
   onShowPieces,
   pieces,
   selectedPieceId,
@@ -33,6 +34,7 @@ export function StageResponse({
   onToggleExpanded?: () => void;
   compact?: boolean;
   organicActive?: boolean;
+  overviewActive?: boolean;
   onShowPieces?: () => void;
   pieces?: StageState["widgets"];
   selectedPieceId?: string | null;
@@ -124,7 +126,7 @@ export function StageResponse({
             <button
               type="button"
               className="stage-response-author"
-              aria-pressed={!organicActive && active.key === "organic"}
+              aria-pressed={overviewActive}
               onClick={onShowPieces}
             >
               Pieces

@@ -60,16 +60,25 @@ test("one grid fits its chrome and saved placements without overlap or coordinat
   }
 });
 
-test("author and piece navigation only filter visibility; they cannot resize or relocate work", () => {
+test("each view renders its saved cells without projection, and repeated selection is stable", () => {
   const source = { id: crypto.randomUUID(), name: "Timing checker" };
-  const state = { ...emptyStageState(), widgets: [note(8), { ...note(20), source }] };
+  const state = repairStageLayout({
+    ...emptyStageState(),
+    widgets: [note(8), { ...note(20), source }],
+  });
   const options = { width: 1200, height: 700, composerHeight: 78 };
   for (const extra of [{}, { author: source.id }, { pieceId: state.widgets[1].id }]) {
     const frame = resolveStageFrame(state, { ...options, ...extra });
     const piece = frame.pieces.find((p) => p.widget.id === state.widgets[1].id)!;
-    expect(piece.rect).toBe(state.widgets[1].rect);
+    const expected =
+      "author" in extra
+        ? state.widgets[1].layouts!.author!
+        : "pieceId" in extra
+          ? state.widgets[1].layouts!.piece!
+          : state.widgets[1].rect;
+    expect(piece.rect).toBe(expected);
     expect(stageRectPixels(frame, piece.rect)).toEqual(
-      stageRectPixels(resolveStageFrame(state, options), state.widgets[1].rect)
+      stageRectPixels(resolveStageFrame(state, { ...options, ...extra }), expected)
     );
   }
 });

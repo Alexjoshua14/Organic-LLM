@@ -7,6 +7,7 @@ import type { ChatEffortLevel } from "@/lib/schemas/chat-effort";
 import type { StageTurnSettings, StageRect } from "@/lib/stage/schema";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { placeStageWidget } from "@/lib/stage/placements";
 import { AudioLines, Grid3X3, History, MessageCircle, ArrowUpRight, RotateCcw } from "lucide-react";
 
 import { useStage } from "./use-stage";
@@ -116,13 +117,14 @@ export function Stage() {
       ? {
           ...snapshot,
           widgets: snapshot.widgets.map((w) =>
-            w.id === preview.id ? { ...w, rect: preview.rect } : w
+            w.id === preview.id ? placeStageWidget(w, view, preview.rect) : w
           ),
         }
       : snapshot;
 
     return resolveStageFrame(snapshotWithPreview, {
       ...size,
+      view,
       home: view.kind === "organic",
       author,
       reading,
@@ -328,7 +330,8 @@ export function Stage() {
 
       {selected && (
         <StageInspector
-          key={selected.id}
+          key={`${view.kind}:${view.id}:${selected.id}`}
+          view={view}
           saving={saving}
           widget={selected}
           state={state!}
@@ -358,6 +361,7 @@ export function Stage() {
               state={state!}
               selectedAuthor={author}
               organicActive={view.kind === "organic"}
+              overviewActive={view.kind === "overview"}
               pieces={state!.widgets}
               selectedPieceId={pieceId}
               onSelectPiece={(id) => selectView({ kind: "piece", id })}

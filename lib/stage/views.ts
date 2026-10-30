@@ -2,6 +2,7 @@ import type { StageState } from "./schema";
 
 import { ORGANIC_STAGE_VIEW, type StageView, type StagePresentation } from "./view-schema";
 import { resolveStageFrame, stageRectPixels } from "./frame";
+import { stageViewWidgets, stageWidgetRect } from "./placements";
 
 /** UI and model use the same owner-scoped catalog, including completed work. */
 export function stageViews(state: StageState) {
@@ -67,6 +68,7 @@ export function stageSpaceContext(state: StageState, presentation?: StagePresent
   const dimensions = presentation ?? { width: 1200, height: 700, composerHeight: 80 };
   const frame = resolveStageFrame(state, {
     ...dimensions,
+    view,
     home: view.kind === "organic",
     author: view.kind === "author" ? view.id! : "organic",
     pieceId: view.kind === "piece" ? view.id : null,
@@ -75,6 +77,15 @@ export function stageSpaceContext(state: StageState, presentation?: StagePresent
   return {
     currentView: view,
     availableViews: stageViews(state),
+    layouts: stageViews(state)
+      .filter((entry) => entry.view.kind !== "organic")
+      .map((entry) => ({
+        ...entry,
+        pieces: stageViewWidgets(state.widgets, entry.view).map((widget) => ({
+          id: widget.id,
+          rect: stageWidgetRect(widget, entry.view),
+        })),
+      })),
     viewport: presentation
       ? {
           width: presentation.width,
@@ -92,6 +103,6 @@ export function stageSpaceContext(state: StageState, presentation?: StagePresent
     regions: { parent: frame.parent, response: frame.reply, composer: frame.composer },
     rowHeights: frame.rows,
     navigation:
-      "Cell rectangles are authoritative in every view. Rows reserve space for navigation, response and the growing composer; use rowHeights/pixel bounds to judge readability. Selecting a view only filters existing work; it never creates, delegates, or redesigns it. Organic tucks pieces away and centers the parent. Hidden pieces remain available. Only the parent/user controls selection; specialist results must not steal focus.",
+      "Each tab has its own saved grid arrangement. rect is the All pieces placement; layouts.author belongs only to the source author's tab, layouts.piece to the artifact's own tab. Only pieces in the same view compete for cells. Hidden tabs occupy no cells in this tab, so reuse that space. All share the same top-level grid/chrome and validator, never a render-time fit/reflow. Use rowHeights/pixel bounds to propose explicit view-scoped moves. Selecting a tab only reveals its saved layout; it never generates or delegates. Organic tucks pieces away and centers the parent. Only the parent/user changes selection; workers must not steal focus.",
   };
 }

@@ -35,6 +35,11 @@ const base = {
   id: z.string().uuid(),
   title: z.string().trim().min(1).max(100),
   rect: StageRectSchema,
+  // `rect` owns the combined workspace. Other tabs have independent saved cells.
+  layouts: z
+    .object({ author: StageRectSchema.optional(), piece: StageRectSchema.optional() })
+    .strict()
+    .optional(),
   source: z.object({ id: z.string().uuid(), name: z.string().max(40) }).optional(),
 };
 
@@ -114,7 +119,14 @@ export type StageState = z.infer<typeof StageStateSchema>;
 
 export const StageOperationSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("upsert"), widget: StageWidgetSchema }).strict(),
-  z.object({ type: z.literal("move"), id: z.string().uuid(), rect: StageRectSchema }).strict(),
+  z
+    .object({
+      type: z.literal("move"),
+      id: z.string().uuid(),
+      rect: StageRectSchema,
+      view: StagePresentationSchema.shape.view.optional(),
+    })
+    .strict(),
   z.object({ type: z.literal("remove"), id: z.string().uuid() }).strict(),
 ]);
 export type StageOperation = z.infer<typeof StageOperationSchema>;

@@ -5,7 +5,9 @@ import type { StageOperation, StageRect, StageWidget, StageState } from "@/lib/s
 import { useEffect, useState, type FormEvent } from "react";
 import { X } from "lucide-react";
 
-import { stageReservedRects, validateStageLayout } from "@/lib/stage/layout";
+import { stageReservedRects, validateStageLayouts } from "@/lib/stage/layout";
+import { STAGE_OVERVIEW, placeStageWidget, stageWidgetRect } from "@/lib/stage/placements";
+import type { StageView } from "@/lib/stage/view-schema";
 
 const PLACEMENT_PREVIEW_MS = 150;
 
@@ -16,6 +18,7 @@ export function StageInspector({
   onClose,
   state,
   onPreview,
+  view = STAGE_OVERVIEW,
 }: {
   widget: StageWidget;
   saving: boolean;
@@ -23,8 +26,9 @@ export function StageInspector({
   onClose: () => void;
   state: StageState;
   onPreview: (rect: StageRect | null) => void;
+  view?: StageView;
 }) {
-  const [rect, setRect] = useState<StageRect>(widget.rect);
+  const [rect, setRect] = useState<StageRect>(stageWidgetRect(widget, view));
   const [title, setTitle] = useState(widget.title);
   const [placementError, setPlacementError] = useState<string | null>(null);
   const [content, setContent] = useState(
@@ -34,8 +38,8 @@ export function StageInspector({
   useEffect(() => {
     const timer = setTimeout(() => {
       try {
-        validateStageLayout(
-          state.widgets.map((w) => (w.id === widget.id ? { ...w, rect } : w)),
+        validateStageLayouts(
+          state.widgets.map((w) => (w.id === widget.id ? placeStageWidget(w, view, rect) : w)),
           stageReservedRects(state)
         );
         setPlacementError(null);
@@ -53,8 +57,8 @@ export function StageInspector({
   async function submit(event: FormEvent) {
     event.preventDefault();
     try {
-      validateStageLayout(
-        state.widgets.map((w) => (w.id === widget.id ? { ...w, rect } : w)),
+      validateStageLayouts(
+        state.widgets.map((w) => (w.id === widget.id ? placeStageWidget(w, view, rect) : w)),
         stageReservedRects(state)
       );
     } catch {
@@ -62,12 +66,13 @@ export function StageInspector({
 
       return;
     }
+    const placed = placeStageWidget(widget, view, rect);
     const updated: StageWidget =
       widget.kind === "note"
-        ? { ...widget, title, rect, text: content }
+        ? { ...placed, kind: "note", title, text: content }
         : widget.kind === "mermaid"
-          ? { ...widget, title, rect, code: content }
-          : { ...widget, title, rect };
+          ? { ...placed, kind: "mermaid", title, code: content }
+          : { ...placed, title };
 
     if (await onChange([{ type: "upsert", widget: updated }])) onClose();
   }
@@ -90,6 +95,14 @@ export function StageInspector({
         </button>
       </header>
       <form onSubmit={submit}>
+        <p className="stage-muted">
+          {view.kind === "author"
+            ? `${widget.source?.name} view`
+            : view.kind === "piece"
+              ? "This piece’s view"
+              : "All pieces view"}{" "}
+          · placement is saved for this tab.
+        </p>
         <label className="stage-field">
           Title
           <input

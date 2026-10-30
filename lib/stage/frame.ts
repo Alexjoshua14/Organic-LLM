@@ -9,6 +9,8 @@ import {
   type StageRect,
   type StageState,
 } from "./schema";
+import { stageViewWidgets, stageWidgetRect } from "./placements";
+import type { StageView } from "./view-schema";
 
 export type StageFrameOptions = {
   width: number;
@@ -18,6 +20,7 @@ export type StageFrameOptions = {
   pieceId?: string | null;
   reading?: boolean;
   home?: boolean;
+  view?: StageView;
 };
 
 export function stageCellStyle(rect: StageRect) {
@@ -30,6 +33,16 @@ export function stageCellStyle(rect: StageRect) {
 /** One grid: only track sizes adapt to the viewport. Saved cell rectangles never do. */
 export function resolveStageFrame(state: StageState, options: StageFrameOptions) {
   const { width, composerHeight, author = "organic", reading = false, home = false } = options;
+  const view: StageView =
+    options.view ??
+    (options.pieceId
+      ? { kind: "piece", id: options.pieceId }
+      : home
+        ? { kind: "organic", id: null }
+        : author === "organic"
+          ? { kind: "overview", id: null }
+          : { kind: "author", id: author });
+  const candidates = stageViewWidgets(state.widgets, view);
   const height = Math.max(240, options.height);
   const gap = Math.max(3, Math.min(8, height * 0.008));
   const headerPixels = 40;
@@ -44,7 +57,11 @@ export function resolveStageFrame(state: StageState, options: StageFrameOptions)
   const minimumReply = state.design?.status === "failed" ? 68 : 36;
   const replyPixels = Math.max(
     minimumReply,
-    Math.min(144, height * 0.18, available - Math.min(320, height * 0.5))
+    Math.min(
+      candidates.length && !reading && (view.kind === "author" || view.kind === "piece") ? 48 : 144,
+      height * 0.18,
+      available - Math.min(320, height * 0.5)
+    )
   );
   const contentPixels = Math.max(0, available - replyPixels);
   const inRows = (row: number, rect: StageRect) => row >= rect.y && row < rect.y + rect.h;
@@ -76,7 +93,7 @@ export function resolveStageFrame(state: StageState, options: StageFrameOptions)
   const tiny = height < 430 || childWidth < 40 || bodyRow * 8 < 112;
   const compact =
     tiny || childWidth < 56 || bodyRow * 8 < 154 || height < 560 || composerHeight > 110;
-  const childMinimum = tiny ? 66 : compact ? 92 : 116;
+  const childMinimum = tiny ? 66 : compact ? 120 : 148;
   const parentMinimum = tiny ? 36 : compact ? (width < 700 ? 126 : 112) : 154;
   const activeChildren =
     (!!state.design && state.design.status !== "failed" && state.design.phase !== "queued") ||
@@ -105,11 +122,6 @@ export function resolveStageFrame(state: StageState, options: StageFrameOptions)
         h: Math.max(1, 22 - parent.y - parent.h - 1),
       }))
     : STAGE_CHILD_RECTS;
-  const candidates = options.pieceId
-    ? state.widgets.filter((widget) => widget.id === options.pieceId)
-    : author === "organic"
-      ? state.widgets
-      : state.widgets.filter((widget) => widget.source?.id === author);
   const readingWork = reading || (!home && !candidates.length && author !== "organic");
   const reply: StageRect = readingWork ? { x: 8, y: 4, w: 24, h: 24 } : STAGE_RESPONSE_RECT;
 
@@ -127,13 +139,20 @@ export function resolveStageFrame(state: StageState, options: StageFrameOptions)
     children,
     body: STAGE_CONTENT_RECT,
     // Filtering only. Inspection, selection and guide visibility cannot override placement.
-    pieces: home || readingWork ? [] : candidates.map((widget) => ({ widget, rect: widget.rect })),
+    pieces:
+      home || readingWork
+        ? []
+        : candidates.map((widget) => {
+            const rect = stageWidgetRect(widget, view);
+
+            return { widget: rect === widget.rect ? widget : { ...widget, rect }, rect };
+          }),
     compact,
     tiny,
     reading: readingWork,
     replyCompact: !readingWork && replyPixels < 96,
     showPieces: !home,
-    shortChildren: !centered && bodyRow * STAGE_CHILD_RECTS[0].h < 66,
+    shortChildren: !centered && bodyRow * STAGE_CHILD_RECTS[0].h < 80,
   };
 }
 

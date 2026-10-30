@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion, useIsPresent, useReducedMotion } from "framer-motion";
-import { Square } from "lucide-react";
 
 import { STAGE_AGENT_GLASS } from "./stage-agent";
 
@@ -83,13 +82,13 @@ function Child({
       </span>
       <button
         aria-label={`Stop ${agent.name}`}
-        className="stage-icon-button stage-subagent-stop"
+        className="stage-subagent-stop"
         disabled={!present || agent.status === "canceling"}
-        title="Stop this specialist"
+        title={`Stop ${agent.name}’s current task`}
         type="button"
         onClick={() => void onCancel(agent.id)}
       >
-        <Square aria-hidden size={11} />
+        Stop
       </button>
     </motion.div>
   );
