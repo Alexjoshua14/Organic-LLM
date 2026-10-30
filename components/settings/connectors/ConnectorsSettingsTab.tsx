@@ -16,9 +16,9 @@ import {
   Unplug,
 } from "lucide-react";
 
+import { SettingsHelp } from "@/components/settings/settings-help";
 import { Switch } from "@/components/design-system/switch";
 import { caption } from "@/components/design-system/primitives";
-import { SettingsRow } from "@/components/settings/SettingsRow";
 import {
   CONNECTOR_SPECIALIST_ROUTES,
   defaultUserConnectorsProfile,
@@ -67,6 +67,7 @@ export function ConnectorsSettingsTab({
   );
   const [ergonBusy, setErgonBusy] = useState(false);
   const [ergonError, setErgonError] = useState<string | null>(null);
+  const [ergonSetupDetails, setErgonSetupDetails] = useState<string | null>(null);
 
   const doFetch = useMemo(() => fetchImpl ?? fetch, [fetchImpl]);
 
@@ -238,6 +239,7 @@ export function ConnectorsSettingsTab({
   const handleConnectErgonOAuth = useCallback(async () => {
     setErgonBusy(true);
     setErgonError(null);
+    setErgonSetupDetails(null);
 
     try {
       const res = await doFetch("/api/profile/connectors/ergon/oauth/start", {
@@ -250,9 +252,10 @@ export function ConnectorsSettingsTab({
       };
 
       if (res.status === 503 || payload.oauthReady === false) {
-        setErgonError(
+        setErgonError("Ergon isn’t available yet. Ask an admin to finish setup.");
+        setErgonSetupDetails(
           payload.error ??
-            "Ergon MCP OAuth is not configured on this deployment yet (missing ERGON_OAUTH_CLIENT_ID / redirect)."
+            "Configure the Ergon OAuth client ID and redirect URL on this deployment."
         );
         setErgonBusy(false);
 
@@ -279,6 +282,7 @@ export function ConnectorsSettingsTab({
   const handleDisconnectErgon = useCallback(async () => {
     setErgonBusy(true);
     setErgonError(null);
+    setErgonSetupDetails(null);
 
     try {
       const res = await doFetch("/api/profile/connectors/ergon", { method: "DELETE" });
@@ -314,7 +318,7 @@ export function ConnectorsSettingsTab({
 
     if (!username) {
       setGithubError(
-        "Enter a valid GitHub username (e.g. Alexjoshua14) or profile URL (https://github.com/Alexjoshua14) first."
+        "Enter a valid GitHub username (e.g. coalescence-labs) or profile URL (https://github.com/coalescence-labs) first."
       );
 
       return;
@@ -362,9 +366,7 @@ export function ConnectorsSettingsTab({
         <div className="space-y-1">
           <h2 className="text-xl font-semibold text-foreground">Connectors & Personal Dossier</h2>
           <p className={caption({ className: "max-w-xl" })}>
-            Store your connected developer profiles, academic transcripts, career history, resume,
-            and infrastructure preferences in your private profile. Organic automatically routes
-            each slice to the proper specialist subagent on the workbench.
+            Connect accounts and add background for more relevant help.
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0 pt-1">
@@ -406,57 +408,47 @@ export function ConnectorsSettingsTab({
         </p>
       )}
 
-      {/* Subagent Routing & Privacy Notice */}
-      <section className="rounded-xl border border-border/70 bg-muted/20 p-4 space-y-4">
-        <div className="flex items-center gap-2">
-          <ShieldCheck className="size-4 text-foreground shrink-0" />
-          <h3 className="text-sm font-medium text-foreground">
-            Subagent Mesh Routing &amp; Worktable Interop
-          </h3>
-        </div>
-        <p className="text-xs text-muted-foreground leading-relaxed">
-          Instead of dumping your entire dossier into every prompt, Organic&apos;s orchestrator
-          bundles only the relevant shorthand slice and dispatches the specialist built for that
-          domain:
-        </p>
-        <div className="grid gap-2.5 sm:grid-cols-3">
-          {CONNECTOR_SPECIALIST_ROUTES.map((entry) => (
-            <div
-              key={entry.agentId}
-              className="rounded-lg border border-border/60 bg-background/80 p-3 space-y-1.5"
-            >
-              <div className="flex items-center justify-between gap-1">
-                <span className="text-xs font-semibold text-foreground">{entry.agent}</span>
-                <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
-                  {entry.role}
-                </span>
-              </div>
-              <p className="font-mono text-[10px] text-muted-foreground">
-                {entry.shorthand.join(" · ")}
-              </p>
-              <p className="text-[11px] leading-snug text-muted-foreground">{entry.description}</p>
-            </div>
-          ))}
-        </div>
-
-        <SettingsRow
-          mainText={
-            formState.autoShareWithSubagents
-              ? "Orchestrator can attach connector:github and connector:dossier slices to Reed, Lyra, and Archer."
-              : "Subagents will not receive automatic connector slices unless you paste them in chat."
-          }
-          subtext="Respects Zero Data Retention and only attaches the slice needed for the active assignment."
-          title="Automatic Subagent Connector Routing"
-        >
+      {/* Sharing stays visible; routing details are optional. */}
+      <section className="rounded-xl border border-border/70 bg-muted/20 p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <ShieldCheck aria-hidden="true" className="size-4 shrink-0 text-foreground" />
+            <h3 className="text-sm font-medium text-foreground" id="connector-sharing-label">
+              Share relevant context with specialists
+            </h3>
+          </div>
           <Switch
             aria-label="Automatically share connectors with subagents"
+            aria-describedby="connector-sharing-label"
             isSelected={formState.autoShareWithSubagents}
             onValueChange={(enabled) => {
               updateField("autoShareWithSubagents", enabled);
               void handleSave({ autoShareWithSubagents: enabled });
             }}
           />
-        </SettingsRow>
+        </div>
+        <SettingsHelp title="How sharing works">
+          <p>
+            {formState.autoShareWithSubagents
+              ? "Specialists receive only the profile context relevant to the current task."
+              : "Specialists will not receive automatic connector slices. You can still share context in chat."}
+          </p>
+          <div className="grid gap-2.5 sm:grid-cols-3">
+            {CONNECTOR_SPECIALIST_ROUTES.map((entry) => (
+              <div
+                key={entry.agentId}
+                className="space-y-1.5 rounded-lg border border-border/60 bg-background/80 p-3"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-1">
+                  <span className="font-semibold text-foreground">{entry.agent}</span>
+                  <span className="font-mono text-[10px]">{entry.role}</span>
+                </div>
+                <p className="font-mono text-[10px]">{entry.shorthand.join(" · ")}</p>
+                <p className="text-[11px] leading-snug">{entry.description}</p>
+              </div>
+            ))}
+          </div>
+        </SettingsHelp>
       </section>
 
       {/* Connected Accounts Card */}
@@ -468,10 +460,7 @@ export function ConnectorsSettingsTab({
               Connected Profiles &amp; Handles
             </h3>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Link your GitHub, LinkedIn, personal site, and Ergon workspace so Organic can inspect
-            your public repositories and work engineering tickets on demand.
-          </p>
+          <p className="text-xs text-muted-foreground">Manage the accounts Organic can use.</p>
         </div>
 
         <div className="space-y-4">
@@ -480,7 +469,7 @@ export function ConnectorsSettingsTab({
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
                 <Link2 className="size-3.5 text-muted-foreground" />
-                Ergon (MCP OAuth)
+                Ergon
               </div>
               {ergonStatus.connected ? (
                 <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
@@ -495,41 +484,40 @@ export function ConnectorsSettingsTab({
                 </span>
               )}
             </div>
-            <p className="text-[11px] text-muted-foreground leading-relaxed">
-              Connect via Ergon MCP OAuth (
-              <code className="mx-1">{DEFAULT_ERGON_MCP_URL}</code>
-              ). Organic stores access tokens server-side only; refresh tokens never reach the
-              browser. Mira (<code>agent-planner</code> / <code>connector:ergon</code>) uses the MCP
-              session. Main chat gets write ticket tools when write scope is present.
+            <p className="text-xs text-muted-foreground">
+              Connect your workspace to work on tickets.
             </p>
-
-            {ergonStatus.connected ? (
-              <div className="space-y-2">
-                <div className="rounded-lg border border-border/50 bg-background/80 px-3 py-2 text-xs text-foreground space-y-1">
-                  <div className="font-mono text-[11px] text-muted-foreground break-all">
-                    {ergonStatus.mcpUrl ?? ergonStatus.url}
-                  </div>
+            <SettingsHelp title="Connection details">
+              <p>
+                Ergon connects through OAuth. Access and refresh tokens stay on the server. Mira
+                uses this connection to plan work; editing tickets requires write access.
+              </p>
+              <p>
+                MCP endpoint:{" "}
+                <code>{ergonStatus.mcpUrl ?? ergonStatus.url ?? DEFAULT_ERGON_MCP_URL}</code>
+              </p>
+              {ergonStatus.connected && (
+                <div className="space-y-1">
                   {(ergonStatus.authMode || ergonStatus.transport) && (
-                    <div className="text-[11px] text-muted-foreground">
+                    <p>
                       {[
                         ergonStatus.authMode ? `Auth: ${ergonStatus.authMode}` : null,
                         ergonStatus.transport ? `Transport: ${ergonStatus.transport}` : null,
                       ]
                         .filter(Boolean)
                         .join(" · ")}
-                    </div>
+                    </p>
                   )}
-                  {ergonStatus.scopes.length > 0 && (
-                    <div className="text-[11px] text-muted-foreground">
-                      Scopes: {ergonStatus.scopes.join(", ")}
-                    </div>
-                  )}
+                  {ergonStatus.scopes.length > 0 && <p>Scopes: {ergonStatus.scopes.join(", ")}</p>}
                   {ergonStatus.connectedAt && (
-                    <div className="text-[11px] text-muted-foreground">
-                      Connected {new Date(ergonStatus.connectedAt).toLocaleString()}
-                    </div>
+                    <p>Connected {new Date(ergonStatus.connectedAt).toLocaleString()}</p>
                   )}
                 </div>
+              )}
+            </SettingsHelp>
+
+            {ergonStatus.connected ? (
+              <div className="space-y-2">
                 {ergonStatus.source === "user" && (
                   <button
                     aria-label="Disconnect Ergon"
@@ -552,13 +540,19 @@ export function ConnectorsSettingsTab({
                 onClick={() => void handleConnectErgonOAuth()}
               >
                 <Link2 className={`size-3.5 ${ergonBusy ? "animate-pulse" : ""}`} />
-                {ergonBusy ? "Starting OAuth…" : "Connect with Ergon (OAuth)"}
+                {ergonBusy ? "Connecting…" : "Connect Ergon"}
               </button>
             )}
 
             {ergonError && (
-              <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
-                {ergonError}
+              <div
+                className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive"
+                role="alert"
+              >
+                <p>{ergonError}</p>
+                {ergonSetupDetails && (
+                  <SettingsHelp title="Setup details">{ergonSetupDetails}</SettingsHelp>
+                )}
               </div>
             )}
           </div>
@@ -583,7 +577,7 @@ export function ConnectorsSettingsTab({
               <input
                 className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
                 id="connector-github-url"
-                placeholder="https://github.com/Alexjoshua14 or Alexjoshua14"
+                placeholder="https://github.com/coalescence-labs or coalescence-labs"
                 type="text"
                 value={formState.githubUrl}
                 onChange={(e) => updateField("githubUrl", e.target.value)}
@@ -599,10 +593,12 @@ export function ConnectorsSettingsTab({
                 {syncingGithub ? "Syncing GitHub..." : "Test / Sync GitHub Repos"}
               </button>
             </div>
-            <p className="text-[11px] text-muted-foreground">
-              Routed to <strong>Reed</strong> (<code>agent-coder</code>) via{" "}
-              <code>connector:github</code> when you ask about your repositories, projects, or code.
-            </p>
+            <SettingsHelp title="How GitHub is used">
+              <p>
+                Reed uses your public repositories for coding tasks through{" "}
+                <code>connector:github</code>.
+              </p>
+            </SettingsHelp>
 
             {githubError && (
               <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
@@ -723,12 +719,9 @@ export function ConnectorsSettingsTab({
       {/* Personal Dossier Cards */}
       <section className="rounded-xl border border-border/70 bg-background p-5 space-y-6">
         <div className="space-y-1">
-          <h3 className="text-sm font-semibold text-foreground">
-            Personal Dossier &amp; Grounding Vault
-          </h3>
+          <h3 className="text-sm font-semibold text-foreground">Personal Dossier</h3>
           <p className="text-xs text-muted-foreground">
-            Foundational context you can rely on Organic knowing without re-explaining. Each section
-            can be referenced independently on the subagent worktable.
+            Add background you want Organic to draw on.
           </p>
         </div>
 
@@ -739,18 +732,19 @@ export function ConnectorsSettingsTab({
             htmlFor="dossier-education"
           >
             <BookOpen className="size-3.5 text-muted-foreground" />
-            Education &amp; Transcripts (<code>connector:education</code>)
+            Education &amp; Transcripts
           </label>
-          <p className="text-[11px] text-muted-foreground">
-            Schools, majors, key coursework, seminars, or pasted transcript notes (e.g. Williams
-            College CS + Studio Art, Multivariable Calculus, Linear Algebra, Heliophysics,
-            Astrophysics, Architecture).
-          </p>
+          <SettingsHelp title="What to include in education">
+            <p>
+              Schools, degrees, coursework, or transcript notes. Used as{" "}
+              <code>connector:education</code>.
+            </p>
+          </SettingsHelp>
           <textarea
             className="min-h-24 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
             id="dossier-education"
-            placeholder="Williams College — B.A. in Computer Science & Studio Art. Coursework: Multivariable Calculus, Linear Algebra, Heliophysics, Astrophysics, Architecture..."
-            rows={4}
+            placeholder="Schools, degrees, and coursework"
+            rows={3}
             value={formState.educationAndTranscripts}
             onChange={(e) => updateField("educationAndTranscripts", e.target.value)}
           />
@@ -763,16 +757,18 @@ export function ConnectorsSettingsTab({
             htmlFor="dossier-career"
           >
             <Briefcase className="size-3.5 text-muted-foreground" />
-            Career History &amp; Systems Built (<code>connector:career</code>)
+            Career History &amp; Projects
           </label>
-          <p className="text-[11px] text-muted-foreground">
-            Roles, organizations, flagship engineering systems, and domain expertise.
-          </p>
+          <SettingsHelp title="What to include in career history">
+            <p>
+              Roles, organizations, projects, and expertise. Used as <code>connector:career</code>.
+            </p>
+          </SettingsHelp>
           <textarea
             className="min-h-24 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
             id="dossier-career"
-            placeholder="Founder / Engineer building Organic LLM, multi-agent orchestration, encrypted memory systems, and physics-driven interfaces..."
-            rows={4}
+            placeholder="Roles, projects, and accomplishments"
+            rows={3}
             value={formState.careerHistory}
             onChange={(e) => updateField("careerHistory", e.target.value)}
           />
@@ -785,17 +781,19 @@ export function ConnectorsSettingsTab({
             htmlFor="dossier-resume"
           >
             <FileText className="size-3.5 text-muted-foreground" />
-            Resume / CV Markdown or Plain Text (<code>connector:resume</code>)
+            Resume / CV
           </label>
-          <p className="text-[11px] text-muted-foreground">
-            Paste your full resume or CV so Organic and its writing/research subagents can cite
-            exact dates, metrics, and accomplishments.
-          </p>
+          <SettingsHelp title="How your resume is used">
+            <p>
+              Paste plain text or Markdown so writing and research tasks can use exact dates,
+              metrics, and accomplishments. Used as <code>connector:resume</code>.
+            </p>
+          </SettingsHelp>
           <textarea
             className="min-h-28 w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-xs text-foreground placeholder:text-muted-foreground/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
             id="dossier-resume"
-            placeholder="Paste your markdown or plain-text resume / CV here..."
-            rows={5}
+            placeholder="Paste your resume or CV"
+            rows={4}
             value={formState.resumeText}
             onChange={(e) => updateField("resumeText", e.target.value)}
           />
@@ -808,17 +806,19 @@ export function ConnectorsSettingsTab({
             htmlFor="dossier-preferences"
           >
             <Cpu className="size-3.5 text-muted-foreground" />
-            Working &amp; Infrastructure Preferences (<code>connector:preferences</code>)
+            Working Preferences
           </label>
-          <p className="text-[11px] text-muted-foreground">
-            Hardware, home servers (e.g. MacBook + <code>aetherion</code> Raspberry Pi 5), preferred
-            languages/runtimes (TypeScript, Bun, Rust, Next.js), and architectural taste.
-          </p>
+          <SettingsHelp title="What to include in working preferences">
+            <p>
+              Hardware, servers, preferred languages, runtimes, and architecture choices. Used as{" "}
+              <code>connector:preferences</code>.
+            </p>
+          </SettingsHelp>
           <textarea
             className="min-h-24 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
             id="dossier-preferences"
-            placeholder="Primary workstation: MacBook Pro. Home server: aetherion (Raspberry Pi 5). Stack: TypeScript, Next.js App Router, Bun, Supabase, Rust/WASM..."
-            rows={4}
+            placeholder="Tools, hardware, and how you like to work"
+            rows={3}
             value={formState.workingPreferences}
             onChange={(e) => updateField("workingPreferences", e.target.value)}
           />

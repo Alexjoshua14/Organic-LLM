@@ -50,7 +50,7 @@ export function QuickSettingRow({ label, caption, icon, children }: QuickSetting
   );
 
   return (
-    <section className="flex min-h-11 items-center justify-between gap-3">
+    <section className="flex min-h-11 items-center justify-between gap-inline-md">
       <Popover.Root
         open={open}
         onOpenChange={(nextOpen) => {
@@ -63,7 +63,7 @@ export function QuickSettingRow({ label, caption, icon, children }: QuickSetting
               aria-controls={open ? captionId : undefined}
               aria-describedby={open ? captionId : undefined}
               aria-label={`About ${label}`}
-              className="flex min-h-11 items-center gap-2 rounded-sm text-left leading-snug outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex min-h-11 items-center gap-inline-sm rounded-sm text-left leading-snug outline-none focus-visible:ring-2 focus-visible:ring-ring"
               type="button"
               onBlur={() => {
                 keyboardFocused.current = false;
@@ -104,7 +104,7 @@ export function QuickSettingRow({ label, caption, icon, children }: QuickSetting
             aria-label={`About ${label}`}
             className={cn(
               glass({ opaque: true }),
-              "z-[230] w-64 max-w-[var(--radix-popover-content-available-width)] rounded-lg px-3 py-2 text-xs leading-relaxed text-muted-foreground shadow-lg outline-none"
+              "z-[230] w-64 max-w-[var(--radix-popover-content-available-width)] rounded-lg px-inset-md py-inset-sm text-xs leading-relaxed text-muted-foreground shadow-lg outline-none"
             )}
             collisionPadding={12}
             id={captionId}

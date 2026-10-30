@@ -19,6 +19,7 @@ import {
   CommandList,
 } from "@/components/third-party/ui/command";
 import { featuredFonts, allFontOptions, getFontById, type FontOption } from "@/config/font-options";
+import { SettingsHelp } from "@/components/settings/settings-help";
 import { getSettings } from "@/lib/user-settings";
 import { applyFontPreference } from "@/components/FontProvider";
 import { persistUserSettingsToSupabase } from "@/data/supabase/user-settings";
@@ -54,27 +55,27 @@ export default function FontSetting() {
   const selectedFont = getFontById(selectedId);
 
   return (
-    <section className="flex flex-col gap-6">
-      <div>
-        <h2 className="text-lg font-semibold text-foreground mb-1">Font</h2>
-        <p className="text-sm text-muted-foreground mb-3">
-          Choose the font used across the app. Featured picks and fonts used by popular apps are
-          shown first; search for more.
-        </p>
-        <div className="flex items-center gap-3">
-          <Button
-            className="font-medium min-w-[200px] justify-start"
-            style={{ fontFamily: fontFamilyForPreview(selectedFont) }}
-            variant="bordered"
-            onPress={() => setOpen(true)}
-          >
-            {selectedFont?.label ?? "Satoshi"}
-          </Button>
+    <section className="space-y-stack-sm">
+      <div className="space-y-stack-sm">
+        <h3 className="text-sm font-medium text-foreground">Font</h3>
+        <Button
+          aria-label={`Choose font, current font: ${selectedFont?.label ?? "Satoshi"}`}
+          className="min-h-11 w-full min-w-0 justify-between gap-inline-sm px-inset-md font-medium sm:max-w-xs"
+          style={{ fontFamily: fontFamilyForPreview(selectedFont) }}
+          variant="bordered"
+          onPress={() => setOpen(true)}
+        >
+          <span className="truncate">{selectedFont?.label ?? "Satoshi"}</span>
           {selectedFont?.tag && (
-            <span className="text-sm text-muted-foreground">{selectedFont.tag}</span>
+            <span className="shrink-0 text-xs font-normal text-muted-foreground">
+              {selectedFont.tag}
+            </span>
           )}
-        </div>
+        </Button>
       </div>
+      <SettingsHelp title="About fonts">
+        <p>Applies across the app. Browse featured fonts or search the full library.</p>
+      </SettingsHelp>
 
       <Dialog
         open={open}
@@ -83,8 +84,8 @@ export default function FontSetting() {
           if (!o) setSearch("");
         }}
       >
-        <DialogContent className="max-w-md gap-0 p-0 overflow-hidden">
-          <DialogHeader className="px-4 pt-4 pb-2">
+        <DialogContent className="w-[calc(100%-2rem)] max-w-md gap-0 p-0 overflow-hidden">
+          <DialogHeader className="px-inset-lg pt-inset-lg pb-inset-sm">
             <DialogTitle>Choose font</DialogTitle>
           </DialogHeader>
           <Command
@@ -132,7 +133,7 @@ function FontPickerContent({
           {featuredFonts.map((font) => (
             <CommandItem
               key={font.id}
-              className="flex items-center justify-between gap-2"
+              className="flex min-h-11 items-center justify-between gap-inline-sm"
               value={font.id}
               onSelect={() => onSelect(font)}
             >
