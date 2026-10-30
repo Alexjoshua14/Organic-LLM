@@ -701,6 +701,45 @@
     opacity: 1;
   }
 }
+.organic-stage[data-tiny="true"] .stage-agent h1 {
+  display: none;
+}
+.organic-stage[data-tiny="true"] .stage-agent-mark {
+  width: 24px;
+  height: 24px;
+}
+.organic-stage[data-tiny="true"] .stage-agent-status {
+  height: 10px;
+  margin-top: 2px;
+  font-size: 8px;
+  line-height: 10px;
+  overflow: hidden;
+}
+.organic-stage[data-tiny="true"] .stage-subagent {
+  padding-top: 0;
+}
+.organic-stage[data-tiny="true"] .stage-subagent-mark {
+  width: 24px;
+  height: 24px;
+}
+.organic-stage[data-tiny="true"] .stage-subagent-name {
+  height: 10px;
+  margin-top: 2px;
+  font-size: 8px;
+  line-height: 10px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.organic-stage[data-tiny="true"] .stage-subagent-status {
+  height: 10px;
+  font-size: 8px;
+  line-height: 10px;
+}
+.organic-stage[data-tiny="true"] .stage-subagent-stop {
+  position: static;
+  width: 20px;
+  height: 20px;
+}
 @keyframes stage-appear {
   from {
     opacity: 0;

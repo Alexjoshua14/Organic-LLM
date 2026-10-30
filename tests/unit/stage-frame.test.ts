@@ -1,7 +1,11 @@
 import { expect, test } from "bun:test";
 
 import { resolveStageFrame } from "@/lib/stage/frame";
-import { stageChromeReservations, validateStageLayout } from "@/lib/stage/layout";
+import {
+  repairStageLayout,
+  stageChromeReservations,
+  validateStageLayout,
+} from "@/lib/stage/layout";
 import { emptyStageState, type StageRect, type StageWidget } from "@/lib/stage/schema";
 
 const note = (x: number): StageWidget => ({
@@ -71,4 +75,33 @@ test("focus gives a selected author's piece the reading area and pages excess wo
   expect(frame.pieces[0].rect.w).toBe(24);
   const next = resolveStageFrame(state, { width: 1200, height: 700, composerHeight: 78, page: 2 });
   expect(next.pieces[0].widget.id).toBe(state.widgets[2].id);
+});
+
+test("short windows retain positive owned agent cells above the composer", () => {
+  const state = { ...emptyStageState(), widgets: [note(8)] };
+  for (const width of [358, 852]) {
+    const frame = resolveStageFrame(state, { width, height: 324, composerHeight: 108 });
+    expect(frame.tiny).toBe(true);
+    for (const rect of [
+      frame.parent,
+      ...frame.children,
+      frame.reply,
+      ...frame.pieces.map((p) => p.rect),
+    ]) {
+      expect(rect.h).toBeGreaterThan(0);
+      expect(rect.y + rect.h).toBeLessThanOrEqual(frame.composer.y);
+    }
+    expect(intersects(frame.parent, frame.children[0])).toBe(false);
+    expect(intersects(frame.children[0], frame.children[1])).toBe(false);
+  }
+});
+
+test("legacy layouts retain every piece when the new reservations require compaction", () => {
+  const state = { ...emptyStageState(), widgets: Array.from({ length: 48 }, () => note(8)) };
+  const restored = repairStageLayout(state);
+  expect(restored.widgets.map((w) => w.id)).toEqual(state.widgets.map((w) => w.id));
+  expect(() => validateStageLayout(restored.widgets)).not.toThrow();
+  const frame = resolveStageFrame(restored, { width: 1200, height: 700, composerHeight: 78 });
+  expect(frame.pages).toBe(48);
+  expect(frame.pieces[0].rect.w).toBe(24);
 });

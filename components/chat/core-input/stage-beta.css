@@ -17,7 +17,7 @@
   width: 0;
   min-width: 0;
   min-height: 36px;
-  max-height: 164px;
+  max-height: clamp(36px, calc((100dvh - 450px) / 2), 164px);
   padding: 6px 4px;
   border: 0;
   background: none;

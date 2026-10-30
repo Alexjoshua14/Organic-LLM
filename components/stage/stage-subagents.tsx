@@ -143,22 +143,28 @@ export function StageSubagents({
       data-active={active.length > 0 || settling}
       data-children={active.length}
     >
-      <AnimatePresence
-        onExitComplete={() => {
-          if (!active.length) setSettling(false);
-        }}
-      >
-        {active.map(({ agent, slot }) => (
-          <Child
-            key={agent.id}
-            agent={agent}
-            slot={slot}
-            rect={rects[slot]}
-            onCancel={onCancel}
-            onSelect={onSelect}
-          />
-        ))}
-      </AnimatePresence>
+      {[0, 1].map((slot) => (
+        <AnimatePresence
+          key={slot}
+          mode="wait"
+          onExitComplete={() => {
+            if (!active.length) setSettling(false);
+          }}
+        >
+          {active
+            .filter((entry) => entry.slot === slot)
+            .map(({ agent }) => (
+              <Child
+                key={agent.id}
+                agent={agent}
+                slot={slot}
+                rect={rects[slot]}
+                onCancel={onCancel}
+                onSelect={onSelect}
+              />
+            ))}
+        </AnimatePresence>
+      ))}
     </div>
   );
 }

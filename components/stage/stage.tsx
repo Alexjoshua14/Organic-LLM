@@ -84,6 +84,11 @@ export function Stage() {
   const [pieceId, setPieceId] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [preview, setPreview] = useState<{ id: string; rect: StageRect } | null>(null);
+  const arrangePiece = useCallback((id: string) => {
+    setPreview(null);
+    setSelectedId((current) => (current === id ? null : id));
+    setPanel(null);
+  }, []);
   const previewPlacement = useCallback(
     (rect: StageRect | null) => {
       setPreview((current) => {
@@ -186,6 +191,7 @@ export function Stage() {
       data-grid={showGrid || !!selected}
       data-empty={empty}
       data-compact={frame.compact}
+      data-tiny={frame.tiny}
     >
       <div aria-hidden className="stage-grid-guide" />
       <header className="stage-topbar" style={stageCellStyle(frame.header)}>
@@ -231,7 +237,15 @@ export function Stage() {
 
       <section aria-label="Your 32 by 32 stage" className="stage-surface">
         <StageAgent
-          status={status}
+          status={
+            frame.tiny
+              ? sending
+                ? "Thinking"
+                : activeSubagents
+                  ? "Working together"
+                  : "Here, with you"
+              : status
+          }
           rect={frame.parent}
           state={sending ? "working" : loading || activeSubagents > 0 ? "waiting" : "idle"}
           onFocus={() => {
@@ -288,11 +302,7 @@ export function Stage() {
             widget={widget}
             rect={rect}
             selected={widget.id === selectedId}
-            onSelect={() => {
-              setPreview(null);
-              setSelectedId((id) => (id === widget.id ? null : widget.id));
-              setPanel(null);
-            }}
+            onSelect={arrangePiece}
           />
         ))}
       </section>

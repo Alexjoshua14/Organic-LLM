@@ -57,6 +57,7 @@ function context(state: StageState, includeContent = false) {
     rect: widget.rect,
     ...(includeContent && widget.kind === "note" ? { text: widget.text.slice(0, 1000) } : {}),
     ...(includeContent && widget.kind === "mermaid" ? { code: widget.code.slice(0, 1000) } : {}),
+    ...(includeContent && widget.kind === "recipe" ? { recipe: widget.recipe } : {}),
   }));
 
   return JSON.stringify({

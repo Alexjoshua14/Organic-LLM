@@ -48,7 +48,13 @@ const PieceContent = memo(
           </div>
         )}
         {widget.kind === "mermaid" && (
-          <Diagram code={widget.code} diagramId={widget.id} title={widget.title} variant="canvas" />
+          <Diagram
+            code={widget.code}
+            diagramId={widget.id}
+            title={widget.title}
+            variant="canvas"
+            expandOnDoubleClick
+          />
         )}
         {widget.kind === "recipe" && <RecipeCard block={widget.recipe} />}
         {widget.kind === "chat" && <StageChat threadId={widget.threadId} widgetId={widget.id} />}
@@ -68,7 +74,7 @@ export const StageWidget = memo(function StageWidget({
 }: {
   widget: Widget;
   selected: boolean;
-  onSelect: () => void;
+  onSelect: (id: string) => void;
   rect?: StageRect;
 }) {
   const reduced = useReducedMotion();
@@ -91,7 +97,7 @@ export const StageWidget = memo(function StageWidget({
           className="stage-icon-button"
           title="Arrange this piece"
           type="button"
-          onClick={onSelect}
+          onClick={() => onSelect(widget.id)}
         >
           <Move size={14} />
         </button>

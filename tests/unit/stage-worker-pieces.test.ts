@@ -4,6 +4,8 @@ import { emptyStageState } from "@/lib/stage/schema";
 import { validateStageLayout } from "@/lib/stage/layout";
 import { restoreStageLayout } from "@/lib/stage/restore";
 import type { StageWorkerPiece } from "@/lib/stage/worker-output";
+import { StageWorkerOutputSchema } from "@/lib/stage/worker-output";
+import { z } from "zod";
 
 const recipe: StageWorkerPiece = {
   kind: "recipe",
@@ -50,4 +52,15 @@ test("restores long legacy worker output to a readable grid note once", () => {
     source: { id: state.subagents![0].id },
   });
   expect(restoreStageLayout(restored).widgets).toHaveLength(1);
+});
+
+test("worker output has a compatible provider schema and requires real piece content", () => {
+  expect(JSON.stringify(z.toJSONSchema(StageWorkerOutputSchema))).not.toContain('"oneOf"');
+  expect(
+    StageWorkerOutputSchema.safeParse({ reply: "Ready", pieces: [{ ...recipe, ingredients: [] }] })
+      .success
+  ).toBe(false);
+  expect(StageWorkerOutputSchema.safeParse({ reply: "Ready", pieces: [recipe] }).success).toBe(
+    true
+  );
 });

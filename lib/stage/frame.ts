@@ -32,7 +32,11 @@ export function resolveStageFrame(state: StageState, options: StageFrameOptions)
   const hasWork = state.widgets.length > 0;
   const focused = options.pieceId ? state.widgets.find((w) => w.id === options.pieceId) : null;
   const readingWork = reading || (!hasWork && author !== "organic");
-  const rail = hasWork || readingWork || options.arranging || composerHeight > 140;
+  const activeChildren =
+    state.subagents?.some((agent) => agent.status === "working" || agent.status === "canceling") ||
+    (state.design && state.design.status !== "failed" && state.design.phase !== "queued");
+  const rail =
+    hasWork || activeChildren || readingWork || options.arranging || composerHeight > 140;
   const replyRows = Math.max(
     2,
     Math.min(
@@ -59,20 +63,28 @@ export function resolveStageFrame(state: StageState, options: StageFrameOptions)
     ? { x: 8, y: top + 1, w: 24, h: composerY - top - 2 }
     : { x: rail ? 8 : 4, y: replyY, w: 24, h: replyRows };
   const railHeight = composerY - top - 2;
+  const tiny = height < 430;
   const compact = height < 560 || composerHeight > 110;
-  const parentH = Math.min(
-    railHeight -
-      (width >= 700
-        ? Math.ceil((compact ? 92 : 116) / row) + 1
-        : 2 * Math.ceil((compact ? 76 : 96) / row) + 2),
-    Math.max(Math.ceil((compact ? 112 : 154) / row), Math.min(9, Math.floor(railHeight * 0.38)))
+  const across = width >= 700 || tiny;
+  const parentH = Math.max(
+    3,
+    Math.min(
+      railHeight -
+        (across
+          ? Math.ceil((tiny ? 66 : compact ? 92 : 116) / row) + 1
+          : 2 * Math.ceil((compact ? 76 : 96) / row) + 2),
+      Math.max(
+        Math.ceil((tiny ? 36 : compact ? 112 : 154) / row),
+        Math.min(9, Math.floor(railHeight * 0.38))
+      )
+    )
   );
   const childH = Math.max(3, Math.floor((railHeight - parentH - 2) / 2));
   const parent: StageRect = rail
     ? { x: 0, y: top + 1, w: 7, h: parentH }
     : { x: 12, y: top + 2, w: 8, h: Math.min(9, Math.max(4, Math.floor(body.h * 0.55))) };
   const children: StageRect[] =
-    rail && width >= 700
+    rail && across
       ? [0, 1].map((slot) => ({
           x: slot * 4,
           y: parent.y + parent.h + 1,
@@ -157,6 +169,7 @@ export function resolveStageFrame(state: StageState, options: StageFrameOptions)
     page,
     pages: readable ? 1 : pages,
     compact,
+    tiny,
     reading: readingWork,
     replyCompact: !readingWork && reply.h * row < 96,
   };
