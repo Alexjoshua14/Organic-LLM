@@ -24,3 +24,19 @@ CoreInput claims the existing voice drawer slot. Stage reserves space above it w
 bar is visible so the bar does not cover the latest response. The microphone, audio sink,
 permission recovery, idle pause, and end controls remain owned by the existing voice
 provider and transport.
+
+Stage also schedules up to two bounded workers through the existing worker-goal runtime.
+Assignments and results are part of the encrypted Stage snapshot. Workers use the shared
+economy model policy, ZDR, budget hooks, and per-run cost limits. Distinct worker leases
+permit parallel goals and deduplicate recovered callbacks. Children cannot delegate.
+
+The child branch reserves x9 y20 w14 h8 only while a worker is queued, working, or stopping.
+Only conflicting widgets move to make room; if they cannot fit, delegation is declined
+without partially moving the canvas. Completion, failure, and cancellation release the
+reservation. Organic Activity Marks show each live child's state, settle on exit, and
+unmount; results remain in conversation/activity history.
+
+Stop is an owner-scoped DELETE, not a cosmetic hide. It records cancellation before
+aborting locally. Running workers check durable cancellation across instances, and the
+completion mutation fences late responses. Stale workers are marked failed after the
+run ceiling plus a margin, so a killed process cannot reserve canvas space indefinitely.

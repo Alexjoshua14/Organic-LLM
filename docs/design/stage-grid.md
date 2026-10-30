@@ -14,3 +14,8 @@ Only transform and opacity transition. No animation loop, timers, persistent
 `will-change`, layout interpolation, blur, or application state waits on motion.
 Toggling or selecting a widget responds immediately; reversing mid-transition is handled
 by CSS. At rest there is no ongoing animation. Reduced motion disables the transition.
+
+A Chromium trace of the isolated grid toggle recorded zero layout events and zero
+JavaScript animation-frame callbacks. Paints occurred at transition boundaries, not
+throughout the transition. This verifies the mechanism in that fixture, not every
+browser/GPU combination.

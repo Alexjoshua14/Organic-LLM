@@ -334,7 +334,10 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   const addThreadReference = (id: string) => {
     const pointer = parseThreadPointer(id);
 
-    if (pointer) setThreadReferences((current) => [...new Set([...current, pointer])].slice(0, 8));
+    if (pointer)
+      setThreadReferences((current) =>
+        [...new Set([...current, pointer])].slice(0, variant === "stage-beta" ? 3 : 8)
+      );
   };
 
   useEffect(() => {
@@ -1057,7 +1060,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
         onPasteCapture={(event) => {
           const id = parseThreadPointer(event.clipboardData.getData("text/plain"));
 
-          if (!id || threadReferences.length >= 8) return;
+          if (!id || threadReferences.length >= (variant === "stage-beta" ? 3 : 8)) return;
           event.preventDefault();
           event.stopPropagation();
           addThreadReference(id);

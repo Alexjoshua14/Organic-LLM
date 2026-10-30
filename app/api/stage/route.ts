@@ -2,11 +2,12 @@ import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
 import { NextResponse } from "next/server";
 
+import { scheduleStageSubagents, recoverStaleStageSubagents } from "@/lib/stage/subagents";
 import { runStageTurn, scheduleStageDesign, StageTurnError } from "@/lib/stage/turn";
 import { getSupabaseUserIdCached } from "@/data/supabase/profile-id-cache";
 import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
 import { designIsStale } from "@/lib/stage/design";
-import { applyStageOperations, StageLayoutError } from "@/lib/stage/layout";
+import { applyStageOperations, stageReservedRects, StageLayoutError } from "@/lib/stage/layout";
 import { checkStageLimit } from "@/lib/stage/limit";
 import { readStagePayload, StagePayloadError } from "@/lib/stage/request";
 import { StageMutationSchema, StageTurnSchema, type StageState } from "@/lib/stage/schema";
@@ -18,7 +19,7 @@ import {
   releaseStageLease,
 } from "@/lib/stage/store";
 
-export const maxDuration = 180;
+export const maxDuration = 300;
 
 const headers = { "Cache-Control": "private, no-store" };
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status, headers });
@@ -66,6 +67,8 @@ export async function GET() {
 
       state = recovered ?? (await readStage(id.ownerId)).state;
     }
+    state = await recoverStaleStageSubagents(id.ownerId, state);
+    scheduleStageSubagents(id, state);
     // Polling also resumes queued work after a prior invocation ended. The designer lease deduplicates workers.
     scheduleStageDesign(id, state);
 
@@ -93,7 +96,14 @@ export async function PATCH(req: Request) {
         return null;
       }
 
-      return { ...current, widgets: applyStageOperations(current.widgets, parsed.data.operations) };
+      return {
+        ...current,
+        widgets: applyStageOperations(
+          current.widgets,
+          parsed.data.operations,
+          stageReservedRects(current)
+        ),
+      };
     });
 
     if (!state) return json({ error: "Stage changed", state: conflict }, 409);

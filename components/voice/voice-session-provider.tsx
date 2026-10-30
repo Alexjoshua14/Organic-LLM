@@ -269,6 +269,7 @@ export function VoiceSessionProvider({
       setSuppressHostBar,
     }),
     [
+      voice.stage,
       voice.phase,
       voice.connected,
       voice.connecting,

@@ -7,6 +7,8 @@ export const STAGE_SIZE = 32;
 export const STAGE_AGENT_RECT = { x: 13, y: 11, w: 6, h: 8 } as const;
 export const STAGE_MAX_WIDGETS = 48;
 export const STAGE_MAX_PENDING_DESIGNS = 8;
+export const STAGE_MAX_SUBAGENTS = 2;
+export const STAGE_SUBAGENT_RECT = { x: 9, y: 20, w: 14, h: 8 } as const;
 
 export const StageRectSchema = z
   .object({
@@ -51,10 +53,31 @@ export const StageDesignSchema = z
   })
   .strict();
 
+export const StageSubagentAssignmentSchema = z
+  .object({
+    name: z.string().trim().min(1).max(40),
+    goal: z.string().trim().min(1).max(2000),
+  })
+  .strict();
+export const StageSubagentSchema = StageSubagentAssignmentSchema.extend({
+  id: z.string().uuid(),
+  status: z.enum(["queued", "working", "canceling", "done", "canceled", "failed"]),
+  startedAt: z.string().datetime(),
+  result: z.string().max(6000).nullable(),
+  memory: z.boolean().default(false),
+  webSearch: z.boolean().default(false),
+});
+export type StageSubagent = z.infer<typeof StageSubagentSchema>;
+export type StageSubagentAssignment = z.infer<typeof StageSubagentAssignmentSchema>;
+export function stageSubagentActive(agent: StageSubagent): boolean {
+  return agent.status === "queued" || agent.status === "working" || agent.status === "canceling";
+}
+
 export const StageStateSchema = z
   .object({
     revision: z.number().int().nonnegative(),
     updatedAt: z.string().datetime(),
+    subagents: z.array(StageSubagentSchema).max(STAGE_MAX_SUBAGENTS).optional(),
     widgets: z.array(StageWidgetSchema).max(STAGE_MAX_WIDGETS),
     messages: z.array(StageMessageSchema).max(24),
     summary: z.string().max(6000),
@@ -113,6 +136,10 @@ export const StageEventSchema = z
       "design-complete",
       "design-failed",
       "turn-failed",
+      "subagent-start",
+      "subagent-complete",
+      "subagent-cancel",
+      "subagent-failed",
     ]),
     requestId: z.string().uuid().nullable(),
     lastModel: z.string().nullable(),
@@ -122,7 +149,7 @@ export const StageEventSchema = z
       .nullable(),
     call: z
       .object({
-        operation: z.enum(["turn", "design"]),
+        operation: z.enum(["turn", "design", "subagent"]),
         model: z.string(),
         outcome: z.enum(["complete", "failed", "superseded"]),
       })

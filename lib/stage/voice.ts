@@ -8,6 +8,7 @@ export function stageVoiceContext(state: StageState): string {
       .slice(-4)
       .map(({ role, text }) => ({ role, text: text.slice(0, 500) })),
     summary: state.summary.slice(0, 1400),
+    subagents: state.subagents?.map(({ id, name, status }) => ({ id, name, status })) ?? [],
     designStatus: state.design?.status ?? null,
     widgets: state.widgets.map(({ id, kind, title, rect }) => ({ id, kind, title, rect })),
   });

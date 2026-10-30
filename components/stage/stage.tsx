@@ -12,8 +12,10 @@ import { AudioLines, Grid3X3, History, MessageCircle, ArrowUpRight, RotateCcw } 
 import { useStage } from "./use-stage";
 import { StageWidget } from "./stage-widget";
 import { StageInspector } from "./stage-inspector";
+import { StageSubagents } from "./stage-subagents";
 import { StageHistory } from "./stage-history";
 
+import { stageSubagentActive } from "@/lib/stage/schema";
 import { ChatMessageMarkdown } from "@/components/chat/chat-message-markdown";
 import { CoreInput } from "@/components/chat/core-input";
 import { useVoiceSessionOptional } from "@/components/voice/voice-session-provider";
@@ -39,7 +41,18 @@ const STARTERS = [
 export function Stage() {
   const voice = useVoiceSessionOptional();
   const voiceActive = !!voice && (voice.connected || voice.connecting || voice.paused);
-  const { state, error, loading, sending, saving, send, mutate, refresh, retryDesign } = useStage({
+  const {
+    state,
+    error,
+    loading,
+    sending,
+    saving,
+    send,
+    mutate,
+    refresh,
+    retryDesign,
+    cancelSubagent,
+  } = useStage({
     voiceActive: !!voice && (voice.connected || voice.connecting),
   });
   const modelRef = useRef<ChatModel>(DEFAULT_COMPOSER_MODEL);
@@ -67,6 +80,7 @@ export function Stage() {
   const failed = state?.design?.status === "failed";
   const latestReply = state?.messages.findLast((message) => message.role === "assistant");
   const empty = !state?.widgets.length;
+  const activeSubagents = state?.subagents?.filter(stageSubagentActive).length ?? 0;
   const status = loading
     ? "Opening your space"
     : sending
@@ -77,7 +91,9 @@ export function Stage() {
           ? "Placing your piece"
           : failed
             ? "Designer needs a moment"
-            : "Here, with you";
+            : activeSubagents
+              ? `${activeSubagents === 1 ? "One specialist is" : "Two specialists are"} working with me`
+              : "Here, with you";
 
   useEffect(() => {
     function keydown(event: KeyboardEvent) {
@@ -182,7 +198,7 @@ export function Stage() {
               <OrganicActivityMark
                 className="stage-agent-mark"
                 seed="organic-stage"
-                state={sending ? "working" : loading ? "waiting" : "idle"}
+                state={sending ? "working" : loading || activeSubagents > 0 ? "waiting" : "idle"}
               />
             </button>
             <h1>Organic</h1>
@@ -197,6 +213,7 @@ export function Stage() {
               </span>
             )}
           </div>
+          <StageSubagents agents={state?.subagents ?? []} onCancel={cancelSubagent} />
           {state?.widgets.map((widget) => (
             <StageWidget
               key={widget.id}

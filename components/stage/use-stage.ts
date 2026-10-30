@@ -4,6 +4,8 @@ import type { StageOperation, StageState, StageTurnSettings } from "@/lib/stage/
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { stageSubagentActive } from "@/lib/stage/schema";
+
 const DESIGN_POLL_MS = 1_500;
 
 export async function stageRequest<T>(path: string, init?: RequestInit): Promise<T> {
@@ -70,8 +72,14 @@ export function useStage({ voiceActive = false }: { voiceActive?: boolean } = {}
     };
   }, [refresh]);
 
+  const subagentKey =
+    state?.subagents
+      ?.filter(stageSubagentActive)
+      .map((agent) => `${agent.id}:${agent.status}`)
+      .join(",") ?? "";
+
   useEffect(() => {
-    if (state?.design?.status !== "working" && !voiceActive) return;
+    if (state?.design?.status !== "working" && !subagentKey && !voiceActive) return;
     let disposed = false;
     let timer: ReturnType<typeof setTimeout>;
     const poll = async () => {
@@ -85,7 +93,7 @@ export function useStage({ voiceActive = false }: { voiceActive?: boolean } = {}
       disposed = true;
       clearTimeout(timer);
     };
-  }, [state?.design?.id, state?.design?.status, voiceActive, refresh]);
+  }, [state?.design?.id, state?.design?.status, subagentKey, voiceActive, refresh]);
 
   const send = useCallback(
     async (message: string, settings?: StageTurnSettings) => {
@@ -165,5 +173,31 @@ export function useStage({ voiceActive = false }: { voiceActive?: boolean } = {}
     }
   }, [accept]);
 
-  return { state, error, loading, sending, saving, send, mutate, refresh, retryDesign };
+  const cancelSubagent = useCallback(
+    async (id: string) => {
+      try {
+        const data = await stageRequest<{ state: StageState }>(`/api/stage/subagents/${id}`, {
+          method: "DELETE",
+        });
+
+        accept(data.state);
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : "Couldn’t stop the specialist.");
+      }
+    },
+    [accept]
+  );
+
+  return {
+    state,
+    error,
+    loading,
+    sending,
+    saving,
+    send,
+    mutate,
+    refresh,
+    retryDesign,
+    cancelSubagent,
+  };
 }

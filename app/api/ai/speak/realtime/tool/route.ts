@@ -7,7 +7,7 @@ import { createLogger } from "@/lib/logger";
 import { executeSpeakRealtimeTool } from "@/lib/speak/execute-speak-tool";
 import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
 
-export const maxDuration = 180;
+export const maxDuration = 300;
 
 const logger = createLogger("app/api/ai/speak/realtime/tool/route.ts");
 
