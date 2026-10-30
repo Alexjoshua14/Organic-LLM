@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { act, cleanup, renderHook } from "@testing-library/react";
 
 import { installVoiceBrowser } from "../helpers/voice-browser";
+import { deferred } from "../helpers/mock-realtime-voice";
 
 import { useRealtimeVoice } from "@/hooks/use-realtime-voice";
 import { createWebRtcVoiceTransport } from "@/lib/speak/transport/voice-transport";
@@ -123,6 +124,157 @@ describe("voice microphone preparation", () => {
 });
 
 describe("voice session preparation", () => {
+  function mockSuccessfulSession() {
+    browser.fetchMock.mockImplementation(async (input) =>
+      String(input).endsWith("/session")
+        ? Response.json({ sessionId: "session-1", clientSecret: "secret", threadId: null })
+        : new Response("answer-sdp")
+    );
+  }
+
+  test("first Start waits for permission, then connects without a second click", async () => {
+    const permission = deferred<MediaStream>();
+
+    browser.getUserMedia.mockImplementation(() => permission.promise);
+    mockSuccessfulSession();
+    const { result } = renderHook(() => useRealtimeVoice());
+    let connecting!: Promise<void>;
+
+    act(() => {
+      connecting = result.current.connect();
+    });
+    expect(result.current.connecting).toBe(true);
+    expect(result.current.error).toBeNull();
+    expect(browser.fetchMock).not.toHaveBeenCalled();
+    expect(browser.peers).toHaveLength(0);
+
+    await act(async () => {
+      permission.resolve(browser.stream);
+      await connecting;
+    });
+
+    expect(result.current.connected).toBe(true);
+    expect(result.current.connecting).toBe(false);
+    expect(result.current.error).toBeNull();
+    expect(browser.getUserMedia).toHaveBeenCalledTimes(1);
+    expect(browser.peers).toHaveLength(1);
+    expect(
+      browser.fetchMock.mock.calls.filter(([url]) => String(url).endsWith("/session"))
+    ).toHaveLength(1);
+  });
+
+  test("overlapping Starts share the pending permission attempt", async () => {
+    const permission = deferred<MediaStream>();
+
+    browser.getUserMedia.mockImplementation(() => permission.promise);
+    mockSuccessfulSession();
+    const { result } = renderHook(() => useRealtimeVoice());
+    let starts!: Promise<void[]>;
+
+    act(() => {
+      starts = Promise.all([result.current.connect(), result.current.connect()]);
+    });
+    await act(async () => {
+      permission.resolve(browser.stream);
+      await starts;
+    });
+
+    expect(browser.getUserMedia).toHaveBeenCalledTimes(1);
+    expect(result.current.connected).toBe(true);
+    expect(result.current.error).toBeNull();
+    expect(browser.peers).toHaveLength(1);
+  });
+
+  test("late auto-resume discovery cannot replace a manual permission attempt", async () => {
+    const active = deferred<Response>();
+    const permission = deferred<MediaStream>();
+
+    browser.getUserMedia.mockImplementation(() => permission.promise);
+    mockSuccessfulSession();
+    browser.fetchMock.mockImplementationOnce(() => active.promise);
+    const { result } = renderHook(() => useRealtimeVoice());
+    let resuming!: Promise<boolean>;
+    let connecting!: Promise<void>;
+
+    act(() => {
+      resuming = result.current.resumeIfActive();
+      connecting = result.current.connect();
+    });
+    await act(async () => {
+      active.resolve(Response.json({ session: { sessionId: "old-session" } }));
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      permission.resolve(browser.stream);
+      await Promise.all([connecting, resuming]);
+    });
+    expect(browser.getUserMedia).toHaveBeenCalledTimes(1);
+    expect(result.current.connected).toBe(true);
+    expect(result.current.error).toBeNull();
+    const mint = browser.fetchMock.mock.calls.find(([url]) => String(url).endsWith("/session"));
+
+    expect(JSON.parse(mint![1]!.body as string).resumeSessionId).toBeUndefined();
+  });
+
+  test("cancelling during permission wait stops late capture without minting or an error", async () => {
+    const permission = deferred<MediaStream>();
+
+    browser.getUserMedia.mockImplementation(() => permission.promise);
+    const { result } = renderHook(() => useRealtimeVoice());
+    let connecting!: Promise<void>;
+
+    act(() => {
+      connecting = result.current.connect();
+    });
+    await act(async () => {
+      await result.current.disconnect();
+      permission.resolve(browser.stream);
+      await connecting;
+    });
+
+    expect(result.current.error).toBeNull();
+    expect(result.current.connecting).toBe(false);
+    expect(result.current.connected).toBe(false);
+    expect(browser.fetchMock).not.toHaveBeenCalled();
+    expect(browser.stop).toHaveBeenCalledTimes(1);
+  });
+
+  test("a cancelled permission rejection cannot tear down a newer connection", async () => {
+    let deny!: (error: Error) => void;
+
+    browser.getUserMedia.mockImplementationOnce(
+      () =>
+        new Promise((_, reject) => {
+          deny = reject;
+        })
+    );
+    mockSuccessfulSession();
+    const { result } = renderHook(() => useRealtimeVoice());
+    let oldStart!: Promise<void>;
+
+    act(() => {
+      oldStart = result.current.connect();
+    });
+    await act(async () => {
+      await result.current.disconnect();
+    });
+    await act(async () => {
+      await result.current.connect();
+    });
+    expect(result.current.connected).toBe(true);
+
+    await act(async () => {
+      deny(new DOMException("Denied", "NotAllowedError"));
+      await oldStart;
+    });
+
+    expect(result.current.connected).toBe(true);
+    expect(result.current.sessionId).toBe("session-1");
+    expect(result.current.error).toBeNull();
+    expect(browser.stop).not.toHaveBeenCalled();
+  });
+
   test("an insecure page never mints a server session", async () => {
     browser.replace(window, "isSecureContext", false);
     browser.replace(navigator, "mediaDevices", undefined);
@@ -139,14 +291,30 @@ describe("voice session preparation", () => {
   });
 
   test("denying microphone permission never mints or retries a server session", async () => {
-    browser.getUserMedia.mockRejectedValue(new DOMException("Denied", "NotAllowedError"));
-    const { result } = renderHook(() => useRealtimeVoice());
+    let deny!: (error: Error) => void;
 
+    browser.getUserMedia.mockImplementation(
+      () =>
+        new Promise((_, reject) => {
+          deny = reject;
+        })
+    );
+    const { result } = renderHook(() => useRealtimeVoice());
+    let connecting!: Promise<void>;
+
+    act(() => {
+      connecting = result.current.connect();
+    });
+    expect(result.current.connecting).toBe(true);
+    expect(browser.fetchMock).not.toHaveBeenCalled();
     await act(async () => {
-      await result.current.connect();
+      deny(new DOMException("Denied", "NotAllowedError"));
+      await connecting;
     });
 
     expect(result.current.error).toContain("Allow microphone access");
+    expect(result.current.connecting).toBe(false);
+    expect(result.current.connected).toBe(false);
     expect(browser.fetchMock).not.toHaveBeenCalled();
     expect(browser.getUserMedia).toHaveBeenCalledTimes(1);
   });
