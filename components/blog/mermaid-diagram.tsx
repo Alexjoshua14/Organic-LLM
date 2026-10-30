@@ -31,7 +31,21 @@ function initializeMermaidOnce() {
   ensureMermaidDomPurify();
   mermaid.initialize({
     startOnLoad: false,
-    theme: "neutral",
+    theme: "base",
+    htmlLabels: false,
+    flowchart: {
+      htmlLabels: false,
+      useMaxWidth: false,
+      nodeSpacing: 32,
+      rankSpacing: 40,
+      padding: 16,
+    },
+    themeVariables: {
+      fontSize: "14px",
+      primaryColor: "#f1f4f7",
+      primaryTextColor: "#20252b",
+      lineColor: "#687480",
+    },
     securityLevel: "strict",
     suppressErrorRendering: true,
     fontFamily: resolveMermaidFontFamily(),

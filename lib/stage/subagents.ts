@@ -9,6 +9,7 @@ import { settleStageSubagent } from "./subagent-state";
 import { stageSubagentActive, type StageState, type StageSubagent } from "./schema";
 import { mutateStage, readStage } from "./store";
 import { stageVoiceContext } from "./voice";
+import { availableStageChildSlot, repairStageLayout } from "./layout";
 
 import { redis } from "@/lib/redis/redis";
 import { createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
@@ -72,12 +73,16 @@ export async function runStageSubagent(
 
       if (!current || current.status !== "queued") return null;
 
-      return {
+      const slot = availableStageChildSlot(state);
+
+      if (slot === null) return null;
+
+      return repairStageLayout({
         ...state,
         subagents: state.subagents!.map((agent) =>
-          agent.id === job.id ? { ...agent, status: "working" as const } : agent
+          agent.id === job.id ? { ...agent, status: "working" as const, slot } : agent
         ),
-      };
+      });
     });
 
     if (!claimed) return;

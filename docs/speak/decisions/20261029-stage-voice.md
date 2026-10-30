@@ -30,7 +30,7 @@ Assignments and results are part of the encrypted Stage snapshot. Workers use th
 economy model policy, ZDR, budget hooks, and per-run cost limits. Distinct worker leases
 permit parallel goals and deduplicate recovered callbacks. Children cannot delegate.
 
-The child branch reserves x9 y20 w14 h8 only while a worker is queued, working, or stopping.
+The parent and each running child have explicit reservations, exposed to the model by `stageAgentReservations`. The parent owns x12 y8 w8 h14; child slots own x7 y23 w8 h8 and x17 y23 w8 h8. The designer shares the two active slots with workers; queued work owns no cells until it claims a slot atomically.
 Only conflicting widgets move to make room; if they cannot fit, delegation is declined
 without partially moving the canvas. Completion, failure, and cancellation release the
 reservation. Organic Activity Marks show each live child's state, settle on exit, and
@@ -40,3 +40,15 @@ Stop is an owner-scoped DELETE, not a cosmetic hide. It records cancellation bef
 aborting locally. Running workers check durable cancellation across instances, and the
 completion mutation fences late responses. Stale workers are marked failed after the
 run ceiling plus a margin, so a killed process cannot reserve canvas space indefinitely.
+
+Preview review exposed two separate failures: the original parent's eight-row reservation
+was shorter than its rendered mark and caption, and the designer's discriminated union
+emitted provider-rejected `oneOf`. The parent now has a bounded fourteen-row reservation,
+and the canvas has a minimum useful size with native scrolling rather than compressing
+entity content into overlapping cells. Existing conflicting pieces are repaired on read.
+The designer schema uses `anyOf` alternatives and was verified with a live synthetic call.
+
+Worker replies carry author metadata and remain distinct in the main response zone.
+Arrival selectors expose new work without replacing the user's current reading surface.
+Mermaid work products receive validated grid cells; the response caption keeps prose,
+and full source remains available in Conversation.

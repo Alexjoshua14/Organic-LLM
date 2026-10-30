@@ -5,6 +5,8 @@ import type { ReactNode } from "react";
 import { SlidersHorizontal } from "lucide-react";
 import { Popover } from "radix-ui";
 
+import { ComposerActionButton } from "../composer-action-button";
+
 import { ComposerModelEffortSelect } from "./controls/model-effort-select";
 import { ComposerToolToggleGroup } from "./controls/tool-toggle-group";
 import { ComposerSpeechChip } from "./controls/speech-chip";
@@ -13,16 +15,14 @@ import { ComposerSpeechChip } from "./controls/speech-chip";
 export function StageBetaOptions({ threadPicker }: { threadPicker: ReactNode }) {
   return (
     <Popover.Root>
-      <Popover.Trigger asChild>
-        <button
-          aria-label="Composer options"
-          className="stage-beta-options-trigger"
-          title="Model, effort, search, memory, and references"
-          type="button"
-        >
-          <SlidersHorizontal aria-hidden size={16} />
-        </button>
-      </Popover.Trigger>
+      <ComposerActionButton
+        wrapTrigger={Popover.Trigger}
+        aria-label="Composer options"
+        className="size-9 min-w-9 p-0"
+        title="Model, effort, search, memory, and references"
+      >
+        <SlidersHorizontal aria-hidden size={16} />
+      </ComposerActionButton>
       <Popover.Portal>
         <Popover.Content
           aria-label="Stage composer options"

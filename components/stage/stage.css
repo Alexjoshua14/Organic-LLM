@@ -947,3 +947,183 @@
   right: 25%;
   border-top: 1px solid var(--stage-rule);
 }
+
+/* Captions own stable metrics; only explicit child lifecycle changes use canvas space. */
+.stage-agent-status {
+  min-height: 28px;
+}
+.stage-reply {
+  height: clamp(96px, 18dvh, 168px);
+  min-height: 96px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.stage-reply-text {
+  min-height: 0;
+  max-height: 100%;
+  width: 100%;
+}
+.stage-reply-copy {
+  min-height: 0;
+  max-height: clamp(96px, 18dvh, 168px);
+}
+.stage-design-error {
+  flex-shrink: 0;
+  margin: 8px 0 0;
+}
+.stage-subagent-copy > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-height: 16px;
+}
+.stage-subagent-copy > span[role="status"] {
+  display: block;
+  min-height: 14px;
+}
+.stage-subagent-copy p {
+  height: 30px;
+}
+
+/* Grid reservations bound the entire entity, including captions and controls. */
+.stage-surface-wrap {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  padding-top: 16px;
+}
+.stage-surface {
+  flex: 1 0 440px;
+  min-height: 440px;
+}
+.stage-ruler-top {
+  top: 0;
+}
+.stage-agent {
+  align-self: stretch;
+  min-height: 0;
+  overflow: hidden;
+}
+.stage-agent-mark {
+  width: 76px;
+  height: 76px;
+}
+.stage-agent-button {
+  padding: 6px;
+  margin-bottom: 12px;
+}
+.stage-agent-status {
+  margin-left: 0;
+  margin-right: 0;
+  width: 100%;
+  max-height: 28px;
+  overflow: hidden;
+}
+.stage-subagent-tree {
+  grid-column: 8 / span 18;
+  grid-row: 24 / span 8;
+  display: grid;
+  grid-template-columns: repeat(18, minmax(0, 1fr));
+  grid-template-rows: repeat(8, minmax(0, 1fr));
+  gap: 0;
+  align-items: start;
+}
+.stage-subagent {
+  width: 100%;
+  max-width: 200px;
+  height: 100%;
+  max-height: 108px;
+  min-height: 0;
+  overflow: hidden;
+  justify-self: center;
+}
+@media (max-width: 760px) {
+  .organic-stage[data-empty="false"] .stage-surface {
+    min-height: 440px;
+  }
+  .organic-stage[data-empty="false"] .stage-subagent-tree {
+    display: flex;
+    min-height: 108px;
+  }
+  .organic-stage[data-empty="false"] .stage-subagent {
+    width: min(50%, 200px);
+    min-height: 100px;
+  }
+}
+
+.stage-response {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+.stage-response-authors {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 32px;
+  flex: 0 0 32px;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.stage-response-authors > .stage-icon-button {
+  margin-left: auto;
+}
+.stage-response-author {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--stage-muted);
+  font-size: 10px !important;
+}
+.stage-response-author[aria-pressed="true"] {
+  color: var(--stage-ink);
+}
+.stage-response-new {
+  color: var(--stage-focus);
+  font-size: 8px;
+}
+.stage-response-copy {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  padding: 6px 0;
+}
+
+@media (max-width: 760px) {
+  .stage-surface,
+  .organic-stage[data-empty="false"] .stage-surface {
+    display: grid;
+    min-width: 640px;
+    padding: 0;
+    gap: 0;
+    overflow: visible;
+  }
+  .organic-stage[data-empty="false"] .stage-agent {
+    min-height: 0;
+  }
+  .organic-stage[data-empty="false"] .stage-subagent-tree {
+    display: grid;
+    min-height: 0;
+  }
+  .organic-stage .stage-piece {
+    min-height: 0;
+    max-height: none;
+  }
+  .organic-stage .stage-piece[data-kind="chat"] {
+    height: auto;
+  }
+  .organic-stage[data-empty="false"] .stage-subagent {
+    width: 100%;
+    min-height: 0;
+  }
+}

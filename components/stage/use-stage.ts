@@ -79,7 +79,13 @@ export function useStage({ voiceActive = false }: { voiceActive?: boolean } = {}
       .join(",") ?? "";
 
   useEffect(() => {
-    if (state?.design?.status !== "working" && !subagentKey && !voiceActive) return;
+    if (
+      state?.design?.status !== "working" &&
+      state?.design?.status !== "canceling" &&
+      !subagentKey &&
+      !voiceActive
+    )
+      return;
     let disposed = false;
     let timer: ReturnType<typeof setTimeout>;
     const poll = async () => {

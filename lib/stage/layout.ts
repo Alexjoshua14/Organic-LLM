@@ -1,7 +1,6 @@
 import {
   STAGE_AGENT_RECT,
-  STAGE_SUBAGENT_RECT,
-  stageSubagentActive,
+  STAGE_CHILD_RECTS,
   type StageState,
   STAGE_MAX_WIDGETS,
   StageWidgetSchema,
@@ -110,27 +109,81 @@ export function findStagePlacement(
   return null;
 }
 
-export function stageReservedRects(state: StageState): StageRect[] {
-  return state.subagents?.some(stageSubagentActive) ? [STAGE_SUBAGENT_RECT] : [];
+export type StageAgentReservation = {
+  id: string;
+  name: string;
+  kind: "parent" | "designer" | "subagent";
+  rect: StageRect;
+  slot?: number;
+};
+
+export function stageAgentReservations(state: StageState): StageAgentReservation[] {
+  const reservations: StageAgentReservation[] = [
+    { id: "organic", name: "Organic", kind: "parent", rect: STAGE_AGENT_RECT },
+  ];
+  const used = new Set<number>();
+  const add = (id: string, name: string, kind: "designer" | "subagent", preferred?: number) => {
+    const slot =
+      preferred !== undefined && !used.has(preferred)
+        ? preferred
+        : [0, 1].find((candidate) => !used.has(candidate));
+
+    if (slot === undefined) return;
+    used.add(slot);
+    reservations.push({ id, name, kind, slot, rect: STAGE_CHILD_RECTS[slot] });
+  };
+
+  if (state.design && state.design.status !== "failed" && state.design.phase !== "queued")
+    add(state.design.id, "Designer", "designer", state.design.slot);
+  for (const agent of state.subagents ?? [])
+    if (agent.status === "working" || agent.status === "canceling")
+      add(agent.id, agent.name, "subagent", agent.slot);
+
+  return reservations;
 }
 
-/** Move only pieces that occupy the temporary child branch. Fail atomically if it cannot fit. */
-export function reserveStageSubagentSpace(widgets: StageWidget[]): StageWidget[] {
-  const next = [...widgets];
+export function availableStageChildSlot(state: StageState, excludingId?: string): number | null {
+  const used = new Set(
+    stageAgentReservations(state)
+      .filter((entry) => entry.kind !== "parent" && entry.id !== excludingId)
+      .map((entry) => entry.slot)
+  );
 
-  for (const [index, widget] of next.entries()) {
-    if (!touchesWithGap(widget.rect, STAGE_SUBAGENT_RECT)) continue;
-    const rect = findStagePlacement(
-      next.filter((_, i) => i !== index),
-      widget.rect.w,
-      widget.rect.h,
-      [STAGE_SUBAGENT_RECT]
-    );
+  return [0, 1].find((slot) => !used.has(slot)) ?? null;
+}
 
-    if (!rect) throw new StageLayoutError("Make room below Organic before starting subagents");
-    next[index] = { ...widget, rect };
+export function stageReservedRects(state: StageState): StageRect[] {
+  return stageAgentReservations(state)
+    .filter((entry) => entry.kind !== "parent")
+    .map((entry) => entry.rect);
+}
+
+/** Keep valid pieces fixed; relocate conflicts atomically, never discard their content. */
+export function repairStageLayout(state: StageState): StageState {
+  const reserved = stageReservedRects(state);
+  const placed: StageWidget[] = [];
+  const conflicts: StageWidget[] = [];
+
+  for (const widget of state.widgets) {
+    try {
+      validateStageLayout([...placed, widget], reserved);
+      placed.push(widget);
+    } catch (error) {
+      if (!(error instanceof StageLayoutError)) throw error;
+      conflicts.push(widget);
+    }
   }
-  validateStageLayout(next, [STAGE_SUBAGENT_RECT]);
+  if (!conflicts.length) return state;
+  for (const widget of conflicts) {
+    const rect = findStagePlacement(placed, widget.rect.w, widget.rect.h, reserved);
 
-  return next;
+    if (!rect)
+      throw new StageLayoutError("No free cells for this layout. Remove or resize a piece first");
+    placed.push({ ...widget, rect });
+  }
+
+  return {
+    ...state,
+    widgets: state.widgets.map((widget) => placed.find((item) => item.id === widget.id)!),
+  };
 }

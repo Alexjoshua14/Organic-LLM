@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getSupabaseUserIdCached } from "@/data/supabase/profile-id-cache";
+import { cancelStageDesign } from "@/lib/stage/design";
+import { readStage } from "@/lib/stage/store";
 import { cancelStageSubagent } from "@/lib/stage/subagents";
 
 export const maxDuration = 15;
@@ -20,7 +22,11 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   if (!z.string().uuid().safeParse(id).success)
     return NextResponse.json({ error: "Invalid specialist" }, { status: 400 });
   try {
-    const state = await cancelStageSubagent(owner.data, id);
+    const current = await readStage(owner.data);
+    const state =
+      current.state.design?.id === id
+        ? await cancelStageDesign(owner.data, id)
+        : await cancelStageSubagent(owner.data, id);
 
     return NextResponse.json({ state }, { headers: { "Cache-Control": "private, no-store" } });
   } catch {

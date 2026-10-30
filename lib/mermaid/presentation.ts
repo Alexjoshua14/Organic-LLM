@@ -59,147 +59,59 @@ const MERMAID_GLASS_STYLE_ID = "mermaid-glass-style";
  */
 export function buildMermaidGlassStyleMarkup(): string {
   return `
-    .mermaid svg .cluster rect,
-    .mermaid svg .cluster polygon {
-      fill: color-mix(in srgb, var(--card) 72%, var(--background) 28%) !important;
-      stroke: var(--border) !important;
-      stroke-width: 1 !important;
+    [data-organic-mermaid] { color: var(--foreground, #20252b); font-family: inherit; font-size: 14px; }
+    [data-organic-mermaid] :is(.node rect, .node polygon, .node circle, .node ellipse, .node .node-bkg, .node .label-container) {
+      fill: color-mix(in srgb, var(--card, #ffffff) 92%, var(--foreground, #20252b) 8%) !important;
+      stroke: color-mix(in srgb, var(--foreground, #20252b) 28%, transparent) !important;
+      stroke-width: 1.2px !important;
     }
-
-    .mermaid svg .cluster .cluster-label text,
-    .mermaid svg .cluster-label text {
-      fill: var(--muted-foreground) !important;
-      font-weight: 500 !important;
+    [data-organic-mermaid] :is(.cluster rect, .cluster polygon) {
+      fill: color-mix(in srgb, var(--card, #ffffff) 65%, var(--background, #f7f8fa) 35%) !important;
+      stroke: var(--border, #c8cfd5) !important;
     }
-
-    .mermaid svg .node rect,
-    .mermaid svg .node polygon,
-    .mermaid svg .node circle,
-    .mermaid svg .node ellipse,
-    .mermaid svg .node path,
-    .mermaid svg .node .node-bkg,
-    .mermaid svg .node .basic.label-container {
-      fill: var(--card) !important;
-      stroke: var(--border) !important;
-      stroke-width: 1 !important;
+    [data-organic-mermaid] :is(text, tspan, .label, .nodeLabel, .edgeLabel, .cluster-label, foreignObject p, foreignObject span) {
+      color: var(--foreground, #20252b) !important;
+      fill: var(--foreground, #20252b) !important;
+      font-family: inherit !important;
+      font-size: 14px !important;
+      line-height: 1.45 !important;
     }
-
-    .mermaid svg .edgePath path,
-    .mermaid svg .edgePaths path {
-      stroke: var(--muted-foreground) !important;
+    [data-organic-mermaid] :is(.edgePath path, .edgePaths path, .flowchart-link, .node > line, line) {
+      stroke: var(--muted-foreground, #687480) !important;
+      stroke-width: 1.4px !important;
     }
-
-    .mermaid svg .node > line {
-      stroke: var(--muted-foreground) !important;
-    }
-
-    .mermaid svg .node.mindmap-node .node-bkg,
-    .mermaid svg .node.mindmap-node .basic.label-container {
-      paint-order: stroke fill;
-      fill: var(--card) !important;
-      stroke: var(--card) !important;
-      stroke-width: 5 !important;
-    }
-
-    .mermaid svg foreignObject > div {
-      background-color: var(--card) !important;
-    }
-
-    .mermaid svg .label text,
-    .mermaid svg .node text,
-    .mermaid svg text,
-    .mermaid svg tspan {
-      fill: var(--foreground) !important;
-    }
-
-    .mermaid svg foreignObject .nodeLabel,
-    .mermaid svg foreignObject .nodeLabel p,
-    .mermaid svg foreignObject .markdown-node-label,
-    .mermaid svg foreignObject .markdown-node-label p {
-      color: var(--foreground) !important;
-    }
-
-    .mermaid svg line {
-      stroke: var(--muted-foreground) !important;
-    }
-
-    .dark .mermaid svg .cluster rect,
-    .dark .mermaid svg .cluster polygon {
-      fill: color-mix(in srgb, var(--card) 55%, var(--background) 45%) !important;
-      stroke: rgba(255, 255, 255, 0.14) !important;
-    }
-
-    .dark .mermaid svg .node rect,
-    .dark .mermaid svg .node polygon,
-    .dark .mermaid svg .node circle,
-    .dark .mermaid svg .node ellipse,
-    .dark .mermaid svg .node path,
-    .dark .mermaid svg .node .node-bkg,
-    .dark .mermaid svg .node .basic.label-container {
-      fill: color-mix(in srgb, var(--card) 92%, var(--foreground) 8%) !important;
-      stroke: rgba(255, 255, 255, 0.18) !important;
-      stroke-width: 1 !important;
-    }
-
-    .dark .mermaid svg .edgePath path,
-    .dark .mermaid svg .edgePaths path {
-      stroke: rgba(255, 255, 255, 0.35) !important;
-    }
-
-    .dark .mermaid svg .node > line {
-      stroke: rgba(255, 255, 255, 0.35) !important;
-    }
-
-    .dark .mermaid svg .node.mindmap-node .node-bkg,
-    .dark .mermaid svg .node.mindmap-node .basic.label-container {
-      paint-order: stroke fill;
-      fill: color-mix(in srgb, var(--card) 92%, var(--foreground) 8%) !important;
-      stroke: color-mix(in srgb, var(--card) 92%, var(--foreground) 8%) !important;
-      stroke-width: 5 !important;
-    }
-
-    .dark .mermaid svg foreignObject > div {
-      background-color: color-mix(in srgb, var(--card) 92%, var(--foreground) 8%) !important;
-    }
-
-    .dark .mermaid svg .label text,
-    .dark .mermaid svg .node text,
-    .dark .mermaid svg text,
-    .dark .mermaid svg tspan {
-      fill: rgba(255, 255, 255, 0.9) !important;
-    }
-
-    .dark .mermaid svg foreignObject .nodeLabel,
-    .dark .mermaid svg foreignObject .nodeLabel p,
-    .dark .mermaid svg foreignObject .markdown-node-label,
-    .dark .mermaid svg foreignObject .markdown-node-label p {
-      color: rgba(255, 255, 255, 0.9) !important;
-    }
-
-    .dark .mermaid svg line {
-      stroke: rgba(255, 255, 255, 0.35) !important;
-    }
-
-    .mermaid svg g.node[data-mermaid-highlighted="true"] rect,
-    .mermaid svg g.node[data-mermaid-highlighted="true"] polygon,
-    .mermaid svg g.node[data-mermaid-highlighted="true"] circle,
-    .mermaid svg g.node[data-mermaid-highlighted="true"] .node-bkg {
-      stroke: rgb(var(--lumen-rim) / 0.85) !important;
-      stroke-width: 2 !important;
-    }
-
-    .mermaid svg g.node[data-mermaid-dimmed="true"] {
-      opacity: 0.35;
-    }
+    [data-organic-mermaid] marker path { fill: var(--muted-foreground, #687480) !important; stroke: var(--muted-foreground, #687480) !important; }
+    [data-organic-mermaid] :is(.edgeLabel rect, .labelBkg) { fill: var(--card, #ffffff) !important; }
+    [data-organic-mermaid] .edgeLabel { background: var(--card, #ffffff) !important; }
+    [data-organic-mermaid] foreignObject > div { background: transparent !important; }
+    [data-organic-mermaid] g.node[data-mermaid-highlighted="true"] :is(rect, polygon, circle, .node-bkg) { stroke: var(--foreground, #20252b) !important; stroke-width: 2px !important; }
+    [data-organic-mermaid] g.node[data-mermaid-dimmed="true"] { opacity: 0.35; }
   `;
 }
 
 export function applyMermaidGlassStyles(svgEl: SVGSVGElement): void {
   svgEl.querySelector(`#${MERMAID_GLASS_STYLE_ID}`)?.remove();
 
-  const styleEl = document.createElement("style");
+  svgEl.setAttribute("data-organic-mermaid", "");
+  const styleEl = document.createElementNS("http://www.w3.org/2000/svg", "style");
 
   styleEl.setAttribute("id", MERMAID_GLASS_STYLE_ID);
   styleEl.textContent = buildMermaidGlassStyleMarkup();
   svgEl.prepend(styleEl);
+  // Mermaid can emit inline HTML label colors; put semantic ink above those declarations.
+  svgEl
+    .querySelectorAll<HTMLElement>(
+      "foreignObject .nodeLabel, foreignObject .edgeLabel, foreignObject .label, foreignObject p, foreignObject span"
+    )
+    .forEach((label) =>
+      label.style.setProperty("color", "var(--foreground, #20252b)", "important")
+    );
+  const viewBox = svgEl.viewBox?.baseVal;
+
+  if (viewBox?.width > 0) {
+    svgEl.style.width = `${viewBox.width}px`;
+    svgEl.style.maxWidth = "none";
+    svgEl.style.height = "auto";
+    svgEl.style.flexShrink = "0";
+  }
 }

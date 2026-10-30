@@ -12,17 +12,19 @@ import { AudioLines, Grid3X3, History, MessageCircle, ArrowUpRight, RotateCcw } 
 import { useStage } from "./use-stage";
 import { StageWidget } from "./stage-widget";
 import { StageInspector } from "./stage-inspector";
+import { StageAgent } from "./stage-agent";
+import { StageResponse } from "./stage-response";
 import { StageSubagents } from "./stage-subagents";
 import { StageHistory } from "./stage-history";
 
-import { stageSubagentActive } from "@/lib/stage/schema";
-import { ChatMessageMarkdown } from "@/components/chat/chat-message-markdown";
+import { stageAgentReservations } from "@/lib/stage/layout";
+import { STAGE_AGENT_RECT } from "@/lib/stage/schema";
+import { ComposerActionButton } from "@/components/chat/composer-action-button";
 import { CoreInput } from "@/components/chat/core-input";
 import { useVoiceSessionOptional } from "@/components/voice/voice-session-provider";
 import { useVoiceScreenContext } from "@/hooks/use-voice-screen-context";
 import { DEFAULT_COMPOSER_MODEL } from "@/lib/chat/composer-tool-defaults";
 import { coreInputScopes } from "@/lib/core-input/scopes";
-import { OrganicActivityMark } from "@/components/agents/organic-activity-mark";
 
 const STAGE_COMPOSER_SCOPE = coreInputScopes.area("stage");
 
@@ -80,7 +82,7 @@ export function Stage() {
   const failed = state?.design?.status === "failed";
   const latestReply = state?.messages.findLast((message) => message.role === "assistant");
   const empty = !state?.widgets.length;
-  const activeSubagents = state?.subagents?.filter(stageSubagentActive).length ?? 0;
+  const activeSubagents = state ? stageAgentReservations(state).length - 1 : 0;
   const status = loading
     ? "Opening your space"
     : sending
@@ -188,32 +190,17 @@ export function Stage() {
             <i />
             <i />
           </div>
-          <div className="stage-agent">
-            <button
-              aria-label="Talk to Organic"
-              className="stage-agent-button"
-              type="button"
-              onClick={() => composer.current?.querySelector("textarea")?.focus()}
-            >
-              <OrganicActivityMark
-                className="stage-agent-mark"
-                seed="organic-stage"
-                state={sending ? "working" : loading || activeSubagents > 0 ? "waiting" : "idle"}
-              />
-            </button>
-            <h1>Organic</h1>
-            <p aria-live="polite" className="stage-agent-status">
-              {status}
-            </p>
-            {working && (
-              <span aria-hidden className="stage-designer-trace">
-                <i />
-                <i />
-                <i />
-              </span>
-            )}
-          </div>
-          <StageSubagents agents={state?.subagents ?? []} onCancel={cancelSubagent} />
+          <StageAgent
+            status={status}
+            state={sending ? "working" : loading || activeSubagents > 0 ? "waiting" : "idle"}
+            designing={working}
+            onFocus={() => composer.current?.querySelector("textarea")?.focus()}
+          />
+          <StageSubagents
+            agents={state?.subagents ?? []}
+            design={state?.design}
+            onCancel={cancelSubagent}
+          />
           {state?.widgets.map((widget) => (
             <StageWidget
               key={widget.id}
@@ -270,26 +257,7 @@ export function Stage() {
               )}
             </div>
           ) : latestReply ? (
-            <div className="stage-reply-text">
-              {/* eslint-disable jsx-a11y/no-noninteractive-tabindex -- Named scroll region supports keyboard reading. */}
-              <div
-                aria-label="Organic’s latest response"
-                className="stage-reply-copy stage-prose"
-                role="region"
-                tabIndex={0}
-              >
-                <ChatMessageMarkdown content={latestReply.text} id={latestReply.id} />
-              </div>
-              {/* eslint-enable jsx-a11y/no-noninteractive-tabindex */}
-              <button
-                aria-label="Read Organic’s response in conversation"
-                className="stage-icon-button"
-                type="button"
-                onClick={() => togglePanel("conversation")}
-              >
-                <ArrowUpRight aria-hidden size={14} />
-              </button>
-            </div>
+            <StageResponse state={state!} onOpenConversation={() => togglePanel("conversation")} />
           ) : (
             <div className="stage-starters">
               {STARTERS.map((starter) => (
@@ -309,20 +277,25 @@ export function Stage() {
               ))}
             </div>
           )}
+          {failed ? (
+            <div className="stage-error stage-design-error">
+              <p role="status">
+                {state?.design?.error ?? "The designer couldn’t finish this arrangement."}
+              </p>
+              <button
+                className="stage-text-button"
+                type="button"
+                onClick={() => void retryDesign()}
+              >
+                Try designer again
+              </button>
+            </div>
+          ) : null}
         </div>
-        {failed ? (
-          <div className="stage-error stage-design-error">
-            <p role="status">
-              {state?.design?.error ?? "The designer couldn’t finish this arrangement."}
-            </p>
-            <button className="stage-text-button" type="button" onClick={() => void retryDesign()}>
-              Try designer again
-            </button>
-          </div>
-        ) : null}
         <div ref={composer} className="stage-core-input" data-voice-active={voiceActive}>
           <CoreInput
             variant="stage-beta"
+            submitVariant="organic-glass"
             snapshotScope={STAGE_COMPOSER_SCOPE}
             modelRef={modelRef}
             effortRef={effortRef}
@@ -354,7 +327,7 @@ export function Stage() {
             }}
             voiceControl={
               voice ? (
-                <button
+                <ComposerActionButton
                   aria-label={
                     voice.connected || voice.connecting
                       ? "End voice session"
@@ -363,7 +336,8 @@ export function Stage() {
                         : "Start voice session"
                   }
                   aria-pressed={voiceActive}
-                  className="stage-voice-button"
+                  className="size-9 min-w-9 p-0"
+                  engaged={voiceActive}
                   disabled={!state || (sending && !voiceActive)}
                   title={
                     voice.connected || voice.connecting ? "End voice session" : "Talk with Organic"
@@ -372,7 +346,7 @@ export function Stage() {
                   onClick={toggleVoice}
                 >
                   <AudioLines aria-hidden size={19} />
-                </button>
+                </ComposerActionButton>
               ) : null
             }
           />

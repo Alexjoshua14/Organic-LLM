@@ -2,6 +2,7 @@ import "server-only";
 
 import { after } from "next/server";
 
+import { placeStageArtifacts } from "./artifacts";
 import { assignStageSubagents } from "./subagent-state";
 import { scheduleStageSubagents } from "./subagents";
 import { StageLayoutError } from "./layout";
@@ -34,7 +35,7 @@ export function scheduleStageDesign(
 ) {
   const job = state.design;
 
-  if (job?.status === "working")
+  if (job?.status === "working" || job?.status === "canceling")
     after(() => runStageDesign({ ...id, jobId: job.id, base: state, brief: job.brief }));
 }
 
@@ -108,29 +109,38 @@ export async function runStageTurn(
           : result.reply;
         const design =
           job && !current.design
-            ? { ...job, status: "working" as const, startedAt: new Date().toISOString() }
+            ? {
+                ...job,
+                status: "working" as const,
+                phase: "queued" as const,
+                startedAt: new Date().toISOString(),
+              }
             : current.design;
 
-        return {
-          ...assigned,
-          messages: [
-            ...current.messages,
-            { id: requestId, role: "user" as const, text: message },
-            {
-              id: assistantId,
-              role: "assistant" as const,
-              text: `${reply}${delegationNote}`.slice(0, 8000),
-            },
-          ].slice(-24),
-          summary: result.summary,
-          lastModel: result.model,
-          nextModel: modelForTier(result.nextTier),
-          design,
-          pendingDesigns:
-            job && current.design && !queueFull
-              ? [...current.pendingDesigns, job]
-              : current.pendingDesigns,
-        };
+        return placeStageArtifacts(
+          {
+            ...assigned,
+            messages: [
+              ...current.messages,
+              { id: requestId, role: "user" as const, text: message },
+              {
+                id: assistantId,
+                role: "assistant" as const,
+                text: `${reply}${delegationNote}`.slice(0, 8000),
+              },
+            ].slice(-24),
+            summary: result.summary,
+            lastModel: result.model,
+            nextModel: modelForTier(result.nextTier),
+            design,
+            pendingDesigns:
+              job && current.design && !queueFull
+                ? [...current.pendingDesigns, job]
+                : current.pendingDesigns,
+          },
+          result.reply,
+          "Organic"
+        );
       },
       {
         requestId,

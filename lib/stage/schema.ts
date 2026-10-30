@@ -4,11 +4,15 @@ import { ChatEffortLevelSchema } from "@/lib/schemas/chat-effort";
 import { RecipeCardBlockSchema } from "@/lib/schemas/gen-ui/recipe-card";
 
 export const STAGE_SIZE = 32;
-export const STAGE_AGENT_RECT = { x: 13, y: 11, w: 6, h: 8 } as const;
+export const STAGE_AGENT_RECT = { x: 12, y: 8, w: 8, h: 14 } as const;
 export const STAGE_MAX_WIDGETS = 48;
 export const STAGE_MAX_PENDING_DESIGNS = 8;
 export const STAGE_MAX_SUBAGENTS = 2;
-export const STAGE_SUBAGENT_RECT = { x: 9, y: 20, w: 14, h: 8 } as const;
+export const STAGE_SUBAGENT_RECT = { x: 7, y: 23, w: 18, h: 8 } as const;
+export const STAGE_CHILD_RECTS = [
+  { x: 7, y: 23, w: 8, h: 8 },
+  { x: 17, y: 23, w: 8, h: 8 },
+] as const;
 
 export const StageRectSchema = z
   .object({
@@ -40,13 +44,18 @@ export const StageMessageSchema = z
     id: z.string().uuid(),
     role: z.enum(["user", "assistant"]),
     text: z.string().max(8000),
+    author: z
+      .object({ id: z.string().uuid(), name: z.string().max(40), kind: z.literal("subagent") })
+      .optional(),
   })
   .strict();
 
 export const StageDesignSchema = z
   .object({
     id: z.string().uuid(),
-    status: z.enum(["working", "failed"]),
+    status: z.enum(["working", "canceling", "failed"]),
+    phase: z.enum(["queued", "working"]).optional(),
+    slot: z.number().int().min(0).max(1).optional(),
     startedAt: z.string().datetime(),
     brief: z.string().max(2000),
     error: z.string().max(200).optional(),
@@ -64,6 +73,7 @@ export const StageSubagentSchema = StageSubagentAssignmentSchema.extend({
   status: z.enum(["queued", "working", "canceling", "done", "canceled", "failed"]),
   startedAt: z.string().datetime(),
   result: z.string().max(6000).nullable(),
+  slot: z.number().int().min(0).max(1).optional(),
   memory: z.boolean().default(false),
   webSearch: z.boolean().default(false),
 });

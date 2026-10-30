@@ -25,7 +25,7 @@ import {
 import { flushSync } from "react-dom";
 import { useChat } from "@ai-sdk/react";
 import { useReducedMotion } from "framer-motion";
-import { ArrowUp, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 import "@/styles/CoreInputMorph.css";
 
@@ -1236,20 +1236,35 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     <PromptInputSubmit
       // Spread only when set: an explicit `aria-label={undefined}` would override the button's
       // own "Submit"/"Abort" label, which PromptInputSubmit applies before `...props`.
-      {...(personaActive && status === "ready" ? { "aria-label": "Send to Artist assistant" } : {})}
+      {...(variant === "stage-beta"
+        ? {
+            "aria-label":
+              composerStatus === "submitted" || composerStatus === "streaming"
+                ? "Organic is responding"
+                : "Send message",
+          }
+        : personaActive && status === "ready"
+          ? { "aria-label": "Send to Artist assistant" }
+          : {})}
       className={cn(
         submitVariant === "organic-glass" && !personaActive && organicGlassSubmitClassName,
-        personaActive && "overflow-hidden rounded-lg bg-transparent p-0 hover:bg-transparent"
+        personaActive && "overflow-hidden rounded-lg bg-transparent p-0 hover:bg-transparent",
+        variant === "stage-beta" && "size-9 rounded-lg"
       )}
       variant={personaActive ? "ghost" : undefined}
       // Multi-mode: always submit (never stop). Default: keep stop available while streaming.
       disabled={
-        queueEnabled
-          ? (!text.trim() && threadReferences.length === 0) || disabled
-          : (!text && !status && threadReferences.length === 0) || disabled
+        variant === "stage-beta"
+          ? disabled ||
+            composerStatus === "submitted" ||
+            composerStatus === "streaming" ||
+            (!text.trim() && threadReferences.length === 0)
+          : queueEnabled
+            ? (!text.trim() && threadReferences.length === 0) || disabled
+            : (!text && !status && threadReferences.length === 0) || disabled
       }
-      status={composerStatus}
-      stop={queueEnabled ? undefined : stop}
+      status={variant === "stage-beta" ? "ready" : composerStatus}
+      stop={variant === "stage-beta" || queueEnabled ? undefined : stop}
     >
       {personaActive ? (
         // The persona's visual is where its reply comes from: idle, deciding, then speaking.
@@ -1392,24 +1407,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
           />
           <PromptInputBody>{renderComposerBody()}</PromptInputBody>
           {voiceControl}
-          <button
-            aria-label={
-              composerStatus === "submitted" || composerStatus === "streaming"
-                ? "Organic is responding"
-                : "Send message"
-            }
-            className="stage-send"
-            disabled={
-              disabled ||
-              composerStatus === "submitted" ||
-              composerStatus === "streaming" ||
-              pendingSend !== null ||
-              (!text.trim() && !threadReferences.length)
-            }
-            type="submit"
-          >
-            <ArrowUp aria-hidden size={19} />
-          </button>
+          {submitControl}
         </div>
       </PromptInput>
     ) : (
@@ -1437,7 +1435,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
         onKeyDownCapture={fastForwardMorph}
         onPointerDownCapture={fastForwardMorph}
       >
-        <CoreInputVoiceDrawerSlot />
+        <CoreInputVoiceDrawerSlot includePending={variant === "stage-beta"} />
         {queueEnabled ? (
           <MessageSendQueueStrip
             budget={messageQueue.budget}

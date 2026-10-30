@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 
 import { StageSubagents } from "@/components/stage/stage-subagents";
 import { assignStageSubagents, settleStageSubagent } from "@/lib/stage/subagent-state";
-import { stageReservedRects, validateStageLayout } from "@/lib/stage/layout";
+import { stageReservedRects, repairStageLayout, validateStageLayout } from "@/lib/stage/layout";
 import { emptyStageState } from "@/lib/stage/schema";
 
 const assignments = [
@@ -17,7 +17,7 @@ describe("Stage parallel specialist lifecycle", () => {
     const first = assignStageSubagents(emptyStageState(), assignments);
     expect(first.subagents).toHaveLength(2);
     expect(assignStageSubagents(first, assignments)).toBe(first);
-    expect(stageReservedRects(first)).toHaveLength(1);
+    expect(stageReservedRects(first)).toHaveLength(0);
     const done = settleStageSubagent(
       first,
       first.subagents![0].id,
@@ -60,7 +60,11 @@ describe("Stage parallel specialist lifecycle", () => {
         rect: { x: 10, y: 21, w: 7, h: 6 },
       },
     ];
-    const withChildren = assignStageSubagents(state, assignments);
+    const queued = assignStageSubagents(state, assignments);
+    const withChildren = repairStageLayout({
+      ...queued,
+      subagents: queued.subagents!.map((agent, slot) => ({ ...agent, status: "working", slot })),
+    });
     expect(withChildren.widgets[0].rect).not.toEqual(state.widgets[0].rect);
     expect(withChildren.widgets[0]).toMatchObject({ id: state.widgets[0].id, text: "Content" });
     expect(() =>
@@ -70,6 +74,7 @@ describe("Stage parallel specialist lifecycle", () => {
 
   test("shows Stop for active workers and settles outgoing cards after completion", async () => {
     const state = assignStageSubagents(emptyStageState(), [assignments[0]]);
+    state.subagents = state.subagents!.map((agent) => ({ ...agent, status: "working", slot: 0 }));
     const cancel = mock(async (_id: string) => undefined);
     const view = render(<StageSubagents agents={state.subagents!} onCancel={cancel} />);
     fireEvent.click(view.getByRole("button", { name: "Stop Planner" }));

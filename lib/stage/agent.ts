@@ -3,12 +3,11 @@ import "server-only";
 import { generateText, Output, stepCountIs } from "ai";
 import { z } from "zod";
 
-import {
-  StageSubagentAssignmentSchema,
-  StageRectSchema,
-  type StageState,
-  type StageTurnSettings,
-} from "./schema";
+import { DESIGN_PLAN } from "./design-schema";
+export { DESIGN_PLAN, type DesignPlan } from "./design-schema";
+
+import { stageAgentReservations } from "./layout";
+import { StageSubagentAssignmentSchema, type StageState, type StageTurnSettings } from "./schema";
 
 import { isAdminUser } from "@/data/supabase/profiles";
 import { AUTO_CHAT_MODEL, ChatModels } from "@/lib/schemas/chat-models";
@@ -27,37 +26,8 @@ const RESPONSE = z.object({
   nextTier: z.enum(["fast", "balanced", "deep"]),
 });
 
-const DESIGN_UPSERT = z.object({
-  operation: z.literal("upsert"),
-  kind: z.enum(["note", "mermaid", "recipe", "chat"]),
-  title: z.string().min(1).max(100),
-  targetId: z.string().uuid().nullable(),
-  rect: StageRectSchema.nullable(),
-  text: z.string().max(4000).nullable(),
-  code: z.string().max(8000).nullable(),
-  ingredients: z.array(z.string().max(200)).max(40).nullable(),
-  steps: z.array(z.string().max(1000)).max(30).nullable(),
-});
-
-export const DESIGN_PLAN = z.object({
-  operations: z
-    .array(
-      z.discriminatedUnion("operation", [
-        DESIGN_UPSERT,
-        z.object({
-          operation: z.literal("move"),
-          targetId: z.string().uuid(),
-          rect: StageRectSchema,
-        }),
-        z.object({ operation: z.literal("remove"), targetId: z.string().uuid() }),
-      ])
-    )
-    .max(8),
-});
-export type DesignPlan = z.infer<typeof DESIGN_PLAN>;
-
-const MAIN_INSTRUCTIONS = `You are the single central Organic agent on a persistent 32×32 spatial stage. Answer the user directly and helpfully. Keep a concise cumulative summary of enduring context. You can ask a separate designer to add, update, move, or remove note, Mermaid diagram, recipe, and live chat widgets. In designBrief, state requested widget kinds and exact cell position and size if the user gives them; e.g. a chat 6 cells wide and 20 tall. Reserve the central Organic agent at x13 y11 w6 h8 with at least one empty cell around it and all widgets. Request design only when the stage would improve. When eight designs are queued, return null designBrief and explain that arrangement requests can resume once a design finishes; keep answering the user normally. Do not claim a widget has been placed before the designer finishes. Choose the next turn's cost tier: fast for straightforward chat, balanced for multi-step work, deep for genuinely difficult reasoning. Never disclose private reasoning. You may assign up to two independent bounded goals to parallel subagents using subagents: [{name, goal}]. Use [] for ordinary conversation, quick tasks, or when the user does not need delegation. Names are concise role labels. Never launch more than two active workers; inspect current subagent state first. Subagents cannot spawn others. Explain briefly what you delegated. Their results return to the shared Stage conversation. Reserve the temporary child branch x9 y20 w14 h8 only while workers are active; arrange other widgets outside it.`;
-const DESIGN_INSTRUCTIONS = `You are the stage layout designer. Produce a concrete operation plan for a 32×32 grid with x,y from 0 to 31 and w,h as cell spans. The central Organic agent owns x13 y11 w6 h8; keep at least one empty cell between every rectangle and the agent. Use the user's exact requested cell coordinates and dimensions when valid, including unusual shapes such as a chat w6 h20. Every operation can upsert content and an exact rect, move an unchanged existing widget, or remove one. For upsert, targetId null means create a new widget; a targetId means update the same kind and stable ID. For move/remove use an existing targetId. Never change a chat widget's thread identity. Give every new widget an exact rect when you can; null rect asks the server to find a position. Keep paper and ink clarity, quiet spacious groups, restrained chrome, and stable visual hierarchy. Prefer a few useful pieces over clutter and avoid unnecessary changes. Note text is plain text; Mermaid code is diagram source only. Recipe ingredients are short readable lines. Never include executable code, HTML, or arbitrary URLs. Return an empty operations array when no change helps. While subagents have queued, working, or canceling status, reserve x9 y20 w14 h8 for their child branch with the same one-cell gap. Completed children reserve no space.`;
+const MAIN_INSTRUCTIONS = `You are the single central Organic agent on a persistent 32×32 spatial stage. Answer the user directly and helpfully. Keep a concise cumulative summary of enduring context. You can ask a separate designer to add, update, move, or remove note, Mermaid diagram, recipe, and live chat widgets. In designBrief, state requested widget kinds and exact cell position and size if the user gives them; e.g. a chat 6 cells wide and 20 tall. Reserve the central Organic agent at x12 y8 w8 h14 with at least one empty cell around it and all widgets. Request design only when the stage would improve. When eight designs are queued, return null designBrief and explain that arrangement requests can resume once a design finishes; keep answering the user normally. Do not claim a widget has been placed before the designer finishes. Choose the next turn's cost tier: fast for straightforward chat, balanced for multi-step work, deep for genuinely difficult reasoning. Never disclose private reasoning. Generated diagrams and UI belong in canvas widgets; use designBrief rather than putting Mermaid diagrams or rich UI in the response caption. You may assign up to two independent bounded goals to parallel subagents using subagents: [{name, goal}]. Use [] for ordinary conversation, quick tasks, or when the user does not need delegation. Names are concise role labels. The designer and specialists share a maximum of two active child slots; additional goals queue. Never launch more than two active workers; inspect current subagent state first. Subagents cannot spawn others. Explain briefly what you delegated. Their results return to the shared Stage conversation. Respect the explicit occupied agent rectangles in context while children are active; arrange other widgets outside it.`;
+const DESIGN_INSTRUCTIONS = `You are the stage layout designer. Produce a concrete operation plan for a 32×32 grid with x,y from 0 to 31 and w,h as cell spans. The central Organic agent owns x12 y8 w8 h14; keep at least one empty cell between every rectangle and the agent. Use the user's exact requested cell coordinates and dimensions when valid, including unusual shapes such as a chat w6 h20. Every operation can upsert content and an exact rect, move an unchanged existing widget, or remove one. For upsert, targetId null means create a new widget; a targetId means update the same kind and stable ID. For move/remove use an existing targetId. Never change a chat widget's thread identity. Give every new widget an exact rect when you can; null rect asks the server to find a position. Keep paper and ink clarity, quiet spacious groups, restrained chrome, and stable visual hierarchy. Prefer a few useful pieces over clutter and avoid unnecessary changes. Note text is plain text; Mermaid code is diagram source only. Recipe ingredients are short readable lines. Never include executable code, HTML, or arbitrary URLs. Return an empty operations array when no change helps. While subagents have queued, working, or canceling status, reserve the explicit occupied agent rectangles in the context for their child branch with the same one-cell gap. Completed children reserve no space.`;
 
 export function modelForTier(tier: "fast" | "balanced" | "deep") {
   return tier === "deep"
@@ -88,6 +58,9 @@ function context(state: StageState, includeContent = false) {
   return JSON.stringify({
     widgets,
     subagents: state.subagents ?? [],
+    agentReservations: stageAgentReservations(state),
+    layoutRule:
+      "All agent marks, labels, captions, controls and generated UI must stay within dedicated rectangles, with a one-cell gap. Queued agents have no cells until claimed.",
     queuedDesigns: state.pendingDesigns.length,
     designStatus: state.design?.status ?? null,
     summary: state.summary.slice(0, 3000),
@@ -218,6 +191,7 @@ export async function generateStageDesign(args: {
   clerkUserId: string;
   state: StageState;
   brief: string;
+  signal?: AbortSignal;
 }) {
   const model = models.openai.sol.id;
   const start = performance.now();
@@ -245,7 +219,9 @@ export async function generateStageDesign(args: {
       prompt: `Current bounded stage context:\n${context(args.state, true)}\n\nDesign brief:\n${args.brief}`,
       output: Output.object({ schema: DESIGN_PLAN }),
       maxOutputTokens: 3000,
-      abortSignal: AbortSignal.timeout(60_000),
+      abortSignal: args.signal
+        ? AbortSignal.any([args.signal, AbortSignal.timeout(60_000)])
+        : AbortSignal.timeout(60_000),
       providerOptions: { gateway: { zeroDataRetention: true } },
     });
 

@@ -8,6 +8,7 @@ import { getSupabaseUserIdCached } from "@/data/supabase/profile-id-cache";
 import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
 import { designIsStale } from "@/lib/stage/design";
 import { applyStageOperations, stageReservedRects, StageLayoutError } from "@/lib/stage/layout";
+import { restoreStageLayout } from "@/lib/stage/restore";
 import { checkStageLimit } from "@/lib/stage/limit";
 import { readStagePayload, StagePayloadError } from "@/lib/stage/request";
 import { StageMutationSchema, StageTurnSchema, type StageState } from "@/lib/stage/schema";
@@ -50,6 +51,14 @@ export async function GET() {
     if (!id) return json({ error: "Unauthorized" }, 401);
     if (!(await checkStageLimit(id.ownerId))) return json({ error: "Too many requests" }, 429);
     let { state } = await readStage(id.ownerId);
+
+    if (restoreStageLayout(state) !== state)
+      state =
+        (await mutateStage(id.ownerId, "layout", (current) => {
+          const fixed = restoreStageLayout(current);
+
+          return fixed === current ? null : fixed;
+        })) ?? state;
 
     if (designIsStale(state)) {
       const recovered = await mutateStage(id.ownerId, "design-failed", (current) =>
@@ -171,6 +180,7 @@ export async function POST(req: Request) {
               design: {
                 id: requestId,
                 status: "working",
+                phase: "queued",
                 startedAt: new Date().toISOString(),
                 brief: current.design.brief,
               },

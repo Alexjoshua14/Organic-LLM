@@ -5,7 +5,14 @@ import { AnimatePresence, motion, useIsPresent, useReducedMotion } from "framer-
 import { Square } from "lucide-react";
 
 import { OrganicActivityMark } from "@/components/agents/organic-activity-mark";
-import { stageSubagentActive, type StageSubagent } from "@/lib/stage/schema";
+import { stageAgentReservations } from "@/lib/stage/layout";
+import {
+  STAGE_SUBAGENT_RECT,
+  STAGE_CHILD_RECTS,
+  emptyStageState,
+  type StageState,
+  type StageSubagent,
+} from "@/lib/stage/schema";
 
 // Functional presence stays brief; exit settles and clears faster than entry.
 const CHILD_ENTER_SECONDS = 0.22;
@@ -13,7 +20,15 @@ const CHILD_EXIT_SECONDS = 0.14;
 
 type Cancel = (id: string) => Promise<void>;
 
-function Child({ agent, onCancel }: { agent: StageSubagent; onCancel: Cancel }) {
+function Child({
+  agent,
+  slot,
+  onCancel,
+}: {
+  agent: StageSubagent;
+  slot: number;
+  onCancel: Cancel;
+}) {
   const present = useIsPresent();
   const reducedMotion = useReducedMotion();
   const status = !present
@@ -29,6 +44,11 @@ function Child({ agent, onCancel }: { agent: StageSubagent; onCancel: Cancel }) 
       role="group"
       aria-label={`${agent.name}: ${status}`}
       className="stage-subagent"
+      data-agent-slot={slot}
+      style={{
+        gridColumn: `${STAGE_CHILD_RECTS[slot].x - STAGE_SUBAGENT_RECT.x + 1} / span ${STAGE_CHILD_RECTS[slot].w}`,
+        gridRow: "1 / span 8",
+      }}
       initial={reducedMotion ? false : { opacity: 0, y: -4 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{
@@ -64,12 +84,34 @@ function Child({ agent, onCancel }: { agent: StageSubagent; onCancel: Cancel }) 
 
 export function StageSubagents({
   agents,
+  design,
   onCancel,
 }: {
   agents: StageSubagent[];
+  design?: StageState["design"];
   onCancel: Cancel;
 }) {
-  const active = agents.filter(stageSubagentActive);
+  const reservations = stageAgentReservations({
+    ...emptyStageState(),
+    subagents: agents,
+    design: design ?? null,
+  }).filter((entry) => entry.kind !== "parent");
+  const active = reservations.map((entry) => ({
+    slot: entry.slot!,
+    agent:
+      entry.kind === "designer"
+        ? {
+            id: entry.id,
+            name: "Designer",
+            goal: design!.brief,
+            status: design!.status === "canceling" ? ("canceling" as const) : ("working" as const),
+            startedAt: design!.startedAt,
+            result: null,
+            memory: false,
+            webSearch: false,
+          }
+        : agents.find((agent) => agent.id === entry.id)!,
+  }));
   const [settling, setSettling] = useState(active.length > 0);
 
   useEffect(() => {
@@ -81,6 +123,10 @@ export function StageSubagents({
     <div
       aria-label="Organic’s active specialists"
       className="stage-subagent-tree"
+      style={{
+        gridColumn: `${STAGE_SUBAGENT_RECT.x + 1} / span ${STAGE_SUBAGENT_RECT.w}`,
+        gridRow: `${STAGE_SUBAGENT_RECT.y + 1} / span ${STAGE_SUBAGENT_RECT.h}`,
+      }}
       data-active={active.length > 0 || settling}
       data-children={active.length}
     >
@@ -89,8 +135,8 @@ export function StageSubagents({
           if (!active.length) setSettling(false);
         }}
       >
-        {active.map((agent) => (
-          <Child key={agent.id} agent={agent} onCancel={onCancel} />
+        {active.map(({ agent, slot }) => (
+          <Child key={agent.id} agent={agent} slot={slot} onCancel={onCancel} />
         ))}
       </AnimatePresence>
     </div>

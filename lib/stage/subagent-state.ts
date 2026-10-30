@@ -1,4 +1,4 @@
-import { reserveStageSubagentSpace } from "./layout";
+import { placeStageArtifacts } from "./artifacts";
 import {
   STAGE_MAX_SUBAGENTS,
   stageSubagentActive,
@@ -21,7 +21,6 @@ export function assignStageSubagents(
 
   return {
     ...state,
-    widgets: reserveStageSubagentSpace(state.widgets),
     subagents: [
       ...active,
       ...accepted.map(
@@ -52,12 +51,12 @@ export function settleStageSubagent(
   const finalStatus = agent.status === "canceling" ? "canceled" : status;
   const text =
     finalStatus === "done"
-      ? `${agent.name} finished.\n\n${result ?? ""}`
+      ? (result ?? "Finished this goal.")
       : finalStatus === "canceled"
         ? `${agent.name} was stopped.`
         : `${agent.name} couldn’t finish this goal. You can ask Organic to try again.`;
 
-  return {
+  const settled: StageState = {
     ...state,
     subagents: state.subagents!.map((item) =>
       item.id === id
@@ -66,7 +65,16 @@ export function settleStageSubagent(
     ),
     messages: [
       ...state.messages,
-      { id: crypto.randomUUID(), role: "assistant" as const, text: text.slice(0, 8000) },
+      {
+        id: crypto.randomUUID(),
+        role: "assistant" as const,
+        text: text.slice(0, 8000),
+        author: { id: agent.id, name: agent.name, kind: "subagent" as const },
+      },
     ].slice(-24),
   };
+
+  return finalStatus === "done" && result
+    ? placeStageArtifacts(settled, result, agent.name)
+    : settled;
 }
