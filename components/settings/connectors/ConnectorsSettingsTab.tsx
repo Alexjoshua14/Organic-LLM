@@ -7,6 +7,7 @@ import {
   GitBranch,
   Globe,
   Link2,
+  Info,
   RefreshCw,
   ShieldCheck,
   Unplug,
@@ -65,8 +66,10 @@ export function ConnectorsSettingsTab({
     () => formState.ergonConnection ?? toPublicErgonConnection(null)
   );
   const [ergonBusy, setErgonBusy] = useState(false);
-  const [ergonError, setErgonError] = useState<string | null>(null);
-  const [ergonSetupDetails, setErgonSetupDetails] = useState<string | null>(null);
+  const [ergonError, setErgonError] = useState<{
+    message: string;
+    unavailable?: boolean;
+  } | null>(null);
 
   const doFetch = useMemo(() => fetchImpl ?? fetch, [fetchImpl]);
 
@@ -238,7 +241,6 @@ export function ConnectorsSettingsTab({
   const handleConnectErgonOAuth = useCallback(async () => {
     setErgonBusy(true);
     setErgonError(null);
-    setErgonSetupDetails(null);
 
     try {
       const res = await doFetch("/api/profile/connectors/ergon/oauth/start", {
@@ -251,29 +253,25 @@ export function ConnectorsSettingsTab({
       };
 
       if (res.status === 503 || payload.oauthReady === false) {
-        setErgonError("Ergon isn’t available yet. Ask an admin to finish setup.");
-        setErgonSetupDetails(
-          payload.error ??
-            "Configure the Ergon OAuth client ID and redirect URL on this deployment."
-        );
+        setErgonError({ message: "Ergon connections aren’t available yet.", unavailable: true });
         setErgonBusy(false);
 
         return;
       }
 
       if (!res.ok) {
-        throw new Error(payload.error ?? "Could not start Ergon OAuth.");
+        throw new Error("Couldn’t connect to Ergon. Please try again.");
       }
 
       const authorizeUrl = payload.data?.authorizeUrl;
 
       if (!authorizeUrl) {
-        throw new Error("Ergon OAuth start did not return an authorize URL.");
+        throw new Error("Couldn’t connect to Ergon. Please try again.");
       }
 
       window.location.assign(authorizeUrl);
-    } catch (error) {
-      setErgonError(error instanceof Error ? error.message : "Could not start Ergon OAuth.");
+    } catch {
+      setErgonError({ message: "Couldn’t connect to Ergon. Please try again." });
       setErgonBusy(false);
     }
   }, [doFetch]);
@@ -281,7 +279,6 @@ export function ConnectorsSettingsTab({
   const handleDisconnectErgon = useCallback(async () => {
     setErgonBusy(true);
     setErgonError(null);
-    setErgonSetupDetails(null);
 
     try {
       const res = await doFetch("/api/profile/connectors/ergon", { method: "DELETE" });
@@ -304,8 +301,8 @@ export function ConnectorsSettingsTab({
           ? "Disconnected your Ergon OAuth session. Admin env bridge still applies for this account."
           : "Disconnected Ergon. Reconnect with OAuth to restore Mira and ticket tools."
       );
-    } catch (error) {
-      setErgonError(error instanceof Error ? error.message : "Could not disconnect Ergon.");
+    } catch {
+      setErgonError({ message: "Couldn’t disconnect Ergon. Please try again." });
     } finally {
       setErgonBusy(false);
     }
@@ -432,7 +429,7 @@ export function ConnectorsSettingsTab({
               ? "Specialists receive only the profile context relevant to the current task."
               : "Specialists will not receive automatic connector slices. You can still share context in chat."}
           </p>
-          <div className="grid gap-inline-md sm:grid-cols-3">
+          <div className="grid gap-inline-md sm:grid-cols-2 xl:grid-cols-4">
             {CONNECTOR_SPECIALIST_ROUTES.map((entry) => (
               <div
                 key={entry.agentId}
@@ -533,7 +530,7 @@ export function ConnectorsSettingsTab({
             ) : (
               <button
                 aria-label="Connect Ergon with OAuth"
-                className="inline-flex w-full items-center justify-center gap-inline-sm rounded-lg border border-border bg-foreground px-inset-md py-inset-sm text-xs font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-50"
+                className="inline-flex w-full items-center justify-center gap-inline-sm rounded-lg border border-border bg-foreground px-inset-md py-inset-sm text-xs font-medium text-background transition-opacity sm:w-auto hover:opacity-90 disabled:opacity-50"
                 disabled={ergonBusy}
                 type="button"
                 onClick={() => void handleConnectErgonOAuth()}
@@ -545,13 +542,11 @@ export function ConnectorsSettingsTab({
 
             {ergonError && (
               <div
-                className="rounded-lg border border-destructive/30 bg-destructive/5 px-inset-md py-inset-sm text-xs text-destructive"
-                role="alert"
+                className={`flex items-start gap-inline-sm py-inset-sm text-xs ${ergonError.unavailable ? "text-muted-foreground" : "text-destructive"}`}
+                role={ergonError.unavailable ? "status" : "alert"}
               >
-                <p>{ergonError}</p>
-                {ergonSetupDetails && (
-                  <SettingsHelp title="Setup details">{ergonSetupDetails}</SettingsHelp>
-                )}
+                <Info aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
+                <p className="text-xs leading-relaxed">{ergonError.message}</p>
               </div>
             )}
           </div>
@@ -578,7 +573,7 @@ export function ConnectorsSettingsTab({
             </div>
             <div className="flex flex-col gap-inline-sm sm:flex-row">
               <input
-                className="flex-1 rounded-lg border border-border bg-background px-inset-md py-inset-sm text-sm text-foreground placeholder:text-muted-foreground/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                className="min-w-0 flex-1 rounded-lg border border-border bg-background px-inset-md py-inset-sm text-sm text-foreground placeholder:text-muted-foreground/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
                 aria-label="GitHub Profile URL or Username"
                 id="connector-github-url"
                 placeholder="https://github.com/coalescence-labs or coalescence-labs"
@@ -723,14 +718,16 @@ export function ConnectorsSettingsTab({
           </p>
         </div>
 
-        {DOSSIER_FIELDS.map(({ field }) => (
-          <DossierFieldEditor
-            key={field}
-            field={field}
-            value={formState[field]}
-            onValueChange={(value) => updateField(field, value)}
-          />
-        ))}
+        <div className="grid gap-stack-2xl lg:grid-cols-2">
+          {DOSSIER_FIELDS.map(({ field }) => (
+            <DossierFieldEditor
+              key={field}
+              field={field}
+              value={formState[field]}
+              onValueChange={(value) => updateField(field, value)}
+            />
+          ))}
+        </div>
       </section>
     </div>
   );

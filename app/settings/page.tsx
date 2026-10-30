@@ -9,6 +9,7 @@ import { Switch } from "@/components/design-system/switch";
 import { BackgroundActivitySetting } from "@/components/settings/background-activity-setting";
 import { LightweightModeSetting } from "@/components/settings/lightweight-mode-setting";
 import Page from "@/components/layout/page";
+import { PageTopBar } from "@/components/layout/page-top-bar";
 import { ReturnButton } from "@/components/ReturnButton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/third-party/ui/tabs";
 import { Profile } from "@/lib/schemas/profiles";
@@ -26,6 +27,7 @@ import { SettingsHelp } from "@/components/settings/settings-help";
 import { SettingsRow } from "@/components/settings/SettingsRow";
 import { ThemeSwitch } from "@/components/shared/theme-switch";
 import { getSettings, setSettings } from "@/lib/user-settings";
+import { cn } from "@/lib/utils";
 
 const showDevSettings = process.env.NEXT_PUBLIC_SHOW_DEV_SETTINGS === "true";
 
@@ -104,15 +106,16 @@ export default function SettingsPage() {
 
   return (
     <Page>
-      <header className="w-full shrink-0 px-inset-lg pt-[calc(3.5rem+env(safe-area-inset-top,0px))] md:px-8 md:pt-inset-lg">
-        <div className="mx-auto flex w-full max-w-2xl items-center gap-inline-sm">
-          <ReturnButton compactOnMobile />
-          <h1 className="text-lg font-semibold text-foreground">{SETTINGS_PAGE_TITLE}</h1>
-        </div>
-      </header>
+      <PageTopBar
+        className="grid shrink-0 grid-cols-[1fr_auto_1fr] px-inset-lg pt-[calc(3.5rem+env(safe-area-inset-top,0px))] pb-0 md:px-16 md:pt-inset-lg"
+        leading={<ReturnButton compactOnMobile />}
+        title={SETTINGS_PAGE_TITLE}
+        trailing={<span />}
+        withSideClearance={false}
+      />
       <div className="flex-1 w-full overflow-auto px-4 py-6 md:px-8">
         <Tabs
-          className="w-full max-w-2xl mx-auto"
+          className={cn("mx-auto w-full", settingsTab === "connectors" ? "max-w-6xl" : "max-w-2xl")}
           value={settingsTab}
           onValueChange={setSettingsTab}
         >
