@@ -144,7 +144,9 @@ latency cannot meet this budget on a slow connection.
 | Initial burn delay | **0ms** | `ProcessingTextBurn` incoming-initial (no `--ptb-in-delay`) so the first glyph is immediate |
 
 Implementation: [`lib/chat/optimistic-ai-action.ts`](../../lib/chat/optimistic-ai-action.ts) +
-`ChatThread` (`status` + standalone tail while the last row is still the user message).
+`ChatThread` (`status` + standalone tail until the assistant has a row to render). The stream's
+`start` chunk creates an empty assistant message first, so an empty message doesn't count as a
+row; otherwise the status disappears during context gathering, before the first token.
 
 ### Showcase replay (scripted demos)
 

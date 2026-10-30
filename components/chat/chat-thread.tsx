@@ -56,6 +56,20 @@ type ChatThreadProps = {
   heardMarks?: Readonly<Record<string, { label: string; pulseKey: number | null }>>;
 };
 
+/** Inline subagent dispatches render as their own rows, not as message parts. */
+function displayParts(
+  message: UIMessage,
+  dispatchesByMessage: ReadonlyMap<string, readonly unknown[]>
+): UIMessage["parts"] {
+  return dispatchesByMessage.get(message.id)?.length
+    ? message.parts.filter((part) => !inlineSubagentDispatch(part))
+    : message.parts;
+}
+
+function hasRowContent(parts: UIMessage["parts"]): boolean {
+  return parts.some((part) => part.type !== "step-start");
+}
+
 export const ChatThread: FC<ChatThreadProps> = ({
   messages,
   chatId,
@@ -96,8 +110,12 @@ export const ChatThread: FC<ChatThreadProps> = ({
       )
   );
   const lastMessageIndex = messages.length - 1;
+  const lastMessage = messages[lastMessageIndex];
   const liveAiAction = resolveThreadLiveAiAction({
-    lastMessageRole: messages[lastMessageIndex]?.role,
+    lastMessageRole: lastMessage?.role,
+    lastMessageHasContent: lastMessage
+      ? hasRowContent(displayParts(lastMessage, dispatchesByMessage))
+      : false,
     status,
     aiActionPayload,
   });
@@ -165,17 +183,11 @@ export const ChatThread: FC<ChatThreadProps> = ({
 
               const heard = heardMarks?.[message.id];
               const messageDispatches = dispatchesByMessage.get(message.id) ?? [];
-              const displayMessage =
-                messageDispatches.length > 0
-                  ? {
-                      ...message,
-                      parts: message.parts.filter((part) => !inlineSubagentDispatch(part)),
-                    }
-                  : message;
+              const rowParts = displayParts(message, dispatchesByMessage);
 
               return (
                 <Fragment key={message.id}>
-                  {displayMessage.parts.some((part) => part.type !== "step-start") && (
+                  {hasRowContent(rowParts) && (
                     <ChatMessage
                       aiActionPayload={
                         index === lastMessageIndex && liveAiAction.placement === "last-message"
@@ -186,7 +198,7 @@ export const ChatThread: FC<ChatThreadProps> = ({
                       isLatestArcadiaHelp={
                         isArcadiaHelpMessage(message) ? isLatestArcadiaHelp : undefined
                       }
-                      message={displayMessage}
+                      message={rowParts === message.parts ? message : { ...message, parts: rowParts }}
                       showActions={showActions}
                       showModelBadge={!modelSummary.shouldUseThreadBadge}
                     />

@@ -115,4 +115,67 @@ describe("ChatThread optimistic receipt", () => {
     expect(getByText("Gathering context")).toBeTruthy();
     expect(queryByText(OPTIMISTIC_MESSAGE_RECEIVED_LABEL)).toBeNull();
   });
+
+  // The stream's `start` chunk creates the assistant message before it has anything to show.
+  describe.each([
+    ["no parts", []],
+    ["only a step marker", [{ type: "step-start" }]],
+  ] as Array<[string, UIMessage["parts"]]>)("assistant message with %s", (_name, parts) => {
+    const emptyAssistant: UIMessage = { id: "a1", role: "assistant", parts };
+
+    test("keeps the receipt until the stream reports a status", () => {
+      const { getByText } = render(
+        <Conversation>
+          <ChatThread messages={[userMessage, emptyAssistant]} status="streaming" />
+        </Conversation>
+      );
+
+      expect(getByText(OPTIMISTIC_MESSAGE_RECEIVED_LABEL)).toBeTruthy();
+    });
+
+    test("shows the stream's status", () => {
+      const { getByText } = render(
+        <Conversation>
+          <ChatThread
+            aiActionPayload={{ action: ChatAIActionEnum.Processing, message: "Gathering context" }}
+            messages={[userMessage, emptyAssistant]}
+            status="streaming"
+          />
+        </Conversation>
+      );
+
+      expect(getByText("Gathering context")).toBeTruthy();
+    });
+
+    test("shows nothing once the turn is over", () => {
+      const { queryByText } = render(
+        <Conversation>
+          <ChatThread messages={[userMessage, emptyAssistant]} status="ready" />
+        </Conversation>
+      );
+
+      expect(queryByText(OPTIMISTIC_MESSAGE_RECEIVED_LABEL)).toBeNull();
+    });
+  });
+
+  test("hands the status to the assistant row, once, when the first content arrives", () => {
+    const { getAllByText } = render(
+      <Conversation>
+        <ChatThread
+          aiActionPayload={{ action: ChatAIActionEnum.Search, message: "Searching" }}
+          messages={[
+            userMessage,
+            {
+              id: "a1",
+              role: "assistant",
+              parts: [{ type: "text", text: "Let me check.", state: "done" }],
+            },
+          ]}
+          status="streaming"
+        />
+      </Conversation>
+    );
+
+    expect(getAllByText("Searching the web...")).toHaveLength(1);
+  });
 });
