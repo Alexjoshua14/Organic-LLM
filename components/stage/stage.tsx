@@ -79,7 +79,7 @@ export function Stage() {
     webSearch: searchRef.current,
     memory: memoryRef.current,
     speechFriendly: speechRef.current,
-    presentation: { view, ...size },
+    presentation: { view, ...size, page, reading: frame.reading },
   });
 
   const [showGrid, setShowGrid] = useState(false);
@@ -176,7 +176,11 @@ export function Stage() {
   }, [state, selectView, refresh]);
   useVoiceScreenContext(
     state
-      ? { kind: "stage", revision: String(state.revision), presentation: { view, ...size } }
+      ? {
+          kind: "stage",
+          revision: String(state.revision),
+          presentation: { view, ...size, page, reading: frame.reading },
+        }
       : null
   );
   function closeArrangement() {

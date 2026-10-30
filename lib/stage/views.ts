@@ -87,7 +87,8 @@ export function stageSpaceContext(state: StageState, presentation?: StagePresent
       title: widget.title,
       rect,
     })),
-    readingArea: frame.body,
+    readingArea: frame.reading ? frame.reply : frame.body,
+    regions: { parent: frame.parent, response: frame.reply, composer: frame.composer },
     navigation:
       "Selecting a view reveals existing work; it never creates, delegates, or redesigns it. Organic tucks pieces away and centers the parent. Hidden pieces remain available. Only the parent/user controls selection; specialist results must not steal focus.",
   };

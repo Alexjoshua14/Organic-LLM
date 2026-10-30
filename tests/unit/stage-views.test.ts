@@ -83,4 +83,25 @@ test("agent context describes the actual selection, viewport and owned work", ()
       view: { kind: "organic", id: null },
     }).visiblePieces
   ).toEqual([]);
+  const second = { ...widget, id: crypto.randomUUID(), title: "Finish checklist" };
+  const paged = stageSpaceContext(
+    { ...state, widgets: [widget, second] },
+    {
+      width: 1100,
+      height: 700,
+      composerHeight: 80,
+      view: { kind: "author", id: source.id },
+      page: 1,
+    }
+  );
+  expect(paged.visiblePieces[0].id).toBe(second.id);
+  const reading = stageSpaceContext(state, {
+    width: 1100,
+    height: 700,
+    composerHeight: 80,
+    view: { kind: "author", id: source.id },
+    reading: true,
+  });
+  expect(reading.visiblePieces).toEqual([]);
+  expect(reading.readingArea).toEqual(reading.regions.response);
 });

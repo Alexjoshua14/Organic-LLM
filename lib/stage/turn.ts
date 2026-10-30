@@ -64,7 +64,9 @@ export async function runStageTurn(
 
         return {
           ...current,
-          ...(presentation ? { presentation: { ...presentation, view: target } } : {}),
+          ...(presentation
+            ? { presentation: { ...presentation, view: target, page: 0, reading: false } }
+            : {}),
           viewCommand: { id: requestId, target },
         };
       },
@@ -123,7 +125,9 @@ export async function runStageTurn(
           return {
             ...current,
             lastModel: result.model,
-            ...(presentation ? { presentation: { ...presentation, view: target } } : {}),
+            ...(presentation
+              ? { presentation: { ...presentation, view: target, page: 0, reading: false } }
+              : {}),
             viewCommand: { id: requestId, target },
           };
         },
@@ -183,6 +187,7 @@ export async function runStageTurn(
                   presentation: {
                     ...settings.presentation,
                     view: selectedView ?? settings.presentation.view,
+                    ...(selectedView ? { page: 0, reading: false } : {}),
                   },
                 }
               : {}),
