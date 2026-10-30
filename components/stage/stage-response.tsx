@@ -37,11 +37,13 @@ export function StageResponse({
       authors.delete(message.author.id);
       authors.set(message.author.id, message);
     }
+  const recent = [...authors.values()].slice(-2);
+  const pinned = authors.get(selectedAuthor ?? selected);
+
+  if (pinned && !recent.includes(pinned)) recent[0] = pinned;
   const outputs = [
     ...(organic ? [{ key: "organic", name: "Organic", message: organic }] : []),
-    ...[...authors.values()]
-      .slice(-2)
-      .map((message) => ({ key: message.author!.id, name: message.author!.name, message })),
+    ...recent.map((message) => ({ key: message.author!.id, name: message.author!.name, message })),
   ];
 
   if (selectedAuthor && !outputs.some((o) => o.key === selectedAuthor)) {

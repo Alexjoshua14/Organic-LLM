@@ -24,4 +24,25 @@ test("independent replies keep their authors and do not overwrite the current re
     "independent result"
   );
   expect(view.queryByText("Organic is coordinating.")).toBeNull();
+  view.rerender(
+    <StageResponse
+      state={{
+        ...state,
+        messages: [
+          ...state.messages,
+          ...["Reviewer", "Checker"].map((name) => ({
+            id: crypto.randomUUID(),
+            role: "assistant" as const,
+            text: `${name} result`,
+            author: { id: crypto.randomUUID(), name, kind: "subagent" as const },
+          })),
+        ],
+      }}
+      onOpenConversation={() => undefined}
+    />
+  );
+  expect(view.getByRole("region", { name: "Planner’s response" }).textContent).toContain(
+    "independent result"
+  );
+  expect(view.getAllByRole("button", { name: /Planner|Checker|Organic/ })).toHaveLength(3);
 });
