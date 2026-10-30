@@ -148,17 +148,33 @@ export async function executeSpeakRealtimeTool(args: {
         requestId,
         session.stageSettings
       );
-      const reply = state.messages.findLast((message) => message.role === "assistant")?.text;
+      const navigated = state.viewCommand?.id === requestId;
+      const { stageViews } = await import("@/lib/stage/views");
+      const selected = navigated
+        ? stageViews(state).find(
+            (entry) =>
+              entry.view.kind === state.viewCommand!.target.kind &&
+              entry.view.id === state.viewCommand!.target.id
+          )
+        : null;
+      const newReply = state.messages.find(
+        (message) => message.id === requestId && message.role === "user"
+      )
+        ? state.messages.findLast((message) => message.role === "assistant" && !message.author)
+            ?.text
+        : null;
+      const reply = newReply ?? (selected ? `Showing ${selected.name}.` : undefined);
 
       return {
         ok: true,
         modelResult: {
           ok: true,
           reply,
+          view: state.viewCommand?.target ?? null,
           revision: state.revision,
           designStatus: state.design?.status ?? null,
         },
-        clientEffects: [],
+        clientEffects: navigated ? [{ type: "stage_view", command: state.viewCommand! }] : [],
       };
     } catch {
       return {

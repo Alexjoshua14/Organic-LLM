@@ -16,6 +16,7 @@ import {
   readStage,
   releaseStageLease,
 } from "./store";
+import { stageNavigation, resolveStageView } from "./views";
 
 import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
 import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
@@ -47,6 +48,31 @@ export async function runStageTurn(
   settings?: StageTurnSettings
 ): Promise<StageState> {
   if (await hasStageRequest(id.ownerId, requestId)) return (await readStage(id.ownerId)).state;
+  // Navigation is authenticated/rate-limited upstream, but never needs a model or generation lease.
+  const { state: navigationBase } = await readStage(id.ownerId);
+  const navigation = stageNavigation(message, navigationBase);
+
+  if (navigation) {
+    const navigated = await mutateStage(
+      id.ownerId,
+      "view",
+      (current) => {
+        const target = resolveStageView(current, navigation);
+
+        if (!target) throw new StageTurnError("That view is no longer available.", 409);
+        const presentation = settings?.presentation ?? current.presentation;
+
+        return {
+          ...current,
+          ...(presentation ? { presentation: { ...presentation, view: target } } : {}),
+          viewCommand: { id: requestId, target },
+        };
+      },
+      { requestId, deduplicate: true }
+    );
+
+    return navigated ?? (await readStage(id.ownerId)).state;
+  }
   const lease = await acquireStageLease(id.ownerId, "turn");
 
   if (!lease)
@@ -80,6 +106,38 @@ export async function runStageTurn(
       throw error;
     }
     const job = result.designBrief ? { id: crypto.randomUUID(), brief: result.designBrief } : null;
+    const selectedView = resolveStageView(base, result.view);
+
+    if (result.view && !selectedView)
+      throw new StageTurnError("The requested view is no longer available.", 409);
+    if (selectedView && !job && !result.subagents?.length) {
+      const navigated = await mutateStage(
+        id.ownerId,
+        "view",
+        (current) => {
+          const target = resolveStageView(current, selectedView);
+
+          if (!target) throw new StageTurnError("That view is no longer available.", 409);
+          const presentation = settings?.presentation ?? current.presentation;
+
+          return {
+            ...current,
+            lastModel: result.model,
+            ...(presentation ? { presentation: { ...presentation, view: target } } : {}),
+            viewCommand: { id: requestId, target },
+          };
+        },
+        {
+          requestId,
+          deduplicate: true,
+          lease,
+          usage: result.usage,
+          call: { operation: "turn", model: result.model, outcome: "complete" },
+        }
+      );
+
+      return navigated ?? (await readStage(id.ownerId)).state;
+    }
     const assistantId = crypto.randomUUID();
     const state = await mutateStage(
       id.ownerId,
@@ -120,6 +178,15 @@ export async function runStageTurn(
         return placeStageArtifacts(
           {
             ...assigned,
+            ...(settings?.presentation
+              ? {
+                  presentation: {
+                    ...settings.presentation,
+                    view: selectedView ?? settings.presentation.view,
+                  },
+                }
+              : {}),
+            ...(selectedView ? { viewCommand: { id: requestId, target: selectedView } } : {}),
             messages: [
               ...current.messages,
               { id: requestId, role: "user" as const, text: message },

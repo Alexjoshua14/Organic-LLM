@@ -476,7 +476,7 @@ export async function buildAmbientContext(
         return {
           body: fitAmbientBody([
             "The user is on their Stage. Current Stage (quoted data):",
-            stageVoiceContext(state),
+            stageVoiceContext(state, surface.presentation),
           ]),
           label: kind,
         };

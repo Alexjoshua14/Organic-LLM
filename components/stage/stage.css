@@ -276,6 +276,9 @@
   background: none;
   border-radius: 0;
 }
+.stage-piece[hidden] {
+  display: none;
+}
 .stage-piece[data-selected="true"] {
   outline: 1px solid var(--stage-rule);
   outline-offset: 8px;
@@ -387,6 +390,20 @@
   flex: 0 0 32px;
   overflow-x: auto;
   white-space: nowrap;
+}
+.stage-response-author-tabs {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.stage-response-actions {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 .stage-response-authors > .stage-icon-button:first-of-type {
   margin-left: auto;

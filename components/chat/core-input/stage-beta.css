@@ -7,7 +7,7 @@
 }
 .core-input-stage-beta-row {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   gap: 8px;
   padding: 8px;
   min-height: 54px;
@@ -19,6 +19,7 @@
   min-height: 36px;
   max-height: clamp(36px, calc((100dvh - 450px) / 2), 164px);
   padding: 6px 4px;
+  margin: 0;
   border: 0;
   background: none;
   font-family: inherit;
@@ -28,6 +29,31 @@
   outline: none;
   box-shadow: none;
   mask-image: none;
+}
+.core-input-stage-beta .core-input-stage-submit {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--foreground);
+  color: var(--background);
+  background-image: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  transition: opacity 140ms ease-out;
+}
+.core-input-stage-beta .core-input-stage-submit:hover:not(:disabled) {
+  opacity: 0.84;
+}
+.core-input-stage-beta .core-input-stage-submit svg {
+  width: 18px;
+  height: 18px;
+}
+.core-input-stage-beta .core-input-stage-submit:disabled {
+  background: color-mix(in srgb, var(--foreground) 6%, transparent);
+  color: var(--muted-foreground);
+  opacity: 0.55;
 }
 .stage-beta-options-panel {
   z-index: 100;

@@ -71,23 +71,27 @@ export const StageWidget = memo(function StageWidget({
   selected,
   onSelect,
   rect = widget.rect,
+  hidden = false,
 }: {
   widget: Widget;
   selected: boolean;
   onSelect: (id: string) => void;
   rect?: StageRect;
+  hidden?: boolean;
 }) {
   const reduced = useReducedMotion();
 
   return (
     <motion.article
+      hidden={hidden}
+      inert={hidden}
       aria-label={widget.title}
       className="stage-piece"
       data-kind={widget.kind}
       data-selected={selected}
       data-widget-id={widget.id}
       style={stageCellStyle(rect)}
-      layout="position"
+      layout={hidden ? false : "position"}
       transition={{ layout: { duration: reduced ? 0 : 0.14, ease: "easeOut" } }}
     >
       <div className="stage-piece-actions">

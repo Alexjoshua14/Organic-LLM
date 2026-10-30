@@ -51,3 +51,26 @@ restores saved geometry, and Place it persists the edit. Position changes use a
 140ms transform transition (instant under reduced motion). Memoized piece content
 keeps geometry edits from regenerating Markdown or Mermaid. Source/title edits
 remain explicit saves.
+
+## View selection
+
+Organic is the centered home view. It tucks pieces away, while specialist views
+show that author's work and Pieces exposes the workspace. The response and
+composer share the page center; reader actions sit at the trailing edge. Visited
+pieces stay mounted while tucked away, preserving diagram SVGs, chat and scroll
+state. They render lazily on their first visit.
+
+`lib/stage/views.ts` supplies the same owner-scoped view catalog to UI, Organic,
+workers and voice. Whole, unambiguous navigation requests switch existing views
+before generation/budget/lease work. They do not append transcript messages or
+start jobs. Organic can also return a validated view action for requests that need
+interpretation. Current selection, measured viewport and visible cells accompany
+typed requests and live voice screen context; worker context includes the last
+reported presentation. View commands have IDs and apply once, including voice's
+immediate client effect, so later polling does not undo a manual choice. Workers
+publish work without changing selection.
+
+Stage's CoreInput row removes the base textarea's vertical margins and centers
+its controls. Its submit affordance is a quiet circular arrow with a disabled
+state and busy indicator; the prototype glass/idle glyph remains scoped to other
+opt-in uses. These adjustments are specific to Stage beta.

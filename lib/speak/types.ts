@@ -1,4 +1,5 @@
 import type { SpeakModalities } from "@/lib/schemas/speak-modalities";
+import type { StageView } from "@/lib/stage/view-schema";
 
 export type SpeakBudgetSnapshot = {
   monthlyCostCapUsd: number;
@@ -12,6 +13,7 @@ export type SpeakBudgetSnapshot = {
 };
 
 export type SpeakToolClientEffect =
+  | { type: "stage_view"; command: { id: string; target: StageView } }
   | { type: "display_text"; text: string }
   | { type: "gen_ui"; block: unknown; instanceId: string }
   | { type: "refresh_component"; instanceId: string }

@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { StagePresentationSchema } from "@/lib/stage/view-schema";
+
 /**
  * What the user currently has open, as the client reports it.
  *
@@ -42,7 +44,11 @@ export const SpeakScreenSurfaceSchema = z.discriminatedUnion("kind", [
      */
     activeNodePending: z.boolean().optional(),
   }),
-  z.object({ kind: z.literal("stage"), revision: z.string().max(128).optional() }),
+  z.object({
+    kind: z.literal("stage"),
+    revision: z.string().max(128).optional(),
+    presentation: StagePresentationSchema.optional(),
+  }),
   /** The user navigated somewhere with no registered context; tells the model to let it go stale. */
   z.object({ kind: z.literal("none") }),
 ]);
@@ -71,7 +77,7 @@ export function screenSurfaceKey(surface: SpeakScreenSurface): string {
         surface.activeNodePending ? ":pending" : ""
       }`;
     case "stage":
-      return `stage:${surface.revision ?? "current"}`;
+      return `stage:${surface.revision ?? "current"}${surface.presentation ? `:${JSON.stringify(surface.presentation)}` : ""}`;
     case "none":
       return "none";
   }

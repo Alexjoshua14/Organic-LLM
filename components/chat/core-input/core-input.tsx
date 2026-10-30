@@ -25,7 +25,7 @@ import {
 import { flushSync } from "react-dom";
 import { useChat } from "@ai-sdk/react";
 import { useReducedMotion } from "framer-motion";
-import { Loader2 } from "lucide-react";
+import { ArrowUp, Loader2 } from "lucide-react";
 
 import "@/styles/CoreInputMorph.css";
 
@@ -1247,11 +1247,15 @@ export const CoreInput: React.FC<CoreInputProps> = ({
           ? { "aria-label": "Send to Artist assistant" }
           : {})}
       className={cn(
-        submitVariant === "organic-glass" && !personaActive && organicGlassSubmitClassName,
+        submitVariant === "organic-glass" &&
+          variant !== "stage-beta" &&
+          !personaActive &&
+          organicGlassSubmitClassName,
         personaActive && "overflow-hidden rounded-lg bg-transparent p-0 hover:bg-transparent",
-        variant === "stage-beta" && "size-9 rounded-lg"
+        variant === "stage-beta" && "core-input-stage-submit size-9 rounded-full"
       )}
       variant={personaActive ? "ghost" : undefined}
+      motionFeedback={variant !== "stage-beta"}
       // Multi-mode: always submit (never stop). Default: keep stop available while streaming.
       disabled={
         variant === "stage-beta"
@@ -1266,7 +1270,13 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       status={variant === "stage-beta" ? "ready" : composerStatus}
       stop={variant === "stage-beta" || queueEnabled ? undefined : stop}
     >
-      {personaActive ? (
+      {variant === "stage-beta" ? (
+        composerStatus === "submitted" || composerStatus === "streaming" ? (
+          <Loader2 aria-hidden className="size-4 animate-spin" />
+        ) : (
+          <ArrowUp aria-hidden className="size-[18px]" strokeWidth={1.8} />
+        )
+      ) : personaActive ? (
         // The persona's visual is where its reply comes from: idle, deciding, then speaking.
         <PersonaSpark
           pulseKey={persona?.lastReceipt?.at ?? null}

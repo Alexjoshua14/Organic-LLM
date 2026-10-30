@@ -10,7 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AudioLines, Grid3X3, History, MessageCircle, ArrowUpRight, RotateCcw } from "lucide-react";
 
 import { useStage } from "./use-stage";
-import { StageWidget } from "./stage-widget";
+import { StagePieces } from "./stage-pieces";
 import { StageInspector } from "./stage-inspector";
 import { StageAgent } from "./stage-agent";
 import { StageResponse } from "./stage-response";
@@ -18,6 +18,13 @@ import { StageSubagents } from "./stage-subagents";
 import { StageHistory } from "./stage-history";
 import { useStageMeasurements } from "./use-stage-frame";
 
+import { resolveStageView } from "@/lib/stage/views";
+import {
+  ORGANIC_STAGE_VIEW,
+  STAGE_VIEW_EVENT,
+  StageViewCommandSchema,
+  type StageView,
+} from "@/lib/stage/view-schema";
 import { stageAgentReservations } from "@/lib/stage/layout";
 import { emptyStageState } from "@/lib/stage/schema";
 import { resolveStageFrame, stageCellStyle } from "@/lib/stage/frame";
@@ -72,16 +79,19 @@ export function Stage() {
     webSearch: searchRef.current,
     memory: memoryRef.current,
     speechFriendly: speechRef.current,
+    presentation: { view, ...size },
   });
 
-  useVoiceScreenContext(state ? { kind: "stage", revision: String(state.revision) } : null);
   const [showGrid, setShowGrid] = useState(false);
   const [panel, setPanel] = useState<"conversation" | "activity" | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { root, composer, size } = useStageMeasurements();
-  const [author, setAuthor] = useState("organic");
+  const [view, setView] = useState<StageView>(ORGANIC_STAGE_VIEW);
+  const author = view.kind === "author" ? view.id! : "organic";
+  const pieceId = view.kind === "piece" ? view.id : null;
+  const appliedCommands = useRef(new Set<string>());
   const [reading, setReading] = useState(false);
-  const [pieceId, setPieceId] = useState<string | null>(null);
+
   const [page, setPage] = useState(0);
   const [preview, setPreview] = useState<{ id: string; rect: StageRect } | null>(null);
   const arrangePiece = useCallback((id: string) => {
@@ -114,20 +124,61 @@ export function Stage() {
 
     return resolveStageFrame(projected, {
       ...size,
+      home: view.kind === "organic",
       author,
       reading,
       pieceId,
       page,
       arranging: !!selectedId,
     });
-  }, [state, size, author, reading, pieceId, page, selectedId, preview]);
+  }, [state, size, view, author, reading, pieceId, page, selectedId, preview]);
+
+  const selectView = useCallback((next: StageView) => {
+    setView(next);
+    setPage(0);
+    setReading(false);
+    setSelectedId(null);
+    setPreview(null);
+    setPanel(null);
+  }, []);
 
   function chooseAuthor(id: string) {
-    setAuthor(id);
-    setPage(0);
-    setPieceId(null);
-    setReading(false);
+    selectView(id === "organic" ? ORGANIC_STAGE_VIEW : { kind: "author", id });
   }
+  useEffect(() => {
+    const command = state?.viewCommand;
+
+    if (!command || appliedCommands.current.has(command.id)) return;
+    appliedCommands.current.add(command.id);
+    const next = resolveStageView(state!, command.target);
+
+    if (next) selectView(next);
+  }, [state, selectView]);
+  useEffect(() => {
+    const receiveView = (event: Event) => {
+      const command = StageViewCommandSchema.safeParse((event as CustomEvent).detail);
+
+      if (!command.success || !state || appliedCommands.current.has(command.data.id)) return;
+      const next = resolveStageView(state, command.data.target);
+
+      if (!next) {
+        void refresh();
+
+        return;
+      }
+      appliedCommands.current.add(command.data.id);
+      selectView(next);
+    };
+
+    window.addEventListener(STAGE_VIEW_EVENT, receiveView);
+
+    return () => window.removeEventListener(STAGE_VIEW_EVENT, receiveView);
+  }, [state, selectView, refresh]);
+  useVoiceScreenContext(
+    state
+      ? { kind: "stage", revision: String(state.revision), presentation: { view, ...size } }
+      : null
+  );
   function closeArrangement() {
     setSelectedId(null);
     setPreview(null);
@@ -260,26 +311,31 @@ export function Stage() {
           onSelect={chooseAuthor}
           onCancel={cancelSubagent}
         />
-        {!!state?.widgets.length && !frame.reading && (
+        {!!state?.widgets.length && frame.showPieces && !frame.reading && (
           <nav
             className="stage-piece-switcher"
             aria-label="Stage pieces"
             style={stageCellStyle(frame.pieceNav)}
           >
-            {state.widgets.map((widget) => (
-              <button
-                key={widget.id}
-                type="button"
-                aria-pressed={frame.pieces.some((p) => p.widget.id === widget.id)}
-                title={widget.source ? `${widget.title} · ${widget.source.name}` : widget.title}
-                onClick={() => {
-                  setPieceId(widget.id === pieceId ? null : widget.id);
-                  setReading(false);
-                }}
-              >
-                {widget.title}
-              </button>
-            ))}
+            {state.widgets
+              .filter((widget) => view.kind !== "author" || widget.source?.id === view.id)
+              .map((widget) => (
+                <button
+                  key={widget.id}
+                  type="button"
+                  aria-pressed={frame.pieces.some((p) => p.widget.id === widget.id)}
+                  title={widget.source ? `${widget.title} · ${widget.source.name}` : widget.title}
+                  onClick={() => {
+                    selectView(
+                      widget.id === pieceId
+                        ? { kind: "overview", id: null }
+                        : { kind: "piece", id: widget.id }
+                    );
+                  }}
+                >
+                  {widget.title}
+                </button>
+              ))}
             {frame.pages > 1 && !pieceId && (
               <button
                 type="button"
@@ -290,21 +346,18 @@ export function Stage() {
               </button>
             )}
             {pieceId && (
-              <button type="button" onClick={() => setPieceId(null)}>
+              <button type="button" onClick={() => selectView({ kind: "overview", id: null })}>
                 All pieces
               </button>
             )}
           </nav>
         )}
-        {frame.pieces.map(({ widget, rect }) => (
-          <StageWidget
-            key={widget.id}
-            widget={widget}
-            rect={rect}
-            selected={widget.id === selectedId}
-            onSelect={arrangePiece}
-          />
-        ))}
+        <StagePieces
+          widgets={state?.widgets ?? []}
+          visible={frame.pieces}
+          selectedId={selectedId}
+          onArrange={arrangePiece}
+        />
       </section>
 
       {selected && (
@@ -338,6 +391,10 @@ export function Stage() {
             <StageResponse
               state={state!}
               selectedAuthor={author}
+              organicActive={view.kind === "organic"}
+              onShowPieces={
+                state?.widgets.length ? () => selectView({ kind: "overview", id: null }) : undefined
+              }
               onSelectAuthor={chooseAuthor}
               expanded={frame.reading}
               compact={frame.replyCompact}
@@ -383,7 +440,6 @@ export function Stage() {
             <div className="stage-core-input" data-voice-active={voiceActive}>
               <CoreInput
                 variant="stage-beta"
-                submitVariant="organic-glass"
                 snapshotScope={STAGE_COMPOSER_SCOPE}
                 modelRef={modelRef}
                 effortRef={effortRef}

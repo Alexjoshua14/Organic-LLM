@@ -17,6 +17,8 @@ export function StageResponse({
   expanded = false,
   onToggleExpanded,
   compact = false,
+  organicActive = true,
+  onShowPieces,
 }: {
   state: StageState;
   onOpenConversation: () => void;
@@ -25,6 +27,8 @@ export function StageResponse({
   expanded?: boolean;
   onToggleExpanded?: () => void;
   compact?: boolean;
+  organicActive?: boolean;
+  onShowPieces?: () => void;
 }) {
   const [selected, setSelected] = useState("organic");
   const [read, setRead] = useState<Record<string, string>>({});
@@ -49,7 +53,8 @@ export function StageResponse({
   if (selectedAuthor && !outputs.some((o) => o.key === selectedAuthor)) {
     const agent = state.subagents?.find((a) => a.id === selectedAuthor);
     const designer = state.design?.id === selectedAuthor ? state.design : null;
-    const name = agent?.name ?? (designer ? "Designer" : null);
+    const source = state.widgets.find((widget) => widget.source?.id === selectedAuthor)?.source;
+    const name = agent?.name ?? (designer ? "Designer" : (source?.name ?? null));
 
     if (name)
       outputs.push({
@@ -58,7 +63,11 @@ export function StageResponse({
         message: {
           id: selectedAuthor,
           role: "assistant",
-          text: designer ? `Arranging the stage: ${designer.brief}` : `Working on: ${agent!.goal}`,
+          text: designer
+            ? `Arranging the stage: ${designer.brief}`
+            : agent?.status === "working" || agent?.status === "queued"
+              ? `Working on: ${agent.goal}`
+              : `${name}’s work is on the stage.`,
         },
       });
   }
@@ -76,45 +85,61 @@ export function StageResponse({
   return (
     <div className="stage-response">
       <div aria-label="Response authors" className="stage-response-authors" role="group">
-        {outputs.map((output) => (
+        <div className="stage-response-author-tabs">
+          {outputs.map((output) => (
+            <button
+              key={output.key}
+              type="button"
+              aria-pressed={
+                active.key === output.key && (output.key !== "organic" || organicActive)
+              }
+              className="stage-response-author"
+              onClick={() => {
+                setSelected(output.key);
+                onSelectAuthor?.(output.key);
+                setRead((current) => ({ ...current, [output.key]: output.message.id }));
+              }}
+            >
+              {output.name}
+              {output.key !== "organic" &&
+              output.key !== active.key &&
+              read[output.key] !== output.message.id ? (
+                <span className="stage-response-new">New</span>
+              ) : null}
+            </button>
+          ))}
+          {onShowPieces && (
+            <button
+              type="button"
+              className="stage-response-author"
+              aria-pressed={!organicActive && active.key === "organic"}
+              onClick={onShowPieces}
+            >
+              Pieces
+            </button>
+          )}
+        </div>
+        <div className="stage-response-actions">
+          {onToggleExpanded && (
+            <button
+              aria-label={expanded ? "Return to stage pieces" : "Give response more room"}
+              aria-pressed={expanded}
+              className="stage-icon-button"
+              type="button"
+              onClick={onToggleExpanded}
+            >
+              {expanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+            </button>
+          )}
           <button
-            key={output.key}
-            type="button"
-            aria-pressed={active.key === output.key}
-            className="stage-response-author"
-            onClick={() => {
-              setSelected(output.key);
-              onSelectAuthor?.(output.key);
-              setRead((current) => ({ ...current, [output.key]: output.message.id }));
-            }}
-          >
-            {output.name}
-            {output.key !== "organic" &&
-            output.key !== active.key &&
-            read[output.key] !== output.message.id ? (
-              <span className="stage-response-new">New</span>
-            ) : null}
-          </button>
-        ))}
-        {onToggleExpanded && (
-          <button
-            aria-label={expanded ? "Return to stage pieces" : "Give response more room"}
-            aria-pressed={expanded}
+            aria-label="Read full conversation"
             className="stage-icon-button"
             type="button"
-            onClick={onToggleExpanded}
+            onClick={onOpenConversation}
           >
-            {expanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+            <ArrowUpRight aria-hidden size={14} />
           </button>
-        )}
-        <button
-          aria-label="Read full conversation"
-          className="stage-icon-button"
-          type="button"
-          onClick={onOpenConversation}
-        >
-          <ArrowUpRight aria-hidden size={14} />
-        </button>
+        </div>
       </div>
       {/* eslint-disable jsx-a11y/no-noninteractive-tabindex -- Named scroll region supports keyboard reading. */}
       {!compact && (

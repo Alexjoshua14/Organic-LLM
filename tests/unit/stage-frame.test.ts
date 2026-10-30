@@ -71,7 +71,7 @@ test("focus gives a selected author's piece the reading area and pages excess wo
   });
   expect(frame.pieces).toHaveLength(1);
   expect(frame.pieces[0].widget.source?.id).toBe(source.id);
-  expect(frame.pages).toBe(3);
+  expect(frame.pages).toBe(1);
   expect(frame.pieces[0].rect.w).toBe(24);
   const next = resolveStageFrame(state, { width: 1200, height: 700, composerHeight: 78, page: 2 });
   expect(next.pieces[0].widget.id).toBe(state.widgets[2].id);

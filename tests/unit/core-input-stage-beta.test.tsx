@@ -27,9 +27,12 @@ mock.module("@/lib/context/chat-context", () => ({
   useSharedChatContext: () => ({ refreshSidebarChats: () => undefined }),
 }));
 const { CoreInput } = await import("@/components/chat/core-input");
+const { Stage } = await import("@/components/stage/stage");
+const originalFetch = globalThis.fetch;
 
 afterEach(() => {
   cleanup();
+  globalThis.fetch = originalFetch;
   restoreMedia();
   localStorage.clear();
   for (const [key, value] of stored) localStorage.setItem(key, value);
@@ -73,6 +76,9 @@ test("beta sends a multiline draft through CoreInput while keeping voice and opt
   expect(input.getAttribute("aria-multiline")).toBe("true");
   expect(app.getByRole("button", { name: "Composer options" })).toBeTruthy();
   expect(app.getByRole("button", { name: "Start voice session" })).toBeTruthy();
+  const submit = app.getByRole("button", { name: "Send message" });
+  expect(submit.querySelector("circle")).toBeNull();
+  expect(submit.className).not.toContain("organic-glass-preview");
   fireEvent.change(input, { target: { value: "First thought\nAnd a second line" } });
   fireEvent.click(app.getByRole("button", { name: "Send message" }));
   await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
@@ -94,4 +100,82 @@ test("default CoreInput keeps its existing layout and never adds beta controls",
   expect(app.container.querySelector(".core-input-stage-beta")).toBeNull();
   expect(app.queryByRole("button", { name: "Composer options" })).toBeNull();
   expect(app.queryByRole("button", { name: "Start voice session" })).toBeNull();
+});
+
+test("Stage returns to centered Organic, retains tucked pieces and applies server navigation once", async () => {
+  const { emptyStageState } = await import("@/lib/stage/schema");
+  const { stageNavigation } = await import("@/lib/stage/views");
+  const source = { id: crypto.randomUUID(), name: "Prep Planner" };
+  let state = {
+    ...emptyStageState(),
+    widgets: [
+      {
+        id: crypto.randomUUID(),
+        kind: "note" as const,
+        title: "Prep checklist",
+        text: "Chop the onion",
+        rect: { x: 8, y: 4, w: 11, h: 16 },
+        source,
+      },
+    ],
+    messages: [
+      { id: crypto.randomUUID(), role: "assistant" as const, text: "The plan is ready." },
+      {
+        id: crypto.randomUUID(),
+        role: "assistant" as const,
+        text: "Prep is ready.",
+        author: { ...source, kind: "subagent" as const },
+      },
+    ],
+  };
+  const requests: any[] = [];
+  globalThis.fetch = (async (_url, init) => {
+    if (init?.method === "POST") {
+      const body = JSON.parse(String(init.body));
+      requests.push(body);
+      state = {
+        ...state,
+        revision: state.revision + 1,
+        viewCommand: { id: body.requestId, target: stageNavigation(body.message, state)! },
+      } as typeof state;
+    }
+    return Response.json({ state });
+  }) as typeof fetch;
+  const app = render(<Stage />);
+  await waitFor(() =>
+    expect(Boolean(app.queryByRole("button", { name: /Prep Planner/ }))).toBe(true)
+  );
+  expect(Boolean(app.queryByRole("article", { name: "Prep checklist" }))).toBe(false);
+  expect(
+    app.container.querySelector<HTMLElement>('[data-agent-id="organic"]')?.style.gridColumn
+  ).toBe("13 / span 8");
+  fireEvent.click(app.getByRole("button", { name: /Prep Planner/ }));
+  const piece = app.getByRole("article", { name: "Prep checklist" });
+  fireEvent.click(app.getByRole("button", { name: "Organic", exact: true }));
+  expect(piece.hasAttribute("hidden")).toBe(true);
+  expect(piece.isConnected).toBe(true);
+  fireEvent.click(app.getByRole("button", { name: /Prep Planner/ }));
+  expect(app.getByRole("article", { name: "Prep checklist" }) === piece).toBe(true);
+  fireEvent.change(app.getByRole("textbox", { name: "Message Organic" }), {
+    target: { value: "show me Organic" },
+  });
+  fireEvent.click(app.getByRole("button", { name: "Send message" }));
+  await waitFor(() => expect(piece.hasAttribute("hidden")).toBe(true));
+  expect(requests).toHaveLength(1);
+  expect(requests[0].settings.presentation.view).toEqual({ kind: "author", id: source.id });
+  expect(
+    app.container.querySelector<HTMLElement>('[data-agent-id="organic"]')?.style.gridColumn
+  ).toBe("13 / span 8");
+  fireEvent.click(app.getByRole("button", { name: /Prep Planner/ }));
+  window.dispatchEvent(new Event("focus"));
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  expect(piece.hasAttribute("hidden")).toBe(false);
+  expect(requests).toHaveLength(1);
+  const { STAGE_VIEW_EVENT } = await import("@/lib/stage/view-schema");
+  const command = { id: crypto.randomUUID(), target: { kind: "organic", id: null } };
+  fireEvent(window, new CustomEvent(STAGE_VIEW_EVENT, { detail: command }));
+  expect(piece.hasAttribute("hidden")).toBe(true);
+  fireEvent.click(app.getByRole("button", { name: /Prep Planner/ }));
+  fireEvent(window, new CustomEvent(STAGE_VIEW_EVENT, { detail: command }));
+  expect(piece.hasAttribute("hidden")).toBe(false);
 });

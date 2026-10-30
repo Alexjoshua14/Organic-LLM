@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { StagePresentationSchema, StageViewCommandSchema } from "./view-schema";
+
 import { ChatEffortLevelSchema } from "@/lib/schemas/chat-effort";
 import { RecipeCardBlockSchema } from "@/lib/schemas/gen-ui/recipe-card";
 
@@ -97,6 +99,8 @@ export const StageStateSchema = z
     widgets: z.array(StageWidgetSchema).max(STAGE_MAX_WIDGETS),
     messages: z.array(StageMessageSchema).max(24),
     summary: z.string().max(6000),
+    viewCommand: StageViewCommandSchema.optional(),
+    presentation: StagePresentationSchema.optional(),
     lastModel: z.string().max(100).nullable(),
     nextModel: z.string().max(100),
     design: StageDesignSchema.nullable(),
@@ -129,6 +133,7 @@ export const StageTurnSettingsSchema = z
     webSearch: z.boolean().optional(),
     memory: z.boolean().optional(),
     speechFriendly: z.boolean().optional(),
+    presentation: StagePresentationSchema.optional(),
   })
   .strict();
 export type StageTurnSettings = z.infer<typeof StageTurnSettingsSchema>;
@@ -147,6 +152,7 @@ export const StageEventSchema = z
     at: z.string().datetime(),
     cause: z.enum([
       "turn",
+      "view",
       "layout",
       "design-start",
       "design-complete",

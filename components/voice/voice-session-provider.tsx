@@ -24,6 +24,7 @@ import {
 
 import { VoiceLiveBarHost } from "./voice-live-bar-host";
 
+import { STAGE_VIEW_EVENT } from "@/lib/stage/view-schema";
 import { usePersonaSessionOptional } from "@/components/personas/persona-session-provider";
 import { useRealtimeVoice, type PersonaVoiceTurn } from "@/hooks/use-realtime-voice";
 import { DEFAULT_COMPOSER_MEMORIES } from "@/lib/chat/composer-tool-defaults";
@@ -144,6 +145,9 @@ export function VoiceSessionProvider({
   const [surface, setSurfaceState] = useState<SpeakScreenSurface | null>(null);
 
   const handleEffects = useCallback((effects: SpeakToolClientEffect[]) => {
+    for (const effect of effects)
+      if (effect.type === "stage_view")
+        window.dispatchEvent(new CustomEvent(STAGE_VIEW_EVENT, { detail: effect.command }));
     setVisual((prev) => applyVoiceEffects(prev, effects));
   }, []);
 
