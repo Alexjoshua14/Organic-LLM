@@ -3,6 +3,7 @@ import type { StageRect, StageState, StageWidget } from "./schema";
 
 import {
   findStagePlacement,
+  repairStageLayout,
   stageReservedRects,
   StageLayoutError,
   validateStageLayout,
@@ -115,7 +116,15 @@ export function mergeStageDesignPlan(
     if (!rect) throw new StageLayoutError("No free space for the requested widget");
     widgets.push(proposedWidget(operation, rect, chatIds.get(index), widgetIds.get(index)));
   }
-  validateStageLayout(widgets, stageReservedRects(current));
-
-  return widgets;
+  try {
+    validateStageLayout(widgets, stageReservedRects(current));
+    return widgets;
+  } catch (error) {
+    if (!(error instanceof StageLayoutError)) throw error;
+    // Keep unchanged pieces anchored; repair only proposed conflicts first.
+    const unchanged = widgets.filter((widget) => current.widgets.includes(widget));
+    const changed = widgets.filter((widget) => !current.widgets.includes(widget));
+    const repaired = repairStageLayout({ ...current, widgets: [...unchanged, ...changed] });
+    return widgets.map((widget) => repaired.widgets.find((piece) => piece.id === widget.id)!);
+  }
 }

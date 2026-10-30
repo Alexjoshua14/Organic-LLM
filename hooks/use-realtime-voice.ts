@@ -369,7 +369,7 @@ export function useRealtimeVoice({
     const sid = sessionIdRef.current;
     const batch = turnBufferRef.current.splice(0, SPEAK_TURN_BATCH_MAX);
 
-    if (!sid || batch.length === 0) return;
+    if (!sid || batch.length === 0 || stageRef.current) return;
 
     const final = opts?.final === true;
 

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import type { DesignPlan } from "@/lib/stage/agent";
-import { StageLayoutError } from "@/lib/stage/layout";
+import { StageLayoutError, validateStageLayout } from "@/lib/stage/layout";
 import { mergeStageDesignPlan } from "@/lib/stage/reconcile";
 import { emptyStageState, type StageWidget } from "@/lib/stage/schema";
 
@@ -90,7 +90,7 @@ describe("stage design reconciliation", () => {
     ).toEqual([]);
   });
 
-  test("retains unrelated user widgets and rejects collisions with them", () => {
+  test("retains unrelated user widgets and repairs proposed collisions with them", () => {
     const base = emptyStageState();
     const current = { ...base, widgets: [note] };
     const colliding: DesignPlan = {
@@ -104,9 +104,10 @@ describe("stage design reconciliation", () => {
         },
       ],
     };
-    expect(() => mergeStageDesignPlan(current, base, colliding, new Map())).toThrow(
-      StageLayoutError
-    );
+    const repaired = mergeStageDesignPlan(current, base, colliding, new Map());
+    expect(repaired[0]).toEqual(note);
+    expect(repaired[1].rect).not.toEqual(note.rect);
+    expect(() => validateStageLayout(repaired)).not.toThrow();
     expect(mergeStageDesignPlan(current, base, { operations: [] }, new Map())).toEqual([note]);
   });
 });
