@@ -198,7 +198,9 @@ export const ChatThread: FC<ChatThreadProps> = ({
                       isLatestArcadiaHelp={
                         isArcadiaHelpMessage(message) ? isLatestArcadiaHelp : undefined
                       }
-                      message={rowParts === message.parts ? message : { ...message, parts: rowParts }}
+                      message={
+                        rowParts === message.parts ? message : { ...message, parts: rowParts }
+                      }
                       showActions={showActions}
                       showModelBadge={!modelSummary.shouldUseThreadBadge}
                     />
