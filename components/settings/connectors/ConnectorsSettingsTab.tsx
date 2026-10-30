@@ -16,6 +16,8 @@ import {
   Unplug,
 } from "lucide-react";
 
+import { DossierAiAction } from "./DossierAiAction";
+
 import { SettingsHelp } from "@/components/settings/settings-help";
 import { Switch } from "@/components/design-system/switch";
 import { caption } from "@/components/design-system/primitives";
@@ -721,19 +723,22 @@ export function ConnectorsSettingsTab({
         <div className="space-y-1">
           <h3 className="text-sm font-semibold text-foreground">Personal Dossier</h3>
           <p className="text-xs text-muted-foreground">
-            Add background you want Organic to draw on.
+            Ask AI to draft a section, then paste its full reply below.
           </p>
         </div>
 
         {/* Education & Transcripts */}
         <div className="space-y-1.5">
-          <label
-            className="text-xs font-medium text-foreground flex items-center gap-1.5"
-            htmlFor="dossier-education"
-          >
-            <BookOpen className="size-3.5 text-muted-foreground" />
-            Education &amp; Transcripts
-          </label>
+          <div className="flex flex-wrap items-center justify-between gap-inline-sm">
+            <label
+              className="min-w-0 flex-1 text-xs font-medium text-foreground flex items-center gap-inline-sm"
+              htmlFor="dossier-education"
+            >
+              <BookOpen className="size-3.5 text-muted-foreground" />
+              Education &amp; Transcripts
+            </label>
+            <DossierAiAction field="educationAndTranscripts" />
+          </div>
           <SettingsHelp title="What to include in education">
             <p>
               Schools, degrees, coursework, or transcript notes. Used as{" "}
@@ -752,13 +757,16 @@ export function ConnectorsSettingsTab({
 
         {/* Career History & Projects */}
         <div className="space-y-1.5">
-          <label
-            className="text-xs font-medium text-foreground flex items-center gap-1.5"
-            htmlFor="dossier-career"
-          >
-            <Briefcase className="size-3.5 text-muted-foreground" />
-            Career History &amp; Projects
-          </label>
+          <div className="flex flex-wrap items-center justify-between gap-inline-sm">
+            <label
+              className="min-w-0 flex-1 text-xs font-medium text-foreground flex items-center gap-inline-sm"
+              htmlFor="dossier-career"
+            >
+              <Briefcase className="size-3.5 text-muted-foreground" />
+              Career History &amp; Projects
+            </label>
+            <DossierAiAction field="careerHistory" />
+          </div>
           <SettingsHelp title="What to include in career history">
             <p>
               Roles, organizations, projects, and expertise. Used as <code>connector:career</code>.
@@ -776,13 +784,16 @@ export function ConnectorsSettingsTab({
 
         {/* Resume / CV */}
         <div className="space-y-1.5">
-          <label
-            className="text-xs font-medium text-foreground flex items-center gap-1.5"
-            htmlFor="dossier-resume"
-          >
-            <FileText className="size-3.5 text-muted-foreground" />
-            Resume / CV
-          </label>
+          <div className="flex flex-wrap items-center justify-between gap-inline-sm">
+            <label
+              className="min-w-0 flex-1 text-xs font-medium text-foreground flex items-center gap-inline-sm"
+              htmlFor="dossier-resume"
+            >
+              <FileText className="size-3.5 text-muted-foreground" />
+              Resume / CV
+            </label>
+            <DossierAiAction field="resumeText" />
+          </div>
           <SettingsHelp title="How your resume is used">
             <p>
               Paste plain text or Markdown so writing and research tasks can use exact dates,
@@ -801,13 +812,16 @@ export function ConnectorsSettingsTab({
 
         {/* Working & Infrastructure Preferences */}
         <div className="space-y-1.5">
-          <label
-            className="text-xs font-medium text-foreground flex items-center gap-1.5"
-            htmlFor="dossier-preferences"
-          >
-            <Cpu className="size-3.5 text-muted-foreground" />
-            Working Preferences
-          </label>
+          <div className="flex flex-wrap items-center justify-between gap-inline-sm">
+            <label
+              className="min-w-0 flex-1 text-xs font-medium text-foreground flex items-center gap-inline-sm"
+              htmlFor="dossier-preferences"
+            >
+              <Cpu className="size-3.5 text-muted-foreground" />
+              Working Preferences
+            </label>
+            <DossierAiAction field="workingPreferences" />
+          </div>
           <SettingsHelp title="What to include in working preferences">
             <p>
               Hardware, servers, preferred languages, runtimes, and architecture choices. Used as{" "}

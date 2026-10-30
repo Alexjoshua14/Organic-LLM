@@ -1,4 +1,4 @@
-export const OPEN_IN_CHAT_PROVIDERS = ["chatgpt", "claude", "t3", "v0", "scira"] as const;
+export const OPEN_IN_CHAT_PROVIDERS = ["chatgpt", "claude", "gemini", "t3", "v0", "scira"] as const;
 export type OpenInChatProvider = (typeof OPEN_IN_CHAT_PROVIDERS)[number];
 
 export type ExportOpenInTarget = {
