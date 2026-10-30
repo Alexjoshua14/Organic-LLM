@@ -44,11 +44,19 @@ export function resolveStageFrame(state: StageState, options: StageFrameOptions)
   const rail =
     readingWork ||
     (!options.home && (hasWork || activeChildren || options.arranging || composerHeight > 140));
+  const homeChildBudget =
+    activeChildren && options.home
+      ? Math.ceil((height < 430 ? 102 : height < 560 || composerHeight > 110 ? 204 : 270) / row) + 1
+      : 0;
   const replyRows = Math.max(
     2,
     Math.min(
       Math.ceil(Math.min(144, height * 0.18) / row),
-      hasWork ? composerY - top - 5 - Math.ceil(Math.min(260, height * 0.4) / row) : 8
+      hasWork
+        ? composerY - top - 5 - Math.ceil(Math.min(260, height * 0.4) / row)
+        : homeChildBudget
+          ? composerY - top - 3 - homeChildBudget
+          : 8
     )
   );
   const replyY = Math.max(top + 5, composerY - replyRows - 1);
@@ -87,8 +95,11 @@ export function resolveStageFrame(state: StageState, options: StageFrameOptions)
     )
   );
   const childH = Math.max(3, Math.floor((railHeight - parentH - 2) / 2));
-  const homeParentH = Math.min(9, Math.max(4, Math.floor(body.h * 0.55)));
-  const homeChildrenH = activeChildren ? Math.ceil((compact ? 92 : 116) / row) + 1 : 0;
+  const homeChildrenH = activeChildren ? Math.ceil((tiny ? 66 : compact ? 92 : 116) / row) + 1 : 0;
+  const homeParentH = Math.max(
+    3,
+    Math.min(9, Math.max(4, Math.floor(body.h * 0.55)), body.h - homeChildrenH)
+  );
   const parent: StageRect = rail
     ? { x: 0, y: top + 1, w: 7, h: parentH }
     : {

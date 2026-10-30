@@ -105,3 +105,36 @@ test("agent context describes the actual selection, viewport and owned work", ()
   expect(reading.visiblePieces).toEqual([]);
   expect(reading.readingArea).toEqual(reading.regions.response);
 });
+
+test("centered Organic reserves room for active children even in short windows", () => {
+  const active = {
+    ...state,
+    subagents: [0, 1].map((slot) => ({
+      id: crypto.randomUUID(),
+      name: `Specialist ${slot}`,
+      goal: "Plan",
+      status: "working" as const,
+      slot,
+      startedAt: new Date().toISOString(),
+      result: null,
+      memory: false,
+      webSearch: false,
+    })),
+  };
+  for (const height of [324, 524, 692]) {
+    const frame = resolveStageFrame(active, {
+      width: 1200,
+      height,
+      composerHeight: 80,
+      home: true,
+    });
+    expect(frame.parent.x + frame.parent.w / 2).toBe(16);
+    expect(frame.parent.y + frame.parent.h).toBeLessThan(frame.children[0].y);
+    for (const child of frame.children) {
+      expect(child.y + child.h).toBeLessThanOrEqual(frame.reply.y);
+      expect((child.h * height) / 32).toBeGreaterThanOrEqual(
+        frame.tiny ? 66 : frame.compact ? 92 : 116
+      );
+    }
+  }
+});
