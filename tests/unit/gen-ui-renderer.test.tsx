@@ -49,6 +49,17 @@ describe("GenUIRenderer", () => {
     expect(getByText(/Summary/)).toBeTruthy();
   });
 
+  test("answer card shows every key point, with no collapsed overflow", () => {
+    const keyPoints = Array.from({ length: 7 }, (_, i) => `Point ${i + 1}`);
+    const { container, queryByText } = render(
+      <GenUIRenderer data={{ block: { ...FIXTURE_ANSWER_CARD, keyPoints } }} messageId="t-kp" />
+    );
+    const items = [...container.querySelectorAll("li")].map((li) => li.textContent);
+
+    expect(items).toEqual(keyPoints);
+    expect(queryByText(/Show \d+ more/)).toBeNull();
+  });
+
   test("falls back to markdown for invalid block", () => {
     const { getByText } = render(<GenUIRenderer data={FIXTURE_INVALID_BLOCK} messageId="t2" />);
     expect(getByText(/Bad version|structured block/i)).toBeTruthy();

@@ -5,7 +5,7 @@ import { useSyncExternalStore } from "react";
 const subscribe = () => () => {};
 
 /**
- * False on the server and during hydration, true afterwards. Gates welcome output that
+ * False on the server and during hydration, true afterwards. Gates output that
  * depends on client-only preferences, such as reduced motion, so hydration stays matched.
  */
 export function useHydrated() {

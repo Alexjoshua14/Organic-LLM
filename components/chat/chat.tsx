@@ -1,5 +1,6 @@
 "use client";
 
+import type { CoreInputInitialSettings } from "@/lib/core-input/settings-cookie";
 import type { ExaSearchResultSource } from "@/lib/exa/types";
 import type { StrataPageAssistantSession } from "@/lib/strata/assistant-session";
 import type { ChatExperience } from "@/lib/chat/chat-experience";
@@ -22,6 +23,7 @@ import { ChatStylePicker } from "./chat-style-picker";
 import { ChatThreadStyleOverlay } from "./chat-thread-style-overlay";
 import { BtwPanel } from "./btw/btw-panel";
 
+import { useHydrated } from "@/hooks/use-hydrated";
 import { PersonaStarters } from "@/components/personas/persona-starters";
 import {
   usePersonaScope,
@@ -109,6 +111,7 @@ function createChatTransport({
 }
 
 export type ChatProps = {
+  initialComposerSettings?: CoreInputInitialSettings | null;
   chatData: { thread: Thread; messages: UIMessage[] } | null;
   initialMessage?: string;
   /** Prefills the composer without sending (e.g. homepage semantic route). */
@@ -124,6 +127,7 @@ export type ChatProps = {
 
 export const Chat: React.FC<ChatProps> = ({
   chatData,
+  initialComposerSettings,
   endpoint,
   persona,
   initialMessage,
@@ -241,9 +245,14 @@ export const Chat: React.FC<ChatProps> = ({
   const errorRef = useRef<Error | undefined>(undefined);
   /** Stored when onError runs; useChat may not expose error/status for pre-stream failures (e.g. 429). */
   const [chatError, setChatError] = useState<unknown>(undefined);
-  // Match the server defaults until the settings effect restores local preferences.
-  const [experimentalArcadiaMarkdownPreview, setExperimentalArcadiaMarkdownPreview] =
-    useState(false);
+  const hydrated = useHydrated();
+  // Hydration matches the server; navigation reads current browser preferences.
+  const [experimentalArcadiaMarkdownPreview, setExperimentalArcadiaMarkdownPreview] = useState(
+    () =>
+      hydrated
+        ? getSettings().experimentalArcadiaMarkdownPreview
+        : (initialComposerSettings?.experimentalArcadiaMarkdownPreview ?? false)
+  );
   const [arcadiaStarterKey, setArcadiaStarterKey] = useState<string | null>(
     () => chatData?.thread.arcadia_starter_key ?? null
   );
@@ -824,6 +833,7 @@ export const Chat: React.FC<ChatProps> = ({
                 {/* While a /btw side thread is open it owns the composer: sends, status,
                     and settings all switch to it, then snap back when it closes. */}
                 <CoreInput
+                  initialSettings={initialComposerSettings}
                   chatId={chatData?.thread.id}
                   clearError={btw.isOpen ? btw.clearError : clearError}
                   disabled={btw.isOpen ? false : isCheckingStream}

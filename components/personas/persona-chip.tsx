@@ -15,7 +15,17 @@ import { cn } from "@/lib/utils";
 export function ComposerPersonaChip({ showLabel = false }: { showLabel?: boolean }) {
   const persona = usePersonaSessionOptional();
 
-  if (!persona?.ready) return null;
+  // No provider on this surface: nothing to show.
+  if (!persona) return null;
+  // The session loads over the network after mount. Hold the button's exact space with an
+  // invisible copy so the controls beside it don't jump when it arrives.
+  if (!persona.ready) {
+    return (
+      <ComposerActionButton aria-hidden className="invisible" disabled tabIndex={-1} type="button">
+        <PersonaSpark size={18} state="inactive" />
+      </ComposerActionButton>
+    );
+  }
   const active = Boolean(persona.session);
   const name = PERSONAS["artist-assistant"].name;
 

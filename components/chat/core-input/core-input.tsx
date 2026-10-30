@@ -5,8 +5,10 @@ import type { ChatExperience } from "@/lib/chat/chat-experience";
 import type { ChatStyle } from "@/lib/chat/chat-style";
 import type { ContextBudgetEstimate } from "@/lib/chat/context-budget";
 import type { ContextEffortLevel } from "@/lib/memory/context-effort";
+import type { CoreInputInitialSettings } from "@/lib/core-input/settings-cookie";
 import type { CoreInputScope } from "@/lib/core-input/scopes";
 import type { CoreInputSettings, CoreInputSettingField } from "@/lib/core-input/settings";
+import type { SteerAction } from "./footer/steer-action";
 
 import {
   ChangeEventHandler,
@@ -24,7 +26,6 @@ import {
 import { flushSync } from "react-dom";
 import { useChat } from "@ai-sdk/react";
 import { useReducedMotion } from "framer-motion";
-import { Loader2 } from "lucide-react";
 
 import "@/styles/CoreInputMorph.css";
 
@@ -36,15 +37,9 @@ import {
   PromptInputBody,
   PromptInputMessage,
   PromptInputTextarea,
-  PromptInputTools,
-  PromptInputButton,
-  PromptInputFooter,
 } from "../../third-party/ai-elements/prompt-input";
 import ShinyText from "../../ShinyText";
 import { ChatMessageMarkdown } from "../chat-message-markdown";
-import { ComposerAddFilesButton } from "../composer-add-files-button";
-import { ComposerMicButton } from "../composer-mic-button";
-import { ComposerSettingsMenu } from "../composer-settings-menu";
 import {
   CONTEXT_BUDGET_DRAFT_RESERVE_CLASS,
   ContextBudgetIndicator,
@@ -56,20 +51,15 @@ import {
   CoreInputControlsValue,
   InputMarkdownMode,
 } from "./core-input-context";
-import { ComposerContextEffortSlider } from "./controls/context-effort-slider";
-import { ComposerModelEffortSelect } from "./controls/model-effort-select";
-import { ComposerPreviewChip } from "./controls/preview-chip";
-import { ComposerSpeechChip } from "./controls/speech-chip";
-import { ComposerToolToggleGroup } from "./controls/tool-toggle-group";
-import { CORE_INPUT_LAYOUT } from "./layout-breakpoints";
+import { CoreInputFooter } from "./footer/core-input-footer";
+import { resolveFooterPlacement } from "./footer/footer-placement";
 import { organicGlassSubmitClassName, PromptInputSubmit } from "./submit/submit-button";
 import { OrganicSubmitGlyph, resolveOrganicSubmitState } from "./submit/submit-glyph";
+import { useCoreInputLayout } from "./use-core-input-layout";
 
-import { ComposerPersonaChip } from "@/components/personas/persona-chip";
 import { PersonaSpark } from "@/components/personas/persona-spark";
 import { usePersonaSessionOptional } from "@/components/personas/persona-session-provider";
 import { DiagramNodeChip } from "@/components/mermaid/diagram-node-chip";
-import { FeatureHint } from "@/components/onboarding/feature-hint";
 import { CoreInputVoiceDrawerSlot } from "@/components/voice/core-input-voice-drawer-slot";
 import { cn } from "@/lib/utils";
 import {
@@ -93,6 +83,8 @@ import {
   CORE_INPUT_MORPH_PULSE_MS,
 } from "@/lib/core-input/morph-timing";
 import { changedSettingFields, settingsEqual } from "@/lib/core-input/settings";
+import { writeSettingsCookie } from "@/lib/core-input/settings-cookie";
+import { useHydrated } from "@/hooks/use-hydrated";
 import { coreInputSnapshots } from "@/lib/core-input/snapshot-store";
 import { coreInputSnapshotSync } from "@/lib/core-input/snapshot-sync";
 import { parseSlashCommand } from "@/lib/chat/slash-command";
@@ -112,10 +104,11 @@ import { useMessageSendQueue } from "@/hooks/use-message-send-queue";
 import { MessageSendQueueStrip } from "@/components/chat/message-send-queue-strip";
 import { shouldEnqueueInsteadOfSend } from "@/lib/message-queue/dispatch-gates";
 import { ThreadReferenceCard } from "@/components/chat/thread-reference/thread-reference-card";
-import { ThreadClipboardPicker } from "@/components/chat/thread-reference/thread-clipboard-picker";
 import { parseThreadPointer, threadReferenceMarker } from "@/lib/chat/thread-reference";
 
 type CoreInputProps = {
+  /** Validated display seed for this scope, supplied by the request page. */
+  initialSettings?: CoreInputInitialSettings | null;
   modelRef: React.RefObject<ChatModel>;
   effortRef?: React.RefObject<ChatEffortLevel>;
   useWebSearchRef: React.RefObject<boolean>;
@@ -166,7 +159,10 @@ type CoreInputProps = {
   secondarySubmitLabel?: string;
   secondarySubmitDisabled?: boolean;
   secondarySubmitPending?: boolean;
-  /** Compact single-line composer; toggles live in the overflow menu. */
+  /**
+   * Compact single-line composer. Always uses the condensed footer, and drops the search and
+   * memory toggles entirely (they are not in the overflow menu). See `footer/footer-placement.ts`.
+   */
   variant?: "default" | "compact";
   /** First-run coachmarks for composer tools (dismiss persists in localStorage). */
   featureHints?: boolean;
@@ -241,6 +237,24 @@ function truncateSentMessageDisplay(raw: string): string {
   return t.length > SENT_MESSAGE_DISPLAY_MAX ? `${t.slice(0, SENT_MESSAGE_DISPLAY_MAX)}\u2026` : t;
 }
 
+/**
+ * The shared chat composer. Its parts, roughly top to bottom (draft hydration sits between
+ * the settings declarations and their write paths):
+ *
+ * 1. **Settings state**: model, effort, context effort, and the search / memory / speech
+ *    toggles. `commitUserChange` is the only path that persists; `applySettings` mirrors
+ *    state into the caller's refs, which the request builder reads at send time.
+ * 2. **Scope morph**: `morphTo` and the hydration effects that resolve per-scope snapshots
+ *    (see `docs/design/core-input-morph.md`).
+ * 3. **Draft**: blank-chat auto-delete, error restore, URL seed, assist inject, saved drafts.
+ * 4. **Send**: busy-stream gate, slash commands, `handleSubmit`, and the steer action.
+ * 5. **Render**: body (textarea, shimmer, or markdown preview), the controls context, then
+ *    `CoreInputFooter` placed by `resolveFooterPlacement`.
+ *
+ * Footer controls never take props from here directly. They read `CoreInputControlsContext`
+ * (`core-input-context.tsx`), so a control renders the same on the toolbar, in a menu, or in
+ * the CoreInput lab.
+ */
 export const CoreInput: React.FC<CoreInputProps> = ({
   modelRef,
   effortRef,
@@ -288,6 +302,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   queueTargetAgentId,
   personaEnabled = false,
   snapshotScope,
+  initialSettings,
   contextEffortRef,
   slashCommands,
   sideThreadKey = null,
@@ -316,49 +331,68 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   const recentlySentTextRef = useRef<string>(""); // So restore effect sees value before state flushes
   const pendingSendRef = useRef<{ threadId: string | undefined } | null>(null);
   const [pendingSend, setPendingSend] = useState<typeof pendingSendRef.current>(null);
-  const [model, setModel] = useState<ChatModel>(defaultModel);
-  const [effort, setEffort] = useState<ChatEffortLevel>(defaultEffort);
+  const hydrated = useHydrated();
+  const seed =
+    initialSettings?.scopeKey === snapshotScope?.key && !snapshotScope?.ephemeral
+      ? initialSettings
+      : null;
+  // Client navigation starts from the last displayed frame; hydration must use the server seed.
+  const [initialFrame] = useState<CoreInputSettings>(
+    () =>
+      (hydrated && snapshotScope ? lastDisplayedSettings : null) ??
+      seed?.settings ?? {
+        modelId: defaultModel.id,
+        effort: defaultEffort,
+        contextEffort: DEFAULT_CONTEXT_EFFORT,
+        webSearch: defaultWebSearch,
+        memories: defaultMemories,
+        speechFriendly: false,
+      }
+  );
+  const [model, setModel] = useState<ChatModel>(
+    () => ChatModels.find((entry) => entry.id === initialFrame.modelId) ?? defaultModel
+  );
+  const [effort, setEffort] = useState<ChatEffortLevel>(initialFrame.effort);
   const isAdmin = useIsAdmin();
   const selectableModels = useMemo(() => getSelectableChatModels(isAdmin === true), [isAdmin]);
-  const [useWebSearch, setUseWebSearch] = useState<boolean>(defaultWebSearch);
-  const [useMemories, setUseMemories] = useState<boolean>(defaultMemories);
-  const [useSpeechFriendly, setUseSpeechFriendly] = useState<boolean>(false);
+  const [useWebSearch, setUseWebSearch] = useState<boolean>(initialFrame.webSearch);
+  const [useMemories, setUseMemories] = useState<boolean>(initialFrame.memories);
+  const [useSpeechFriendly, setUseSpeechFriendly] = useState<boolean>(initialFrame.speechFriendly);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [threadReferences, setThreadReferences] = useState<string[]>([]);
   const addThreadReference = (id: string) => {
     const pointer = parseThreadPointer(id);
+
     if (pointer) setThreadReferences((current) => [...new Set([...current, pointer])].slice(0, 8));
   };
+
   useEffect(() => {
     setThreadReferences([]);
   }, [chatId, sideThreadKey]);
   const toolsRef = useRef<HTMLDivElement | null>(null);
-  const showLabelsRef = useRef(false);
-  const isCondensedRef = useRef(false);
-  const [showLabels, setShowLabels] = useState(false);
-  const [isCondensed, setIsCondensed] = useState(false);
+  const { showLabels, isCondensed } = useCoreInputLayout(toolsRef);
   const { enabled: experimentalContextEffort, level: savedContextEffort } =
-    useContextEffortSettings();
-  const [contextEffort, setContextEffort] = useState<ContextEffortLevel>(DEFAULT_CONTEXT_EFFORT);
+    useContextEffortSettings(
+      seed
+        ? { enabled: seed.experimentalContextEffort, level: seed.settings.contextEffort }
+        : undefined
+    );
+  const [contextEffort, setContextEffort] = useState<ContextEffortLevel>(
+    initialFrame.contextEffort
+  );
   const showContextEffort = experience === "arcadia" && useMemories && experimentalContextEffort;
   const [inputMarkdownMode, setInputMarkdownMode] = useState<InputMarkdownMode>("edit");
   const reduceMotion = useReducedMotion();
   const morphRootRef = useRef<HTMLDivElement | null>(null);
   const morphRef = useRef<MorphTimeline | null>(null);
   const [morphing, setMorphing] = useState(false);
-  const settingsRef = useRef<CoreInputSettings>({
-    modelId: defaultModel.id,
-    effort: defaultEffort,
-    contextEffort: DEFAULT_CONTEXT_EFFORT,
-    webSearch: defaultWebSearch,
-    memories: defaultMemories,
-    speechFriendly: false,
-  });
+  const settingsRef = useRef<CoreInputSettings>(initialFrame);
   const snapshotScopeRef = useRef(snapshotScope);
 
   snapshotScopeRef.current = snapshotScope;
   const scopeKey = snapshotScope?.key ?? null;
   const hasHydratedRef = useRef(false);
+  const seededOnMount = useRef(Boolean(seed));
   const appliedInitialDraft = useRef(false);
   const appliedComposerInjectId = useRef<number | null>(null);
 
@@ -658,6 +692,12 @@ export const CoreInput: React.FC<CoreInputProps> = ({
 
   useEffect(() => () => morphRef.current?.cancel(), []);
 
+  // Seeds paint immediately. Without a cookie, wait until all passive preference reads
+  // settle. Client-only remounts keep the controls visible while the scope morph runs.
+  const [settingsReady, setSettingsReady] = useState(Boolean(seed) || hydrated);
+
+  useEffect(() => setSettingsReady(true), []);
+
   // Resolve settings on mount and on every scope change, morphing from what was on screen.
   useLayoutEffect(() => {
     const scope = snapshotScopeRef.current;
@@ -673,10 +713,16 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     // A remount (navigating between areas) has no frame of its own; start from the last shown.
     const from = hasHydratedRef.current
       ? settingsRef.current
-      : scope
-        ? lastDisplayedSettings
-        : null;
+      : seededOnMount.current
+        ? initialFrame
+        : scope
+          ? lastDisplayedSettings
+          : null;
 
+    writeSettingsCookie({
+      experimentalContextEffort: getSettings().experimentalContextEffort,
+      experimentalArcadiaMarkdownPreview: getSettings().experimentalArcadiaMarkdownPreview,
+    });
     hasHydratedRef.current = true;
     userChangedInScopeRef.current = false;
     if (scope) coreInputSnapshotSync.start();
@@ -686,6 +732,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     morphTo(target, from);
   }, [
     scopeKey,
+    initialFrame,
     legacyPrefKeys,
     defaultEffort,
     defaultMemories,
@@ -745,48 +792,6 @@ export const CoreInput: React.FC<CoreInputProps> = ({
 
   const fastForwardMorph = useCallback(() => {
     morphRef.current?.speedUp(CORE_INPUT_MORPH_FAST_FORWARD_RATE);
-  }, []);
-
-  useLayoutEffect(() => {
-    const el = toolsRef.current;
-
-    if (!el) return;
-
-    // Thresholds and the why behind their offsets live in ./layout-breakpoints.
-    const { showLabelsAtPx, hideLabelsAtPx, condensedAtPx, expandedAtPx } = CORE_INPUT_LAYOUT;
-
-    const applyWidth = (width: number) => {
-      // Ignore pre-layout 0 widths so we don't lock into condensed on desktop.
-      if (width < 1) return;
-
-      const nextLabels = showLabelsRef.current ? width >= hideLabelsAtPx : width >= showLabelsAtPx;
-
-      if (nextLabels !== showLabelsRef.current) {
-        showLabelsRef.current = nextLabels;
-        setShowLabels(nextLabels);
-      }
-
-      const nextCondensed = isCondensedRef.current ? width < expandedAtPx : width < condensedAtPx;
-
-      if (nextCondensed !== isCondensedRef.current) {
-        isCondensedRef.current = nextCondensed;
-        setIsCondensed(nextCondensed);
-      }
-    };
-
-    const measureTarget = (el.closest("[data-prompt-input-shell]") as HTMLElement | null) ?? el;
-
-    applyWidth(measureTarget.getBoundingClientRect().width);
-
-    if (typeof ResizeObserver === "undefined") return;
-
-    const observer = new ResizeObserver((entries) => {
-      applyWidth(entries[0]?.contentRect.width ?? 0);
-    });
-
-    observer.observe(measureTarget);
-
-    return () => observer.disconnect();
   }, []);
 
   const isSubmitBlocked = () =>
@@ -953,17 +958,41 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     [autoModelPreview, onComposerTextChange]
   );
 
+  // Steer: one guard shared by Cmd/Ctrl+Enter, the inline button, and the overflow menu item.
+  const runSecondarySubmit = useCallback(() => {
+    const raw = (textareaRef.current?.value ?? text).trim();
+
+    if (!onSecondarySubmit || !raw || secondarySubmitDisabled || secondarySubmitPending) return;
+    void onSecondarySubmit(raw);
+  }, [onSecondarySubmit, secondarySubmitDisabled, secondarySubmitPending, text]);
+
+  const steer = useMemo<SteerAction | null>(
+    () =>
+      onSecondarySubmit
+        ? {
+            label: secondarySubmitLabel,
+            pending: secondarySubmitPending,
+            available: !secondarySubmitDisabled && !secondarySubmitPending && Boolean(text.trim()),
+            run: runSecondarySubmit,
+          }
+        : null,
+    [
+      onSecondarySubmit,
+      runSecondarySubmit,
+      secondarySubmitDisabled,
+      secondarySubmitLabel,
+      secondarySubmitPending,
+      text,
+    ]
+  );
+
   const handleTextareaKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = useCallback(
     (e) => {
-      if (!onSecondarySubmit) return;
       if (!(e.metaKey || e.ctrlKey) || e.key !== "Enter") return;
       e.preventDefault();
-      const raw = (textareaRef.current?.value ?? text).trim();
-
-      if (!raw || secondarySubmitDisabled || secondarySubmitPending) return;
-      void onSecondarySubmit(raw);
+      runSecondarySubmit();
     },
-    [onSecondarySubmit, secondarySubmitDisabled, secondarySubmitPending, text]
+    [runSecondarySubmit]
   );
   const composerStatus = queueEnabled
     ? "ready"
@@ -1035,6 +1064,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
         onChange={handleInputChange}
         onPasteCapture={(event) => {
           const id = parseThreadPointer(event.clipboardData.getData("text/plain"));
+
           if (!id || threadReferences.length >= 8) return;
           event.preventDefault();
           event.stopPropagation();
@@ -1048,11 +1078,19 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     return editBody;
   };
 
-  const showComposerToolHints =
-    featureHints && !hideWebMemorySpeechToggles && variant !== "compact" && !isCondensed;
-  const showComposerModelHint = featureHints && variant !== "compact" && !isCondensed;
-  const showSteerHint = featureHints && Boolean(onSecondarySubmit) && !isCondensed;
   const useCondensedLayout = variant === "compact" || isCondensed;
+  // Which footer controls render, and where. The rules live in footer/footer-placement.ts.
+  const footerPlacement = resolveFooterPlacement({
+    condensed: useCondensedLayout,
+    compact: variant === "compact",
+    personaEnabled,
+    hideWebMemorySpeechToggles,
+    hasSpeechFriendly: Boolean(useSpeechFriendlyRef),
+    hasMarkdownPreview: enableMarkdownInputPreview,
+    previewingMarkdown: inputMarkdownMode === "preview",
+    hasSteer: Boolean(onSecondarySubmit),
+    showContextEffort,
+  });
 
   const controlsValue = useMemo<CoreInputControlsValue>(
     () => ({
@@ -1098,55 +1136,6 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     ]
   );
 
-  const toolToggles =
-    !hideWebMemorySpeechToggles && variant !== "compact" ? (
-      showComposerToolHints ? (
-        <FeatureHint id="composer-search-memory">
-          <ComposerToolToggleGroup />
-        </FeatureHint>
-      ) : (
-        <ComposerToolToggleGroup />
-      )
-    ) : null;
-
-  const composerSettingsMenu = useCondensedLayout ? (
-    <ComposerSettingsMenu
-      enableMarkdownInputPreview={enableMarkdownInputPreview}
-      hasDraft={Boolean(text.trim())}
-      inputMarkdownMode={inputMarkdownMode}
-      secondarySubmitDisabled={secondarySubmitDisabled}
-      secondarySubmitLabel={secondarySubmitLabel}
-      secondarySubmitPending={secondarySubmitPending}
-      useSpeechFriendly={useSpeechFriendly}
-      onMarkdownModeToggle={() =>
-        setInputMarkdownMode((mode) => (mode === "edit" ? "preview" : "edit"))
-      }
-      onSecondarySubmit={
-        onSecondarySubmit
-          ? () => {
-              const raw = (textareaRef.current?.value ?? text).trim();
-
-              if (!raw || secondarySubmitDisabled || secondarySubmitPending) return;
-              void onSecondarySubmit(raw);
-            }
-          : undefined
-      }
-      onSpeechFriendlyChange={
-        useSpeechFriendlyRef ? (value) => setUseSpeechFriendlyFromUser(value) : undefined
-      }
-    />
-  ) : null;
-
-  const attachmentActions = (
-    <>
-      <ComposerAddFilesButton />
-      <ThreadClipboardPicker onSelect={addThreadReference} />
-      {(!enableMarkdownInputPreview || inputMarkdownMode === "edit") && (
-        <ComposerMicButton textareaRef={textareaRef} onTranscriptionChange={setText} />
-      )}
-    </>
-  );
-
   const contextBudgetControl =
     showContextBudget && !sideThreadKey ? (
       <ContextBudgetIndicator
@@ -1164,48 +1153,6 @@ export const CoreInput: React.FC<CoreInputProps> = ({
         webSearchEnabled={useWebSearch}
       />
     ) : null;
-
-  const steerButton =
-    onSecondarySubmit && !useCondensedLayout
-      ? (() => {
-          const button = (
-            <PromptInputButton
-              disabled={
-                secondarySubmitDisabled ||
-                secondarySubmitPending ||
-                !text.trim() ||
-                disabled ||
-                showSentShimmer
-              }
-              size="dynamic-sm"
-              title="Run steer on the current text (⌘ or Ctrl + Enter)"
-              type="button"
-              variant="ghost"
-              onClick={() => {
-                const raw = (textareaRef.current?.value ?? text).trim();
-
-                if (!raw || secondarySubmitDisabled || secondarySubmitPending) return;
-                void onSecondarySubmit(raw);
-              }}
-            >
-              {secondarySubmitPending ? (
-                <Loader2 aria-hidden className="size-4 animate-spin shrink-0" />
-              ) : null}
-              <span className={cn("max-w-28 truncate text-xs", !showLabels && "sr-only")}>
-                {secondarySubmitLabel}
-              </span>
-            </PromptInputButton>
-          );
-
-          return showSteerHint ? (
-            <FeatureHint id="noesis-steer-assist" showWhen={steerHintShowWhen}>
-              {button}
-            </FeatureHint>
-          ) : (
-            button
-          );
-        })()
-      : null;
 
   const submitControl = (
     <PromptInputSubmit
@@ -1299,41 +1246,20 @@ export const CoreInput: React.FC<CoreInputProps> = ({
         ) : null}
         {renderComposerBody()}
       </PromptInputBody>
-      <PromptInputFooter className="cursor-default overflow-visible">
-        <div ref={toolsRef} className="min-w-0 flex-1 overflow-visible">
-          <PromptInputTools className="flex min-w-0 w-full items-center justify-between gap-1 overflow-visible">
-            {/* `gap-3` separates control groups; the tighter `gap-1` inside each
-                group is owned by the group itself. */}
-            <div className="flex min-w-0 items-center gap-3 overflow-visible">
-              {personaEnabled ? <ComposerPersonaChip showLabel={showLabels} /> : null}
-              {toolToggles}
-
-              {!useCondensedLayout && useSpeechFriendlyRef && !hideWebMemorySpeechToggles ? (
-                <ComposerSpeechChip />
-              ) : null}
-
-              {!useCondensedLayout && enableMarkdownInputPreview ? <ComposerPreviewChip /> : null}
-
-              {showComposerModelHint ? (
-                <FeatureHint id="composer-auto-model">
-                  <ComposerModelEffortSelect />
-                </FeatureHint>
-              ) : (
-                <ComposerModelEffortSelect />
-              )}
-              {showContextEffort ? <ComposerContextEffortSlider /> : null}
-            </div>
-            <div className="flex shrink-0 items-center gap-1">
-              {attachmentActions}
-              {composerSettingsMenu}
-            </div>
-          </PromptInputTools>
-        </div>
-        <div className="flex shrink-0 items-center gap-1.5">
-          {steerButton}
-          {submitControl}
-        </div>
-      </PromptInputFooter>
+      <CoreInputFooter
+        locked={Boolean(disabled) || showSentShimmer}
+        placement={footerPlacement}
+        settingsReady={settingsReady}
+        // Coachmark anchors move into the menu or shrink on a condensed footer, so hints wait.
+        showFeatureHints={featureHints && !useCondensedLayout}
+        steer={steer}
+        steerHintShowWhen={steerHintShowWhen}
+        submit={submitControl}
+        textareaRef={textareaRef}
+        toolsRef={toolsRef}
+        onDictation={setText}
+        onThreadReference={addThreadReference}
+      />
     </PromptInput>
   );
 

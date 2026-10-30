@@ -3,7 +3,6 @@
 import { SignUpButton } from "@clerk/nextjs";
 import { useRef } from "react";
 
-import { useHydrated } from "./use-hydrated";
 import { useWelcomeInView } from "./use-welcome-in-view";
 import { WelcomeFeatures } from "./welcome-features";
 import { WelcomeHeadline } from "./welcome-headline";
@@ -13,6 +12,7 @@ import { WelcomeScrollInvite } from "./welcome-scroll-invite";
 import { WelcomeSpecimen } from "./welcome-specimen";
 import styles from "./welcome-specimen.module.css";
 
+import { useHydrated } from "@/hooks/use-hydrated";
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
 import Page from "@/components/layout/page";
 import { PublicSiteHeader } from "@/components/layout/public-site-header";

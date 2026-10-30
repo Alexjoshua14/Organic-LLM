@@ -33,15 +33,21 @@ export type ThreadLiveAiAction = {
  * `ChatMessage` only renders that tail on assistant rows. While the last row is
  * still the user bubble, show an optimistic receipt from `useChat` status so the
  * first paint stays on-device (sub-250ms, independent of connection speed).
+ *
+ * The stream's `start` chunk creates the assistant message before it has any parts, and
+ * `ChatThread` renders no row for it yet. Until it does, the tail stays standalone so the
+ * status survives the seconds of context gathering before the first token.
  */
 export function resolveThreadLiveAiAction(input: {
   lastMessageRole: UIMessage["role"] | undefined;
+  /** False while the last message has no parts `ChatThread` would render a row for. */
+  lastMessageHasContent?: boolean;
   status?: ChatStatus;
   aiActionPayload?: ThreadAiActionPayload;
 }): ThreadLiveAiAction {
-  const { lastMessageRole, status, aiActionPayload } = input;
+  const { lastMessageRole, lastMessageHasContent = true, status, aiActionPayload } = input;
 
-  if (lastMessageRole === "assistant") {
+  if (lastMessageRole === "assistant" && lastMessageHasContent) {
     return aiActionPayload
       ? { payload: aiActionPayload, placement: "last-message" }
       : { payload: undefined, placement: "none" };
@@ -51,7 +57,7 @@ export function resolveThreadLiveAiAction(input: {
     return { payload: aiActionPayload, placement: "after-user" };
   }
 
-  if (lastMessageRole === "user" && (status === "submitted" || status === "streaming")) {
+  if (lastMessageRole && (status === "submitted" || status === "streaming")) {
     return {
       payload: optimisticMessageReceivedAction(),
       placement: "after-user",

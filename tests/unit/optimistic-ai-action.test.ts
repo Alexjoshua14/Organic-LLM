@@ -76,6 +76,42 @@ describe("resolveThreadLiveAiAction", () => {
     expect(result).toEqual({ payload: undefined, placement: "none" });
   });
 
+  test("keeps the stream's status standalone while the assistant message is empty", () => {
+    const result = resolveThreadLiveAiAction({
+      lastMessageRole: "assistant",
+      lastMessageHasContent: false,
+      status: "streaming",
+      aiActionPayload: {
+        action: ChatAIActionEnum.Processing,
+        message: "Gathering context",
+      },
+    });
+
+    expect(result.placement).toBe("after-user");
+    expect(result.payload?.message).toBe("Gathering context");
+  });
+
+  test("keeps the optimistic receipt while the assistant message is empty", () => {
+    const result = resolveThreadLiveAiAction({
+      lastMessageRole: "assistant",
+      lastMessageHasContent: false,
+      status: "streaming",
+    });
+
+    expect(result.placement).toBe("after-user");
+    expect(result.payload?.message).toBe(OPTIMISTIC_MESSAGE_RECEIVED_LABEL);
+  });
+
+  test("shows nothing for an empty assistant message once the turn is over", () => {
+    const result = resolveThreadLiveAiAction({
+      lastMessageRole: "assistant",
+      lastMessageHasContent: false,
+      status: "ready",
+    });
+
+    expect(result).toEqual({ payload: undefined, placement: "none" });
+  });
+
   test("shows stream error payload after the user row", () => {
     const result = resolveThreadLiveAiAction({
       lastMessageRole: "user",

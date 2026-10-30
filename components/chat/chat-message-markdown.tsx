@@ -49,10 +49,13 @@ function InlineCode({ className, ...props }: React.ComponentPropsWithoutRef<"cod
   );
 }
 
-const markdownComponents = {
+/** Chat's `pre`/`code` renderers; gen-ui markdown reuses them so code looks the same in cards. */
+export const chatMarkdownCodeComponents = {
   pre: CodeBlockWrapper,
   code: InlineCode,
 };
+
+const markdownComponents = chatMarkdownCodeComponents;
 
 const MemoizedMarkdownBlock = memo(
   ({ content }: { content: string }) => {

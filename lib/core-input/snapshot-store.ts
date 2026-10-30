@@ -1,6 +1,7 @@
 import type { CoreInputScope } from "./scopes";
 import type { CoreInputSettings } from "./settings";
 
+import { writeSettingsCookie } from "./settings-cookie";
 import {
   decodeSnapshot,
   encodeSnapshot,
@@ -32,6 +33,7 @@ export type SnapshotRow = { scopeKey: string; value: number; updatedAt: number }
 type StoreDeps = {
   storage: () => StorageLike | null;
   capacity?: number;
+  onMirror?: (entries: Array<[number, number]>) => void;
   now?: () => number;
   setTimeout?: (fn: () => void, ms: number) => unknown;
   clearTimeout?: (handle: unknown) => void;
@@ -68,7 +70,7 @@ export class CoreInputSnapshotStore {
     return this.entries.size;
   }
 
-  /** Stored snapshot for one scope key. Refreshes its recency in memory only. */
+  /** Stored snapshot for one scope key. Refreshes memory and cookie recency, not sync writes. */
   read(scopeKey: string): DecodedSnapshot | null {
     this.ensureLoaded();
     const keyHash = hashScopeKey(scopeKey);
@@ -77,6 +79,8 @@ export class CoreInputSnapshotStore {
     if (value === undefined) return null;
     this.entries.delete(keyHash);
     this.entries.set(keyHash, value);
+
+    this.deps.onMirror?.([...this.entries]);
 
     return decodeSnapshot(value);
   }
@@ -93,6 +97,7 @@ export class CoreInputSnapshotStore {
       this.pending.delete(this.pending.keys().next().value!);
     }
     this.schedulePersist();
+    this.deps.onMirror?.([...this.entries]);
   }
 
   writeEphemeral(scopeKey: string, settings: CoreInputSettings): void {
@@ -179,6 +184,7 @@ export class CoreInputSnapshotStore {
     }
 
     if (changed) {
+      this.deps.onMirror?.([...this.entries]);
       this.schedulePersist();
       this.listeners.forEach((listener) => listener());
     }
@@ -272,5 +278,6 @@ export class CoreInputSnapshotStore {
 }
 
 export const coreInputSnapshots = new CoreInputSnapshotStore({
+  onMirror: (entries) => writeSettingsCookie({ entries }),
   storage: () => (typeof localStorage === "undefined" ? null : localStorage),
 });

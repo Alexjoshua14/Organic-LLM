@@ -6,6 +6,7 @@ import { computeWeightedTotals, scoreValueToNumeric } from "../lib/decision-matr
 
 import { formatMatrixScoreValue } from "@/lib/schemas/gen-ui";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/third-party/ui/tooltip";
+import { GenUIMarkdown } from "@/components/chat/gen-ui/GenUIMarkdown";
 import { cn } from "@/lib/utils";
 
 function cellHeatmapClass(value: MatrixScoreValue): string {
@@ -115,7 +116,7 @@ export function DecisionMatrix({ block, partial }: DecisionMatrixProps) {
                       ) : null}
                       {opt.note ? (
                         <span className="text-[11px] font-normal text-muted-foreground">
-                          {opt.note}
+                          <GenUIMarkdown inline>{opt.note}</GenUIMarkdown>
                         </span>
                       ) : null}
                     </span>

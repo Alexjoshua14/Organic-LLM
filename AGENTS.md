@@ -75,10 +75,19 @@ run; `-t "name"` filters by test name.
   follow its [maintenance protocol](docs/hub/maintenance-protocol.md) when you decide something.
 - Follow [`docs/design/README.md`](docs/design/README.md) for anything the user sees or feels.
 - Sensitivity-check every doc you write. **This repository is public.**
+- Write guides you produce for the user (lab guides, implementation walkthroughs, how-tos) to
+  the private hub (`organic-llm-hub/`, e.g. `organic-llm-hub/design/`), not this repo, unless
+  the user says otherwise. Refer to code there by repo path, not relative link.
 
 **Ask first**
 
-- Major architectural changes, or new dependencies.
+- New dependencies.
+- Fundamental or architectural changes: root providers and layouts, rendering or caching
+  strategy, auth wiring, data loading, persistence, or anything most of the app depends on.
+  These need the user's explicit approval before any code. Request it with a proposal in
+  `organic-llm-hub/decisions/` (`YYYYMMDD-<topic>-proposed.md`, **Status: Proposed**): the
+  problem, the solution, a concise why, and its impacts (performance, security, behaviour,
+  code touched, rollback). Then stop and wait for the decision.
 - Creating Linear or Notion resources. Notion is agent-owned; Linear holds open questions only,
   and implementation issues are gated — see `docs/hub/phases.md`.
 - Bumping the major version — see `.cursor/skills/app-semver/SKILL.md`.

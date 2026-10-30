@@ -2,6 +2,7 @@
 
 import type { PlanTimelineBlock, PlanTimelineStep } from "@/lib/schemas/gen-ui";
 
+import { GenUIMarkdown } from "@/components/chat/gen-ui/GenUIMarkdown";
 import { cn } from "@/lib/utils";
 
 const STATUS_NODE: Record<
@@ -77,7 +78,11 @@ function StepRow({
               <span className="text-[11px] text-muted-foreground">{step.estimate}</span>
             ) : null}
           </div>
-          {step.note ? <p className="text-xs text-muted-foreground">{step.note}</p> : null}
+          {step.note ? (
+            <p className="text-xs text-muted-foreground">
+              <GenUIMarkdown inline>{step.note}</GenUIMarkdown>
+            </p>
+          ) : null}
           {depLabels.length > 0 ? (
             <div className="flex flex-wrap gap-1">
               {depLabels.map((label) => (
@@ -110,7 +115,11 @@ function StepRow({
             ) : null}
           </summary>
           <div className="mt-2 space-y-1 pl-0">
-            {step.note ? <p className="text-xs text-muted-foreground">{step.note}</p> : null}
+            {step.note ? (
+              <p className="text-xs text-muted-foreground">
+                <GenUIMarkdown inline>{step.note}</GenUIMarkdown>
+              </p>
+            ) : null}
             {depLabels.length > 0 ? (
               <div className="flex flex-wrap gap-1">
                 {depLabels.map((label) => (
