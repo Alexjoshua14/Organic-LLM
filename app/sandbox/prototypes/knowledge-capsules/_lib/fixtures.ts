@@ -1,4 +1,4 @@
-import type { KnowledgeCapsuleSlots } from "@/lib/llm/knowledge-capsule-title";
+import type { KnowledgeCapsuleSlots } from "@/lib/llm/knowledge-capsule-title-grammar";
 
 export type CapsuleFixture = {
   id: string;

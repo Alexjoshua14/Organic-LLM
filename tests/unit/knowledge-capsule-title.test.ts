@@ -7,7 +7,7 @@ import {
   parseFreeformCapsuleLine,
   parseKnowledgeCapsuleTitle,
   splitWords,
-} from "@/lib/llm/knowledge-capsule-title";
+} from "@/lib/llm/knowledge-capsule-title-grammar";
 
 describe("knowledge capsule grammar", () => {
   test("splitWords ignores extra whitespace", () => {

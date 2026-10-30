@@ -3,16 +3,14 @@ import { z } from "zod";
 
 import { requireAdmin } from "@/lib/admin/require-admin";
 import { clientErrorJson, logRouteError } from "@/lib/api/client-safe-error";
+import { CHAT_TITLE_SYSTEM } from "@/lib/llm/chat-title-system";
+import { generateKnowledgeCapsuleTitleFromSummary } from "@/lib/llm/knowledge-capsule-title";
 import {
-  generateKnowledgeCapsuleTitleFromSummary,
   KNOWLEDGE_CAPSULE_SUMMARIZER_SYSTEM,
   KNOWLEDGE_CAPSULE_TITLE_SYSTEM,
   parseKnowledgeCapsuleTitle,
-} from "@/lib/llm/knowledge-capsule-title";
-import {
-  CHAT_TITLE_SYSTEM,
-  generateShortTitleFromSummary,
-} from "@/lib/llm/short-title-from-summary";
+} from "@/lib/llm/knowledge-capsule-title-grammar";
+import { generateShortTitleFromSummary } from "@/lib/llm/short-title-from-summary";
 import { createLogger } from "@/lib/logger";
 import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
 import { checkTitleGenerationLimit } from "@/lib/rate-limit/title";

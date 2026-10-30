@@ -13,6 +13,7 @@ import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
 import { glass } from "@/components/design-system/primitives";
 import Page from "@/components/layout/page";
 import { PageContentFrame, PageNavBack } from "@/components/layout/page-content-frame";
+import { CHAT_TITLE_SYSTEM } from "@/lib/llm/chat-title-system";
 import {
   KNOWLEDGE_CAPSULE_SLOT_MAX_WORDS,
   KNOWLEDGE_CAPSULE_SUMMARIZER_SYSTEM,
@@ -20,8 +21,7 @@ import {
   KNOWLEDGE_CAPSULE_TITLE_SYSTEM,
   parseKnowledgeCapsuleTitle,
   type KnowledgeCapsuleParseResult,
-} from "@/lib/llm/knowledge-capsule-title";
-import { CHAT_TITLE_SYSTEM } from "@/lib/llm/short-title-from-summary";
+} from "@/lib/llm/knowledge-capsule-title-grammar";
 import { cn } from "@/lib/utils";
 
 const LAB_INTRO_SECTION_GAP_CLASS = "mb-4 sm:mb-6";
