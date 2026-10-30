@@ -701,6 +701,14 @@
     opacity: 1;
   }
 }
+/* Keep desktop placement controls clear of the piece being previewed. */
+@media (min-width: 1100px) {
+  .stage-inspector {
+    left: var(--stage-inset);
+    right: auto;
+    width: min(320px, calc(25% - var(--stage-inset)));
+  }
+}
 .organic-stage[data-tiny="true"] .stage-agent h1 {
   display: none;
 }
