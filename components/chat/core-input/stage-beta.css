@@ -1,0 +1,103 @@
+/* Opt-in only: the production CoreInput layouts keep their existing rules. */
+.core-input-stage-beta [data-prompt-input-shell] {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  border-radius: 16px;
+}
+.core-input-stage-beta-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  min-height: 54px;
+}
+.core-input-stage-beta textarea {
+  flex: 1;
+  width: 0;
+  min-width: 0;
+  min-height: 36px;
+  max-height: clamp(36px, calc((100dvh - 450px) / 2), 164px);
+  padding: 6px 4px;
+  margin: 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 24px;
+  resize: none;
+  outline: none;
+  box-shadow: none;
+  mask-image: none;
+}
+.core-input-stage-beta .core-input-stage-submit {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--foreground);
+  color: var(--background);
+  background-image: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  transition: opacity 140ms ease-out;
+}
+.core-input-stage-beta .core-input-stage-submit:hover:not(:disabled) {
+  opacity: 0.84;
+}
+.core-input-stage-beta .core-input-stage-submit svg {
+  width: 18px;
+  height: 18px;
+}
+.core-input-stage-beta .core-input-stage-submit:disabled {
+  background: color-mix(in srgb, var(--foreground) 6%, transparent);
+  color: var(--muted-foreground);
+  opacity: 0.55;
+}
+.stage-beta-options-panel {
+  z-index: 100;
+  width: min(340px, calc(100vw - 32px));
+  max-height: var(--radix-popover-content-available-height);
+  overflow: auto;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: 0 18px 48px -20px rgb(0 0 0 / 30%);
+  font-family: var(--font-commissioner), sans-serif;
+}
+.stage-beta-options-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+.stage-beta-options-heading > :last-child {
+  color: var(--muted-foreground);
+  font-size: 10px;
+}
+.stage-beta-options-setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 8px 0;
+}
+.stage-beta-options-setting > span {
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+.stage-beta-options-panel > p {
+  margin-top: 16px;
+  color: var(--muted-foreground);
+  font-size: 10px;
+}
+@media (max-width: 480px) {
+  .core-input-stage-beta-row {
+    gap: 2px;
+    padding: 8px;
+  }
+}

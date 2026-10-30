@@ -15,7 +15,7 @@ import { useVoiceSessionOptional } from "./voice-session-provider";
  * `bottom-[calc(100%-0.5rem)]` is the tuck: 8px of the bar sits behind the composer's rounded
  * top edge, which is what sells the drawer rather than a floating pill.
  */
-export function CoreInputVoiceDrawerSlot() {
+export function CoreInputVoiceDrawerSlot({ includePending = false }: { includePending?: boolean }) {
   const session = useVoiceSessionOptional();
   const ref = useRef<HTMLDivElement | null>(null);
   const setBarContainer = session?.setBarContainer;
@@ -31,7 +31,11 @@ export function CoreInputVoiceDrawerSlot() {
   return (
     <div
       ref={ref}
-      aria-hidden={session?.connected ? undefined : true}
+      aria-hidden={
+        session?.connected || (includePending && (session?.connecting || session?.paused))
+          ? undefined
+          : true
+      }
       className="pointer-events-none absolute inset-x-2 bottom-[calc(100%-0.5rem)] z-30 flex justify-center"
     />
   );

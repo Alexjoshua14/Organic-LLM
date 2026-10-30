@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import type { DesignPlan } from "@/lib/stage/agent";
-import { StageLayoutError } from "@/lib/stage/layout";
+import { StageLayoutError, validateStageLayout } from "@/lib/stage/layout";
 import { mergeStageDesignPlan } from "@/lib/stage/reconcile";
 import { emptyStageState, type StageWidget } from "@/lib/stage/schema";
 
@@ -12,7 +12,7 @@ const note: StageWidget = {
   kind: "note",
   title: "Research",
   text: "Before",
-  rect: { x: 0, y: 0, w: 7, h: 6 },
+  rect: { x: 8, y: 4, w: 7, h: 6 },
 };
 const plan: DesignPlan = {
   operations: [
@@ -40,14 +40,14 @@ describe("stage design reconciliation", () => {
 
   test("updates unchanged content while preserving the widget ID and position", () => {
     const base = { ...emptyStageState(), widgets: [note] };
-    expect(mergeStageDesignPlan(base, base, plan, new Map())).toEqual([
+    expect(mergeStageDesignPlan(base, base, plan, new Map())).toMatchObject([
       { ...note, text: "Designer revision" },
     ]);
   });
 
-  test("honors an explicitly requested 6 by 20 chat and its stable server IDs", () => {
+  test("honors an explicitly requested 6 by 18 chat and its stable server IDs", () => {
     const base = emptyStageState();
-    const rect = { x: 0, y: 0, w: 6, h: 20 };
+    const rect = { x: 8, y: 4, w: 6, h: 18 };
     const chat: DesignPlan = {
       operations: [
         { ...plan.operations[0], operation: "upsert", kind: "chat", targetId: null, rect },
@@ -60,7 +60,7 @@ describe("stage design reconciliation", () => {
       new Map([[0, threadId]]),
       new Map([[0, id]])
     );
-    expect(widgets).toEqual([{ id, title: "Research", kind: "chat", rect, threadId }]);
+    expect(widgets).toMatchObject([{ id, title: "Research", kind: "chat", rect, threadId }]);
   });
 
   test("moves a live chat without changing its thread, then supports explicit removal", () => {
@@ -69,17 +69,17 @@ describe("stage design reconciliation", () => {
       kind: "chat",
       title: "Chat",
       threadId,
-      rect: { x: 0, y: 0, w: 6, h: 20 },
+      rect: { x: 8, y: 4, w: 6, h: 18 },
     };
     const base = { ...emptyStageState(), widgets: [chat] };
-    const rect = { x: 25, y: 1, w: 6, h: 20 };
+    const rect = { x: 25, y: 4, w: 6, h: 18 };
     const moved = mergeStageDesignPlan(
       base,
       base,
       { operations: [{ operation: "move", targetId: id, rect }] },
       new Map()
     );
-    expect(moved).toEqual([{ ...chat, rect }]);
+    expect(moved).toMatchObject([{ ...chat, rect }]);
     expect(
       mergeStageDesignPlan(
         base,
@@ -90,7 +90,7 @@ describe("stage design reconciliation", () => {
     ).toEqual([]);
   });
 
-  test("retains unrelated user widgets and rejects collisions with them", () => {
+  test("retains unrelated user widgets and repairs proposed collisions with them", () => {
     const base = emptyStageState();
     const current = { ...base, widgets: [note] };
     const colliding: DesignPlan = {
@@ -104,9 +104,12 @@ describe("stage design reconciliation", () => {
         },
       ],
     };
-    expect(() => mergeStageDesignPlan(current, base, colliding, new Map())).toThrow(
-      StageLayoutError
-    );
-    expect(mergeStageDesignPlan(current, base, { operations: [] }, new Map())).toEqual([note]);
+    const repaired = mergeStageDesignPlan(current, base, colliding, new Map());
+    expect(repaired[0]).toMatchObject(note);
+    expect(repaired[1].rect).not.toEqual(note.rect);
+    expect(() => validateStageLayout(repaired)).not.toThrow();
+    expect(mergeStageDesignPlan(current, base, { operations: [] }, new Map())).toMatchObject([
+      note,
+    ]);
   });
 });

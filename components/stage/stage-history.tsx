@@ -71,7 +71,7 @@ export function StageHistory({
             )}
             {state.messages.map((message) => (
               <div key={message.id} className="stage-history-message" data-role={message.role}>
-                <span>{message.role === "user" ? "You" : "Organic"}</span>
+                <span>{message.role === "user" ? "You" : (message.author?.name ?? "Organic")}</span>
                 <div className="stage-prose">
                   <ChatMessageMarkdown content={message.text} id={message.id} wrapCodeBlocks />
                 </div>

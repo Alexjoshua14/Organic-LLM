@@ -31,7 +31,21 @@ function initializeMermaidOnce() {
   ensureMermaidDomPurify();
   mermaid.initialize({
     startOnLoad: false,
-    theme: "neutral",
+    theme: "base",
+    htmlLabels: false,
+    flowchart: {
+      htmlLabels: false,
+      useMaxWidth: false,
+      nodeSpacing: 32,
+      rankSpacing: 40,
+      padding: 16,
+    },
+    themeVariables: {
+      fontSize: "14px",
+      primaryColor: "#f1f4f7",
+      primaryTextColor: "#20252b",
+      lineColor: "#687480",
+    },
     securityLevel: "strict",
     suppressErrorRendering: true,
     fontFamily: resolveMermaidFontFamily(),
@@ -64,7 +78,7 @@ export type MermaidDiagramProps = {
   /** When true (e.g. Arcadia chat), double-click also opens expand. */
   expandOnDoubleClick?: boolean;
   interactive?: boolean;
-  variant?: "inline" | "takeover";
+  variant?: "inline" | "takeover" | "canvas";
 };
 
 export function MermaidDiagram({
@@ -303,7 +317,7 @@ export function MermaidDiagram({
       <div
         ref={wellRef}
         className={cn(
-          mermaidWellClass,
+          variant === "canvas" ? "mermaid-canvas" : mermaidWellClass,
           variant === "takeover" && "my-0 shadow-none",
           error && "hidden"
         )}
@@ -318,7 +332,7 @@ export function MermaidDiagram({
 
         <div
           className={cn(
-            mermaidWellInnerClass,
+            variant === "canvas" ? "mermaid-canvas-inner" : mermaidWellInnerClass,
             revealed && mermaidRevealClass,
             !revealed && "opacity-0"
           )}

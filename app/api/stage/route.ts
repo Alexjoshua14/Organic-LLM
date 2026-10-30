@@ -1,21 +1,17 @@
 import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
-import { after, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
+import { scheduleStageSubagents, recoverStaleStageSubagents } from "@/lib/stage/subagents";
+import { runStageTurn, scheduleStageDesign, StageTurnError } from "@/lib/stage/turn";
 import { getSupabaseUserIdCached } from "@/data/supabase/profile-id-cache";
 import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
-import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
-import { generateStageTurn, modelForTier, StageGenerationError } from "@/lib/stage/agent";
-import { designIsStale, runStageDesign } from "@/lib/stage/design";
-import { applyStageOperations, StageLayoutError } from "@/lib/stage/layout";
+import { designIsStale } from "@/lib/stage/design";
+import { applyStageOperations, stageReservedRects, StageLayoutError } from "@/lib/stage/layout";
+import { restoreStageLayout } from "@/lib/stage/restore";
 import { checkStageLimit } from "@/lib/stage/limit";
 import { readStagePayload, StagePayloadError } from "@/lib/stage/request";
-import {
-  STAGE_MAX_PENDING_DESIGNS,
-  StageMutationSchema,
-  StageTurnSchema,
-  type StageState,
-} from "@/lib/stage/schema";
+import { StageMutationSchema, StageTurnSchema, type StageState } from "@/lib/stage/schema";
 import {
   acquireStageLease,
   hasStageRequest,
@@ -24,37 +20,46 @@ import {
   releaseStageLease,
 } from "@/lib/stage/store";
 
-export const maxDuration = 180;
+export const maxDuration = 300;
 
 const headers = { "Cache-Control": "private, no-store" };
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status, headers });
 
 async function identity() {
   const { userId } = await auth();
+
   if (!userId) return null;
   const profile = await getSupabaseUserIdCached(userId);
+
   if (profile.error || !profile.data) return null;
+
   return { clerkUserId: userId, ownerId: profile.data };
 }
 
 function errorStatus(error: unknown) {
+  if (error instanceof StageTurnError) return json({ error: error.message }, error.status);
   if (error instanceof StagePayloadError) return json({ error: error.message }, 413);
   if (error instanceof StageLayoutError) return json({ error: error.message }, 400);
-  return json({ error: "Stage request failed" }, 500);
-}
 
-function scheduleDesign(id: { ownerId: string; clerkUserId: string }, state: StageState) {
-  const job = state.design;
-  if (job?.status === "working")
-    after(() => runStageDesign({ ...id, jobId: job.id, base: state, brief: job.brief }));
+  return json({ error: "Stage request failed" }, 500);
 }
 
 export async function GET() {
   try {
     const id = await identity();
+
     if (!id) return json({ error: "Unauthorized" }, 401);
     if (!(await checkStageLimit(id.ownerId))) return json({ error: "Too many requests" }, 429);
     let { state } = await readStage(id.ownerId);
+
+    if (restoreStageLayout(state) !== state)
+      state =
+        (await mutateStage(id.ownerId, "layout", (current) => {
+          const fixed = restoreStageLayout(current);
+
+          return fixed === current ? null : fixed;
+        })) ?? state;
+
     if (designIsStale(state)) {
       const recovered = await mutateStage(id.ownerId, "design-failed", (current) =>
         designIsStale(current)
@@ -68,10 +73,14 @@ export async function GET() {
             }
           : null
       );
+
       state = recovered ?? (await readStage(id.ownerId)).state;
     }
+    state = await recoverStaleStageSubagents(id.ownerId, state);
+    scheduleStageSubagents(id, state);
     // Polling also resumes queued work after a prior invocation ended. The designer lease deduplicates workers.
-    scheduleDesign(id, state);
+    scheduleStageDesign(id, state);
+
     return json({ state });
   } catch {
     return json({ error: "Could not load stage" }, 500);
@@ -81,20 +90,33 @@ export async function GET() {
 export async function PATCH(req: Request) {
   try {
     const id = await identity();
+
     if (!id) return json({ error: "Unauthorized" }, 401);
     if (!(await checkStageLimit(id.ownerId, true)))
       return json({ error: "Too many requests" }, 429);
     const parsed = StageMutationSchema.safeParse(await readStagePayload(req));
+
     if (!parsed.success) return json({ error: "Invalid layout request" }, 400);
     let conflict: StageState | null = null;
     const state = await mutateStage(id.ownerId, "layout", (current) => {
       if (current.revision !== parsed.data.revision) {
         conflict = current;
+
         return null;
       }
-      return { ...current, widgets: applyStageOperations(current.widgets, parsed.data.operations) };
+
+      return {
+        ...current,
+        widgets: applyStageOperations(
+          current.widgets,
+          parsed.data.operations,
+          stageReservedRects(current)
+        ),
+      };
     });
+
     if (!state) return json({ error: "Stage changed", state: conflict }, 409);
+
     return json({ state });
   } catch (error) {
     return errorStatus(error);
@@ -104,6 +126,7 @@ export async function PATCH(req: Request) {
 export async function POST(req: Request) {
   try {
     const id = await identity();
+
     if (!id) return json({ error: "Unauthorized" }, 401);
     if (!(await checkStageLimit(id.ownerId, true)))
       return json({ error: "Too many requests" }, 429);
@@ -113,20 +136,35 @@ export async function POST(req: Request) {
       .strict()
       .safeParse(raw);
     const parsed = StageTurnSchema.safeParse(raw);
+
     if (!retry.success && !parsed.success) return json({ error: "Invalid message" }, 400);
-    const requestId = retry.success ? retry.data.requestId : parsed.data!.requestId;
+    if (parsed.success) {
+      const state = await runStageTurn(
+        id,
+        parsed.data.message,
+        parsed.data.requestId,
+        parsed.data.settings
+      );
+
+      return json({ state });
+    }
+    if (!retry.success) return json({ error: "Invalid message" }, 400);
+    const requestId = retry.data.requestId;
+
     if (await hasStageRequest(id.ownerId, requestId))
       return json({ state: (await readStage(id.ownerId)).state });
     const lease = await acquireStageLease(id.ownerId, "turn");
+
     if (!lease)
       return json({ error: "The central agent is answering another message. Retry shortly." }, 409);
     try {
       if (await hasStageRequest(id.ownerId, requestId))
         return json({ state: (await readStage(id.ownerId)).state });
-      const { state: base } = await readStage(id.ownerId);
       const gate = await requirePlanBudget({ clerkUserId: id.clerkUserId, sbUserId: id.ownerId });
+
       if (gate) {
         gate.headers.set("Cache-Control", "private, no-store");
+
         return gate;
       }
       if (retry.success) {
@@ -136,11 +174,13 @@ export async function POST(req: Request) {
           (current) => {
             if (!current.design || (current.design.status !== "failed" && !designIsStale(current)))
               return null;
+
             return {
               ...current,
               design: {
                 id: requestId,
                 status: "working",
+                phase: "queued",
                 startedAt: new Date().toISOString(),
                 brief: current.design.brief,
               },
@@ -148,75 +188,12 @@ export async function POST(req: Request) {
           },
           { requestId, deduplicate: true, lease }
         );
+
         if (!state) return json({ error: "No design to retry" }, 409);
-        scheduleDesign(id, state);
+        scheduleStageDesign(id, state);
+
         return json({ state });
       }
-      const limited = await checkLlmMessageLimit(id.ownerId);
-      if (!limited.success) return json({ error: limited.error ?? "Too many messages" }, 429);
-      let result;
-      try {
-        result = await generateStageTurn({ ...id, state: base, message: parsed.data!.message });
-      } catch (error) {
-        if (error instanceof StageGenerationError) {
-          await mutateStage(
-            id.ownerId,
-            "turn-failed",
-            (current) => ({ ...current, lastModel: error.model }),
-            {
-              requestId,
-              usage: error.usage,
-              call: { operation: "turn", model: error.model, outcome: "failed" },
-            }
-          );
-        }
-        throw error;
-      }
-      const job = result.designBrief
-        ? { id: crypto.randomUUID(), brief: result.designBrief }
-        : null;
-      const assistantId = crypto.randomUUID();
-      const state = await mutateStage(
-        id.ownerId,
-        "turn",
-        (current) => {
-          const queueFull =
-            !!job && !!current.design && current.pendingDesigns.length >= STAGE_MAX_PENDING_DESIGNS;
-          const reply = queueFull
-            ? `${result.reply}\n\nThe designer queue is full. Please ask for this arrangement again after a design finishes.`
-            : result.reply;
-          const design =
-            job && !current.design
-              ? { ...job, status: "working" as const, startedAt: new Date().toISOString() }
-              : current.design;
-          return {
-            ...current,
-            messages: [
-              ...current.messages,
-              { id: requestId, role: "user" as const, text: parsed.data!.message },
-              { id: assistantId, role: "assistant" as const, text: reply },
-            ].slice(-24),
-            summary: result.summary,
-            lastModel: result.model,
-            nextModel: modelForTier(result.nextTier),
-            design,
-            pendingDesigns:
-              job && current.design && !queueFull
-                ? [...current.pendingDesigns, job]
-                : current.pendingDesigns,
-          };
-        },
-        {
-          requestId,
-          deduplicate: true,
-          usage: result.usage,
-          lease,
-          call: { operation: "turn", model: result.model, outcome: "complete" },
-        }
-      );
-      const latest = state ?? (await readStage(id.ownerId)).state;
-      scheduleDesign(id, latest);
-      return json({ state: latest });
     } finally {
       await releaseStageLease(id.ownerId, lease);
     }

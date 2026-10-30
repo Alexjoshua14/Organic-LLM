@@ -3,12 +3,15 @@ import "server-only";
 import type { SpeakModalities } from "@/lib/schemas/speak-modalities";
 import type { SpeakToolClientEffect } from "@/lib/speak/types";
 
+import { createHash } from "node:crypto";
+
 import { after } from "next/server";
 import { z } from "zod";
 
 import { ensureChatHasTitle, updateChatSummary } from "@/lib/llm/chat-helpers";
 import {
   isToolAllowedForSession,
+  StageVoiceTurnSchema,
   RefreshComponentSchema,
   RenderGenUiSchema,
   SearchMemoriesSchema,
@@ -51,6 +54,8 @@ export async function executeSpeakRealtimeTool(args: {
   sessionId: string;
   name: string;
   argumentsJson: string;
+  clerkUserId?: string;
+  callId?: string;
 }): Promise<SpeakToolExecuteResult> {
   const session = await getSpeakRealtimeSession(args.sessionId);
 
@@ -93,6 +98,7 @@ export async function executeSpeakRealtimeTool(args: {
   const allowed = isToolAllowedForSession(toolName, {
     modalities: session.modalities,
     memoryEnabled: session.memoryEnabled === true,
+    stage: session.stage,
   });
 
   if (!allowed) {
@@ -117,6 +123,72 @@ export async function executeSpeakRealtimeTool(args: {
     };
   }
 
+  if (toolName === "stage_turn") {
+    const parsed = StageVoiceTurnSchema.safeParse(rawArgs);
+
+    if (!parsed.success || !args.clerkUserId || !args.callId) return invalidArgs();
+    const { checkStageLimit } = await import("@/lib/stage/limit");
+
+    if (!(await checkStageLimit(args.userId, true)))
+      return {
+        ok: false,
+        error: "Too many requests",
+        modelResult: { error: "Too many requests" },
+        clientEffects: [],
+      };
+    const { runStageTurn } = await import("@/lib/stage/turn");
+    // Stable UUID per server tool call: a redelivery must not schedule the design twice.
+    const hash = createHash("sha256").update(`${args.sessionId}:${args.callId}`).digest("hex");
+    const requestId = `${hash.slice(0, 8)}-${hash.slice(8, 12)}-4${hash.slice(13, 16)}-8${hash.slice(17, 20)}-${hash.slice(20, 32)}`;
+
+    try {
+      const state = await runStageTurn(
+        { ownerId: args.userId, clerkUserId: args.clerkUserId },
+        parsed.data.message,
+        requestId,
+        session.stageSettings
+      );
+      const navigated = state.viewCommand?.id === requestId;
+      const { stageViews } = await import("@/lib/stage/views");
+      const selected = navigated
+        ? stageViews(state).find(
+            (entry) =>
+              entry.view.kind === state.viewCommand!.target.kind &&
+              entry.view.id === state.viewCommand!.target.id
+          )
+        : null;
+      const newReply = state.messages.find(
+        (message) => message.id === requestId && message.role === "user"
+      )
+        ? state.messages.findLast((message) => message.role === "assistant" && !message.author)
+            ?.text
+        : null;
+      const reply = newReply ?? (selected ? `Showing ${selected.name}.` : undefined);
+
+      return {
+        ok: true,
+        modelResult: {
+          ok: true,
+          reply,
+          view: state.viewCommand?.target ?? null,
+          revision: state.revision,
+          designStatus: state.design?.status ?? null,
+        },
+        clientEffects: navigated ? [{ type: "stage_view", command: state.viewCommand! }] : [],
+      };
+    } catch {
+      return {
+        ok: false,
+        error: "Stage could not finish this request. Please try again.",
+        modelResult: {
+          ok: false,
+          error: "Stage could not finish this request. It may be busy; please try again.",
+        },
+        clientEffects: [],
+      };
+    }
+  }
+
   return runSpeakTool({
     name: toolName,
     rawArgs,
@@ -127,7 +199,7 @@ export async function executeSpeakRealtimeTool(args: {
 }
 
 async function runSpeakTool(args: {
-  name: SpeakToolName;
+  name: Exclude<SpeakToolName, "stage_turn">;
   rawArgs: unknown;
   modalities: SpeakModalities;
   threadId: string | null;
