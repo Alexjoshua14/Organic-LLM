@@ -30,6 +30,7 @@ import { ErgonTaskResult } from "@/components/ergon/ErgonTaskResult";
 import { GenUIStreamingPart } from "@/components/chat/gen-ui/GenUIStreamingPart";
 import { ResearchToolResult } from "@/components/chat/gen-ui/ResearchToolResult";
 import { GenUIToolResult } from "@/components/chat/gen-ui/GenUIToolResult";
+import { ErgonDocumentToolResult } from "@/components/chat/ergon-documents/ErgonDocumentToolResult";
 import { KanbanInFlight } from "@/components/chat/kanban/KanbanInFlight";
 import { KanbanToolResult } from "@/components/chat/kanban/KanbanToolResult";
 import { MiseLoadingShell } from "@/components/chat/mise/MiseLoadingShell";
@@ -50,6 +51,7 @@ import {
 import { RENDER_GEN_UI_TOOL_NAME } from "@/lib/llm/gen-ui-tool";
 import { KANBAN_BOARD_TOOL_NAME } from "@/lib/llm/kanban-tool";
 import { MISE_PLAN_TOOL_NAME } from "@/lib/llm/mise-tool";
+import { ERGON_DOCUMENT_TOOL_NAME } from "@/lib/schemas/ergon-documents";
 import { MANAGE_TASKS_TOOL_NAME } from "@/lib/schemas/ergon-tasks";
 import { peekKanbanCommandType } from "@/lib/schemas/kanban";
 import { cn } from "@/lib/utils";
@@ -91,6 +93,7 @@ export const ChatMessage = memo<ChatMessageProps>(function ChatMessage(props) {
     isLatestArcadiaHelp,
     showModelBadge,
     embedded = false,
+    isLastMessage,
     showActions = true,
   } = props;
 
@@ -101,6 +104,7 @@ export const ChatMessage = memo<ChatMessageProps>(function ChatMessage(props) {
           aiActionPayload={aiActionPayload}
           chatId={chatId}
           embedded={embedded}
+          isLastMessage={isLastMessage}
           isLatestArcadiaHelp={isLatestArcadiaHelp}
           message={message}
           showActions={showActions}
@@ -124,6 +128,7 @@ const AIMessage: FC<ChatMessageProps> = ({
   isLatestArcadiaHelp,
   showModelBadge,
   embedded = false,
+  isLastMessage,
   showActions = true,
 }) => {
   const [pinnedToolIds, setPinnedToolIds] = useState<Record<string, boolean>>({});
@@ -243,6 +248,44 @@ const AIMessage: FC<ChatMessageProps> = ({
             if (part.state === "output-available") {
               return (
                 <ErgonTaskResult key={`${message.id}-${i}-ergon-tasks`} output={part.output} />
+              );
+            }
+
+            return null;
+          }
+
+          if (toolName === ERGON_DOCUMENT_TOOL_NAME) {
+            if (part.state === "input-streaming" || part.state === "input-available") {
+              return (
+                <div
+                  key={`${message.id}-${i}-ergon-doc-stream`}
+                  className="not-prose rounded-lg border border-border/40 bg-background-tertiary/20 px-3 py-2"
+                >
+                  <ChatThinking text={toolInvocationInFlightLabel(toolName)} />
+                </div>
+              );
+            }
+            if (part.state === "output-available" || part.state === "output-error") {
+              if (part.state === "output-error") {
+                return (
+                  <ErgonDocumentToolResult
+                    key={`${message.id}-${i}-ergon-doc-error`}
+                    isActive={isLastMessage === true}
+                    output={{
+                      kind: "ergon-document",
+                      action: "error",
+                      error: part.errorText,
+                    }}
+                  />
+                );
+              }
+
+              return (
+                <ErgonDocumentToolResult
+                  key={`${message.id}-${i}-ergon-doc-result`}
+                  isActive={isLastMessage === true}
+                  output={part.output}
+                />
               );
             }
 
@@ -707,6 +750,7 @@ function shouldShowTailAiAction(
 }
 
 const KNOWN_TOOL_IN_FLIGHT_LABELS: Record<string, string> = {
+  ergon_document: "Writing document…",
   render_gen_ui: "Structuring response…",
   research_capabilities: "Checking research access…",
   research_search: "Finding research sources…",

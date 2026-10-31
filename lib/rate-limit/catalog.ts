@@ -80,6 +80,24 @@ export const LLM_MESSAGE_RATE_LIMIT = {
   why: "One token per chat POST (checked before context assembly). The Arcadia typed planner does not consume a second llm.message token.",
 } satisfies RateLimitCatalogEntry;
 
+export const RABBIT_HOLE_CHAT_CREATE_MINUTE_RATE_LIMIT = {
+  id: "rabbitHole.chatCreate.minute",
+  prefix: "ratelimit:rabbithole:chat-create:minute",
+  cap: 5,
+  window: "1 m",
+  error: "Rabbit hole creation limit reached (5 per minute)",
+  why: "Arcadia Jev-mode create_rabbit_hole tool (fixed window). One token per created session; checked with getRemaining first so a call denied by either this or the daily bucket consumes nothing.",
+} as const satisfies RateLimitCatalogEntry;
+
+export const RABBIT_HOLE_CHAT_CREATE_DAY_RATE_LIMIT = {
+  id: "rabbitHole.chatCreate.day",
+  prefix: "ratelimit:rabbithole:chat-create:day",
+  cap: 25,
+  window: "1 d",
+  error: "Rabbit hole creation limit reached (25 per day)",
+  why: "Daily cap for the Jev-mode create_rabbit_hole tool (fixed window, resets at 00:00 UTC). Each created session also starts background node generation, so this bounds per-user generation cost from chat.",
+} as const satisfies RateLimitCatalogEntry;
+
 export const AION_PRESENCE_MINUTE_RATE_LIMIT = {
   id: "aion.presence.minute",
   prefix: "ratelimit:aion:presence-minute",
@@ -106,6 +124,8 @@ export const RATE_LIMIT_CATALOG: readonly RateLimitCatalogEntry[] = [
   MEMORY_WIPE_RATE_LIMIT,
   MEMORY_FEEDBACK_RATE_LIMIT,
   LLM_MESSAGE_RATE_LIMIT,
+  RABBIT_HOLE_CHAT_CREATE_MINUTE_RATE_LIMIT,
+  RABBIT_HOLE_CHAT_CREATE_DAY_RATE_LIMIT,
   AION_PRESENCE_MINUTE_RATE_LIMIT,
   AION_PRESENCE_DAILY_TURN_RATE_LIMIT,
 ];

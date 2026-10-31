@@ -4,7 +4,7 @@ import type { ChatExperience } from "@/lib/chat/chat-experience";
 import type { Result } from "@/types";
 import type { ContextBudgetEstimate } from "@/lib/chat/context-budget";
 
-import { smoothStream, isStepCount, streamText } from "ai";
+import { hasToolCall, smoothStream, isStepCount, streamText } from "ai";
 import { GatewayProviderOptions } from "@ai-sdk/gateway";
 import { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 
@@ -56,6 +56,13 @@ export type RunLLMChatStreamParams = {
   experience: ChatExperience | undefined;
   userMessage: UIMessage;
   threadHasTitlePromise: Promise<Result<boolean>>;
+  /**
+   * Parts the route wrote to the stream before the model's own (Arcadia Jev's `data-jev`). The
+   * client already shows them; they are prepended to the saved assistant message so a reload does.
+   */
+  persistedAssistantParts?: ChatUIMessage["parts"];
+  /** End the step loop right after the model calls one of these tools (e.g. `voice_reply`). */
+  stopAfterToolNames?: readonly string[];
   /** Called with the saved assistant reply's text; the unified persona logs it. */
   onAssistantMessage?: (text: string) => void;
 };
@@ -81,6 +88,8 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
     experience,
     userMessage,
     threadHasTitlePromise,
+    persistedAssistantParts,
+    stopAfterToolNames,
     onAssistantMessage,
   } = params;
 
@@ -247,7 +256,10 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
     },
     tools,
     toolChoice: hasTools ? "auto" : "none",
-    stopWhen: isStepCount(maxSteps),
+    stopWhen: [
+      isStepCount(maxSteps),
+      ...(stopAfterToolNames ?? []).map((name) => hasToolCall(name)),
+    ],
   });
 
   void Promise.resolve(result.totalUsage)
@@ -359,31 +371,28 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
         );
 
         try {
-          // Saved after the stream ends, so any part still `streaming` was cut off.
           const messagesWithModel = messages.map((message) => {
-            const savedMessage =
-              message.role === "assistant" ? finalizeStreamingParts(message) : message;
+            if (message.role !== "assistant") return message;
 
-            return savedMessage.role === "assistant"
-              ? {
-                  ...savedMessage,
-                  model: selectedModel.id,
-                  ...(savedMessage.id === assistantMessageId && contextBudget
-                    ? {
-                        parts: [
-                          ...savedMessage.parts.filter(
-                            (part) => part.type !== "data-context-budget"
-                          ),
-                          {
-                            type: "data-context-budget" as const,
-                            id: "context-budget",
-                            data: contextBudget,
-                          },
-                        ],
-                      }
-                    : {}),
-                }
-              : savedMessage;
+            // Saved after the stream ends, so any part still `streaming` was cut off.
+            const savedMessage = finalizeStreamingParts(message);
+            let parts = savedMessage.parts;
+
+            if (savedMessage.id === assistantMessageId) {
+              if (persistedAssistantParts?.length) parts = [...persistedAssistantParts, ...parts];
+              if (contextBudget) {
+                parts = [
+                  ...parts.filter((part) => part.type !== "data-context-budget"),
+                  {
+                    type: "data-context-budget" as const,
+                    id: "context-budget",
+                    data: contextBudget,
+                  },
+                ];
+              }
+            }
+
+            return { ...savedMessage, parts, model: selectedModel.id };
           });
 
           // Use admin client so save succeeds even if the user JWT expired during a long stream (e.g. finish_reason length).

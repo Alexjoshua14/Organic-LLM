@@ -129,4 +129,27 @@ export const CHAT_STYLE_STARTERS: Record<ChatStyle, readonly ChatStyleStarter[]>
       prompt: "Turn this brain dump into a clean outline.",
     },
   ],
+  // Jev starters set a standing preference (voice, artifacts, fewer replies) rather than ask for
+  // anything. The prompt primes both the system prompt and Jev's state, so it is phrased as a
+  // thread rule instead of repeating the chip label.
+  jev: [
+    {
+      id: "away-from-screen",
+      label: "I'm away from the screen — answer out loud when you can.",
+      prompt:
+        "I'm often away from the screen in this thread. When a reply works as speech, keep it short and spoken.",
+    },
+    {
+      id: "artifacts-first",
+      label: "Show me, don't tell me — diagrams and boards over prose.",
+      prompt:
+        "Prefer artifacts over prose in this thread: diagrams, structured blocks, and rabbit holes. Keep any text to a line.",
+    },
+    {
+      id: "thinking-out-loud",
+      label: "I'm thinking out loud — only reply when I ask for something.",
+      prompt:
+        "I'm thinking out loud in this thread. Many messages are notes to myself; only reply when I ask a question or request something.",
+    },
+  ],
 };

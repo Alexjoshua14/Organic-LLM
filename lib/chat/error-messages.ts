@@ -1,3 +1,4 @@
+import { JEV_INPUT_TOO_LARGE_MESSAGE } from "@/lib/arcadia/jev/constants";
 import { formatResetCountdown } from "@/lib/plans/budget-cycle";
 
 /**
@@ -9,6 +10,7 @@ export const CHAT_ERROR_MESSAGES: Partial<Record<number, string>> = {
   400: "Invalid request. Please try again.",
   401: "Please sign in to continue.",
   404: "Account setup incomplete. Please refresh or sign out and back in.",
+  413: JEV_INPUT_TOO_LARGE_MESSAGE,
   429: "Rate limit reached. Please wait a moment before sending again.",
 };
 
@@ -23,15 +25,44 @@ const MESSAGE_PATTERNS: { patterns: string[]; status: number }[] = [
   { patterns: ["Unauthorized"], status: 401 },
   { patterns: ["User not found in supabase"], status: 404 },
   { patterns: ["Invalid request body"], status: 400 },
+  // The hosting platform rejects oversized bodies before the route runs, so these arrive as its
+  // plain-text error page rather than our JSON.
+  {
+    patterns: ["FUNCTION_PAYLOAD_TOO_LARGE", "Request Entity Too Large", "Payload Too Large"],
+    status: 413,
+  },
 ];
+
+/** Reads `status` and a non-blank string `error` from a JSON error body; ignores anything else. */
+function parseErrorBody(msg: string): { status?: number; error?: string } {
+  try {
+    const parsed: unknown = JSON.parse(msg);
+
+    if (!parsed || typeof parsed !== "object") return {};
+
+    const body = parsed as { status?: unknown; error?: unknown };
+    const error = typeof body.error === "string" ? body.error.trim() : "";
+
+    return {
+      status: typeof body.status === "number" ? body.status : undefined,
+      error: error || undefined,
+    };
+  } catch {
+    // not JSON, fall through to pattern matching
+    return {};
+  }
+}
 
 /**
  * Map API/LLM errors to user-facing toast copy.
  * Prefers `status` from JSON body when present; else matches message text via MESSAGE_PATTERNS.
+ * A JSON body whose status has no copy here (e.g. 409 on a stale Jev override) shows its own
+ * `error` text, which the route writes for users, instead of the raw JSON.
  */
 export function getChatErrorMessage(error: unknown, now: Date = new Date()): string {
   const raw = error instanceof Error ? error.message : typeof error === "string" ? error : "";
   const msg = raw.trim();
+  const body = parseErrorBody(msg);
 
   let status: number | undefined;
 
@@ -61,7 +92,7 @@ export function getChatErrorMessage(error: unknown, now: Date = new Date()): str
     }
   }
 
-  return msg || "Something went wrong. Please try again.";
+  return body.error ?? (msg || "Something went wrong. Please try again.");
 }
 
 /** A spent weekly plan budget: why, when it resets, and whether a reset is available. */

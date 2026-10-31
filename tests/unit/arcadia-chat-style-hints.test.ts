@@ -34,4 +34,30 @@ describe("arcadia chat style hints", () => {
       expect(overview.body).toContain(style.label);
     }
   });
+
+  test("style hints share one spotlight shape on the Arcadia route", () => {
+    for (const hintId of ARCADIA_CHAT_STYLE_HINT_ID_LIST) {
+      const hint = getFeatureHint(hintId);
+
+      expect(hint.enabled).toBe(true);
+      expect(hint.presentation).toBe("spotlight");
+      expect(hint.side).toBe("bottom");
+      expect(hint.align).toBe("center");
+      expect(hint.pathPrefix).toBe("/sandbox/arcadia");
+      expect(hint.deferUntilNavigationSettled).toBe(true);
+      expect(hint.contextualBackdrop).toBe("blur");
+    }
+  });
+
+  test("Jev hint explains the read-first flow and the acknowledgement override", () => {
+    expect(ARCADIA_CHAT_STYLE_HINT_IDS.jev).toBe("arcadia-style-jev");
+
+    const hint = getFeatureHint("arcadia-style-jev");
+
+    expect(hint.title).toBe("Jev");
+    expect(hint.body).toContain("reads each message first");
+    expect(hint.body).toContain("voice");
+    expect(hint.body).toContain("Acknowledged");
+    expect(hint.body).toContain("Respond anyway");
+  });
 });
