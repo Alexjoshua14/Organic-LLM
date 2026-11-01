@@ -8,7 +8,11 @@ test("heartbeat explains early exits, quiet evaluations and notable changes with
   const agentRequests: string[] = [];
 
   page.on("request", (request) => {
-    if (/\/api\/(chat|ai|subagents)/.test(new URL(request.url()).pathname)) {
+    const path = new URL(request.url()).pathname;
+
+    // The shared app shell may check for an existing voice session; it starts no agent work.
+    if (request.method() === "GET" && path === "/api/ai/speak/realtime/active") return;
+    if (/\/api\/(chat|ai|subagents)/.test(path)) {
       agentRequests.push(request.url());
     }
   });

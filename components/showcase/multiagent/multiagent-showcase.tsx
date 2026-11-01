@@ -40,6 +40,7 @@ function OverviewDiagram() {
   return (
     <div
       className="ma-overview"
+      role="img"
       aria-label="The orchestrator sends a brief and selected context to specialist threads. Their results return through heartbeat notices and thread reads."
     >
       <div className="ma-overview-top">
@@ -88,7 +89,7 @@ function OverviewDiagram() {
 
 export function MultiagentShowcase() {
   return (
-    <main className="ma-page showcase-scroll">
+    <article className="ma-page showcase-scroll" aria-labelledby="multiagent-title">
       <div className="ma-shell">
         <header className="ma-hero">
           <div className="ma-hero-copy">
@@ -96,7 +97,7 @@ export function MultiagentShowcase() {
               ← The showcase
             </a>
             <p className="ma-eyebrow">ORGANIC LLM / ENGINEERING & INTERACTION</p>
-            <h1>
+            <h1 id="multiagent-title">
               One conversation.
               <br />
               Many minds.
@@ -610,7 +611,7 @@ export function MultiagentShowcase() {
           </p>
         </footer>
       </div>
-    </main>
+    </article>
   );
 }
 
