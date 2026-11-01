@@ -36,6 +36,7 @@ mock.module("@/lib/user-settings", () => ({
     coalescenceMode: false,
     experimentalArcadiaMarkdownPreview: false,
     experimentalContextEffort: false,
+    experimentalKnowledgeCapsuleTitles: false,
     contextEffortLevel: "quick",
   }),
 }));

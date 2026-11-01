@@ -242,6 +242,11 @@ export const ChatRequestSchema = z.object({
   zeroDataRetention: z.boolean().optional(),
   /** When true, spatial artifact sync and library features are enabled. */
   coalescenceMode: z.boolean().optional(),
+  /**
+   * When true, auto/regen titles use the knowledge-capsule grammar pipeline
+   * (experimental setting). Omitted/false keeps the legacy short-title path.
+   */
+  experimentalKnowledgeCapsuleTitles: z.boolean().optional(),
   /** Client hint: thread already has a title; server can skip ensureChatHasTitle and optionally getThreadHasTitle. */
   threadHasTitle: z.boolean().optional(),
   /** Memory ingest: measured caption/display geometry for Delphi response-length guidance. */

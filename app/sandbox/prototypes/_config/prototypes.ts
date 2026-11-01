@@ -235,6 +235,25 @@ export const prototypes: PrototypeEntry[] = [
     },
   },
   {
+    slug: "knowledge-capsules",
+    title: "Knowledge capsules",
+    description:
+      "Beta thread-title lab — grammar slots, capsule vs legacy prompts, parse/repair, and live generate from a summary.",
+    about: {
+      what: "A developer studio for experimental knowledge-capsule chat titles: action / subject / additional slots with a 5-word combined cap, offline parse fixtures, and an admin API for side-by-side capsule vs legacy generation.",
+      howToUse:
+        "Pick a fixture, edit the summary or raw model JSON, parse offline, or run live generate. Compare prompts and repair notes. Enable the setting under Settings → Appearance → Experimental to use capsules in real chats.",
+      authorThoughts:
+        "Titles should read as capsules of contents, needs, or notifs — tight phrases, not soft chat labels. The grammar is intentionally constrained so we can iterate on prompt + repair in this lab.",
+    },
+    ranking: {
+      importance: 8,
+      frequency: 5,
+      createdAt: "2026-10-30",
+      updatedAt: "2026-10-30",
+    },
+  },
+  {
     slug: "ui-v2-snapshot",
     title: "UI v2 snapshot",
     description:

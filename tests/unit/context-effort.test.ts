@@ -120,6 +120,7 @@ describe("schema defaults", () => {
     expect(parsed.experimentalContextEffort).toBe(false);
     expect(parsed.contextEffortLevel).toBe("quick");
     expect(defaultUserSettings().experimentalContextEffort).toBe(false);
+    expect(defaultUserSettings().experimentalKnowledgeCapsuleTitles).toBe(false);
     expect(defaultUserSettings().contextEffortLevel).toBe("quick");
   });
 
