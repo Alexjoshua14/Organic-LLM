@@ -105,8 +105,6 @@ test("three equal-size marks cycle, support inspection, and stop moving on pause
   );
   await study.getByRole("button", { name: "blocked", exact: true }).click();
   await expect(study.locator('.ma-live-mark[data-activity-state="blocked"]')).toHaveCount(3);
-  await study.getByRole("button", { name: "Crafted glass", exact: true }).click();
-  await expect(study.locator(".ma-material-values")).toContainText("0 px");
 });
 
 test("reduced motion disables automatic cycling while keeping manual states usable", async ({

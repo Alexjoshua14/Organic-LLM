@@ -14,6 +14,7 @@ import { HeartbeatDemo } from "./heartbeat-demo";
 import { SourceLink } from "./source-link";
 import { SpecialistExplorer } from "./specialist-explorer";
 
+import { OrganicActivityMark } from "@/components/agents/organic-activity-mark";
 import { CHAPTERS, sourceHref } from "@/lib/showcase/multiagent/content";
 
 function Chapter({
@@ -45,16 +46,8 @@ function OverviewDiagram() {
     >
       <div className="ma-overview-top">
         <span className="ma-mono">ONE SHARED INTENT</span>
-        <span className="ma-overview-orbit" aria-hidden>
-          <i />
-          <i />
-          <i />
-          <i />
-          <i />
-          <i />
-          <i />
-          <i />
-          <i />
+        <span className="ma-overview-mark">
+          <OrganicActivityMark size="lg" seed="showcase-overview-orchestrator" />
         </span>
         <strong>Orchestrator</strong>
         <small>The conversation stays with you.</small>
@@ -67,10 +60,8 @@ function OverviewDiagram() {
       <div className="ma-overview-workers">
         {["Reed", "Lyra", "Archer"].map((name, index) => (
           <div key={name}>
-            <span className="ma-thread-icon" aria-hidden>
-              <i />
-              <i />
-              <i />
+            <span className="ma-overview-worker-mark">
+              <OrganicActivityMark size="lg" seed={`showcase-overview-${name}`} />
             </span>
             <strong>{name}</strong>
             <small>{["Build", "Investigate", "Design"][index]}</small>
@@ -91,11 +82,11 @@ export function MultiagentShowcase() {
   return (
     <article className="ma-page showcase-scroll" aria-labelledby="multiagent-title">
       <div className="ma-shell">
+        <a className="ma-back" href="/showcase">
+          ← The showcase
+        </a>
         <header className="ma-hero">
           <div className="ma-hero-copy">
-            <a className="ma-back" href="/showcase">
-              ← The showcase
-            </a>
             <p className="ma-eyebrow">ORGANIC LLM / ENGINEERING & INTERACTION</p>
             <h1 id="multiagent-title">
               One conversation.
@@ -109,9 +100,6 @@ export function MultiagentShowcase() {
             <a className="ma-enter" href="#heartbeat">
               Explore the system <ArrowDown size={17} aria-hidden />
             </a>
-            <span className="ma-hero-note">
-              Interactive explanations. Real UI. No live agent calls.
-            </span>
           </div>
           <OverviewDiagram />
         </header>
@@ -186,7 +174,7 @@ export function MultiagentShowcase() {
               <span className="ma-mono">THE INTELLIGENT BRANCH</span>
               <h3>Jev supplies judgment.</h3>
               <p>
-                A changed digest and a successful claim unlock Jev. It distinguishes meaningful
+                A changed digest and a successful claim trigger Jev. It distinguishes meaningful
                 results, blockers and new requests from noise. Per-thread probability must exceed
                 0.8; the call has a five-second deadline and requires zero data retention. A quiet
                 result updates the digest, not the last-notified baseline.
@@ -540,11 +528,6 @@ export function MultiagentShowcase() {
                 <br />
                 Individual character.
               </h3>
-              <p>
-                A seeded 1–3–5–5–3–1 grid gives each agent a stable resting pattern. Center bias and
-                subtle size variation keep the mark from feeling mechanical. Size and opacity move
-                together.
-              </p>
             </article>
             <article>
               <span className="ma-mono">02 / THE MOTION</span>

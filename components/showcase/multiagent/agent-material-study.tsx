@@ -1,16 +1,12 @@
 "use client";
 
-import type {
-  AgentDotState,
-  ActivityGlassByState,
-} from "@/components/agents/organic-activity-mark";
+import type { AgentDotState } from "@/components/agents/organic-activity-mark";
 
 import { useEffect, useRef, useState } from "react";
 import { useReducedMotion } from "framer-motion";
 import { Pause, Play, RotateCcw } from "lucide-react";
 
 import { OrganicActivityMark } from "@/components/agents/organic-activity-mark";
-import { ACTIVITY_GLASS_BY_STATE } from "@/components/agents/activity-mark-glass";
 import { AGENT_DOTS, dotOpacity, dotRestScale } from "@/components/agents/agent-dot-grid-motion";
 
 // Deliberately unequal holds let the three identities move independently through a shared story.
@@ -56,9 +52,6 @@ const CYCLE: {
   },
 ];
 const STATES: AgentDotState[] = ["idle", "working", "waiting", "blocked", "complete"];
-const CLEAR_COVER: ActivityGlassByState = Object.fromEntries(
-  STATES.map((state) => [state, { opacity: 0, blur: 0, brightness: 1, tint: "transparent" }])
-);
 const AGENTS = [
   { name: "Orchestrator", role: "Main conversation", seed: "showcase-main" },
   { name: "Reed", role: "Implementation", seed: "showcase-reed" },
@@ -81,13 +74,11 @@ export function AgentMaterialStudy() {
   const [phase, setPhase] = useState(0);
   const [paused, setPaused] = useState(false);
   const [manual, setManual] = useState<AgentDotState | null>(null);
-  const [clear, setClear] = useState(false);
   const [active, setActive] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const reduceMotion = useReducedMotion();
   const frame = CYCLE[phase]!;
   const states = manual ? [manual, manual, manual] : frame.states;
-  const material = ACTIVITY_GLASS_BY_STATE[states[0]!];
 
   useEffect(() => {
     const element = ref.current;
@@ -147,8 +138,6 @@ export function AgentMaterialStudy() {
                 className="ma-live-mark"
                 seed={agent.seed}
                 state={states[index]}
-                glassByState={clear ? CLEAR_COVER : undefined}
-                glassDistortion={!clear}
                 imageUrl={paused ? RESTING_IMAGES[index] : undefined}
               />
               <strong>{agent.name}</strong>
@@ -187,34 +176,6 @@ export function AgentMaterialStudy() {
               </button>
             ))}
           </fieldset>
-          <button
-            className="ma-cover-toggle"
-            type="button"
-            aria-pressed={clear}
-            onClick={() => setClear((value) => !value)}
-          >
-            <span>{clear ? "Clear cover" : "Crafted glass"}</span>
-            <span aria-hidden>{clear ? "○" : "◉"}</span>
-          </button>
-          <dl className="ma-material-values">
-            <div>
-              <dt>Cover blur</dt>
-              <dd>{clear ? "0" : material.blur} px</dd>
-            </div>
-            <div>
-              <dt>Material alpha</dt>
-              <dd>{clear ? "0" : material.opacity}</dd>
-            </div>
-            <div>
-              <dt>Brightness</dt>
-              <dd>{clear ? "1" : material.brightness}×</dd>
-            </div>
-          </dl>
-          <p className="ma-caption">
-            {clear
-              ? "Cover diffusion and refraction removed to expose the dot structure. The grain and individual dot surfaces remain."
-              : "Orchestrator material targets shown. Each specialist follows its own state’s preset."}
-          </p>
           <div className="ma-playback">
             <button
               type="button"
