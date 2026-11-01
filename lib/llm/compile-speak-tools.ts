@@ -68,9 +68,14 @@ const SearchMemoriesSchema = z.object({
   query: z.string().min(1).max(500),
 });
 
+export const StageVoiceTurnSchema = z
+  .object({ message: z.string().trim().min(1).max(8000) })
+  .strict();
+
 export type SpeakToolCompileOptions = {
   /** Adds `search_memories`. Off unless the client opted in, mirroring chat's composer toggle. */
   memoryEnabled?: boolean;
+  stage?: boolean;
 };
 
 /**
@@ -81,6 +86,16 @@ export function compileSpeakRealtimeTools(
   modalities: SpeakModalities,
   options: SpeakToolCompileOptions = {}
 ): SpeakRealtimeFunctionTool[] {
+  if (options.stage)
+    return [
+      {
+        type: "function",
+        name: "stage_turn",
+        description:
+          "Send the user's request to the central Stage agent. It persists the exchange and asks the designer to create or update canvas widgets when useful. Returns the reply and design status.",
+        parameters: toParameters(StageVoiceTurnSchema),
+      },
+    ];
   const tools: SpeakRealtimeFunctionTool[] = [];
 
   if (modalities.text) {
@@ -152,6 +167,7 @@ export function compileSpeakRealtimeTools(
 }
 
 export const SpeakToolNameSchema = z.enum([
+  "stage_turn",
   "update_display_text",
   "render_gen_ui",
   "refresh_component",
@@ -190,10 +206,13 @@ export function isToolAllowedForModalities(
 export type SpeakToolGate = {
   modalities: SpeakModalities;
   memoryEnabled: boolean;
+  stage?: boolean;
 };
 
 /** Full per-session gate: modality toggles plus the memory opt-in captured at mint. */
 export function isToolAllowedForSession(name: SpeakToolName, gate: SpeakToolGate): boolean {
+  if (name === "stage_turn") return gate.stage === true;
+  if (gate.stage) return false;
   if (name === "search_memories") return gate.memoryEnabled;
 
   return isToolAllowedForModalities(name, gate.modalities);

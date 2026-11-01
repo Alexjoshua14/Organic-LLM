@@ -8,6 +8,7 @@ feel — so improvements stay consistent and do not regress quality.
 
 | Doc | When to read |
 |-----|----------------|
+| [Stage grid](./stage-grid.md) | Quiet grid entry/exit, compositor-only layers, no interaction delay |
 | [Spacing](./spacing.md) | Card density, stack/gap/inset tokens, gen-ui vertical rhythm |
 | [Switches & quick settings](./switches-and-quick-settings.md) | Compact glass switches, caption popovers, quick-settings density |
 | [Context usage](./context-usage.md) | Composer context charts, source colors, percentage ramp, hover labels |

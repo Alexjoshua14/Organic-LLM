@@ -1,8 +1,10 @@
 "use client";
 
-import type { StageOperation, StageState } from "@/lib/stage/schema";
+import type { StageOperation, StageState, StageTurnSettings } from "@/lib/stage/schema";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+
+import { stageSubagentActive } from "@/lib/stage/schema";
 
 const DESIGN_POLL_MS = 1_500;
 
@@ -25,7 +27,7 @@ export async function stageRequest<T>(path: string, init?: RequestInit): Promise
   return data as T;
 }
 
-export function useStage() {
+export function useStage({ voiceActive = false }: { voiceActive?: boolean } = {}) {
   const [state, setState] = useState<StageState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -70,8 +72,20 @@ export function useStage() {
     };
   }, [refresh]);
 
+  const subagentKey =
+    state?.subagents
+      ?.filter(stageSubagentActive)
+      .map((agent) => `${agent.id}:${agent.status}`)
+      .join(",") ?? "";
+
   useEffect(() => {
-    if (state?.design?.status !== "working") return;
+    if (
+      state?.design?.status !== "working" &&
+      state?.design?.status !== "canceling" &&
+      !subagentKey &&
+      !voiceActive
+    )
+      return;
     let disposed = false;
     let timer: ReturnType<typeof setTimeout>;
     const poll = async () => {
@@ -85,10 +99,10 @@ export function useStage() {
       disposed = true;
       clearTimeout(timer);
     };
-  }, [state?.design?.id, state?.design?.status, refresh]);
+  }, [state?.design?.id, state?.design?.status, subagentKey, voiceActive, refresh]);
 
   const send = useCallback(
-    async (message: string) => {
+    async (message: string, settings?: StageTurnSettings) => {
       if (sendLock.current || !current.current) return false;
       sendLock.current = true;
       setSending(true);
@@ -102,7 +116,7 @@ export function useStage() {
       try {
         const data = await stageRequest<{ state: StageState }>("/api/stage", {
           method: "POST",
-          body: JSON.stringify(turn),
+          body: JSON.stringify({ ...turn, settings }),
         });
 
         accept(data.state);
@@ -165,5 +179,31 @@ export function useStage() {
     }
   }, [accept]);
 
-  return { state, error, loading, sending, saving, send, mutate, refresh, retryDesign };
+  const cancelSubagent = useCallback(
+    async (id: string) => {
+      try {
+        const data = await stageRequest<{ state: StageState }>(`/api/stage/subagents/${id}`, {
+          method: "DELETE",
+        });
+
+        accept(data.state);
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : "Couldn’t stop the specialist.");
+      }
+    },
+    [accept]
+  );
+
+  return {
+    state,
+    error,
+    loading,
+    sending,
+    saving,
+    send,
+    mutate,
+    refresh,
+    retryDesign,
+    cancelSubagent,
+  };
 }

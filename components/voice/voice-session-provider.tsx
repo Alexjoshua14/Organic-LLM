@@ -1,5 +1,6 @@
 "use client";
 
+import type { StageTurnSettings } from "@/lib/stage/schema";
 import type { SpeakModalities } from "@/lib/schemas/speak-modalities";
 import type { SpeakRealtimeVoice } from "@/lib/schemas/speak-realtime-voice";
 import type { SpeakScreenSurface } from "@/lib/schemas/speak-screen-context";
@@ -23,6 +24,7 @@ import {
 
 import { VoiceLiveBarHost } from "./voice-live-bar-host";
 
+import { STAGE_VIEW_EVENT } from "@/lib/stage/view-schema";
 import { usePersonaSessionOptional } from "@/components/personas/persona-session-provider";
 import { useRealtimeVoice, type PersonaVoiceTurn } from "@/hooks/use-realtime-voice";
 import { DEFAULT_COMPOSER_MEMORIES } from "@/lib/chat/composer-tool-defaults";
@@ -37,11 +39,14 @@ export type VoiceCaption = {
 };
 
 export type VoiceConnectOptions = {
+  stage?: boolean;
+  stageSettings?: StageTurnSettings;
   voice?: SpeakRealtimeVoice;
   subagentSeed?: SpeakSubagentSeed;
 };
 
 export type VoiceSessionValue = {
+  stage: boolean;
   phase: LiveVoicePhase;
   connected: boolean;
   connecting: boolean;
@@ -140,6 +145,9 @@ export function VoiceSessionProvider({
   const [surface, setSurfaceState] = useState<SpeakScreenSurface | null>(null);
 
   const handleEffects = useCallback((effects: SpeakToolClientEffect[]) => {
+    for (const effect of effects)
+      if (effect.type === "stage_view")
+        window.dispatchEvent(new CustomEvent(STAGE_VIEW_EVENT, { detail: effect.command }));
     setVisual((prev) => applyVoiceEffects(prev, effects));
   }, []);
 
@@ -227,6 +235,7 @@ export function VoiceSessionProvider({
 
   const value = useMemo<VoiceSessionValue>(
     () => ({
+      stage: voice.stage,
       phase: voice.phase,
       connected: voice.connected,
       connecting: voice.connecting,
@@ -264,6 +273,7 @@ export function VoiceSessionProvider({
       setSuppressHostBar,
     }),
     [
+      voice.stage,
       voice.phase,
       voice.connected,
       voice.connecting,
