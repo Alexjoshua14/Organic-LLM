@@ -154,7 +154,7 @@ export async function fetchGithubConnectorSnapshot(
     return {
       ok: false,
       error:
-        "Invalid GitHub username or profile URL. Expected a handle like Alexjoshua14 or https://github.com/Alexjoshua14.",
+        "Invalid GitHub username or profile URL. Expected a handle like coalescence-labs or https://github.com/coalescence-labs.",
       status: 400,
     };
   }

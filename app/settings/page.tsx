@@ -22,9 +22,12 @@ import { ConnectorsSettingsTab } from "@/components/settings/connectors/Connecto
 import { ProfileView } from "@/components/settings/profile";
 import { AccountDeletion } from "@/components/settings/AccountDeletion";
 import { DangerZone } from "@/components/settings/DangerZone";
+import { QuickSettingRow } from "@/components/settings/quick-setting-row";
+import { SettingsHelp } from "@/components/settings/settings-help";
 import { SettingsRow } from "@/components/settings/SettingsRow";
 import { ThemeSwitch } from "@/components/shared/theme-switch";
 import { getSettings, setSettings } from "@/lib/user-settings";
+import { cn } from "@/lib/utils";
 
 const showDevSettings = process.env.NEXT_PUBLIC_SHOW_DEV_SETTINGS === "true";
 
@@ -106,10 +109,16 @@ export default function SettingsPage() {
 
   return (
     <Page>
-      <PageTopBar leading={<ReturnButton />} title={SETTINGS_PAGE_TITLE} />
+      <PageTopBar
+        className="grid shrink-0 grid-cols-[1fr_auto_1fr] px-inset-lg pt-[calc(3.5rem+env(safe-area-inset-top,0px))] pb-0 md:px-16 md:pt-inset-lg"
+        leading={<ReturnButton compactOnMobile />}
+        title={SETTINGS_PAGE_TITLE}
+        trailing={<span />}
+        withSideClearance={false}
+      />
       <div className="flex-1 w-full overflow-auto px-4 py-6 md:px-8">
         <Tabs
-          className="w-full max-w-2xl mx-auto"
+          className={cn("mx-auto w-full", settingsTab === "connectors" ? "max-w-6xl" : "max-w-2xl")}
           value={settingsTab}
           onValueChange={setSettingsTab}
         >
@@ -194,24 +203,16 @@ export default function SettingsPage() {
           </TabsContent>
 
           <TabsContent className="mt-0" value="appearance">
-            <div className="flex flex-col gap-8">
+            <div className="space-y-stack-2xl">
               <h2 className="text-xl font-semibold text-foreground">Appearance</h2>
-              <section className="space-y-6">
-                <div>
-                  <h3 className="text-sm font-medium text-foreground mb-2">Theme</h3>
-                  <div className="flex items-center gap-3">
-                    <ThemeSwitch />
-                    <span className="text-sm text-muted-foreground">System / Light / Dark</span>
-                  </div>
+              <section className="space-y-stack-lg sm:space-y-stack-md">
+                <div className="space-y-stack-sm">
+                  <h3 className="text-sm font-medium text-foreground">Theme</h3>
+                  <ThemeSwitch className="[&>button]:min-h-11" showLabels />
                 </div>
-                <SettingsRow
-                  title="Coalescence Mode"
-                  mainText={
-                    coalescenceMode
-                      ? "Sidebar shows threads from Arcadia and other feature chats."
-                      : "Sidebar shows only main chat threads."
-                  }
-                  subtext="When on, your sidebar coalesces threads across chat experiences and indexes gen-ui blocks into the spatial artifact library. Turn off to keep the sidebar focused on main chat only."
+                <QuickSettingRow
+                  caption="Show threads from all chat experiences in the sidebar and collect generated content in the spatial library. Off keeps the sidebar focused on main chat."
+                  label="Coalescence Mode"
                 >
                   <Switch
                     aria-label="Coalescence Mode"
@@ -221,19 +222,15 @@ export default function SettingsPage() {
                       setSettings({ coalescenceMode: enabled });
                     }}
                   />
-                </SettingsRow>
-                <LightweightModeSetting />
-                <FontSetting />
-                <div className="space-y-2">
-                  <h3 className="text-sm font-medium text-foreground">Experimental</h3>
-                  <SettingsRow
-                    title="Arcadia markdown preview"
-                    mainText={
-                      experimentalArcadiaMarkdownPreview
-                        ? "Arcadia chat shows a Preview toggle on the composer."
-                        : "Arcadia composer is plain text only."
-                    }
-                    subtext="Toggle rendered markdown preview while drafting in Arcadia (sandbox). May change or move."
+                </QuickSettingRow>
+                <LightweightModeSetting compact />
+              </section>
+              <FontSetting />
+              <SettingsHelp title="Experimental appearance">
+                <div className="space-y-stack-sm">
+                  <QuickSettingRow
+                    caption="Preview formatted Markdown while drafting in Arcadia. This experimental feature may change."
+                    label="Arcadia markdown preview"
                   >
                     <Switch
                       aria-label="Arcadia markdown preview (experimental)"
@@ -243,15 +240,10 @@ export default function SettingsPage() {
                         setSettings({ experimentalArcadiaMarkdownPreview: enabled });
                       }}
                     />
-                  </SettingsRow>
-                  <SettingsRow
-                    title="Context effort"
-                    mainText={
-                      experimentalContextEffort
-                        ? "Arcadia composer shows Instant / Quick / Heavy for memory compilation."
-                        : "Arcadia uses today’s memory retrieval."
-                    }
-                    subtext="Beta. Controls how long Organic LLM spends compiling your memories and profile portrait in Arcadia. Off omits the slider and keeps the current rewriter. May change or move."
+                  </QuickSettingRow>
+                  <QuickSettingRow
+                    caption="Choose Instant, Quick, or Heavy memory compilation in Arcadia. Off uses the default memory retrieval. This beta feature may change."
+                    label="Context effort"
                   >
                     <Switch
                       aria-label="Context effort (beta)"
@@ -261,15 +253,10 @@ export default function SettingsPage() {
                         setSettings({ experimentalContextEffort: enabled });
                       }}
                     />
-                  </SettingsRow>
-                  <SettingsRow
-                    title="Knowledge capsule titles"
-                    mainText={
-                      experimentalKnowledgeCapsuleTitles
-                        ? "New and regenerated titles use the knowledge-capsule grammar (≤5 words)."
-                        : "Titles use the current short-title phrasing."
-                    }
-                    subtext="Experimental / Coalescence. Capsules convey contents, needs, or notifs as action + subject + optional additional (≤2 words each; combined max 5). Lab: /sandbox/prototypes/knowledge-capsules. May change or move."
+                  </QuickSettingRow>
+                  <QuickSettingRow
+                    caption="Experimental / Coalescence. New and regenerated titles use action + subject + optional detail, with at most 5 words total and 2 per part. Explore the grammar in /sandbox/prototypes/knowledge-capsules. Off uses the current short-title phrasing."
+                    label="Knowledge capsule titles"
                   >
                     <Switch
                       aria-label="Knowledge capsule titles (experimental)"
@@ -279,9 +266,9 @@ export default function SettingsPage() {
                         setSettings({ experimentalKnowledgeCapsuleTitles: enabled });
                       }}
                     />
-                  </SettingsRow>
+                  </QuickSettingRow>
                 </div>
-              </section>
+              </SettingsHelp>
             </div>
           </TabsContent>
 
