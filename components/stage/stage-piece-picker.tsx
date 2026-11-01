@@ -20,9 +20,9 @@ export function StagePiecePicker({
   return (
     <Popover.Root>
       <Popover.Trigger
-        className="stage-icon-button stage-piece-picker-trigger"
+        className="stage-response-author stage-piece-picker-trigger"
         aria-label="Choose a stage piece"
-        title="Choose a piece"
+        title={selected?.title ?? "Choose a piece"}
       >
         {selected && <span>{selected.title}</span>}
         <ChevronDown aria-hidden size={12} />

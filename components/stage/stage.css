@@ -49,6 +49,9 @@
   outline: 2px solid var(--stage-focus);
   outline-offset: 3px;
 }
+.organic-stage .stage-core-input textarea:focus-visible {
+  outline: none;
+}
 /* All entities are siblings on the same grid. These wrappers own no second canvas. */
 .stage-surface,
 .stage-footer,
@@ -386,7 +389,6 @@
   gap: 16px;
   min-height: 32px;
   flex: 0 0 32px;
-  overflow-x: auto;
   white-space: nowrap;
 }
 .stage-response-author-tabs {
@@ -395,7 +397,7 @@
   gap: 16px;
   min-width: 0;
   overflow-x: auto;
-  scrollbar-width: thin;
+  scrollbar-width: none;
 }
 .stage-response-actions {
   display: flex;
@@ -410,6 +412,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  flex-shrink: 0;
   min-height: 32px;
   padding: 0;
   border: 0;
@@ -813,11 +816,18 @@
   box-shadow: 0 12px 32px -18px rgb(0 0 0 / 25%);
   font-family: var(--font-commissioner), sans-serif;
 }
+.stage-piece-picker-trigger {
+  max-width: 180px;
+}
 .stage-piece-picker-trigger > span {
+  min-width: 0;
   max-width: 160px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.stage-piece-picker-trigger > svg {
+  flex-shrink: 0;
 }
 .stage-piece-picker button {
   display: block;
