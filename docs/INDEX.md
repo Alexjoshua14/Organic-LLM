@@ -88,6 +88,7 @@ Public routes under `/blog` — see the [blog index](../app/blog/page.tsx) or ru
 | Strata prototype | [`app/sandbox/prototypes/strata/README.md`](../app/sandbox/prototypes/strata/README.md) |
 | Memory ingest prototype | [`app/sandbox/prototypes/memory-ingest/README.md`](../app/sandbox/prototypes/memory-ingest/README.md) |
 | CoreInput lab | [`app/sandbox/prototypes/core-input/README.md`](../app/sandbox/prototypes/core-input/README.md) |
+| Knowledge capsules lab | [`/sandbox/prototypes/knowledge-capsules`](../app/sandbox/prototypes/knowledge-capsules/page.tsx) — beta title grammar studio |
 
 ## Maintainer notes
 

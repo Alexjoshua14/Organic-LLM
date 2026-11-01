@@ -216,6 +216,10 @@ export function useRealtimeVoice({
   const userSpeakingRef = useRef(false);
   const assistantSpeakingRef = useRef(false);
   const connectedRef = useRef(false);
+  /** React state cannot lock two starts in the same render or an older auto-resume closure. */
+  const connectingRef = useRef(false);
+  /** Ending or starting a call invalidates pending permission, mint, and retry continuations. */
+  const connectionGenerationRef = useRef(0);
   const modalitiesRef = useRef(modalities);
   const memoryEnabledRef = useRef(memoryEnabled);
   const threadPolicyRef = useRef(threadPolicy);
@@ -397,6 +401,8 @@ export function useRealtimeVoice({
 
   const teardown = useCallback(
     async (opts?: { notifyServer?: boolean; connectFailure?: ConnectFailure }) => {
+      connectionGenerationRef.current++;
+      connectingRef.current = false;
       stopHeartbeat();
       personaTurns.reset();
       callPersonaRef.current = null;
@@ -699,7 +705,11 @@ export function useRealtimeVoice({
       voice?: SpeakRealtimeVoice;
       subagentSeed?: SpeakSubagentSeed;
     }) => {
-      if (connecting || connectedRef.current) return;
+      if (connectingRef.current || connectedRef.current) return;
+
+      connectingRef.current = true;
+      const generation = ++connectionGenerationRef.current;
+      const isCurrentAttempt = () => connectionGenerationRef.current === generation;
 
       setConnecting(true);
       setError(null);
@@ -714,11 +724,15 @@ export function useRealtimeVoice({
         let transport: VoiceTransport;
 
         for (let attempt = 0; ; attempt++) {
-          transport = transportFactoryRef.current();
+          const attemptTransport = transportFactoryRef.current();
+          const isCurrentTransport = () =>
+            isCurrentAttempt() && transportRef.current === attemptTransport;
+
+          transport = attemptTransport;
           transportRef.current = transport;
           // Unsupported origins and denied microphones must not mint or reserve a session.
           await transport.prepare?.();
-          if (transportRef.current !== transport) return;
+          if (!isCurrentAttempt()) return;
 
           const mintRes = await fetch("/api/ai/speak/realtime/session", {
             method: "POST",
@@ -744,7 +758,7 @@ export function useRealtimeVoice({
 
           mint = (await mintRes.json()) as SessionMintResponse;
 
-          if (transportRef.current !== transport) {
+          if (!isCurrentAttempt()) {
             // The user ended the attempt while minting. Release only that late session.
             if (mint.sessionId) {
               void fetch("/api/ai/speak/realtime/end", {
@@ -791,19 +805,25 @@ export function useRealtimeVoice({
             await transport.connect(
               { clientSecret: mint.clientSecret },
               {
-                onServerEvent: handleDataEvent,
+                onServerEvent: (raw) => {
+                  if (isCurrentTransport()) handleDataEvent(raw);
+                },
                 onRemoteStream: (stream) => {
+                  if (!isCurrentTransport()) return;
                   audioEl.srcObject = stream;
                   setStreams((prev) => ({ ...prev, remote: stream }));
                 },
                 onClosed: (reason) => {
+                  if (!isCurrentTransport()) return;
                   setError(reason);
                   void teardown({ notifyServer: true });
                 },
               }
             );
+            if (!isCurrentAttempt()) return;
             break;
           } catch (err) {
+            if (!isCurrentAttempt()) return;
             if (attempt >= CONNECT_RETRY_LIMIT || !isRetryableConnectError(err)) throw err;
 
             transport.close();
@@ -811,12 +831,14 @@ export function useRealtimeVoice({
             retryFailure = connectFailureOf(err);
             resumeSessionId = mint.sessionId;
             await new Promise((resolve) => setTimeout(resolve, CONNECT_RETRY_DELAY_MS));
+            if (!isCurrentAttempt()) return;
           }
         }
 
         setStreams({ local: transport.localStream, remote: transport.remoteStream });
 
         connectedRef.current = true;
+        connectingRef.current = false;
         setConnected(true);
         setConnecting(false);
         setPaused(false);
@@ -832,6 +854,8 @@ export function useRealtimeVoice({
         startHeartbeat();
         idleTimer.reset();
       } catch (err) {
+        // Permission prompts and requests can settle after End or a newer Start.
+        if (!isCurrentAttempt()) return;
         const msg = err instanceof Error ? err.message : "Failed to connect";
 
         setError(msg);
@@ -845,7 +869,6 @@ export function useRealtimeVoice({
     },
     [
       applyBudget,
-      connecting,
       handleDataEvent,
       idleTimer,
       onCaptionChange,
@@ -899,7 +922,8 @@ export function useRealtimeVoice({
    * "tried and failed".
    */
   const resumeIfActive = useCallback(async (): Promise<boolean> => {
-    if (connectedRef.current || connecting) return false;
+    if (connectedRef.current || connectingRef.current) return false;
+    const generation = connectionGenerationRef.current;
 
     try {
       const res = await fetch("/api/ai/speak/realtime/active");
@@ -908,7 +932,8 @@ export function useRealtimeVoice({
 
       const data = (await res.json()) as ActiveSessionResponse;
 
-      if (!data.session) return false;
+      // A manual Start or End while discovery was pending owns the user's intent now.
+      if (!data.session || connectionGenerationRef.current !== generation) return false;
 
       await connect({ resumeSessionId: data.session.sessionId });
 
@@ -918,7 +943,7 @@ export function useRealtimeVoice({
       // did not ask for. They can always start a session by hand.
       return false;
     }
-  }, [connect, connecting]);
+  }, [connect]);
 
   /**
    * Silent subagent progress via `POST /api/ai/speak/realtime/progress`.

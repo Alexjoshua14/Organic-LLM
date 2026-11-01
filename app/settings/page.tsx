@@ -41,6 +41,8 @@ export default function SettingsPage() {
   const [experimentalArcadiaMarkdownPreview, setExperimentalArcadiaMarkdownPreview] =
     useState(false);
   const [experimentalContextEffort, setExperimentalContextEffort] = useState(false);
+  const [experimentalKnowledgeCapsuleTitles, setExperimentalKnowledgeCapsuleTitles] =
+    useState(false);
   const { userId } = useAuth();
   const { user } = useUser();
   const clerkEmail = user?.primaryEmailAddress?.emailAddress ?? null;
@@ -68,6 +70,7 @@ export default function SettingsPage() {
       setCoalescenceMode(getSettings().coalescenceMode);
       setExperimentalArcadiaMarkdownPreview(getSettings().experimentalArcadiaMarkdownPreview);
       setExperimentalContextEffort(getSettings().experimentalContextEffort);
+      setExperimentalKnowledgeCapsuleTitles(getSettings().experimentalKnowledgeCapsuleTitles);
     }
   }, []);
 
@@ -248,6 +251,19 @@ export default function SettingsPage() {
                       onValueChange={(enabled) => {
                         setExperimentalContextEffort(enabled);
                         setSettings({ experimentalContextEffort: enabled });
+                      }}
+                    />
+                  </QuickSettingRow>
+                  <QuickSettingRow
+                    caption="Experimental / Coalescence. New and regenerated titles use action + subject + optional detail, with at most 5 words total and 2 per part. Explore the grammar in /sandbox/prototypes/knowledge-capsules. Off uses the current short-title phrasing."
+                    label="Knowledge capsule titles"
+                  >
+                    <Switch
+                      aria-label="Knowledge capsule titles (experimental)"
+                      isSelected={experimentalKnowledgeCapsuleTitles}
+                      onValueChange={(enabled) => {
+                        setExperimentalKnowledgeCapsuleTitles(enabled);
+                        setSettings({ experimentalKnowledgeCapsuleTitles: enabled });
                       }}
                     />
                   </QuickSettingRow>
