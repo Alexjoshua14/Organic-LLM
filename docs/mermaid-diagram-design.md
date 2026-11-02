@@ -114,3 +114,17 @@ Not the full Mermaid source, and not the originating assistant message.
 - **Expand this branch:** if not yet in detailed view, reveal the subgraph already in `detailed`; if already detailed, model deepens that branch (deepen path stubbed — toast until deepen tool ships).
 - **Export (default):** copy Mermaid source + download SVG (hover controls on interactive diagrams).
 - Rabbit-hole open from node remains stubbed (toast) until deep-link exists.
+
+
+## Shared renderer legibility
+
+`lib/mermaid/presentation.ts` scopes semantic ink, node, edge, and marker styles to the
+rendered SVG through `data-organic-mermaid`. Its injected stylesheet is created in the
+SVG namespace; HTML namespace style elements inside an SVG are not a reliable stylesheet.
+HTML labels receive explicit semantic ink as well. Theme tokens inherit live, so switching
+light/dark mode does not require regenerating the diagram.
+
+The renderer uses 14px labels at intrinsic SVG dimensions and permits scrolling rather
+than shrinking an entire detailed graph into unreadable text. Flowcharts use SVG labels;
+sanitation and strict rendering remain enabled. Stage routes Mermaid artifacts into its
+grid instead of rendering them inside the response caption.

@@ -1,5 +1,6 @@
 import "server-only";
 
+import type { StageTurnSettings } from "@/lib/stage/schema";
 import type { RateLimitResult } from "@/lib/rate-limit/llm";
 import type { SpeakModalities } from "@/lib/schemas/speak-modalities";
 import type { SpeakBudgetSnapshot } from "@/lib/speak/types";
@@ -76,6 +77,8 @@ export type SpeakRealtimeSessionRecord = {
   modalities: SpeakModalities;
   /** Enables `search_memories` and transcript ingest. Absent on records minted before this field. */
   memoryEnabled?: boolean;
+  stage?: boolean;
+  stageSettings?: StageTurnSettings;
   startedAt: number;
   /**
    * When the user first started talking, across page reloads. A refresh mints a new OpenAI call
@@ -377,6 +380,8 @@ export async function registerSpeakRealtimeSession(args: {
   threadId: string | null;
   modalities: SpeakModalities;
   memoryEnabled?: boolean;
+  stage?: boolean;
+  stageSettings?: StageTurnSettings;
   continuity?: SpeakSessionContinuity | null;
 }): Promise<SpeakRealtimeSessionRecord> {
   const startedAt = Date.now();
@@ -387,6 +392,8 @@ export async function registerSpeakRealtimeSession(args: {
     threadId: args.threadId,
     modalities: args.modalities,
     memoryEnabled: args.memoryEnabled === true,
+    stage: args.stage === true,
+    stageSettings: args.stageSettings,
     startedAt,
     continuityStartedAt: args.continuity?.continuityStartedAt ?? startedAt,
     lastMeteredAt: startedAt,

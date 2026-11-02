@@ -1,5 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { z } from "zod";
 
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { clientErrorJson, logRouteError } from "@/lib/api/client-safe-error";
@@ -12,12 +13,19 @@ export const maxDuration = 30;
 
 const logger = createLogger("app/api/chat/[id]/generate-title/route.ts");
 
+const GenerateTitleBodySchema = z
+  .object({
+    experimentalKnowledgeCapsuleTitles: z.boolean().optional(),
+  })
+  .passthrough();
+
 /**
  * POST /api/chat/[id]/generate-title
  *
  * Generates an AI title for the given chat. Requires auth; RLS restricts to owner's threads.
+ * Optional body `{ experimentalKnowledgeCapsuleTitles: true }` selects the beta capsule pipeline.
  */
-export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const clerkUser = await auth();
 
   if (!clerkUser?.userId) {
@@ -44,7 +52,19 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: limitResult.error ?? "Too many requests" }, { status: 429 });
   }
 
-  const result = await generateChatTitle(id);
+  let knowledgeCapsule = false;
+
+  try {
+    const bodyJson: unknown = await req.json();
+    const parsed = GenerateTitleBodySchema.safeParse(bodyJson);
+    if (parsed.success) {
+      knowledgeCapsule = parsed.data.experimentalKnowledgeCapsuleTitles === true;
+    }
+  } catch {
+    // Empty / non-JSON body is fine — legacy clients send POST with no body.
+  }
+
+  const result = await generateChatTitle(id, { knowledgeCapsule });
 
   if (result.error) {
     const message = result.error.message ?? "Failed to generate title";

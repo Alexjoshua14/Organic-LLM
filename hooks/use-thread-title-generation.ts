@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSharedChatContext } from "@/lib/context/chat-context";
 import { createLogger } from "@/lib/logger";
 import { SESSION_TITLE_NOTICE_MS } from "@/lib/sidebar/session-signal-timing";
+import { getSettings } from "@/lib/user-settings";
 
 const logger = createLogger("hooks/use-thread-title-generation.ts");
 
@@ -65,8 +66,13 @@ export function useThreadTitleGeneration() {
       let status: number | null = null;
 
       try {
+        const settings = getSettings();
         const res = await fetch(`/api/chat/${encodeURIComponent(thread.id)}/generate-title`, {
           method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            experimentalKnowledgeCapsuleTitles: settings.experimentalKnowledgeCapsuleTitles,
+          }),
         });
 
         status = res.status;

@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 export type PromptInputSubmitProps = ComponentProps<typeof InputGroupButton> & {
   status?: ChatStatus;
   stop?: () => void;
+  motionFeedback?: boolean;
 };
 
 /**
@@ -29,6 +30,7 @@ export const PromptInputSubmit = ({
   status,
   children,
   stop,
+  motionFeedback = true,
   ...props
 }: PromptInputSubmitProps) => {
   let Icon = <ArrowUp className="size-4" />;
@@ -52,9 +54,11 @@ export const PromptInputSubmit = ({
   return (
     // TODO: Could make cursor more fun for this specific element
     <motion.div
-      className="inline-block cursor-pointer"
-      whileHover={{ scale: 1.09 }}
-      whileTap={{ scale: 0.93 }}
+      className={
+        motionFeedback ? "inline-block cursor-pointer" : "inline-flex shrink-0 items-center"
+      }
+      whileHover={motionFeedback ? { scale: 1.09 } : undefined}
+      whileTap={motionFeedback ? { scale: 0.93 } : undefined}
     >
       <InputGroupButton
         aria-label={status === "ready" ? "Submit" : "Abort"}

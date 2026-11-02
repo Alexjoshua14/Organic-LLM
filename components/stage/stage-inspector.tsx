@@ -1,35 +1,78 @@
 "use client";
 
-import type { StageOperation, StageRect, StageWidget } from "@/lib/stage/schema";
+import type { StageOperation, StageRect, StageWidget, StageState } from "@/lib/stage/schema";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { X } from "lucide-react";
+
+import { stageReservedRects, validateStageLayouts } from "@/lib/stage/layout";
+import { STAGE_OVERVIEW, placeStageWidget, stageWidgetRect } from "@/lib/stage/placements";
+import type { StageView } from "@/lib/stage/view-schema";
+
+const PLACEMENT_PREVIEW_MS = 150;
 
 export function StageInspector({
   widget,
   saving,
   onChange,
   onClose,
+  state,
+  onPreview,
+  view = STAGE_OVERVIEW,
 }: {
   widget: StageWidget;
   saving: boolean;
   onChange: (operations: StageOperation[]) => Promise<boolean>;
   onClose: () => void;
+  state: StageState;
+  onPreview: (rect: StageRect | null) => void;
+  view?: StageView;
 }) {
-  const [rect, setRect] = useState<StageRect>(widget.rect);
+  const [rect, setRect] = useState<StageRect>(stageWidgetRect(widget, view));
   const [title, setTitle] = useState(widget.title);
+  const [placementError, setPlacementError] = useState<string | null>(null);
   const [content, setContent] = useState(
     widget.kind === "note" ? widget.text : widget.kind === "mermaid" ? widget.code : ""
   );
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      try {
+        validateStageLayouts(
+          state.widgets.map((w) => (w.id === widget.id ? placeStageWidget(w, view, rect) : w)),
+          stageReservedRects(state)
+        );
+        setPlacementError(null);
+        onPreview(rect);
+      } catch {
+        setPlacementError(
+          "This placement needs free cells and a one-cell gap. The last valid preview is still shown."
+        );
+      }
+    }, PLACEMENT_PREVIEW_MS);
+
+    return () => clearTimeout(timer);
+  }, [rect, state, widget.id, onPreview]);
+
   async function submit(event: FormEvent) {
     event.preventDefault();
+    try {
+      validateStageLayouts(
+        state.widgets.map((w) => (w.id === widget.id ? placeStageWidget(w, view, rect) : w)),
+        stageReservedRects(state)
+      );
+    } catch {
+      setPlacementError("This placement needs free cells and a one-cell gap.");
+
+      return;
+    }
+    const placed = placeStageWidget(widget, view, rect);
     const updated: StageWidget =
       widget.kind === "note"
-        ? { ...widget, title, rect, text: content }
+        ? { ...placed, kind: "note", title, text: content }
         : widget.kind === "mermaid"
-          ? { ...widget, title, rect, code: content }
-          : { ...widget, title, rect };
+          ? { ...placed, kind: "mermaid", title, code: content }
+          : { ...placed, title };
 
     if (await onChange([{ type: "upsert", widget: updated }])) onClose();
   }
@@ -52,6 +95,14 @@ export function StageInspector({
         </button>
       </header>
       <form onSubmit={submit}>
+        <p className="stage-muted">
+          {view.kind === "author"
+            ? `${widget.source?.name} view`
+            : view.kind === "piece"
+              ? "This piece’s view"
+              : "All pieces view"}{" "}
+          · placement is saved for this tab.
+        </p>
         <label className="stage-field">
           Title
           <input
@@ -99,7 +150,10 @@ export function StageInspector({
             />
           </label>
         )}
-        <p className="stage-muted">Leave a cell between pieces. Organic keeps the center.</p>
+        <p className="stage-muted stage-placement-status" role="status">
+          {placementError ??
+            "Previewing placement. Place it to save; close to keep the saved position."}
+        </p>
         <div className="stage-panel-actions">
           <button
             className="stage-text-button"

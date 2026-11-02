@@ -101,9 +101,9 @@ describe("AutoModelLumenPill", () => {
     const pill = container.querySelector<HTMLElement>(".auto-model-lumen-pill")!;
     expect(pill.style.getPropertyValue("--lumen-backdrop-caustic")).toContain("radial-gradient");
     expect(pill.style.getPropertyValue("--lumen-border-sheen")).toContain("linear-gradient");
-    expect(pill.style.backgroundImage).toContain("rgba(6, 8, 10, 0.72)");
-    expect(pill.style.backgroundImage).toContain("rgba(6, 8, 10, 0.18)");
-    expect(pill.className).toContain("border-white/[0.07]");
+    expect(pill.style.getPropertyValue("--auto-pill-dark-well")).toContain("rgba(6, 8, 10, 0.72)");
+    expect(pill.style.getPropertyValue("--auto-pill-dark-well")).toContain("rgba(6, 8, 10, 0.18)");
+    expect(pill.className).toContain("auto-model-lumen-pill");
 
     const charSpans = container.querySelectorAll<HTMLElement>("[data-lumen-char-index]");
     expect(charSpans.length).toBe("Opus 5.5".length);

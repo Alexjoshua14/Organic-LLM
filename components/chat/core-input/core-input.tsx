@@ -11,6 +11,7 @@ import type { CoreInputSettings, CoreInputSettingField } from "@/lib/core-input/
 import type { SteerAction } from "./footer/steer-action";
 
 import {
+  type ReactNode,
   ChangeEventHandler,
   CSSProperties,
   SetStateAction,
@@ -26,6 +27,7 @@ import {
 import { flushSync } from "react-dom";
 import { useChat } from "@ai-sdk/react";
 import { useReducedMotion } from "framer-motion";
+import { ArrowUp, Loader2 } from "lucide-react";
 
 import "@/styles/CoreInputMorph.css";
 
@@ -53,6 +55,8 @@ import {
 } from "./core-input-context";
 import { CoreInputFooter } from "./footer/core-input-footer";
 import { resolveFooterPlacement } from "./footer/footer-placement";
+import { StageBetaOptions } from "./stage-beta-options";
+import "./stage-beta.css";
 import { organicGlassSubmitClassName, PromptInputSubmit } from "./submit/submit-button";
 import { OrganicSubmitGlyph, resolveOrganicSubmitState } from "./submit/submit-glyph";
 import { useCoreInputLayout } from "./use-core-input-layout";
@@ -103,6 +107,7 @@ import { useDiagramNodeLinksOptional } from "@/lib/mermaid/diagram-node-links-co
 import { useMessageSendQueue } from "@/hooks/use-message-send-queue";
 import { MessageSendQueueStrip } from "@/components/chat/message-send-queue-strip";
 import { shouldEnqueueInsteadOfSend } from "@/lib/message-queue/dispatch-gates";
+import { ThreadClipboardPicker } from "@/components/chat/thread-reference/thread-clipboard-picker";
 import { ThreadReferenceCard } from "@/components/chat/thread-reference/thread-reference-card";
 import { parseThreadPointer, threadReferenceMarker } from "@/lib/chat/thread-reference";
 
@@ -162,8 +167,11 @@ type CoreInputProps = {
   /**
    * Compact single-line composer. Always uses the condensed footer, and drops the search and
    * memory toggles entirely (they are not in the overflow menu). See `footer/footer-placement.ts`.
+   * The Stage beta composer has its own options popover and no footer.
    */
-  variant?: "default" | "compact";
+  variant?: "default" | "compact" | "stage-beta";
+  /** Stage-only realtime start/stop control. No effect on other variants. */
+  voiceControl?: ReactNode;
   /** First-run coachmarks for composer tools (dismiss persists in localStorage). */
   featureHints?: boolean;
   /** Gate steer-assist coachmark until Noesis assist is available (after first assistant turn). */
@@ -290,6 +298,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   secondarySubmitDisabled = false,
   secondarySubmitPending = false,
   variant = "default",
+  voiceControl,
   featureHints = true,
   steerHintShowWhen = true,
   showContextBudget = true,
@@ -339,7 +348,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   // Client navigation starts from the last displayed frame; hydration must use the server seed.
   const [initialFrame] = useState<CoreInputSettings>(
     () =>
-      (hydrated && snapshotScope ? lastDisplayedSettings : null) ??
+      (hydrated && snapshotScope && variant !== "stage-beta" ? lastDisplayedSettings : null) ??
       seed?.settings ?? {
         modelId: defaultModel.id,
         effort: defaultEffort,
@@ -363,7 +372,10 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   const addThreadReference = (id: string) => {
     const pointer = parseThreadPointer(id);
 
-    if (pointer) setThreadReferences((current) => [...new Set([...current, pointer])].slice(0, 8));
+    if (pointer)
+      setThreadReferences((current) =>
+        [...new Set([...current, pointer])].slice(0, variant === "stage-beta" ? 3 : 8)
+      );
   };
 
   useEffect(() => {
@@ -557,7 +569,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       const settled = { ...next, modelId: nextModel.id };
 
       settingsRef.current = settled;
-      lastDisplayedSettings = settled;
+      if (variant !== "stage-beta") lastDisplayedSettings = settled;
       setModel((current) => (current.id === nextModel.id ? current : nextModel));
       setEffort(settled.effort);
       setContextEffort(settled.contextEffort);
@@ -581,6 +593,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       useMemoriesRef,
       useSpeechFriendlyRef,
       useWebSearchRef,
+      variant,
     ]
   );
 
@@ -600,12 +613,13 @@ export const CoreInput: React.FC<CoreInputProps> = ({
         coreInputSnapshotSync.schedulePush();
       }
 
+      if (variant === "stage-beta") return;
       writeLegacyComposerPrefs(localStorage, legacyPrefKeys, next);
       if (next.contextEffort !== previous.contextEffort) {
         setSettings({ contextEffortLevel: next.contextEffort });
       }
     },
-    [legacyPrefKeys]
+    [legacyPrefKeys, variant]
   );
 
   /** The only path that persists: settings the user chose, never settings they were shown. */
@@ -701,21 +715,25 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   // Resolve settings on mount and on every scope change, morphing from what was on screen.
   useLayoutEffect(() => {
     const scope = snapshotScopeRef.current;
-    const legacy = readLegacyComposerPrefs(localStorage, legacyPrefKeys, {
+    const defaults: CoreInputSettings = {
       modelId: defaultModel.id,
       effort: defaultEffort,
       contextEffort: getSettings().contextEffortLevel ?? DEFAULT_CONTEXT_EFFORT,
       webSearch: defaultWebSearch,
       memories: defaultMemories,
       speechFriendly: false,
-    });
+    };
+    const legacy =
+      variant === "stage-beta"
+        ? defaults
+        : readLegacyComposerPrefs(localStorage, legacyPrefKeys, defaults);
     const target = scope ? coreInputSnapshots.resolve(scope, legacy) : legacy;
     // A remount (navigating between areas) has no frame of its own; start from the last shown.
     const from = hasHydratedRef.current
       ? settingsRef.current
       : seededOnMount.current
         ? initialFrame
-        : scope
+        : scope && variant !== "stage-beta"
           ? lastDisplayedSettings
           : null;
 
@@ -728,7 +746,8 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     if (scope) coreInputSnapshotSync.start();
     // Unscoped composers own the legacy prefs outright and re-save them on load, as before
     // snapshots. Scoped ones only write them on a user change, never by being viewed.
-    else writeLegacyComposerPrefs(localStorage, legacyPrefKeys, target);
+    else if (variant !== "stage-beta")
+      writeLegacyComposerPrefs(localStorage, legacyPrefKeys, target);
     morphTo(target, from);
   }, [
     scopeKey,
@@ -739,6 +758,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     defaultModel,
     defaultWebSearch,
     morphTo,
+    variant,
   ]);
 
   // A server pull can land after mount with this scope's settings from another device.
@@ -1055,6 +1075,9 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       <PromptInputTextarea
         ref={textareaRef}
         value={text}
+        {...(variant === "stage-beta"
+          ? { disabled, maxLength: 7800, "aria-label": "Message Organic" }
+          : {})}
         className={cn(
           variant === "compact" && "min-h-8 max-h-24 resize-none",
           // The corner badge widens to show the draft's token count; wrap text before it.
@@ -1065,7 +1088,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
         onPasteCapture={(event) => {
           const id = parseThreadPointer(event.clipboardData.getData("text/plain"));
 
-          if (!id || threadReferences.length >= 8) return;
+          if (!id || threadReferences.length >= (variant === "stage-beta" ? 3 : 8)) return;
           event.preventDefault();
           event.stopPropagation();
           addThreadReference(id);
@@ -1078,7 +1101,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     return editBody;
   };
 
-  const useCondensedLayout = variant === "compact" || isCondensed;
+  const useCondensedLayout = variant === "compact" || variant === "stage-beta" || isCondensed;
   // Which footer controls render, and where. The rules live in footer/footer-placement.ts.
   const footerPlacement = resolveFooterPlacement({
     condensed: useCondensedLayout,
@@ -1158,22 +1181,47 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     <PromptInputSubmit
       // Spread only when set: an explicit `aria-label={undefined}` would override the button's
       // own "Submit"/"Abort" label, which PromptInputSubmit applies before `...props`.
-      {...(personaActive && status === "ready" ? { "aria-label": "Send to Artist assistant" } : {})}
+      {...(variant === "stage-beta"
+        ? {
+            "aria-label":
+              composerStatus === "submitted" || composerStatus === "streaming"
+                ? "Organic is responding"
+                : "Send message",
+          }
+        : personaActive && status === "ready"
+          ? { "aria-label": "Send to Artist assistant" }
+          : {})}
       className={cn(
-        submitVariant === "organic-glass" && !personaActive && organicGlassSubmitClassName,
-        personaActive && "overflow-hidden rounded-lg bg-transparent p-0 hover:bg-transparent"
+        submitVariant === "organic-glass" &&
+          variant !== "stage-beta" &&
+          !personaActive &&
+          organicGlassSubmitClassName,
+        personaActive && "overflow-hidden rounded-lg bg-transparent p-0 hover:bg-transparent",
+        variant === "stage-beta" && "core-input-stage-submit size-9 rounded-full"
       )}
       variant={personaActive ? "ghost" : undefined}
+      motionFeedback={variant !== "stage-beta"}
       // Multi-mode: always submit (never stop). Default: keep stop available while streaming.
       disabled={
-        queueEnabled
-          ? (!text.trim() && threadReferences.length === 0) || disabled
-          : (!text && !status && threadReferences.length === 0) || disabled
+        variant === "stage-beta"
+          ? disabled ||
+            composerStatus === "submitted" ||
+            composerStatus === "streaming" ||
+            (!text.trim() && threadReferences.length === 0)
+          : queueEnabled
+            ? (!text.trim() && threadReferences.length === 0) || disabled
+            : (!text && !status && threadReferences.length === 0) || disabled
       }
-      status={composerStatus}
-      stop={queueEnabled ? undefined : stop}
+      status={variant === "stage-beta" ? "ready" : composerStatus}
+      stop={variant === "stage-beta" || queueEnabled ? undefined : stop}
     >
-      {personaActive ? (
+      {variant === "stage-beta" ? (
+        composerStatus === "submitted" || composerStatus === "streaming" ? (
+          <Loader2 aria-hidden className="size-4 animate-spin" />
+        ) : (
+          <ArrowUp aria-hidden className="size-[18px]" strokeWidth={1.8} />
+        )
+      ) : personaActive ? (
         // The persona's visual is where its reply comes from: idle, deciding, then speaking.
         <PersonaSpark
           pulseKey={persona?.lastReceipt?.at ?? null}
@@ -1192,7 +1240,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     </PromptInputSubmit>
   );
 
-  const composer = (
+  const defaultComposer = (
     <PromptInput
       aria-busy={showSentShimmer ? true : undefined}
       data-dim-background
@@ -1263,11 +1311,51 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     </PromptInput>
   );
 
-  const shell = !useMemories ? (
-    composer
-  ) : (
-    <HomeComposerLumenShell className="core-input-memory-lumen">{composer}</HomeComposerLumenShell>
-  );
+  const composer =
+    variant === "stage-beta" ? (
+      <PromptInput
+        aria-label="Talk to Organic"
+        maxFiles={0}
+        className={cn("core-input-stage-beta", className)}
+        onSubmit={handleSubmit}
+        onSubmitCapture={handleSubmitCapture}
+      >
+        <PromptInputHeader className="p-0">
+          {threadReferences.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5 px-3 pt-3">
+              {threadReferences.map((id) => (
+                <ThreadReferenceCard
+                  key={id}
+                  id={id}
+                  onRemove={() =>
+                    setThreadReferences((current) => current.filter((item) => item !== id))
+                  }
+                />
+              ))}
+            </div>
+          ) : null}
+        </PromptInputHeader>
+        <div className="core-input-stage-beta-row">
+          <StageBetaOptions
+            threadPicker={<ThreadClipboardPicker onSelect={addThreadReference} />}
+          />
+          <PromptInputBody>{renderComposerBody()}</PromptInputBody>
+          {voiceControl}
+          {submitControl}
+        </div>
+      </PromptInput>
+    ) : (
+      defaultComposer
+    );
+
+  const shell =
+    !useMemories || variant === "stage-beta" ? (
+      composer
+    ) : (
+      <HomeComposerLumenShell className="core-input-memory-lumen">
+        {composer}
+      </HomeComposerLumenShell>
+    );
 
   return (
     <CoreInputControlsProvider value={controlsValue}>
@@ -1281,7 +1369,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
         onKeyDownCapture={fastForwardMorph}
         onPointerDownCapture={fastForwardMorph}
       >
-        <CoreInputVoiceDrawerSlot />
+        <CoreInputVoiceDrawerSlot includePending={variant === "stage-beta"} />
         {queueEnabled ? (
           <MessageSendQueueStrip
             budget={messageQueue.budget}

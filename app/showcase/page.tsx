@@ -28,6 +28,7 @@ export default function ShowcasePage() {
         <footer className="showcase-footer" id="engineering">
           <h2>Under the hood</h2>
           <nav aria-label="Go deeper">
+            <Link href="/showcase/multiagent">Inside the multiagent system</Link>
             <Link href="/showcase/anatomy">Follow one response</Link>
             <Link href="/showcase/ergon">Watch a board take shape</Link>
             <Link href="/showcase/memory">Look inside memory</Link>

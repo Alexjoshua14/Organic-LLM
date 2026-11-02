@@ -42,6 +42,7 @@ client-side navigation. Held in a page, the peer connection dies on every route 
 
 | Area | Path |
 |------|------|
+| Stage integration | `components/stage/stage.tsx`, `lib/stage/turn.ts`; [integration decision](./decisions/20261029-stage-voice.md) |
 | Session provider (app-wide) | `components/voice/voice-session-provider.tsx` |
 | Live bar | `components/voice/voice-live-bar{,-host,-page-anchor,-timing}.tsx` |
 | Waveform | `components/voice/voice-waveform.tsx`, `lib/speak/waveform-geometry.ts` |

@@ -1,5 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { z } from "zod";
 
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { getThreadOwnerContext } from "@/data/supabase/chat";
@@ -14,12 +15,18 @@ export const maxDuration = 30;
 
 const logger = createLogger("app/api/chat/[id]/arcadia/regenerate-title/route.ts");
 
+const ArcadiaRegenTitleBodySchema = z
+  .object({
+    experimentalKnowledgeCapsuleTitles: z.boolean().optional(),
+  })
+  .passthrough();
+
 /**
  * POST /api/chat/[id]/arcadia/regenerate-title
  *
  * Regenerates the Arcadia thread title from the Arcadia settings modal.
  */
-export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const clerkUser = await auth();
 
   if (!clerkUser?.userId) {
@@ -68,7 +75,19 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: limitResult.error ?? "Too many requests" }, { status: 429 });
   }
 
-  const result = await generateChatTitle(chatId);
+  let knowledgeCapsule = false;
+
+  try {
+    const bodyJson: unknown = await req.json();
+    const parsed = ArcadiaRegenTitleBodySchema.safeParse(bodyJson);
+    if (parsed.success) {
+      knowledgeCapsule = parsed.data.experimentalKnowledgeCapsuleTitles === true;
+    }
+  } catch {
+    // Empty body is fine.
+  }
+
+  const result = await generateChatTitle(chatId, { knowledgeCapsule });
 
   if (result.error) {
     const message = result.error.message ?? "Failed to generate title";

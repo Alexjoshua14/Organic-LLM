@@ -1,0 +1,24 @@
+.auto-model-lumen-pill {
+  background-image: radial-gradient(
+    ellipse at center,
+    white 0%,
+    rgb(255 255 255 / 96%) 48%,
+    rgb(255 255 255 / 65%) 72%,
+    rgb(255 255 255 / 0%) 100%
+  );
+}
+.auto-model-lumen-pill .auto-model-lumen-caustic {
+  visibility: hidden;
+}
+:root:not(.dark) .auto-model-lumen-pill [data-lumen-char-index] {
+  text-shadow: none !important;
+  filter: none !important;
+}
+.dark .auto-model-lumen-pill {
+  background-image: var(--auto-pill-dark-well);
+  border-color: rgb(255 255 255 / 7%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 6%);
+}
+.dark .auto-model-lumen-pill .auto-model-lumen-caustic {
+  visibility: visible;
+}

@@ -127,6 +127,7 @@ function LoadedStageChat({ data, onReload }: { data: ChatData; onReload: () => v
             knowledgeSearch: false,
             zeroDataRetention: settings.zeroDataRetention,
             coalescenceMode: settings.coalescenceMode,
+            experimentalKnowledgeCapsuleTitles: settings.experimentalKnowledgeCapsuleTitles,
           },
         };
       },
