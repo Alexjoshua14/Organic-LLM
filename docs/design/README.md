@@ -14,6 +14,7 @@ feel — so improvements stay consistent and do not regress quality.
 | [Context usage](./context-usage.md) | Composer context charts, source colors, percentage ramp, hover labels |
 | [Conversation scrolling](./conversation-scrolling.md) | Native reading, reduced-motion following, and isolated browser regression checks |
 | [Reasoning display](./reasoning-display.md) | Secondary summary typography, stable streaming disclosure, and provider-stream verification |
+| [Subagent card lab](./subagent-card-lab.md) | Refining the subagent card: Current vs Next, "promote", shared Speak bar |
 | [Subagent identity mark](./subagent-identity-mark.md) | Layered SVG dots, glass diffusion, agent-state motion |
 | [Welcome scene](./welcome-scene.md) | Photographic pane projection, camera motion, and themed floor continuity |
 | [Glass distortion](./glass-distortion.md) | Opt-in refraction of owned backgrounds, Safari compatibility |

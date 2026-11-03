@@ -113,7 +113,7 @@ describe("mobile multiagent controls", () => {
           ).toBe("Control+W");
           const layout = draft.closest("section")!.parentElement!;
           const columns = layout.style.gridTemplateColumns;
-          const select = app.getAllByRole("button", { name: "View agent" })[0];
+          const select = app.getAllByRole("button", { name: /^View / })[0];
           fireEvent.pointerDown(select);
           fireEvent.focusIn(select);
           fireEvent.click(select);

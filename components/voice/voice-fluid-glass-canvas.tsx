@@ -44,8 +44,8 @@ const GLASS_FRAME_MS = 1000 / 30;
 const EDGE_INSET_PX = 1;
 const CAMERA_ZOOM = 160;
 /**
- * How often the colour beneath the chrome (or beneath the bar, off-chrome) is re-resolved. It only
- * changes with theme or route, and resolving walks the DOM, so once a second is plenty.
+ * Resolving the colour beneath the chrome (or the bar, off-chrome) walks the DOM, so poll once
+ * a second. Theme changes invalidate this cache immediately.
  */
 const BACKDROP_REFRESH_MS = 1000;
 
@@ -204,7 +204,7 @@ type GlassCanvasProps = {
 };
 
 function GlassBar({ onReady }: Pick<GlassCanvasProps, "onReady">) {
-  const { viewport, size } = useThree();
+  const { viewport, size, invalidate } = useThree();
   const [scene] = useState(() => new THREE.Scene());
   // The material is built here, not declared as <shaderMaterial uniforms={…}>. Declared that way,
   // R3F hands the material a copy of the uniform entries: Vector3 values stay shared by reference,
@@ -225,6 +225,21 @@ function GlassBar({ onReady }: Pick<GlassCanvasProps, "onReady">) {
 
   useEffect(() => () => mirrorMaterial.dispose(), [mirrorMaterial]);
   const backdrop = useRef({ refreshedAt: -Infinity, key: null as Element | null });
+
+  useEffect(() => {
+    // next-themes applies the theme to <html>. Refresh on that actual change, rather than
+    // holding the previous theme's colour until the next one-second backdrop poll.
+    const observer = new MutationObserver(() => {
+      backdrop.current.refreshedAt = -Infinity;
+      // Demand a frame even when reduced motion has paused the regular glass updates.
+      invalidate();
+    });
+
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+
+    return () => observer.disconnect();
+  }, [invalidate]);
+
   const readyRef = useRef(false);
   const pixel = viewport.height / size.height;
   const height = Math.max(pixel, viewport.height - EDGE_INSET_PX * pixel * 2);
@@ -328,6 +343,12 @@ function CanvasLifecycle({
   return null;
 }
 
+/**
+ * Measure the layout box, not the transformed one. getBoundingClientRect shrinks under an ancestor
+ * `scale`, so the glass drew smaller than its bar and sat off-centre behind the content.
+ */
+const CANVAS_RESIZE = { offsetSize: true };
+
 export default function FluidGlassCanvas({ onContextLost, onReady, paused }: GlassCanvasProps) {
   return (
     <Canvas
@@ -336,6 +357,7 @@ export default function FluidGlassCanvas({ onContextLost, onReady, paused }: Gla
       dpr={[1, MAX_DPR]}
       fallback={null}
       frameloop="demand"
+      resize={CANVAS_RESIZE}
       gl={{
         alpha: true,
         antialias: true,
