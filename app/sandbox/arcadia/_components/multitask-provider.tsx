@@ -182,6 +182,35 @@ export function ArcadiaMultitaskProvider({
     setMultitaskViewEnabled(enabled);
   }, []);
 
+  // The host stays mounted across thread switches, so the viewed subagent and the server-read
+  // view and worker flags can arrive or change after mount. Adopt them when they do.
+  const seededRef = useRef({
+    viewing: viewingSubagentId,
+    view: initialMultitaskView,
+    workers: initialHasSubagentThreads,
+  });
+
+  useEffect(() => {
+    const seeded = seededRef.current;
+
+    if (seeded.viewing !== viewingSubagentId) setSelectedId(viewingSubagentId);
+
+    if (
+      initialHasSubagentThreads !== undefined &&
+      (seeded.workers !== initialHasSubagentThreads || seeded.view !== initialMultitaskView)
+    ) {
+      viewHydratedRef.current = true;
+      setWorkerPresence(initialHasSubagentThreads);
+      applyEnabled(initialMultitaskView);
+    }
+
+    seededRef.current = {
+      viewing: viewingSubagentId,
+      view: initialMultitaskView,
+      workers: initialHasSubagentThreads,
+    };
+  }, [viewingSubagentId, initialMultitaskView, initialHasSubagentThreads, applyEnabled]);
+
   // The first client render must match the server; restore the local view after hydration.
   useEffect(() => {
     if (initialHasSubagentThreads !== undefined) return;

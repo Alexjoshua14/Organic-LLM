@@ -56,6 +56,8 @@ Speak event contract.
 ## Consequences
 
 - Ordinary `/speak` callers are unchanged (default voice, no seed).
-- Arcadia mounts `ArcadiaMultitaskHost` on `/sandbox/arcadia/[slug]`.
+- Arcadia mounts `ArcadiaPersistentHost` from `app/sandbox/arcadia/layout.tsx`, above `[slug]`, so
+  the board and any live Speak call survive switching between an orchestrator and its subagents'
+  threads. Each thread page registers itself with `ArcadiaThreadMeta`.
 - Open: whether subagent Speak threads should use a dedicated `threads.feature` tag (recorded
   in `docs/hub/open-questions.md`).
