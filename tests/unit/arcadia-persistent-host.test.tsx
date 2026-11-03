@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
-import { cleanup, render, waitFor } from "@testing-library/react";
-import { useEffect, type ReactNode } from "react";
+import { act, cleanup, render, waitFor } from "@testing-library/react";
+import { Fragment, useEffect, type ReactNode } from "react";
 
 import {
   ArcadiaPersistentHost,
   ArcadiaThreadMeta,
 } from "@/app/sandbox/arcadia/_components/multitask-host";
-import { useArcadiaMultitask } from "@/app/sandbox/arcadia/_components/multitask-provider";
+import { useArcadiaMultitask, type ArcadiaMultitaskValue } from "@/app/sandbox/arcadia/_components/multitask-provider";
 import { SidebarProvider } from "@/components/third-party/ui/sidebar";
 
 import "../helpers/render";
@@ -20,6 +20,7 @@ const originalMatchMedia = Object.getOwnPropertyDescriptor(window, "matchMedia")
 let fetchSpy: ReturnType<typeof spyOn<typeof globalThis, "fetch">>;
 let mounts = 0;
 let seen: { threadId: string; viewing: string | null; selectedId: string | null } | null = null;
+let board: ArcadiaMultitaskValue | null = null;
 
 beforeEach(() => {
   Object.defineProperty(window, "matchMedia", {
@@ -36,6 +37,7 @@ beforeEach(() => {
   });
   mounts = 0;
   seen = null;
+  board = null;
   fetchSpy = spyOn(globalThis, "fetch").mockImplementation(async () =>
     Response.json({ enabled: false, activeStreamId: null })
   );
@@ -51,36 +53,40 @@ afterEach(() => {
 
 /** Stands in for the thread page's Chat: counts mounts and reports the board context. */
 function Probe() {
-  const { threadId, viewingSubagentId, selectedId } = useArcadiaMultitask();
+  const ctx = useArcadiaMultitask();
 
   useEffect(() => {
     mounts += 1;
   }, []);
-  seen = { threadId, viewing: viewingSubagentId, selectedId };
+  board = ctx;
+  seen = { threadId: ctx.threadId, viewing: ctx.viewingSubagentId, selectedId: ctx.selectedId };
 
   return <p>thread</p>;
 }
 
+/** Next remounts everything under `[slug]` when the slug changes, so key each page by thread. */
 function Page({
   threadId,
   orchestratorThreadId,
   viewingSubagentId,
+  hasSubagents = true,
 }: {
   threadId: string;
   orchestratorThreadId: string;
   viewingSubagentId?: string;
+  hasSubagents?: boolean;
 }) {
   return (
-    <>
+    <Fragment key={threadId}>
       <ArcadiaThreadMeta
-        initialHasSubagentThreads
+        initialHasSubagentThreads={hasSubagents}
         initialMultitaskView={false}
         orchestratorThreadId={orchestratorThreadId}
         threadId={threadId}
         viewingSubagentId={viewingSubagentId}
       />
       <Probe />
-    </>
+    </Fragment>
   );
 }
 
@@ -92,41 +98,42 @@ function App({ children }: { children: ReactNode }) {
   );
 }
 
-test("switching to a subagent thread updates the board context without remounting the host", async () => {
+const layout = (container: HTMLElement) => container.querySelector("[data-arcadia-multitask-layout]");
+
+test("switching to a subagent thread swaps the thread and keeps the board", async () => {
   const app = render(
     <App>
-      <Page threadId={ORCHESTRATOR} orchestratorThreadId={ORCHESTRATOR} />
+      <Page orchestratorThreadId={ORCHESTRATOR} threadId={ORCHESTRATOR} />
     </App>
   );
 
   await waitFor(() => expect(seen?.threadId).toBe(ORCHESTRATOR));
-  const board = app.container.querySelector("[data-arcadia-multitask-layout]");
+  const host = layout(app.container);
 
-  expect(board).not.toBeNull();
+  expect(host).not.toBeNull();
 
   app.rerender(
     <App>
-      <Page
-        orchestratorThreadId={ORCHESTRATOR}
-        threadId={SUBAGENT_THREAD}
-        viewingSubagentId="lyra"
-      />
+      <Page orchestratorThreadId={ORCHESTRATOR} threadId={SUBAGENT_THREAD} viewingSubagentId="agent-researcher" />
     </App>
   );
 
-  await waitFor(() => expect(seen).toEqual({ threadId: SUBAGENT_THREAD, viewing: "lyra", selectedId: "lyra" }));
-  expect(app.container.querySelector("[data-arcadia-multitask-layout]")).toBe(board);
-  expect(mounts).toBe(1);
+  await waitFor(() =>
+    expect(seen).toEqual({ threadId: SUBAGENT_THREAD, viewing: "agent-researcher", selectedId: "agent-researcher" })
+  );
+  expect(layout(app.container)).toBe(host);
+  // One Chat per thread, and no extra remount from the board.
+  expect(mounts).toBe(2);
 });
 
 test("returning to the orchestrator thread unselects the subagent", async () => {
   const app = render(
     <App>
-      <Page orchestratorThreadId={ORCHESTRATOR} threadId={SUBAGENT_THREAD} viewingSubagentId="lyra" />
+      <Page orchestratorThreadId={ORCHESTRATOR} threadId={SUBAGENT_THREAD} viewingSubagentId="agent-researcher" />
     </App>
   );
 
-  await waitFor(() => expect(seen?.selectedId).toBe("lyra"));
+  await waitFor(() => expect(seen?.selectedId).toBe("agent-researcher"));
 
   app.rerender(
     <App>
@@ -134,35 +141,60 @@ test("returning to the orchestrator thread unselects the subagent", async () => 
     </App>
   );
 
-  await waitFor(() => expect(seen).toEqual({ threadId: ORCHESTRATOR, viewing: null, selectedId: null }));
-  expect(mounts).toBe(1);
-});
-
-test("a different orchestrator is a different board and remounts the host", async () => {
-  const app = render(
-    <App>
-      <Page threadId={ORCHESTRATOR} orchestratorThreadId={ORCHESTRATOR} />
-    </App>
+  await waitFor(() =>
+    expect(seen).toEqual({ threadId: ORCHESTRATOR, viewing: null, selectedId: null })
   );
-
-  await waitFor(() => expect(seen?.threadId).toBe(ORCHESTRATOR));
-  app.rerender(
-    <App>
-      <Page threadId={OTHER_ORCHESTRATOR} orchestratorThreadId={OTHER_ORCHESTRATOR} />
-    </App>
-  );
-
-  await waitFor(() => expect(seen?.threadId).toBe(OTHER_ORCHESTRATOR));
   expect(mounts).toBe(2);
 });
 
-test("the first registration fills in the host's guess without remounting it", async () => {
+test("a different orchestrator starts a clean board without remounting the host or the page twice", async () => {
+  const app = render(
+    <App>
+      <Page orchestratorThreadId={ORCHESTRATOR} threadId={ORCHESTRATOR} />
+    </App>
+  );
+
+  await waitFor(() => expect(board?.orchestratorThreadId).toBe(ORCHESTRATOR));
+  const host = layout(app.container);
+
+  act(() => board?.selectAgent("agent-researcher"));
+  expect(board?.sendTarget).toEqual({ kind: "subagent", agentId: "agent-researcher" });
+
+  app.rerender(
+    <App>
+      <Page orchestratorThreadId={OTHER_ORCHESTRATOR} threadId={OTHER_ORCHESTRATOR} />
+    </App>
+  );
+
+  await waitFor(() => expect(board?.orchestratorThreadId).toBe(OTHER_ORCHESTRATOR));
+  expect(board?.sendTarget).toEqual({ kind: "orchestrator" });
+  expect(layout(app.container)).toBe(host);
+  expect(mounts).toBe(2);
+});
+
+test("the first registration fills in the host's guess without remounting the page", async () => {
   render(
     <App>
-      <Page orchestratorThreadId={ORCHESTRATOR} threadId={SUBAGENT_THREAD} viewingSubagentId="lyra" />
+      <Page orchestratorThreadId={ORCHESTRATOR} threadId={SUBAGENT_THREAD} viewingSubagentId="agent-researcher" />
     </App>
   );
 
   await waitFor(() => expect(seen?.threadId).toBe(SUBAGENT_THREAD));
+  expect(board?.orchestratorThreadId).toBe(ORCHESTRATOR);
   expect(mounts).toBe(1);
+});
+
+test("a thread the server says has no workers makes no board or discovery requests", async () => {
+  render(
+    <App>
+      <Page hasSubagents={false} orchestratorThreadId={ORCHESTRATOR} threadId={ORCHESTRATOR} />
+    </App>
+  );
+
+  await waitFor(() => expect(seen?.threadId).toBe(ORCHESTRATOR));
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  });
+
+  expect(fetchSpy).not.toHaveBeenCalled();
 });
