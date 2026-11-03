@@ -44,11 +44,11 @@ export function SubagentDetail({
         "flex h-full min-h-0 flex-col rounded-xl border border-border/60"
       )}
     >
-      <header className="flex items-start justify-between gap-3 border-b border-border/50 px-4 py-3">
+      <header className="flex items-start justify-between gap-inline-md border-b border-border/50 px-inset-lg py-inset-md">
         <div className="min-w-0">
           <h2 className="truncate text-lg font-semibold tracking-tight">{agent.name}</h2>
           <p className="text-xs uppercase tracking-wide text-muted-foreground">
-            {agent.role} · Realtime voice <span className="font-mono">{agent.voiceId}</span>
+            {agent.role}
             {speaking ? " · speaking now" : ""}
           </p>
         </div>
@@ -61,25 +61,23 @@ export function SubagentDetail({
         </button>
       </header>
 
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
+      <div className="min-h-0 flex-1 space-y-stack-md overflow-y-auto px-inset-lg py-inset-md">
         <section>
           <h3 className="text-[10px] uppercase tracking-wide text-muted-foreground">Goal</h3>
-          <p className="mt-1 text-sm leading-relaxed">{agent.goal}</p>
+          <p className="mt-stack-xs text-sm leading-snug">{agent.goal}</p>
         </section>
         <section>
           <h3 className="text-[10px] uppercase tracking-wide text-muted-foreground">
             Current progress
           </h3>
-          <p className="mt-1 text-sm leading-relaxed text-foreground/90">{agent.progress}</p>
+          <p className="mt-stack-xs text-sm leading-snug text-foreground/90">{agent.progress}</p>
         </section>
         <section>
           <h3 className="text-[10px] uppercase tracking-wide text-muted-foreground">Milestones</h3>
           {agent.milestones.length === 0 ? (
-            <p className="mt-1 text-sm text-muted-foreground">
-              None yet — Speak only announces these.
-            </p>
+            <p className="mt-stack-xs text-sm text-muted-foreground">None yet.</p>
           ) : (
-            <ul className="mt-2 space-y-2">
+            <ul className="mt-stack-sm space-y-stack-sm">
               {[...agent.milestones].reverse().map((m) => (
                 <li
                   key={m.id}
@@ -91,19 +89,9 @@ export function SubagentDetail({
             </ul>
           )}
         </section>
-        <section>
-          <h3 className="text-[10px] uppercase tracking-wide text-muted-foreground">
-            Speak contract
-          </h3>
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            Speak to starts a new Realtime session in this voice, seeded with goal + progress.
-            Background progress is silent; milestones are announced. Only one Speak session at a
-            time — choosing another agent ends the current call first.
-          </p>
-        </section>
       </div>
 
-      <footer className="border-t border-border/50 p-3">
+      <footer className="border-t border-border/50 p-inset-md">
         <SubagentSpeakGlassBar
           agentName={agent.name}
           disabled={speakDisabled}

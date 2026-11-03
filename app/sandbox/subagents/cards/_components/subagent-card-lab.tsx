@@ -170,7 +170,6 @@ export function SubagentCardLab() {
                   onClickCapture={(event) => {
                     if ((event.target as HTMLElement).closest("a")) {
                       event.preventDefault();
-                      setSelected(true);
                     }
                   }}
                 >
@@ -200,7 +199,6 @@ export function SubagentCardLab() {
                   onClickCapture={(event) => {
                     if ((event.target as HTMLElement).closest("a")) {
                       event.preventDefault();
-                      setSelected(true);
                     }
                   }}
                 >

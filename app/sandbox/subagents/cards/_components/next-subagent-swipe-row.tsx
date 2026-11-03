@@ -33,6 +33,9 @@ type CompactCardProps = {
   onTarget: () => void;
   onSpeakTo: () => void;
   onEndSpeak: () => void;
+  /** Set on the subagent whose thread is open: clicking it goes here (the orchestrator). */
+  returnHref?: string;
+  onReturn?: () => void;
 };
 
 /**
@@ -50,6 +53,8 @@ function SubagentCompactCard({
   onTarget,
   onSpeakTo,
   onEndSpeak,
+  returnHref,
+  onReturn,
 }: CompactCardProps) {
   const speaking = speakPhase === "live" || speakPhase === "connecting";
   const modelName = getModelDisplayName(agent.modelId);
@@ -98,9 +103,12 @@ function SubagentCompactCard({
     >
       {agent.threadId ? (
         <Link
-          aria-label={`Open ${agent.name}'s thread`}
+          aria-label={
+            returnHref ? `Back to orchestrator from ${agent.name}` : `Open ${agent.name}'s thread`
+          }
           className={surface}
-          href={`/sandbox/arcadia/${agent.threadId}`}
+          href={returnHref ?? `/sandbox/arcadia/${agent.threadId}`}
+          onClick={returnHref ? onReturn : targeted ? undefined : onTarget}
         >
           {body}
         </Link>
@@ -146,6 +154,10 @@ type SubagentSwipeRowProps = {
   onSpeakTo: (agentId: string) => void;
   onEndSpeak: () => void;
   collapsible?: boolean;
+  /** Roster slot of the subagent whose thread is open, and where clicking it returns to. */
+  viewingAgentId?: string | null;
+  orchestratorHref?: string;
+  onReturn?: () => void;
 };
 
 /** Horizontal, snap-scrolling row of compact subagent cards for the condensed dashboard. */
@@ -158,6 +170,9 @@ export function NextSubagentSwipeRow({
   onSpeakTo,
   onEndSpeak,
   collapsible = false,
+  viewingAgentId = null,
+  orchestratorHref,
+  onReturn,
 }: SubagentSwipeRowProps) {
   const [expanded, setExpanded] = useState(false);
   const listId = useId();
@@ -207,6 +222,8 @@ export function NextSubagentSwipeRow({
               targeted={targetedAgentId === agent.id}
               onEndSpeak={onEndSpeak}
               onSpeakTo={() => onSpeakTo(agent.id)}
+              returnHref={viewingAgentId === agent.id ? orchestratorHref : undefined}
+              onReturn={onReturn}
               onTarget={() => onTarget(agent.id)}
             />
           </div>

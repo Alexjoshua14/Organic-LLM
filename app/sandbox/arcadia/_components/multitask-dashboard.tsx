@@ -216,6 +216,12 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
       voiceConnecting,
       voiceConnected,
     });
+  const orchestratorHref = `/sandbox/arcadia/${orchestratorThreadId}`;
+  // Clicking the active subagent leaves it: unselect and hand the composer back to the orchestrator.
+  const returnToOrchestrator = () => {
+    selectAgent(null);
+    setSendTarget({ kind: "orchestrator" });
+  };
   const targetedAgentId = sendTarget.kind === "subagent" ? sendTarget.agentId : null;
   const swipeRow = swipeRowActive ? (
     <SubagentSwipeRow
@@ -223,7 +229,10 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
       collapsible
       speakDisabled={speakDisabled}
       speakPhaseFor={speakPhaseFor}
+      orchestratorHref={orchestratorHref}
       targetedAgentId={viewingSubagentId ? null : targetedAgentId}
+      viewingAgentId={viewingSubagentId}
+      onReturn={returnToOrchestrator}
       onEndSpeak={endSpeak}
       onSpeakTo={(agentId) => void speakTo(agentId)}
       onTarget={(agentId) =>
@@ -440,7 +449,7 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
                 key="subagent-board"
                 animate={{ x: 0, opacity: 1 }}
                 aria-label="Subagent board"
-                className="min-h-0 flex-1 overflow-hidden px-4 lg:min-w-0 lg:h-full lg:pl-0"
+                className="min-h-0 flex-1 overflow-hidden px-2 lg:min-w-0 lg:h-full lg:pl-0"
                 exit={{
                   x: reduceMotion ? 0 : "12%",
                   opacity: 0,
@@ -451,11 +460,11 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
               >
                 <div
                   ref={boardScrollRef}
-                  className="h-full min-h-0 overflow-y-auto overscroll-contain"
+                  className="h-full min-h-0 overflow-y-auto overscroll-contain px-inset-lg pt-inset-lg"
                 >
                   <div
                     ref={boardMeasureRef}
-                    className="space-y-4 pb-2"
+                    className="space-y-4 pb-inset-lg"
                     data-multitask-scroll-anchor="subagent-board"
                     style={
                       boardMeasurePx != null
@@ -484,7 +493,11 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
                           startedAt={liveSpeakAgentId === agent.id ? startedAt : null}
                           voicePhase={voicePhase}
                           onEndSpeak={endSpeak}
-                          onSelect={() => selectAgent(agent.id)}
+                          returnHref={viewingSubagentId === agent.id ? orchestratorHref : undefined}
+                          onReturn={returnToOrchestrator}
+                          onSelect={() =>
+                            selectedId === agent.id ? returnToOrchestrator() : selectAgent(agent.id)
+                          }
                           onSpeakTo={() => void speakTo(agent.id)}
                         />
                       );
