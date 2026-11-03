@@ -343,6 +343,12 @@ function CanvasLifecycle({
   return null;
 }
 
+/**
+ * Measure the layout box, not the transformed one. getBoundingClientRect shrinks under an ancestor
+ * `scale`, so the glass drew smaller than its bar and sat off-centre behind the content.
+ */
+const CANVAS_RESIZE = { offsetSize: true };
+
 export default function FluidGlassCanvas({ onContextLost, onReady, paused }: GlassCanvasProps) {
   return (
     <Canvas
@@ -351,6 +357,7 @@ export default function FluidGlassCanvas({ onContextLost, onReady, paused }: Gla
       dpr={[1, MAX_DPR]}
       fallback={null}
       frameloop="demand"
+      resize={CANVAS_RESIZE}
       gl={{
         alpha: true,
         antialias: true,
