@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
-import { act, cleanup, render, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, waitFor, within } from "@testing-library/react";
 import { Fragment, useEffect, type ReactNode } from "react";
 
 import {
@@ -8,7 +8,9 @@ import {
 } from "@/app/sandbox/arcadia/_components/multitask-host";
 import { useArcadiaMultitask, type ArcadiaMultitaskValue } from "@/app/sandbox/arcadia/_components/multitask-provider";
 import { SidebarProvider } from "@/components/third-party/ui/sidebar";
+import { FeatureHintRegistryProvider } from "@/lib/onboarding/feature-hint-context";
 
+import { AppRouterProvider, appRouter } from "../helpers/app-router";
 import "../helpers/render";
 
 const ORCHESTRATOR = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -70,17 +72,19 @@ function Page({
   orchestratorThreadId,
   viewingSubagentId,
   hasSubagents = true,
+  view = false,
 }: {
   threadId: string;
   orchestratorThreadId: string;
   viewingSubagentId?: string;
   hasSubagents?: boolean;
+  view?: boolean;
 }) {
   return (
     <Fragment key={threadId}>
       <ArcadiaThreadMeta
         initialHasSubagentThreads={hasSubagents}
-        initialMultitaskView={false}
+        initialMultitaskView={view}
         orchestratorThreadId={orchestratorThreadId}
         threadId={threadId}
         viewingSubagentId={viewingSubagentId}
@@ -92,9 +96,13 @@ function Page({
 
 function App({ children }: { children: ReactNode }) {
   return (
-    <SidebarProvider>
-      <ArcadiaPersistentHost>{children}</ArcadiaPersistentHost>
-    </SidebarProvider>
+    <AppRouterProvider>
+      <FeatureHintRegistryProvider>
+        <SidebarProvider>
+          <ArcadiaPersistentHost>{children}</ArcadiaPersistentHost>
+        </SidebarProvider>
+      </FeatureHintRegistryProvider>
+    </AppRouterProvider>
   );
 }
 
@@ -197,4 +205,32 @@ test("a thread the server says has no workers makes no board or discovery reques
   });
 
   expect(fetchSpy).not.toHaveBeenCalled();
+});
+
+test("the header keeps the recipient picker in a subagent thread and switches chats from it", async () => {
+  appRouter.calls.length = 0;
+  const app = render(
+    <App>
+      <Page
+        orchestratorThreadId={ORCHESTRATOR}
+        threadId={SUBAGENT_THREAD}
+        view
+        viewingSubagentId="agent-researcher"
+      />
+    </App>
+  );
+
+  const group = await waitFor(() => app.getByRole("group", { name: "Message recipient" }));
+
+  expect(app.queryByText("Back to orchestrator")).toBeNull();
+  expect(
+    within(group).getByRole("button", { name: "Lyra", pressed: true, hidden: true })
+  ).toBeTruthy();
+
+  // Open the picker, then pick Orchestrator: back to the orchestrator thread, nothing selected.
+  fireEvent.click(within(group).getByRole("button", { name: "Lyra", hidden: true }));
+  fireEvent.click(within(group).getByRole("button", { name: "Orchestrator", hidden: true }));
+
+  expect(appRouter.calls).toEqual([{ method: "replace", href: `/sandbox/arcadia/${ORCHESTRATOR}` }]);
+  expect(board?.selectedId).toBeNull();
 });

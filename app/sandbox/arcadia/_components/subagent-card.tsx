@@ -107,6 +107,7 @@ export function SubagentCard({
     >
       {agent.threadId ? (
         <Link
+          replace
           aria-label={
             returnHref ? `Back to orchestrator from ${agent.name}` : `Open ${agent.name}'s thread`
           }

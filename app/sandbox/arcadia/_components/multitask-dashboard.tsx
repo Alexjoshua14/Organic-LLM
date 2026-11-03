@@ -1,8 +1,9 @@
 "use client";
 
 import type { CSSProperties, ReactNode } from "react";
+import type { ArcadiaMultitaskSendTarget } from "@/lib/arcadia/multitask/layout-mode";
 
-import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Layers3, MessageSquare, X } from "lucide-react";
@@ -29,7 +30,6 @@ import { KeyboardShortcutKbd } from "@/components/onboarding/keyboard-shortcut-k
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/third-party/ui/tooltip";
 import { useVoiceSessionOptional } from "@/components/voice/voice-session-provider";
 import {
-  formatSendTargetLabel,
   isArcadiaSubagentRunning,
   MULTITASK_DASHBOARD_WIDE_MIN_PX,
   MULTITASK_DESKTOP_GUTTER_PX,
@@ -60,6 +60,7 @@ type MultitaskDashboardProps = {
  * Ctrl+Q/W panel slides, scroll eye-line pin.
  */
 export function MultitaskDashboard({ children, enabled = true }: MultitaskDashboardProps) {
+  const router = useRouter();
   const voice = useVoiceSessionOptional();
   const reduceMotion = useReducedMotion();
   const condensed = useMultitaskCondensed();
@@ -222,6 +223,28 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
     selectAgent(null);
     setSendTarget({ kind: "orchestrator" });
   };
+  // Switching chats from the header replaces the history entry, like the cards do.
+  const switchChat = (target: ArcadiaMultitaskSendTarget) => {
+    if (target.kind === "orchestrator") {
+      returnToOrchestrator();
+      router.replace(orchestratorHref);
+
+      return;
+    }
+
+    const agent = agents.find((candidate) => candidate.id === target.agentId);
+
+    selectAgent(target.agentId);
+    if (agent?.threadId) router.replace(`/sandbox/arcadia/${agent.threadId}`);
+  };
+  // The chat on screen, read from the URL: it moves as soon as the navigation commits, ahead of the
+  // page's server data, so the header does not show the previous chat while the new one loads.
+  const slug = useParams<{ slug?: string }>()?.slug;
+  const viewingNowId = !slug
+    ? viewingSubagentId
+    : slug === orchestratorThreadId
+      ? null
+      : (agents.find((agent) => agent.threadId === slug)?.id ?? viewingSubagentId);
   const targetedAgentId = sendTarget.kind === "subagent" ? sendTarget.agentId : null;
   const swipeRow = swipeRowActive ? (
     <SubagentSwipeRow
@@ -305,25 +328,11 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
         >
           <FeatureHint id="arcadia-multiagent" showWhen={!viewingSubagentId}>
             <div className="min-w-0 flex-1 select-none pr-2">
-              {viewingSubagentId ? (
-                <h1 className="truncate text-sm font-medium">
-                  {formatSendTargetLabel({ kind: "subagent", agentId: viewingSubagentId }, agents)}
-                </h1>
-              ) : (
-                <SendTargetPicker
-                  agents={agents}
-                  sendTarget={sendTarget}
-                  onChange={setSendTarget}
-                />
-              )}
-              {viewingSubagentId ? (
-                <Link
-                  className="block text-xs underline underline-offset-4"
-                  href={`/sandbox/arcadia/${orchestratorThreadId}`}
-                >
-                  Back to orchestrator
-                </Link>
-              ) : null}
+              <SendTargetPicker
+                agents={agents}
+                sendTarget={viewingNowId ? { kind: "subagent", agentId: viewingNowId } : sendTarget}
+                onChange={viewingNowId ? switchChat : setSendTarget}
+              />
               <p className="select-none truncate ps-[0.5em] text-[11px] text-muted-foreground">
                 {runningCount} running
               </p>
