@@ -2,7 +2,7 @@
 
 import type { ArcadiaSpeakSessionPhase } from "@/lib/arcadia/multitask/speak-session";
 
-import { Mic, PhoneOff } from "lucide-react";
+import { AudioLines, PhoneOff } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 
 import {
@@ -70,8 +70,9 @@ export function SubagentSpeakGlassBar({
           <motion.button
             key="idle"
             animate={{ opacity: 1 }}
+            aria-label={`Speak to ${agentName}`}
             className={cn(
-              "relative grid size-full select-none grid-cols-[1rem_minmax(0,1fr)_1rem] items-center gap-1.5 px-3 text-center",
+              "relative flex size-full cursor-pointer select-none items-center justify-center px-3",
               "text-xs font-medium text-foreground/85",
               "hover:text-foreground transition-colors",
               "disabled:pointer-events-none disabled:opacity-40"
@@ -79,6 +80,7 @@ export function SubagentSpeakGlassBar({
             disabled={disabled || phase === "closing"}
             exit={{ opacity: 0 }}
             initial={{ opacity: reduceMotion ? 1 : 0 }}
+            title={`Speak to ${agentName}`}
             transition={{ duration: phase === "closing" ? exit : enter, ease: SPEAK_BAR_EASE }}
             type="button"
             onClick={(e) => {
@@ -86,8 +88,7 @@ export function SubagentSpeakGlassBar({
               onSpeakTo();
             }}
           >
-            <Mic aria-hidden className="size-3.5 justify-self-center opacity-80" />
-            <span className="min-w-0">Speak to {agentName}</span>
+            <AudioLines aria-hidden className="size-5 opacity-80" />
           </motion.button>
         ) : (
           <motion.div
@@ -131,7 +132,7 @@ export function SubagentSpeakGlassBar({
             )}
             <button
               aria-label="End voice session"
-              className="relative shrink-0 rounded-full p-1 text-muted-foreground transition-colors hover:text-rose-400"
+              className="relative shrink-0 cursor-pointer rounded-full p-1 text-muted-foreground transition-colors hover:text-rose-400"
               title="End voice session"
               type="button"
               onClick={(e) => {

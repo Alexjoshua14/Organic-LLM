@@ -22,7 +22,6 @@ import { SubagentCard } from "./subagent-card";
 import { SubagentDetail } from "./subagent-detail";
 import { SubagentSwipeRow } from "./subagent-swipe-row";
 import { useMultitaskCondensed } from "./use-multitask-condensed";
-import { VoiceRosterLegend } from "./voice-roster-legend";
 
 import { glass } from "@/components/design-system/primitives";
 import { FeatureHint } from "@/components/onboarding/feature-hint";
@@ -518,12 +517,7 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
                         onEndSpeak={endSpeak}
                         onSpeakTo={() => void speakTo(selected.id)}
                       />
-                    ) : (
-                      <p className="px-1 text-xs text-muted-foreground">
-                        Tap a subagent to open their thread, or Speak to start a Realtime session.
-                      </p>
-                    )}
-                    <VoiceRosterLegend />
+                    ) : null}
                   </div>
                 </div>
               </motion.section>

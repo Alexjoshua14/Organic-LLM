@@ -1,5 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 
 import { OpenShellButton } from "./open-shell-button";
 
@@ -30,6 +31,18 @@ export default async function SubagentLabPage() {
               help gets its reflex menu; anything that needs thought runs as a normal turn.
             </p>
           </header>
+          <Link
+            className={cn(
+              glass(),
+              "mb-6 block rounded-xl border border-border/70 p-4 hover:bg-background-secondary"
+            )}
+            href="/sandbox/subagents/cards"
+          >
+            <h2 className="font-semibold">Subagent cards</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Current and next, side by side. Desktop and mobile.
+            </p>
+          </Link>
           <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {HARD_SET_SUBAGENTS.map((agent) => (
               <li

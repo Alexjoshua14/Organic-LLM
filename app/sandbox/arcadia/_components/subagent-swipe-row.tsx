@@ -5,7 +5,7 @@ import type { ArcadiaSpeakSessionPhase } from "@/lib/arcadia/multitask/speak-ses
 import type { CSSProperties } from "react";
 
 import Link from "next/link";
-import { ChevronDown, Mic, Radio } from "lucide-react";
+import { AudioLines, ChevronDown, Radio } from "lucide-react";
 import { useId, useState } from "react";
 
 import { glass } from "@/components/design-system/primitives";
@@ -16,13 +16,6 @@ import {
 } from "@/lib/arcadia/multitask/layout-mode";
 import { cn } from "@/lib/utils";
 import { getModelDisplayName } from "@/lib/chat/message-model";
-
-const STATUS_DOT: Record<ArcadiaSubagent["status"], string> = {
-  idle: "bg-muted-foreground/40",
-  working: "bg-emerald-500",
-  blocked: "bg-amber-500",
-  done: "bg-sky-500",
-};
 
 const STATUS_LABEL: Record<ArcadiaSubagent["status"], string> = {
   idle: "Idle",
@@ -43,7 +36,7 @@ type CompactCardProps = {
 };
 
 /**
- * Condensed-layout subagent card: identity, status, model, and progress bar. Opens the subagent's
+ * Condensed-layout subagent card: identity, status, and model. Opens the subagent's
  * thread when it has one; otherwise addresses the composer to it.
  */
 function SubagentCompactCard({
@@ -61,7 +54,7 @@ function SubagentCompactCard({
     <>
       <div className="flex items-center gap-2 pr-7">
         <SubagentIdentityMark
-          className="size-7 rounded-md"
+          className="size-9 rounded-md"
           imageUrl={agent.identityImageUrl}
           name={agent.name}
           seed={agent.activitySeed ?? agent.id}
@@ -73,38 +66,27 @@ function SubagentCompactCard({
             {agent.name}
           </p>
           <p className="flex items-center gap-1 truncate text-[10px] leading-tight uppercase tracking-wide text-muted-foreground">
-            <span
-              aria-hidden
-              className={cn("size-1.5 shrink-0 rounded-full", STATUS_DOT[agent.status])}
-            />
             <span className="sr-only">{STATUS_LABEL[agent.status]}, </span>
             {agent.role}
           </p>
         </div>
       </div>
       <p
-        className="mt-0.5 truncate text-[10px] leading-tight text-muted-foreground/70"
+        className="mt-0.5 truncate pr-7 text-[10px] leading-tight text-muted-foreground/70"
         title={agent.modelId ?? undefined}
       >
-        <span className="select-none text-muted-foreground/50">LLM · </span>
         {modelName ?? (agent.threadId ? "Not recorded" : "Not assigned")}
       </p>
-      <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-background/60">
-        <div
-          className="h-full rounded-full bg-amber-800/70 transition-[width] duration-500 dark:bg-amber-200/50"
-          style={{ width: `${Math.min(100, Math.max(0, agent.progressPct))}%` }}
-        />
-      </div>
     </>
   );
   const surface =
-    "block w-full rounded-xl p-2.5 pb-2 text-left focus-visible:outline focus-visible:outline-2";
+    "block w-full cursor-pointer rounded-xl p-2.5 pb-2 text-left focus-visible:outline focus-visible:outline-2";
 
   return (
     <article
       className={cn(
         glass(),
-        "relative rounded-xl border transition-colors",
+        "relative select-none rounded-xl border transition-colors",
         targeted || speaking
           ? "border-amber-700/40 ring-1 ring-amber-800/20 dark:border-amber-200/25"
           : "border-border/50"
@@ -133,7 +115,7 @@ function SubagentCompactCard({
       <button
         aria-label={speaking ? `End call with ${agent.name}` : `Speak to ${agent.name}`}
         className={cn(
-          "absolute right-1 top-1 inline-flex size-8 items-center justify-center rounded-lg",
+          "absolute right-1 top-1/2 inline-flex size-8 cursor-pointer -translate-y-1/2 items-center justify-center rounded-lg",
           "text-muted-foreground transition-colors hover:bg-background/60 hover:text-foreground",
           "disabled:pointer-events-none disabled:opacity-40",
           speaking && "text-amber-800 dark:text-amber-200"
@@ -145,7 +127,7 @@ function SubagentCompactCard({
         {speaking ? (
           <Radio aria-hidden className="size-3.5" />
         ) : (
-          <Mic aria-hidden className="size-3.5" />
+          <AudioLines aria-hidden className="size-3.5" />
         )}
       </button>
     </article>

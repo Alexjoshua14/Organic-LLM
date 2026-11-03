@@ -68,7 +68,7 @@ export function SubagentDetail({
         </section>
         <section>
           <h3 className="text-[10px] uppercase tracking-wide text-muted-foreground">
-            Current progress · {agent.progressPct}%
+            Current progress
           </h3>
           <p className="mt-1 text-sm leading-relaxed text-foreground/90">{agent.progress}</p>
         </section>
