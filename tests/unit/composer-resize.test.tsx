@@ -18,6 +18,8 @@ let originalRaf: typeof requestAnimationFrame;
 let originalCancelRaf: typeof cancelAnimationFrame;
 let originalObserver: typeof ResizeObserver;
 let viewportDescriptor: PropertyDescriptor | undefined;
+let animationsDescriptor: PropertyDescriptor | undefined;
+let animations: Animation[];
 
 function resizeViewport(width: number) {
   Object.defineProperty(window, "innerWidth", { configurable: true, value: width });
@@ -73,6 +75,9 @@ beforeEach(() => {
   time = 0;
   frameId = 0;
   frames.clear();
+  animations = [];
+  animationsDescriptor = Object.getOwnPropertyDescriptor(document, "getAnimations");
+  Object.defineProperty(document, "getAnimations", { configurable: true, value: () => animations });
   observers.length = 0;
   originalRaf = globalThis.requestAnimationFrame;
   originalCancelRaf = globalThis.cancelAnimationFrame;
@@ -123,6 +128,8 @@ afterEach(() => {
   globalThis.requestAnimationFrame = originalRaf;
   globalThis.cancelAnimationFrame = originalCancelRaf;
   globalThis.ResizeObserver = originalObserver;
+  if (animationsDescriptor) Object.defineProperty(document, "getAnimations", animationsDescriptor);
+  else delete (document as Partial<Document>).getAnimations;
   if (viewportDescriptor) Object.defineProperty(window, "innerWidth", viewportDescriptor);
 });
 
@@ -224,5 +231,82 @@ describe("composer viewport transitions", () => {
     expect(el.style.transform).toBe("");
     expect(frames.size).toBe(0);
     expect(visibleBox(el)).toEqual(layout);
+  });
+
+  test.each([true, false])(
+    "slow sidebar frames stay within layout bounds (opening: %s)",
+    (opening) => {
+      const view = render(<Composer />);
+      const el = view.getByTestId("composer");
+      const before = visibleBox(el);
+
+      layout = { ...layout, left: opening ? 520 : 80, width: opening ? 580 : 1020 };
+      act(() => observers[0]!.emit());
+      // Sidebar CSS transitions and a busy render can leave 50–100ms between frames.
+      // A single Euler step at that interval throws the composer past its new position.
+      for (const delta of [64, 80, 100, 64, 80, 100]) {
+        paint(delta);
+        const box = visibleBox(el);
+
+        expect(box.left).toBeGreaterThanOrEqual(Math.min(before.left, layout.left) - 2);
+        expect(box.left).toBeLessThanOrEqual(Math.max(before.left, layout.left) + 2);
+        expect(box.width).toBeGreaterThanOrEqual(Math.min(before.width, layout.width) - 2);
+        expect(box.width).toBeLessThanOrEqual(Math.max(before.width, layout.width) + 2);
+      }
+      settle();
+      expect(visibleBox(el)).toEqual(layout);
+      expect(el.style.transform).toBe("");
+      expect(frames.size).toBe(0);
+    }
+  );
+
+  test("CSS layout motion and its final resize observation do not start a second animation", () => {
+    const view = render(<Composer />);
+    const el = view.getByTestId("composer");
+    const sidebar = document.createElement("aside");
+    view.container.append(sidebar);
+    const transition = {
+      playState: "running",
+      transitionProperty: "width",
+      effect: { target: sidebar },
+    };
+    animations = [transition as unknown as Animation];
+
+    layout = { ...layout, left: 350, width: 750 };
+    act(() => observers[0]!.emit());
+    expect(visibleBox(el)).toEqual(layout);
+    expect(el.style.transform).toBe("");
+    expect(frames.size).toBe(0);
+
+    transition.playState = "finished";
+    layout = { ...layout, left: 520, width: 580 };
+    act(() => observers[0]!.emit());
+    expect(visibleBox(el)).toEqual(layout);
+    expect(frames.size).toBe(0);
+
+    // A later snapped viewport resize still gets its own spring.
+    layout = { ...layout, left: 16, width: 600 };
+    act(() => resizeViewport(700));
+    expect(frames.size).toBe(1);
+  });
+
+  test("decorative and unrelated layout transitions do not disable viewport springs", () => {
+    const view = render(<Composer />);
+    const unrelated = document.createElement("section");
+    const target = document.createElement("div");
+    unrelated.append(target);
+    document.body.append(unrelated);
+    animations = [
+      { playState: "running", transitionProperty: "opacity", effect: { target: view.container } },
+      { playState: "running", transitionProperty: "width", effect: { target } },
+    ] as unknown as Animation[];
+
+    try {
+      layout = { ...layout, left: 16, width: 600 };
+      act(() => resizeViewport(700));
+      expect(frames.size).toBe(1);
+    } finally {
+      unrelated.remove();
+    }
   });
 });

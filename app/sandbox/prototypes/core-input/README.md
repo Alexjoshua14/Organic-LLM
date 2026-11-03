@@ -50,3 +50,8 @@ Small refactors made so the lab renders production presentation with controlled 
   `resolveOrganicSubmitState`.
 - `context-budget-indicator.tsx` — `ContextBudgetIndicatorView`, `ContextDonut`, and
   `ContextBudgetPopover` exported; the indicator is now hook + view.
+- `footer/core-input-footer.tsx` + `footer/footer-placement.ts` — the footer row and its
+  placement rules, extracted from `core-input.tsx` (COA-412). The "Assembled toolbar" card
+  renders this component instead of a hand-built copy.
+- `controls/overflow-menu.tsx` — reads `CoreInputControlsProvider` like the other controls,
+  so pinned menu cells use `Pinned` overrides.

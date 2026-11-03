@@ -15,6 +15,7 @@ import {
   type UserConnectorsProfileInput,
 } from "@/lib/schemas/user-connectors";
 import { writeErgonLiquidChromeCookie } from "@/lib/ergon/liquid-chrome-cookie";
+import { writeSettingsCookie } from "@/lib/core-input/settings-cookie";
 
 const USER_SETTINGS_STORAGE_KEY = "organic-llm-user-settings";
 const LEGACY_FONT_KEY = "organic-llm-font";
@@ -76,6 +77,11 @@ export function setSettings(partial: Partial<UserSettings>): UserSettings {
   if (partial.ergonLiquidChrome !== undefined) {
     writeErgonLiquidChromeCookie(partial.ergonLiquidChrome);
   }
+
+  writeSettingsCookie({
+    experimentalContextEffort: next.experimentalContextEffort,
+    experimentalArcadiaMarkdownPreview: next.experimentalArcadiaMarkdownPreview,
+  });
 
   // Notify listeners in the same tab (storage event doesn't fire in the same document).
   window.dispatchEvent(new Event("organic-llm-settings"));

@@ -3,8 +3,7 @@
 import { useState } from "react";
 import { PlusIcon } from "lucide-react";
 
-import { ComposerActionButton } from "./composer-action-button";
-
+import { ComposerActionButton } from "@/components/chat/composer-action-button";
 import {
   PromptInputActionAddAttachments,
   PromptInputActionMenu,

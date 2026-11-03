@@ -59,6 +59,30 @@ Two paths settle the morph instantly instead:
   morph from.
 - **Nothing changed:** two scopes with identical settings switch silently.
 
+## First paint
+
+Chat and Arcadia read a small cookie mirror of composer preferences on each request. A
+validated thread snapshot (or its area's fallback) seeds the controls and the two experimental
+flags, so return visits paint their saved values immediately. Local storage and background
+sync remain authoritative after hydration; a newer snapshot uses the existing morph.
+
+The cookie uses the snapshot codec, retaining four area entries and eight recent other scopes
+(under 300 bytes for the value). It contains scope hashes and preferences, never draft text or
+messages. Missing, malformed, or unknown-model cookies provide no seed. `/btw` edits are never
+mirrored. The cookie is a display hint; model access remains enforced by the chat API.
+
+When no valid seed exists, the server's defaults must not paint and then swap:
+
+- **Unseeded settings controls are hidden on the server.** Persona, search and memory, speech,
+  preview, model and effort, and context effort keep their space but stay hidden until the
+  client has applied the saved settings. They then fade in over
+  `CORE_INPUT_SETTINGS_REVEAL_MS` (150ms, provisional), or instantly under reduced motion.
+  Add files, the thread clipboard, mic, and send don't depend on settings, so they paint
+  immediately. Client-only remounts keep settings visible while the scope morph runs.
+- **The persona chip holds its space** with an invisible copy of itself while its session
+  loads.
+- **The textarea server-renders one row**, matching `minRows`.
+
 ## Changing this
 
 Prototype in `/sandbox/prototypes/core-input` before promoting new values. Keep the order

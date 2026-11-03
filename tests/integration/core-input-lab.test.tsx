@@ -1,3 +1,4 @@
+import type { CoreInputInitialSettings } from "@/lib/core-input/settings-cookie";
 import type { ReactNode } from "react";
 
 import { afterAll, afterEach, beforeAll, describe, expect, mock, spyOn, test } from "bun:test";
@@ -7,7 +8,9 @@ import userEvent from "@testing-library/user-event";
 import { render } from "../helpers/render";
 
 import { CoreInput } from "@/components/chat/core-input";
+import { ChatModels } from "@/lib/schemas/chat";
 import { DEFAULT_COMPOSER_MODEL } from "@/lib/chat/composer-tool-defaults";
+import { coreInputSnapshots } from "@/lib/core-input/snapshot-store";
 import { coreInputScopes, type CoreInputScope } from "@/lib/core-input/scopes";
 import { FeatureHintRegistryProvider } from "@/lib/onboarding/feature-hint-context";
 import { ChatContext, type ChatContextValue } from "@/lib/context/chat-context";
@@ -566,5 +569,144 @@ describe("CoreInput snapshot scopes", () => {
     await act(async () => fireEvent.submit(textarea.form!));
     expect(sendMessage).not.toHaveBeenCalled();
     expect(textarea.value).toBe("/unknown thing");
+  });
+});
+
+describe("CoreInput first paint", () => {
+  afterEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+    localStorage.clear();
+  });
+
+  const makeUi = (initialSettings?: CoreInputInitialSettings) => (
+    <Providers>
+      <CoreInput
+        initialSettings={initialSettings}
+        snapshotScope={
+          initialSettings
+            ? coreInputScopes.thread("arcadia", initialSettings.scopeKey.split(":thread:")[1]!)
+            : undefined
+        }
+        experience="arcadia"
+        enableMarkdownInputPreview={initialSettings?.experimentalArcadiaMarkdownPreview}
+        modelRef={{ current: DEFAULT_COMPOSER_MODEL }}
+        useWebSearchRef={{ current: true }}
+        useMemoriesRef={{ current: false }}
+        sendMessage={mock(async () => {})}
+        stop={async () => {}}
+        status="ready"
+        featureHints={false}
+        showContextBudget={false}
+      />
+    </Providers>
+  );
+  /** The leading settings cluster: the element that wraps the model picker. */
+  const settingsCluster = (root: ParentNode) =>
+    root.querySelector('[data-core-input-field="model"]')?.parentElement ?? null;
+
+  test("the server render hides the settings controls, holding their space", async () => {
+    const { renderToString } = await import("react-dom/server");
+    const host = document.createElement("div");
+
+    host.innerHTML = renderToString(makeUi());
+    const cluster = settingsCluster(host);
+
+    expect(cluster?.classList.contains("invisible")).toBe(true);
+    expect(cluster?.getAttribute("aria-hidden")).toBe("true");
+    // Trailing controls don't depend on saved settings and paint immediately.
+    const addFiles = host.querySelector('[aria-label="Add files"]');
+
+    expect(addFiles).toBeTruthy();
+    expect(addFiles?.closest(".invisible")).toBeNull();
+  });
+
+  test("the client reveals them once saved settings are applied", async () => {
+    const view = render(makeUi());
+
+    await waitFor(() =>
+      expect(settingsCluster(view.container)?.classList.contains("visible")).toBe(true)
+    );
+    const cluster = settingsCluster(view.container);
+
+    expect(cluster?.classList.contains("invisible")).toBe(false);
+    expect(cluster?.hasAttribute("aria-hidden")).toBe(false);
+  });
+
+  test("a cookie seed paints the real settings and hydrates without a mismatch", async () => {
+    const { renderToString } = await import("react-dom/server");
+    const { hydrateRoot } = await import("react-dom/client");
+    const scope = coreInputScopes.thread("arcadia", crypto.randomUUID());
+    const initial: CoreInputInitialSettings = {
+      scopeKey: scope.key,
+      experimentalContextEffort: true,
+      experimentalArcadiaMarkdownPreview: true,
+      settings: {
+        modelId: ChatModels.find(
+          (model) => !model.adminOnly && model.id !== DEFAULT_COMPOSER_MODEL.id
+        )!.id,
+        effort: "auto",
+        contextEffort: "quick",
+        webSearch: false,
+        memories: true,
+        speechFriendly: false,
+      },
+    };
+    coreInputSnapshots.commit(scope, initial.settings);
+    localStorage.setItem(
+      USER_SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        ...defaultUserSettings(),
+        experimentalContextEffort: true,
+        experimentalArcadiaMarkdownPreview: true,
+      })
+    );
+    const host = document.createElement("div");
+    host.innerHTML = renderToString(makeUi(initial));
+    document.body.appendChild(host);
+    expect(settingsCluster(host)?.classList.contains("visible")).toBe(true);
+    expect(host.querySelector('[aria-label="Web search off"]')).toBeTruthy();
+    expect(host.querySelector('[data-core-input-field="context-effort"]')).toBeTruthy();
+    expect(host.querySelector('[aria-label="Model"]')?.getAttribute("data-model-id")).toBe(
+      initial.settings.modelId
+    );
+    const recoveries: unknown[] = [];
+    const fetchSpy = spyOn(globalThis, "fetch").mockImplementation(
+      async () => new Response("{}", { status: 503 })
+    );
+    let root: ReturnType<typeof hydrateRoot> | undefined;
+    try {
+      await act(async () => {
+        root = hydrateRoot(host, makeUi(initial), {
+          onRecoverableError: (error) => recoveries.push(error),
+        });
+      });
+      expect(recoveries).toEqual([]);
+      expect(settingsCluster(host)?.classList.contains("visible")).toBe(true);
+      expect(host.querySelector("[data-core-input-morph]")).toBeNull();
+      expect(host.querySelector('[aria-label="Web search off"]')).toBeTruthy();
+    } finally {
+      await act(async () => root?.unmount());
+      fetchSpy.mockRestore();
+      host.remove();
+    }
+  });
+
+  test("client-only remounts have visible controls before passive preference effects", () => {
+    const observed: boolean[] = [];
+    const mount = () =>
+      render(
+        <div
+          ref={(node) => {
+            if (node) observed.push(settingsCluster(node)?.classList.contains("visible") ?? false);
+          }}
+        >
+          {makeUi()}
+        </div>
+      );
+    const first = mount();
+    first.unmount();
+    mount();
+    expect(observed).toEqual([true, true]);
   });
 });

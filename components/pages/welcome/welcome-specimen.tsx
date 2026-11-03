@@ -7,10 +7,10 @@ import Image from "next/image";
 import { useEffect, useId, useRef } from "react";
 import { motion, useMotionValue, useReducedMotion, useSpring, useTransform } from "framer-motion";
 
-import { useHydrated } from "./use-hydrated";
 import styles from "./welcome-specimen.module.css";
 import { specimenPaneTransform } from "./welcome-specimen-projection";
 
+import { useHydrated } from "@/hooks/use-hydrated";
 import { OrganicActivityMark } from "@/components/agents/organic-activity-mark";
 import sceneLight from "@/public/images/welcome/living-specimen-scene-light.webp";
 import sceneDark from "@/public/images/welcome/living-specimen-scene-dark.webp";

@@ -6,6 +6,8 @@ import { cache } from "react";
 import { ChatLoadError } from "./chat-load-error";
 
 import Page from "@/components/layout/page";
+import { readCoreInputInitialSettings } from "@/lib/core-input/server-settings";
+import { coreInputScopes } from "@/lib/core-input/scopes";
 import { Chat } from "@/components/chat/chat";
 import { PerfServerPhases } from "@/components/perf/perf-server-phases";
 import { loadChat } from "@/lib/chat/chat-store";
@@ -72,12 +74,20 @@ export default async function ChatPage({
     return <ChatLoadError />;
   }
 
+  const initialComposerSettings = await readCoreInputInitialSettings(
+    coreInputScopes.thread("chat", id)
+  );
+
   return (
     <>
       <PerfServerPhases journey="to-chat" phases={getPhaseCollector()} />
       <Page>
         <div className="w-full h-full">
-          <Chat chatData={chatData} initialDraft={draft} />
+          <Chat
+            initialComposerSettings={initialComposerSettings}
+            chatData={chatData}
+            initialDraft={draft}
+          />
         </div>
       </Page>
     </>

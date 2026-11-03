@@ -2,6 +2,7 @@
 
 import type { AnswerCardBlock } from "@/lib/schemas/gen-ui";
 
+import { GenUIMarkdown } from "@/components/chat/gen-ui/GenUIMarkdown";
 import { cn } from "@/lib/utils";
 
 /**
@@ -14,8 +15,6 @@ const CONFIDENCE_DOT: Record<NonNullable<AnswerCardBlock["footer"]>["confidence"
   medium: "bg-amber-500",
   low: "bg-rose-500",
 };
-
-const VISIBLE_KEY_POINTS = 5;
 
 type AnswerCardProps = {
   block: AnswerCardBlock;
@@ -34,9 +33,6 @@ function KeyPoint({ children }: { children: React.ReactNode }) {
 export function AnswerCard({ block, partial }: AnswerCardProps) {
   const confidence = block.footer?.confidence;
 
-  const visible = block.keyPoints.slice(0, VISIBLE_KEY_POINTS);
-  const overflow = block.keyPoints.slice(VISIBLE_KEY_POINTS);
-
   return (
     <div className="space-y-4">
       {/* Hero summary — the answer leads, in the brand accent, at a readable size. */}
@@ -48,7 +44,9 @@ export function AnswerCard({ block, partial }: AnswerCardProps) {
           <span className="text-2xs font-semibold uppercase tracking-[0.12em] text-accent/90">
             Summary
           </span>
-          <p className="mt-1 text-[0.9375rem] leading-relaxed text-foreground">{block.tldr}</p>
+          <p className="mt-1 text-[0.9375rem] leading-relaxed text-foreground">
+            <GenUIMarkdown inline>{block.tldr}</GenUIMarkdown>
+          </p>
         </div>
       )}
 
@@ -57,24 +55,14 @@ export function AnswerCard({ block, partial }: AnswerCardProps) {
           <p className="mb-2 text-2xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
             Key points
           </p>
+          {/* All points show: the schema caps them at 7, so the list never needs collapsing. */}
           <ul className="space-y-2 text-sm text-foreground/90">
-            {visible.map((p, i) => (
-              <KeyPoint key={i}>{p}</KeyPoint>
+            {block.keyPoints.map((p, i) => (
+              <KeyPoint key={i}>
+                <GenUIMarkdown inline>{p}</GenUIMarkdown>
+              </KeyPoint>
             ))}
           </ul>
-          {overflow.length > 0 ? (
-            <details className="group mt-2.5 text-sm">
-              <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-accent">
-                Show {overflow.length} more
-                <span className="transition-transform group-open:rotate-90">›</span>
-              </summary>
-              <ul className="mt-2 space-y-2 text-foreground/90">
-                {overflow.map((p, i) => (
-                  <KeyPoint key={i}>{p}</KeyPoint>
-                ))}
-              </ul>
-            </details>
-          ) : null}
         </div>
       ) : partial ? (
         <div className="space-y-2">
@@ -90,14 +78,16 @@ export function AnswerCard({ block, partial }: AnswerCardProps) {
           open={section.defaultOpen}
         >
           <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-sm font-medium text-foreground">
-            {section.heading}
+            <span>
+              <GenUIMarkdown inline>{section.heading}</GenUIMarkdown>
+            </span>
             <span className="text-muted-foreground transition-transform group-open:rotate-90">
               ›
             </span>
           </summary>
-          <p className="mt-2.5 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+          <GenUIMarkdown className="mt-2.5 text-sm leading-relaxed text-muted-foreground">
             {section.body}
-          </p>
+          </GenUIMarkdown>
         </details>
       ))}
 
@@ -135,7 +125,7 @@ export function AnswerCard({ block, partial }: AnswerCardProps) {
           ) : null}
           {block.footer.caveats?.map((c, i) => (
             <p key={i} className="w-full text-xs italic leading-relaxed text-muted-foreground">
-              {c}
+              <GenUIMarkdown inline>{c}</GenUIMarkdown>
             </p>
           ))}
         </footer>
