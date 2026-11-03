@@ -36,6 +36,9 @@ type CompactCardProps = {
 };
 
 /**
+ * CURRENT version. Design changes go to the Next fork in app/sandbox/subagents/cards, not here;
+ * "promote" copies Next over this file. See docs/design/subagent-card-lab.md.
+ *
  * Condensed-layout subagent card: identity, status, and model. Opens the subagent's
  * thread when it has one; otherwise addresses the composer to it.
  */

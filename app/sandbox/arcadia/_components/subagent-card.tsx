@@ -29,6 +29,9 @@ type SubagentCardProps = {
 };
 
 /**
+ * CURRENT version. Design changes go to the Next fork in app/sandbox/subagents/cards, not here;
+ * "promote" copies Next over this file. See docs/design/subagent-card-lab.md.
+ *
  * Condensed main character for one active subagent — not a status chip, not a full page.
  */
 export function SubagentCard({
@@ -51,6 +54,7 @@ export function SubagentCard({
     <SubagentSpeakGlassBar
       agentName={agent.name}
       disabled={speakDisabled}
+      fillHeight={!speaking}
       localStream={localStream}
       phase={speakPhase}
       remoteStream={remoteStream}
@@ -64,11 +68,9 @@ export function SubagentCard({
   return (
     <article
       className={cn(
-        glass(),
-        "relative isolate cursor-pointer select-none rounded-xl border p-3 pb-2 transition-colors",
-        selected
-          ? "border-amber-700/40 dark:border-amber-200/25 ring-1 ring-amber-800/20"
-          : "border-border/50 hover:border-border"
+        glass({ border: "none" }),
+        "relative isolate cursor-pointer select-none rounded-xl p-3 pb-2 transition-colors",
+        selected && "ring-1 ring-amber-800/20"
       )}
     >
       {agent.threadId ? (
@@ -100,7 +102,7 @@ export function SubagentCard({
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <h3 className="truncate font-semibold leading-tight tracking-tight text-foreground">
+                    <h3 className="truncate font-normal leading-tight tracking-tight text-foreground">
                       {agent.name}
                     </h3>
                     {speaking ? (
@@ -110,11 +112,11 @@ export function SubagentCard({
                       </span>
                     ) : null}
                   </div>
-                  <p className="mt-px text-[11px] leading-tight uppercase tracking-wide text-muted-foreground">
+                  <p className="mt-px text-[10px] leading-tight uppercase tracking-wide text-muted-foreground/60">
                     {agent.role}
                   </p>
                   <p
-                    className="mt-px truncate text-[11px] leading-tight text-muted-foreground/70"
+                    className="mt-px truncate text-[10px] leading-tight text-muted-foreground/60"
                     title={agent.modelId ?? undefined}
                   >
                     {modelName ?? (agent.threadId ? "Not recorded" : "Not assigned")}
@@ -124,7 +126,9 @@ export function SubagentCard({
             </div>
           </div>
         </div>
-        {!speaking ? <div className="pointer-events-auto w-14 shrink-0">{speakBar}</div> : null}
+        {!speaking ? (
+          <div className="pointer-events-auto -mr-1 w-14 shrink-0 self-stretch">{speakBar}</div>
+        ) : null}
       </div>
       {speaking ? <div className="relative z-20 mt-2">{speakBar}</div> : null}
     </article>

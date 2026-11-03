@@ -36,6 +36,9 @@ type CompactCardProps = {
 };
 
 /**
+ * NEXT version, the working fork. Design changes land here first; "promote" copies this over the
+ * live component and keeps this file. See docs/design/subagent-card-lab.md.
+ *
  * Condensed-layout subagent card: identity, status, and model. Opens the subagent's
  * thread when it has one; otherwise addresses the composer to it.
  */

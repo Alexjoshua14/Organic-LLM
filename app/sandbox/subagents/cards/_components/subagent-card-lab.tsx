@@ -91,8 +91,11 @@ const VERSIONS = [
   Card: ComponentType<Parameters<typeof SubagentCard>[0]>;
 }>;
 
-/** Both versions share fixtures and controls; only Next's card markup is edited in this lab. */
-
+/**
+ * Both versions share fixtures and controls; only Next's card markup is edited in this lab.
+ * Design changes go to the Next files; "promote" copies Next over Current and keeps this page.
+ * See docs/design/subagent-card-lab.md.
+ */
 export function SubagentCardLab() {
   const [status, setStatus] = useState<ArcadiaSubagent["status"]>("working");
   const [autoCycle, setAutoCycle] = useState(false);
@@ -192,7 +195,7 @@ export function SubagentCardLab() {
               </h3>
               <FitPreview width={MOBILE_SAMPLE_WIDTH_PX}>
                 <div
-                  className="mx-auto rounded-2xl border border-border/50 bg-background/30 px-inset-lg py-inset-md"
+                  className="mx-auto rounded-2xl bg-background/30 px-inset-lg py-inset-md"
                   style={{ width: MOBILE_SAMPLE_WIDTH_PX }}
                   onClickCapture={(event) => {
                     if ((event.target as HTMLElement).closest("a")) {

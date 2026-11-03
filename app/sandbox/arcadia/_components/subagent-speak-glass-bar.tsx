@@ -26,6 +26,8 @@ type SubagentSpeakGlassBarProps = {
   localStream: MediaStream | null;
   remoteStream: MediaStream | null;
   disabled?: boolean;
+  /** Stretch to the parent's height instead of the fixed bar height. */
+  fillHeight?: boolean;
   onSpeakTo: () => void;
   onEnd: () => void;
 };
@@ -33,6 +35,8 @@ type SubagentSpeakGlassBarProps = {
 /**
  * Quiet FluidGlass Speak control that morphs in place into the live voice bar.
  * Same shell for idle → connecting → live; handoff exits this bar faster than the next enters.
+ * Shared by Current and Next cards: new Next-only behaviour goes behind an opt-in prop (see
+ * `fillHeight`) so Current is unchanged until promotion. See docs/design/subagent-card-lab.md.
  */
 export function SubagentSpeakGlassBar({
   agentName,
@@ -42,6 +46,7 @@ export function SubagentSpeakGlassBar({
   localStream,
   remoteStream,
   disabled,
+  fillHeight,
   onSpeakTo,
   onEnd,
 }: SubagentSpeakGlassBarProps) {
@@ -57,10 +62,10 @@ export function SubagentSpeakGlassBar({
         opacity: phase === "closing" ? 0.55 : 1,
         scale: phase === "closing" && !reduceMotion ? 0.98 : 1,
       }}
-      className="relative w-full overflow-hidden rounded-xl"
+      className={cn("relative w-full overflow-hidden rounded-xl", fillHeight && "h-full")}
       data-speak-glass-bar=""
       data-speak-phase={phase}
-      style={{ height: VOICE_BAR_HEIGHT_PX }}
+      style={fillHeight ? undefined : { height: VOICE_BAR_HEIGHT_PX }}
       transition={{ duration: exit, ease: SPEAK_BAR_EASE }}
     >
       <VoiceBarSurface />
@@ -72,7 +77,9 @@ export function SubagentSpeakGlassBar({
             animate={{ opacity: 1 }}
             aria-label={`Speak to ${agentName}`}
             className={cn(
-              "relative flex size-full cursor-pointer select-none items-center justify-center px-3",
+              fillHeight
+                ? "absolute inset-0 flex cursor-pointer select-none items-center justify-center"
+                : "relative flex size-full cursor-pointer select-none items-center justify-center px-3",
               "text-xs font-medium text-foreground/85",
               "hover:text-foreground transition-colors",
               "disabled:pointer-events-none disabled:opacity-40"
@@ -88,7 +95,10 @@ export function SubagentSpeakGlassBar({
               onSpeakTo();
             }}
           >
-            <AudioLines aria-hidden className="size-5 opacity-80" />
+            <AudioLines
+              aria-hidden
+              className={cn("size-5", fillHeight ? "opacity-60" : "opacity-80")}
+            />
           </motion.button>
         ) : (
           <motion.div
