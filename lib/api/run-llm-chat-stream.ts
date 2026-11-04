@@ -22,6 +22,7 @@ import { serializeError } from "@/lib/llm/log-error";
 import { addLatestMessagesToMemoryForUser } from "@/lib/memory/operations";
 import { buildChatReasoningProviderOptions, type ChatEffortLevel } from "@/lib/schemas/chat-effort";
 import { gatewayAttribution } from "@/lib/usage/gateway-attribution";
+import { prepareChatCompletionStep } from "@/lib/api/chat-step-completion";
 import { createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
 import { ChatAIActionEnum, type ChatUIMessage } from "@/types/ai";
 import {
@@ -158,6 +159,16 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
   });
   const result = streamText({
     ...budgetHooks,
+    async prepareStep({ stepNumber }) {
+      await budgetHooks.prepareStep();
+
+      return prepareChatCompletionStep({
+        stepNumber,
+        maxSteps,
+        hasTools,
+        instructions: systemPromptWithLength,
+      });
+    },
     model: selectedModel.id,
     messages,
     instructions: systemPromptWithLength,
