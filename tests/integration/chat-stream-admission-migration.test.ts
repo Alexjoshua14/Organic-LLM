@@ -11,9 +11,13 @@ const OTHER = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const THREAD = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const MISSING = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 
-const MIGRATIONS = ["chat_stream_admission.sql", "chat_stream_subagent_allotment.sql"];
+const MIGRATIONS = [
+  "chat_stream_admission.sql",
+  "chat_stream_subagent_allotment.sql",
+  "chat_stream_lease_retention.sql",
+];
 
-/** Both admission migrations, in order, retargeted at `schema` and unwrapped from BEGIN/COMMIT. */
+/** Admission migrations, in order, retargeted at `schema` and unwrapped from BEGIN/COMMIT. */
 async function migrationSql(schema: string): Promise<string> {
   const files = await Promise.all(
     MIGRATIONS.map((name) =>
@@ -339,3 +343,82 @@ databaseTest(
   },
   30_000
 );
+
+databaseTest("deleted threads retain active capacity until token release or expiry", async () => {
+  const db = new SQL(databaseUrl!);
+  const schema = `stream_retention_test_${crypto.randomUUID().replaceAll("-", "")}`;
+  const rollback = new Error("Roll back lease retention fixtures");
+  const parents = Array.from({ length: 6 }, () => crypto.randomUUID());
+  const worker = crypto.randomUUID();
+  const workerToken = crypto.randomUUID();
+
+  try {
+    await db.begin(async (tx) => {
+      await tx
+        .unsafe(
+          `
+        CREATE SCHEMA ${schema};
+        CREATE TABLE ${schema}.profiles (id uuid PRIMARY KEY);
+        CREATE TABLE ${schema}.threads (
+          id uuid PRIMARY KEY, owner_id uuid NOT NULL REFERENCES ${schema}.profiles(id)
+        );
+        INSERT INTO ${schema}.profiles VALUES ('${OWNER}');
+        INSERT INTO ${schema}.threads VALUES
+          ${[...parents, worker].map((id) => `('${id}', '${OWNER}')`).join(", ")};
+      `
+        )
+        .simple();
+      await tx.unsafe(await migrationSql(schema)).simple();
+      const chat = (thread: string) =>
+        tx.unsafe(
+          `SELECT ${schema}.acquire_chat_stream_lease('${OWNER}', '${thread}', '${crypto.randomUUID()}') AS result`
+        );
+
+      expect(
+        await tx.unsafe(
+          `SELECT ${schema}.acquire_subagent_stream_lease('${OWNER}', '${parents[0]}', '${worker}', '${workerToken}') AS result`
+        )
+      ).toEqual([{ result: "acquired" }]);
+      for (const parent of parents.slice(1, 5)) {
+        expect(await chat(parent)).toEqual([{ result: "acquired" }]);
+      }
+      // Deleting either endpoint must not erase the running worker's reservation.
+      await tx.unsafe(`DELETE FROM ${schema}.threads WHERE id IN ('${parents[0]}', '${worker}')`);
+      expect(
+        await tx.unsafe(
+          `SELECT token FROM ${schema}.chat_stream_leases WHERE thread_id = '${worker}'`
+        )
+      ).toEqual([{ token: workerToken }]);
+      expect(await chat(parents[5])).toEqual([{ result: "capacity" }]);
+      expect(await chat(parents[0])).toEqual([{ result: "not_found" }]);
+      expect(
+        await tx.unsafe(
+          `SELECT ${schema}.acquire_subagent_stream_lease('${OWNER}', '${parents[0]}', '${parents[5]}', '${crypto.randomUUID()}') AS result`
+        )
+      ).toEqual([{ result: "not_found" }]);
+      // A stale release still cannot free the retained lease; its actual token can.
+      await tx.unsafe(
+        `DELETE FROM ${schema}.chat_stream_leases WHERE owner_id = '${OWNER}' AND thread_id = '${worker}' AND token = '${crypto.randomUUID()}'`
+      );
+      expect(await chat(parents[5])).toEqual([{ result: "capacity" }]);
+      await tx.unsafe(
+        `DELETE FROM ${schema}.chat_stream_leases WHERE owner_id = '${OWNER}' AND thread_id = '${worker}' AND token = '${workerToken}'`
+      );
+      expect(await chat(parents[5])).toEqual([{ result: "acquired" }]);
+
+      // A deleted live chat is also counted, and expiry recovers it if cleanup never runs.
+      await tx.unsafe(`DELETE FROM ${schema}.threads WHERE id = '${parents[1]}'`);
+      await tx.unsafe(`INSERT INTO ${schema}.threads VALUES ('${MISSING}', '${OWNER}')`);
+      expect(await chat(MISSING)).toEqual([{ result: "capacity" }]);
+      await tx.unsafe(
+        `UPDATE ${schema}.chat_stream_leases SET expires_at = clock_timestamp() - interval '1 second' WHERE thread_id = '${parents[1]}'`
+      );
+      expect(await chat(MISSING)).toEqual([{ result: "acquired" }]);
+      throw rollback;
+    });
+  } catch (error) {
+    if (error !== rollback) throw error;
+  } finally {
+    await db.close();
+  }
+});

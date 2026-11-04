@@ -3,6 +3,7 @@ import type { RabbitHoleNode } from "@/lib/schemas/rabbitHoleSchemas";
 
 import { randomUUID } from "crypto";
 
+import { after } from "next/server";
 import {
   UIMessage,
   convertToModelMessages,
@@ -147,7 +148,7 @@ export async function POST(req: Request) {
   /**
    * Authentication
    */
-  const authGate = await requireLlmChatActor();
+  const authGate = await requireLlmChatActor({ streamAdmission: "atomic" });
 
   if (authGate.error != null) {
     return authGate.error;
@@ -739,12 +740,16 @@ export async function POST(req: Request) {
 
     return createUIMessageStreamResponse({
       // Kick the thread's send queue only after the lease is gone, or dispatch sees it as busy.
-      stream: releaseAfterStream(stream, async () => {
-        await release();
-        const { kickDispatchAfterStream } = await import("@/lib/message-queue/dispatch");
+      stream: releaseAfterStream(
+        stream,
+        async () => {
+          await release();
+          const { kickDispatchAfterStream } = await import("@/lib/message-queue/dispatch");
 
-        void kickDispatchAfterStream({ ownerId: sbUserId, clerkUserId, threadId: id });
-      }),
+          await kickDispatchAfterStream({ ownerId: sbUserId, clerkUserId, threadId: id });
+        },
+        (completion) => after(() => completion)
+      ),
       async consumeSseStream({ stream: sseStream }) {
         await consumeChatSseStream({ stream: sseStream, chatId: id, logger });
       },

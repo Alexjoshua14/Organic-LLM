@@ -47,10 +47,11 @@ function rejected(
 }
 
 /** Authenticate and check capacity/budget. Dependency failures return retryable 503s.
- * planBudget=false is only for routes that never call a model.
+ * planBudget=false is for non-generating routes or queues that check budget at dispatch.
+ * streamAdmission="atomic" requires the generation path to acquire a stream lease.
  */
 export async function requireLlmChatActor(
-  options: { planBudget?: boolean } = {},
+  options: { planBudget?: boolean; streamAdmission?: "atomic" } = {},
   deps = defaultDeps
 ): Promise<Result<LlmChatActorData, Response>> {
   let stage = "auth";
@@ -80,14 +81,18 @@ export async function requireLlmChatActor(
       return rejected(429, "message_limit", limit.error ?? "Too many requests", retryAfter);
     }
 
-    stage = "stream_capacity";
-    const activeStreamCount = await deps.activeStreams(sbUserId);
-    const streamGate = evaluateSimultaneousStreamGate({
-      activeStreamCount,
-      maxStreams: FREE_PLAN_MAX_SIMULTANEOUS_STREAMS,
-    });
+    // Lease-backed callers enforce capacity after this gate, using the requested thread.
+    // Counting worker markers here would reject an already-active orchestrator's next turn.
+    if (options.streamAdmission !== "atomic") {
+      stage = "stream_capacity";
+      const activeStreamCount = await deps.activeStreams(sbUserId);
+      const streamGate = evaluateSimultaneousStreamGate({
+        activeStreamCount,
+        maxStreams: FREE_PLAN_MAX_SIMULTANEOUS_STREAMS,
+      });
 
-    if (!streamGate.ok) return rejected(429, "stream_limit", streamGate.holdReason);
+      if (!streamGate.ok) return rejected(429, "stream_limit", streamGate.holdReason);
+    }
 
     if (options.planBudget !== false) {
       stage = "plan";

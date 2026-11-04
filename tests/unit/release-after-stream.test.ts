@@ -3,6 +3,51 @@ import { describe, expect, mock, test } from "bun:test";
 import { releaseAfterStream } from "@/lib/chat/release-after-stream";
 
 describe("stream admission lifecycle", () => {
+  test.each([false, true])(
+    "tracks cleanup through dispatch after client cancellation=%s",
+    async (cancel) => {
+      let sourceController!: ReadableStreamDefaultController<string>;
+      const source = new ReadableStream<string>({
+        start(c) {
+          sourceController = c;
+        },
+      });
+      const leaseReleased = Promise.withResolvers<void>();
+      const dispatchFinished = Promise.withResolvers<void>();
+      const dispatchStarted = mock(() => {});
+      let completion!: Promise<void>;
+      const stream = releaseAfterStream(
+        source,
+        async () => {
+          await leaseReleased.promise;
+          dispatchStarted();
+          await dispatchFinished.promise;
+        },
+        (pending) => {
+          completion = pending;
+        }
+      );
+      let completed = false;
+
+      void completion.then(() => {
+        completed = true;
+      });
+      if (cancel) await stream.cancel();
+      sourceController.close();
+      if (!cancel) expect((await stream.getReader().read()).done).toBe(true);
+      await Bun.sleep(0);
+      expect(dispatchStarted).not.toHaveBeenCalled();
+      expect(completed).toBe(false);
+      leaseReleased.resolve();
+      await Bun.sleep(0);
+      expect(dispatchStarted).toHaveBeenCalledTimes(1);
+      expect(completed).toBe(false);
+      dispatchFinished.resolve();
+      await completion;
+      expect(completed).toBe(true);
+    }
+  );
+
   test("client cancellation holds the lease until the source finishes", async () => {
     let sourceController!: ReadableStreamDefaultController<string>;
     const source = new ReadableStream<string>({

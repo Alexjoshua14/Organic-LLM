@@ -4,6 +4,7 @@ import { Logger } from "@/lib/logger";
 
 import { ProfileNotFoundError } from "@/data/supabase/profile-id-lookup";
 import { requireLlmChatActor } from "@/lib/api/chat-llm-gate";
+import { evaluatePlanBudget } from "@/lib/plans/plan-tags";
 
 type Deps = NonNullable<Parameters<typeof requireLlmChatActor>[1]>;
 function dependencies(): Deps {
@@ -19,6 +20,40 @@ function dependencies(): Deps {
 }
 
 describe("chat auth gate failure responses", () => {
+  test("atomic admission bypasses worker counts but still enforces the plan budget", async () => {
+    const deps = dependencies();
+    const activeStreams = mock(async () => 25);
+    const budget = evaluatePlanBudget({
+      plan: "free",
+      source: "default",
+      cycle: { start: new Date(), end: new Date(Date.now() + 60_000) },
+      usedUsd: 0,
+      resetsRemaining: null,
+    });
+
+    deps.activeStreams = activeStreams;
+    deps.budget = mock(async () => budget);
+    expect((await requireLlmChatActor({ streamAdmission: "atomic" }, deps)).data).toEqual({
+      sbUserId: "owner",
+      clerkUserId: "clerk-owner",
+    });
+    expect(activeStreams).not.toHaveBeenCalled();
+    expect(deps.budget).toHaveBeenCalledTimes(1);
+
+    deps.budget = async () => ({ ...budget, canDispatch: false, holdReason: "Plan limit" });
+    expect((await requireLlmChatActor({ streamAdmission: "atomic" }, deps)).error?.status).toBe(
+      429
+    );
+    deps.messageLimit = async () => ({ success: false });
+    expect((await requireLlmChatActor({ streamAdmission: "atomic" }, deps)).error?.status).toBe(
+      429
+    );
+    deps.userId = async () => null;
+    expect((await requireLlmChatActor({ streamAdmission: "atomic" }, deps)).error?.status).toBe(
+      401
+    );
+  });
+
   test("absent identity returns 401 before accessing a profile", async () => {
     const deps = dependencies();
     deps.userId = async () => null;
