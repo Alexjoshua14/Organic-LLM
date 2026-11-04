@@ -64,11 +64,18 @@ beforeEach(() => {
       };
     },
   });
-  Object.defineProperty(window, "requestAnimationFrame", { configurable: true, value: () => 1 });
+  // Keep materials static without removing the observer that Next Link may have cached.
+  Object.defineProperty(window, "requestAnimationFrame", { configurable: true, value: undefined });
   Object.defineProperty(window, "cancelAnimationFrame", { configurable: true, value: () => {} });
   Object.defineProperty(globalThis, "IntersectionObserver", {
     configurable: true,
-    value: undefined,
+    // Next Link caches observer support at import time, so keep its constructor available
+    // even when another suite imported it first. No visibility events are needed here.
+    value: class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
   });
 });
 
