@@ -307,7 +307,7 @@ describe("memory deletion and voting", () => {
     expect(ui.getByText("Showing 11–11 of 11")).toBeTruthy();
     fireEvent.click(ui.getByRole("button", { name: "Remove from memory" }));
     await waitFor(() => expect(ui.queryByText("Page result 10") === null).toBe(true));
-    expect(ui.getByText("Showing 1–10 of 10")).toBeTruthy();
+    await waitFor(() => expect(ui.getByText("Showing 1–10 of 10")).toBeTruthy());
     expect(ui.getByText("Page result 0")).toBeTruthy();
     expect(list).toHaveBeenCalledTimes(1);
   });

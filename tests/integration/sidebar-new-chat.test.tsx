@@ -18,6 +18,11 @@ const mockRefreshSidebarChats = mock(() => {});
 const mockRouterPush = mock(() => {});
 const mockCreateArcadia = mock(async () => ({ ok: true, path: "/sandbox/arcadia/new-arcadia-id" }));
 
+// These ordinary-user navigation tests do not mount Clerk or admin-only destinations.
+mock.module("@/hooks/use-is-admin", () => ({
+  useIsAdmin: () => false,
+}));
+
 mock.module("@/lib/chat/create-arcadia-thread", () => ({
   createArcadiaThreadAction: mockCreateArcadia,
 }));
