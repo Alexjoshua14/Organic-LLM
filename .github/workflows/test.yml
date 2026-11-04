@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
   # Lets a branch be tested on the Linux runner without opening a PR to main.
   workflow_dispatch:
 

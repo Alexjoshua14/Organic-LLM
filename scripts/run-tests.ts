@@ -83,11 +83,13 @@ rest.forEach((arg, i) => {
   (arg.startsWith("-") || isFlagValue ? flags : filters).push(arg);
 });
 
-async function run(paths: readonly string[]): Promise<number> {
+async function run(paths: readonly string[], isolate = false): Promise<number> {
   const proc = Bun.spawn(
     [
       process.execPath,
       "test",
+      // Integration files mock the same app modules; give each file its own module registry.
+      ...(isolate ? ["--isolate"] : []),
       ...PRELOADS.flatMap((preload) => ["--preload", preload]),
       ...(verbose ? [] : ["--only-failures"]),
       ...flags,
@@ -107,14 +109,14 @@ async function run(paths: readonly string[]): Promise<number> {
 }
 
 async function main(): Promise<number> {
-  if (filters.length > 0) return run(filters);
+  if (filters.length > 0) return run(filters, suiteArg === "integration");
 
   const names = suiteArg ? [suiteArg] : (Object.keys(SUITES) as SuiteName[]);
 
   for (const name of names) {
     if (!suiteArg) console.log(`== ${name} ==`);
 
-    const code = await run(SUITES[name]);
+    const code = await run(SUITES[name], name === "integration");
 
     if (code !== 0) return code;
   }

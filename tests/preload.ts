@@ -72,5 +72,4 @@ mock.module("@/lib/rabbit-holes/actions", () => ({
 
 // Same for chat — partial mocks must spread these exports or later files break on `loadChat`.
 const chatModule = await import("@/data/supabase/chat");
-// Snapshot before process-wide mocks overwrite the live module namespace.
-globalThis.__realChat = { ...chatModule };
+globalThis.__realChat = chatModule;

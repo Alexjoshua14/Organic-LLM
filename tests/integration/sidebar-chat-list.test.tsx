@@ -52,17 +52,11 @@ const restoreFramerMotion = mockModulePreservingReal("framer-motion", framerMoti
 
 afterAll(restoreFramerMotion);
 
-// Reinstall before each test: other suites replace this process-wide module.
-function registerChatMock() {
-  mock.module("@/data/supabase/chat", () => ({
-    ...globalThis.__realChat,
-    updateChatTitle: mockUpdateChatTitle,
-    updateChatPinned: mockUpdateChatPinned,
-    deleteChat: mockDeleteChat,
-  }));
-}
-
-registerChatMock();
+mock.module("@/data/supabase/chat", () => ({
+  updateChatTitle: mockUpdateChatTitle,
+  updateChatPinned: mockUpdateChatPinned,
+  deleteChat: mockDeleteChat,
+}));
 
 /**
  * Every export is stubbed, deliberately: this mock stays installed for later files, and a
@@ -177,7 +171,6 @@ describe("SidebarChatList", () => {
   });
 
   beforeEach(() => {
-    registerChatMock();
     mockBeginTitleRegen.mockReset();
     mockResolveTitleRegen.mockReset();
     mockFinishTitleRegen.mockReset();

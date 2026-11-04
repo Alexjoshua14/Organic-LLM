@@ -28,16 +28,11 @@ const mockGetSpatialArtifactRow = mock(
 );
 const mockUpsertSpatialArtifactRow = mock(async () => undefined);
 
-// Reinstall before each test: other suites replace this process-wide module.
-function registerChatMock() {
-  mock.module("@/data/supabase/chat", () => ({
-    ...globalThis.__realChat,
-    loadChat: mockLoadChat,
-    getChats: mockGetChats,
-  }));
-}
-
-registerChatMock();
+mock.module("@/data/supabase/chat", () => ({
+  ...globalThis.__realChat,
+  loadChat: mockLoadChat,
+  getChats: mockGetChats,
+}));
 
 mock.module("@/data/supabase/spatial-artifacts", () => ({
   getSpatialArtifactRow: mockGetSpatialArtifactRow,
@@ -69,7 +64,6 @@ function assistantMessage(toolCallId: string, messageId?: string): UIMessage {
 
 describe("sync-worker integration", () => {
   beforeEach(() => {
-    registerChatMock();
     resetSpatialArtifactSyncQueue();
     mockLoadChat.mockClear();
     mockGetChats.mockClear();
