@@ -111,6 +111,12 @@ type ProviderProps = {
   initialMultitaskView?: boolean;
   /** Owned-thread metadata; undefined preserves discovery if the server read failed. */
   initialHasSubagentThreads?: boolean;
+  /**
+   * The thread page has not reported its server-read context yet (the persistent host's first
+   * render). Network discovery and polling wait for it, so a thread the server knows has no
+   * workers never asks.
+   */
+  awaitingThread?: boolean;
   children: ReactNode;
 };
 
@@ -123,6 +129,7 @@ export function ArcadiaMultitaskProvider({
   viewingSubagentId = null,
   initialMultitaskView = false,
   initialHasSubagentThreads,
+  awaitingThread = false,
   children,
 }: ProviderProps) {
   // The board, view flag, and heartbeat all belong to the orchestrator, so a subagent thread
@@ -157,7 +164,8 @@ export function ArcadiaMultitaskProvider({
   const viewHydratedRef = useRef(initialHasSubagentThreads !== undefined);
   const hasSubagentThreads = workerPresence === true || agents.some((a) => Boolean(a.threadId));
   const boardPollingEnabled =
-    multitaskViewEnabled || hasSubagentThreads || workerPresence === null || boardRequested;
+    !awaitingThread &&
+    (multitaskViewEnabled || hasSubagentThreads || workerPresence === null || boardRequested);
   const boardPollingEnabledRef = useRef(boardPollingEnabled);
 
   speakBindingRef.current = speakBinding;
@@ -181,6 +189,48 @@ export function ArcadiaMultitaskProvider({
     enabledRef.current = enabled;
     setMultitaskViewEnabled(enabled);
   }, []);
+
+  // A different orchestrator is a different board: start it clean. The host stays mounted, so
+  // this replaces a remount. A live Speak call is not tied to a board and keeps running.
+  const boardOwnerRef = useRef(orchestratorThreadId);
+
+  useEffect(() => {
+    if (boardOwnerRef.current === orchestratorThreadId) return;
+    boardOwnerRef.current = orchestratorThreadId;
+    setAgents(createDemoSubagents());
+    setSendTarget(DEFAULT_MULTITASK_SEND_TARGET);
+    setBoardRequested(false);
+    setToggleBlockedReason(null);
+  }, [orchestratorThreadId]);
+
+  // The host stays mounted across thread switches, so the viewed subagent and the server-read
+  // view and worker flags can arrive or change after mount. Adopt them when they do.
+  const seededRef = useRef({
+    viewing: viewingSubagentId,
+    view: initialMultitaskView,
+    workers: initialHasSubagentThreads,
+  });
+
+  useEffect(() => {
+    const seeded = seededRef.current;
+
+    if (seeded.viewing !== viewingSubagentId) setSelectedId(viewingSubagentId);
+
+    if (
+      initialHasSubagentThreads !== undefined &&
+      (seeded.workers !== initialHasSubagentThreads || seeded.view !== initialMultitaskView)
+    ) {
+      viewHydratedRef.current = true;
+      setWorkerPresence(initialHasSubagentThreads);
+      applyEnabled(initialMultitaskView);
+    }
+
+    seededRef.current = {
+      viewing: viewingSubagentId,
+      view: initialMultitaskView,
+      workers: initialHasSubagentThreads,
+    };
+  }, [viewingSubagentId, initialMultitaskView, initialHasSubagentThreads, applyEnabled]);
 
   // The first client render must match the server; restore the local view after hydration.
   useEffect(() => {
@@ -232,6 +282,8 @@ export function ArcadiaMultitaskProvider({
 
   // Server-seeded threads need no mount request. Keep cross-device discovery lightweight.
   useEffect(() => {
+    if (awaitingThread) return;
+
     let cancelled = false;
     let inFlight = false;
     let controller: AbortController | null = null;
@@ -311,7 +363,13 @@ export function ArcadiaMultitaskProvider({
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("focus", onVisible);
     };
-  }, [orchestratorThreadId, applyEnabled, multitaskViewEnabled, hasSubagentThreads]);
+  }, [
+    orchestratorThreadId,
+    applyEnabled,
+    multitaskViewEnabled,
+    hasSubagentThreads,
+    awaitingThread,
+  ]);
 
   const liveSpeakAgentId = useMemo(
     () => resolveLiveSpeakAgentId({ speakBindingAgentId: speakBinding?.agentId }),

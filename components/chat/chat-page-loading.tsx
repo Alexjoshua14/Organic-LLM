@@ -15,6 +15,8 @@ import "@/styles/ChatPageLoading.css";
 type ChatPageLoadingProps = {
   /** When false, skip the to-chat perf mark (e.g. the /chat/loading demo route). */
   markPerf?: boolean;
+  /** False when a parent layout already supplies the Page chrome (Arcadia's persistent board). */
+  framed?: boolean;
   className?: string;
 };
 
@@ -22,15 +24,19 @@ type ChatPageLoadingProps = {
  * Immersive chat-route loading: same Page chrome as the thread, one quiet presence.
  * CSS-only motion; SSR-safe (no client mount gate).
  */
-export function ChatPageLoading({ markPerf = true, className }: ChatPageLoadingProps) {
+export function ChatPageLoading({
+  markPerf = true,
+  framed = true,
+  className,
+}: ChatPageLoadingProps) {
   const style = {
     ["--cpl-enter-s" as string]: `${CHAT_PAGE_LOADING_ENTER_S}s`,
     ["--cpl-breathe-s" as string]: `${CHAT_PAGE_LOADING_BREATHE_S}s`,
     ["--cpl-exit-s" as string]: `${CHAT_PAGE_LOADING_EXIT_S}s`,
   } as CSSProperties;
 
-  return (
-    <Page>
+  const content = (
+    <>
       {markPerf ? <PerfMark name={PERF_PHASES.chatLoadingShown} /> : null}
       <div
         aria-busy="true"
@@ -42,6 +48,8 @@ export function ChatPageLoading({ markPerf = true, className }: ChatPageLoadingP
         <span className="sr-only">Loading chat</span>
         <div aria-hidden className="chat-page-loading__presence" />
       </div>
-    </Page>
+    </>
   );
+
+  return framed ? <Page>{content}</Page> : content;
 }
