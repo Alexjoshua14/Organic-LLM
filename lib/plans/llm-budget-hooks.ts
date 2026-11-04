@@ -22,6 +22,22 @@ type BudgetHookDeps = {
   record(input: BudgetHookInput & StepUsage): Promise<void>;
 };
 
+/**
+ * A turn stopped by its plan budget, before the next model step. This is policy, not a fault:
+ * streams end at once, keep what was generated, and show the budget copy instead of a generic
+ * failure. The message is what the client maps to copy (`lib/chat/error-messages.ts`).
+ */
+export class PlanBudgetStopError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PlanBudgetStopError";
+  }
+}
+
+export function isPlanBudgetStopError(error: unknown): error is PlanBudgetStopError {
+  return error instanceof PlanBudgetStopError;
+}
+
 /** Direct providers report a bare model slug; the price registry uses provider/model IDs. */
 export function budgetModelId(model: LanguageModel): string {
   if (typeof model === "string") return model;
@@ -49,7 +65,7 @@ export function createLlmBudgetHooks(
       const budget = await deps.read(input);
 
       if (!budget.canDispatch)
-        throw new Error(
+        throw new PlanBudgetStopError(
           JSON.stringify({
             error: budget.holdReason,
             status: budget.status === "unavailable" ? 503 : 429,
@@ -65,7 +81,9 @@ export function createLlmBudgetHooks(
       try {
         await deps.record({ ...input, usage: step.usage, providerMetadata: step.providerMetadata });
       } catch {
-        ledgerFailure = new Error("Usage ledger unavailable; further model steps are paused");
+        ledgerFailure = new PlanBudgetStopError(
+          "Usage ledger unavailable; further model steps are paused"
+        );
         throw ledgerFailure;
       }
     },

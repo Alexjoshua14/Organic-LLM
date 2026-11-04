@@ -19,7 +19,7 @@ const logger = createLogger("app/api/chat/queue/route.ts");
  * Lists open queued messages for the signed-in user (optionally filtered by thread).
  */
 export async function GET(req: Request) {
-  const authGate = await requireLlmChatActor({ planBudget: false });
+  const authGate = await requireLlmChatActor({ planBudget: false, streamAdmission: "atomic" });
 
   if (authGate.error != null) return authGate.error;
 
@@ -52,7 +52,7 @@ export async function GET(req: Request) {
  * when the thread is idle and plan budget allows.
  */
 export async function POST(req: Request) {
-  const authGate = await requireLlmChatActor({ planBudget: false });
+  const authGate = await requireLlmChatActor({ planBudget: false, streamAdmission: "atomic" });
 
   if (authGate.error != null) return authGate.error;
 

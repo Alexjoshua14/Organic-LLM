@@ -10,7 +10,22 @@ export const CHAT_ERROR_MESSAGES: Partial<Record<number, string>> = {
   401: "Please sign in to continue.",
   404: "Account setup incomplete. Please refresh or sign out and back in.",
   429: "Rate limit reached. Please wait a moment before sending again.",
+  503: "Chat is temporarily unavailable. Please try again in a moment.",
 };
+
+/**
+ * Copy keyed by the stable `code` in API error bodies. Checked before `status`, because one
+ * status covers different situations (a 429 can be a message quota or the stream cap).
+ */
+const CHAT_ERROR_CODE_MESSAGES: Partial<Record<string, string>> = {
+  stream_limit:
+    "You have the maximum number of replies generating at once. Wait for one to finish, then send again.",
+  thread_busy: "This chat is still replying. Wait for it to finish, then send again.",
+  thread_not_found: "This chat no longer exists. Start a new chat to continue.",
+  plan_unavailable: "Usage limits can't be checked right now. Please try again in a moment.",
+};
+
+const FALLBACK_MESSAGE = "Something went wrong. Please try again.";
 
 /** Message text patterns that map response body text to a status for message lookup. */
 const MESSAGE_PATTERNS: { patterns: string[]; status: number }[] = [
@@ -34,6 +49,7 @@ export function getChatErrorMessage(error: unknown, now: Date = new Date()): str
   const msg = raw.trim();
 
   let status: number | undefined;
+  let parsedBody = false;
 
   try {
     const parsed = JSON.parse(msg) as {
@@ -44,8 +60,12 @@ export function getChatErrorMessage(error: unknown, now: Date = new Date()): str
       resetsRemaining?: number | null;
     };
 
+    parsedBody = typeof parsed === "object" && parsed !== null;
     if (parsed && typeof parsed.status === "number") status = parsed.status;
     if (parsed?.code === "plan_limit") return planLimitMessage(parsed, now);
+    const codeMessage = parsed?.code ? CHAT_ERROR_CODE_MESSAGES[parsed.code] : undefined;
+
+    if (codeMessage) return codeMessage;
   } catch {
     // not JSON, fall through to pattern matching
   }
@@ -61,7 +81,12 @@ export function getChatErrorMessage(error: unknown, now: Date = new Date()): str
     }
   }
 
-  return msg || "Something went wrong. Please try again.";
+  // Never surface a raw response body: an unmapped JSON error gets generic copy.
+  if (parsedBody || /^[[{]/.test(msg)) {
+    return status !== undefined && status >= 500 ? CHAT_ERROR_MESSAGES[503]! : FALLBACK_MESSAGE;
+  }
+
+  return msg || FALLBACK_MESSAGE;
 }
 
 /** A spent weekly plan budget: why, when it resets, and whether a reset is available. */

@@ -5,6 +5,7 @@ import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
 
 import { cachedProfileId } from "@/lib/supabase/profile-id-cache";
+import { profileIdResult } from "@/data/supabase/profile-id-lookup";
 import { supabaseServer } from "@/lib/supabase/server";
 import { isAdminUser as readIsAdminUser, readAdminProfile } from "@/lib/admin/read-admin-profile";
 import { getGatewayVisibilityForCurrentUser } from "@/data/supabase/gateway-visibility";
@@ -188,29 +189,16 @@ export async function getProfile(clerkUserId: string): Promise<Result<Profile>> 
 /**
  * Retrieves a user's supabase ID from Supabase by Clerk user ID
  * @param clerkUserId
- * @returns User's supabase ID
+ * @returns User's supabase ID, or `ProfileNotFoundError` when no profile row exists
  */
 /** Cached per server instance — see `lib/supabase/profile-id-cache.ts` for why that is safe. */
 export async function getSupabaseUserId(clerkUserId: string): Promise<Result<string>> {
   return cachedProfileId(clerkUserId, async () => {
     const sb = await supabaseServer();
-    const { data, error } = await sb
-      .from("profiles")
-      .select("id")
-      .eq("clerk_user_id", clerkUserId)
-      .single();
 
-    if (error) {
-      return {
-        data: null,
-        error: new Error(error?.message ?? "Unknown error"),
-      };
-    }
-
-    return {
-      data: data.id,
-      error: null,
-    };
+    return profileIdResult(
+      await sb.from("profiles").select("id").eq("clerk_user_id", clerkUserId).maybeSingle()
+    );
   });
 }
 

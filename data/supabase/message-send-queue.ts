@@ -85,6 +85,33 @@ export async function insertQueuedMessage(args: {
   return data as MessageSendQueueRow;
 }
 
+/**
+ * Worker threads of one orchestrator whose queued assignment is waiting on stream capacity,
+ * oldest first. Used to start the next worker when a sibling's lease is released.
+ */
+export async function listBlockedSubagentThreadIds(args: {
+  ownerId: string;
+  parentThreadId: string;
+  limit?: number;
+}): Promise<string[]> {
+  const { data, error } = await supabaseAdmin
+    .from("message_send_queue")
+    .select("thread_id")
+    .eq("owner_id", args.ownerId)
+    .eq("status", "blocked_streaming")
+    .eq("payload->subagentRun->>orchestratorId", args.parentThreadId)
+    .order("created_at", { ascending: true })
+    .limit(args.limit ?? 10);
+
+  if (error) {
+    logger.warn("listBlockedSubagentThreadIds", error.message);
+
+    return [];
+  }
+
+  return [...new Set((data ?? []).map((row) => row.thread_id as string))];
+}
+
 export async function listOpenQueuedMessages(args: {
   ownerId: string;
   threadId?: string;
