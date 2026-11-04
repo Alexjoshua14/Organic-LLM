@@ -1,4 +1,3 @@
-import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import type { WineEntry } from "@/lib/schemas/wine-line-list";
 
 import { randomUUID } from "crypto";
@@ -6,6 +5,7 @@ import { randomUUID } from "crypto";
 import { z } from "zod";
 import { generateObject } from "ai";
 
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import { createLogger } from "@/lib/logger";
 import { models } from "@/lib/schemas/chat-models";
 import { WineEntrySchema } from "@/lib/schemas/wine-line-list";

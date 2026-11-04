@@ -22,12 +22,21 @@ export type EncryptionFieldName =
   | "strata_sections.design_instructions"
   | "strata_sections.ai_instructions"
   | "memory.cache.semantic_search"
+  | "memory_feedback.note"
+  | "memory_feedback.memory"
   | "threads.introspection_config"
   | "threads.introspection_guided_state"
   | "threads.subagent_heartbeat_baseline"
   | "threads.subagent_worktable"
+  | "user_connectors.profile"
+  | "ergon_connection.token"
+  | "ergon_connection.oauth"
   | "threads.research_ledger"
-  | "research_ledgers.payload";
+  | "research_ledgers.payload"
+  | "persona_sessions.state"
+  | "persona_sessions.log"
+  | "persona_sessions.photo"
+  | "stage.events";
 
 export type EncryptionContext = {
   userId: string;

@@ -32,8 +32,11 @@ function backdropFilter(pose: GlassPose): string {
 }
 
 /** Filter the complete owned background once, including SVG dots and the grain layer. */
-export function activityBackgroundFilter(pose: GlassPose): string {
-  return `blur(${pose.blur}px) brightness(${pose.brightness}) saturate(1.12)`;
+export function activityBackgroundFilter(pose: GlassPose & { saturation?: number }): string {
+  const saturation =
+    pose.saturation !== undefined && Number.isFinite(pose.saturation) ? pose.saturation : 1.12;
+
+  return `blur(${pose.blur}px) brightness(${pose.brightness}) saturate(${saturation})`;
 }
 
 /** The owner selects the target; this persistent cover springs only while it is changing. */
@@ -56,7 +59,10 @@ export function MorphActivityGlass({
   const retarget = useRef<(target: ActivityGlassAppearance) => void>(() => {});
   // Keep React's initial styles stable so rerenders cannot overwrite an in-flight spring.
   const [initial] = useState(() => appearance);
-  const { blur, opacity, brightness, tint } = appearance;
+  const { blur, opacity, brightness, tint, saturation } = appearance;
+  const saturationRef = useRef(saturation);
+
+  saturationRef.current = saturation;
 
   useEffect(() => {
     const element = elementRef.current;
@@ -74,7 +80,10 @@ export function MorphActivityGlass({
 
       for (const key of Object.keys(style)) element.style.setProperty(key, style[key]!);
       if (backdropRef?.current) {
-        backdropRef.current.style.filter = activityBackgroundFilter(pose);
+        backdropRef.current.style.filter = activityBackgroundFilter({
+          ...pose,
+          saturation: saturationRef.current,
+        });
       }
       // Do not blur the owned background a second time through the cover.
       const filter = backdropRef ? "none" : backdropFilter(pose);
@@ -152,8 +161,8 @@ export function MorphActivityGlass({
   }, [initial, scheduler, performanceId, backdropRef]);
 
   useEffect(() => {
-    retarget.current({ blur, opacity, brightness, tint });
-  }, [blur, opacity, brightness, tint, scheduler, performanceId, backdropRef]);
+    retarget.current({ blur, opacity, brightness, tint, saturation });
+  }, [blur, opacity, brightness, tint, saturation, scheduler, performanceId, backdropRef]);
 
   return (
     <div

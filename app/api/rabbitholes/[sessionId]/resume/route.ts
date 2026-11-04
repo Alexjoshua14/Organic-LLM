@@ -1,10 +1,12 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
-import { getSessionById } from "@/data/supabase/rabbitholes";
+import { claimRabbitHoleGeneration, getSessionById } from "@/data/supabase/rabbitholes";
 import { clientErrorJson, logRouteError } from "@/lib/api/client-safe-error";
 import { createLogger } from "@/lib/logger";
+import { incompleteGenerationStep } from "@/lib/rabbit-holes/generation-step";
 import { runGenerationAndPersist } from "@/lib/rabbit-holes/runGenerationAndPersist";
+import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
 import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 
@@ -49,7 +51,18 @@ export async function POST(_req: Request, { params }: { params: Promise<{ sessio
   }
 
   const session = res.data;
-  const nodeId = session.generatingNodeId;
+  let nodeId = session.generatingNodeId ?? null;
+
+  if (!nodeId && session.activeNodeId) {
+    const active = session.nodesById[session.activeNodeId];
+
+    if (active && !active.articleHtml?.trim()) {
+      nodeId = active.id;
+      const step = incompleteGenerationStep(active) ?? "sources";
+
+      await claimRabbitHoleGeneration(sessionId, nodeId, step, supabaseAdmin);
+    }
+  }
 
   if (!nodeId) {
     return NextResponse.json({ message: "No generation in progress", sessionId }, { status: 200 });

@@ -13,6 +13,7 @@ type AgentDotGridProps = {
   state?: AgentDotState;
   className?: string;
   seed?: string;
+  intensity?: number;
 };
 
 /** Decorative SVG layer; owns motion while leaving stacking and sizing to its container. */
@@ -20,6 +21,7 @@ export function AgentDotGrid({
   state = "idle",
   className,
   seed = "organic-agent-dots",
+  intensity,
 }: AgentDotGridProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const dotsRef = useRef<Array<SVGGElement | null>>([]);
@@ -73,7 +75,9 @@ export function AgentDotGrid({
             transform: dot.style.transform || `scale(${restScale})`,
             opacity: Number(dot.style.opacity || dotOpacity(restScale)),
           },
-          restScale
+          restScale,
+          Math.random,
+          intensity
         );
         const animation = dot.animate(frames, options);
 
@@ -112,7 +116,7 @@ export function AgentDotGrid({
       document.removeEventListener("visibilitychange", syncVisibility);
       stop();
     };
-  }, [state, restScales]);
+  }, [state, restScales, intensity]);
 
   return (
     <svg

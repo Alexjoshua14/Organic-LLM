@@ -1,5 +1,7 @@
 "use client";
 
+import type { ParsedWebSearchToolOutput } from "@/lib/chat/web-search-tool-output";
+
 import { memo, useState } from "react";
 
 import {
@@ -9,8 +11,6 @@ import {
   toolResultExpandedDetailClass,
   toolResultSummaryButtonClass,
 } from "./tool-result-inline";
-
-import type { ParsedWebSearchToolOutput } from "@/lib/chat/web-search-tool-output";
 
 export type {
   ParsedWebSearchToolOutput,
@@ -52,7 +52,9 @@ export const WebSearchToolResultCard = memo(function WebSearchToolResultCard({
             <span className={`${toolResultExpandedDetailClass} text-muted-foreground`}>
               {queries.length > 0 ? (
                 <span className="mb-0.5 block text-muted-foreground/80">
-                  {queries.length === 1 ? `Query: ${queries[0]}` : `Queries: ${queries.join(" · ")}`}
+                  {queries.length === 1
+                    ? `Query: ${queries[0]}`
+                    : `Queries: ${queries.join(" · ")}`}
                 </span>
               ) : null}
               {parsed.message}
@@ -84,7 +86,9 @@ export const WebSearchToolResultCard = memo(function WebSearchToolResultCard({
             <span className={`${toolResultExpandedDetailClass} text-muted-foreground`}>
               {queries.length > 0 ? (
                 <span className="mb-0.5 block text-muted-foreground/80">
-                  {queries.length === 1 ? `Query: ${queries[0]}` : `Queries: ${queries.join(" · ")}`}
+                  {queries.length === 1
+                    ? `Query: ${queries[0]}`
+                    : `Queries: ${queries.join(" · ")}`}
                 </span>
               ) : null}
               No web results for this query.
@@ -93,7 +97,9 @@ export const WebSearchToolResultCard = memo(function WebSearchToolResultCard({
             <span className="mt-0.5 block">
               {queries.length > 0 ? (
                 <span className="mb-1 block text-2xs leading-snug text-muted-foreground/80">
-                  {queries.length === 1 ? `Query: ${queries[0]}` : `Queries: ${queries.join(" · ")}`}
+                  {queries.length === 1
+                    ? `Query: ${queries[0]}`
+                    : `Queries: ${queries.join(" · ")}`}
                 </span>
               ) : null}
               <ul className="max-h-80 space-y-1.5 overflow-y-auto pr-1">

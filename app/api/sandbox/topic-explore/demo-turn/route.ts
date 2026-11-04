@@ -1,4 +1,3 @@
-import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 /**
  * Noesis admin **demo-turn** route — one streamed spark reply, fully isolated.
  *
@@ -13,6 +12,7 @@ import { randomUUID } from "crypto";
 import { convertToModelMessages, smoothStream, streamText, type UIMessage } from "ai";
 import z from "zod";
 
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import { requireLlmChatActor } from "@/lib/api/chat-llm-gate";
 import { GENERIC_SERVER_ERROR, logRouteError } from "@/lib/api/client-safe-error";
 import { TOPIC_EXPLORE_PROVIDER_OPTIONS } from "@/lib/sandbox/topic-explore-llm";

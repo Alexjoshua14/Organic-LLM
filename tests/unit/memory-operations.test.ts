@@ -9,10 +9,12 @@ import { createMockClerkUser } from "../helpers/mock-auth";
 mock.module("server-only", () => ({}));
 
 const mockAuth = mock(async () => createMockClerkUser());
-const mockGetSupabaseUserId = mock(async (): Promise<Result<string>> => ({
-  data: "sb_test_user",
-  error: null,
-}));
+const mockGetSupabaseUserId = mock(
+  async (): Promise<Result<string>> => ({
+    data: "sb_test_user",
+    error: null,
+  })
+);
 
 const mockCheckMemorySearchLimit = mock(async () => ({ success: true }));
 const mockCheckMemoryListLimit = mock(async () => ({ success: true }));
@@ -20,24 +22,30 @@ const mockCheckMemoryDeleteLimit = mock(async () => ({ success: true }));
 const mockCheckMemoryWipeLimit = mock(async () => ({ success: true }));
 const mockCheckMemoryAddLimit = mock(async () => ({ success: true }));
 
-const mockSearchMemories = mock(async (): Promise<SearchResult> => ({
-  results: [],
-  relations: [],
-}));
+const mockSearchMemories = mock(
+  async (): Promise<SearchResult> => ({
+    results: [],
+    relations: [],
+  })
+);
 const mockGetAllMemories = mock(async () => ({
   results: [{ id: "mem_1", memory: "test", metadata: {} }],
   relations: [],
 }));
 const mockDeleteMemory = mock(async () => true);
 const mockWipeMemory = mock(async () => true);
-const mockAddLatestMessagesToMemory = mock(async (): Promise<SearchResult> => ({
-  results: [],
-  relations: [],
-}));
-const mockAddMemory = mock(async (): Promise<SearchResult> => ({
-  results: [],
-  relations: [],
-}));
+const mockAddLatestMessagesToMemory = mock(
+  async (): Promise<SearchResult> => ({
+    results: [],
+    relations: [],
+  })
+);
+const mockAddMemory = mock(
+  async (): Promise<SearchResult> => ({
+    results: [],
+    relations: [],
+  })
+);
 
 mock.module("@clerk/nextjs/server", () => ({ auth: mockAuth }));
 mock.module("@/data/supabase/profiles", () => ({
@@ -74,6 +82,8 @@ describe("Memory operations (secure client–store)", () => {
     mockSearchMemories.mockClear();
     mockGetAllMemories.mockClear();
     mockDeleteMemory.mockClear();
+    mockDeleteMemory.mockResolvedValue(true);
+    mockSearchMemories.mockResolvedValue({ results: [], relations: [] });
     mockWipeMemory.mockClear();
     mockAddLatestMessagesToMemory.mockClear();
     mockAddMemory.mockClear();
@@ -190,11 +200,7 @@ describe("Memory operations (secure client–store)", () => {
     expect(result.error).toBeNull();
     expect(result.data?.results).toHaveLength(1);
     expect(mockSearchMemories.mock.calls.length).toBe(1);
-    const searchCall = mockSearchMemories.mock.calls[0] as unknown as [
-      string,
-      string,
-      undefined,
-    ];
+    const searchCall = mockSearchMemories.mock.calls[0] as unknown as [string, string, undefined];
     expect(searchCall[0]).toBe("query");
     expect(searchCall[1]).toBe("sb_test_user");
     expect(searchCall[2]).toBe(undefined);
@@ -207,6 +213,103 @@ describe("Memory operations (secure client–store)", () => {
     expect(result.data?.results).toHaveLength(1);
     expect(mockGetAllMemories.mock.calls.length).toBe(1);
     expect((mockGetAllMemories.mock.calls[0] as string[])[0]).toBe("sb_test_user");
+  });
+
+  test("the search page receives validated text, dates, scores, and updated results for the resolved user", async () => {
+    const first = {
+      id: "first",
+      memory: "Green tea",
+      createdAt: "2026-09-01T00:00:00Z",
+      score: 0.9,
+    };
+    const second = {
+      id: "second",
+      memory: "Black coffee",
+      createdAt: "2026-09-24T00:00:00Z",
+      score: 0.8,
+    };
+
+    mockSearchMemories.mockResolvedValueOnce({ results: [first], relations: [] });
+    expect((await operations.getCurrentUserMemoriesBySearch("tea", 100)).data?.results).toEqual([
+      first,
+    ]);
+    mockSearchMemories.mockResolvedValueOnce({ results: [second], relations: [] });
+    expect((await operations.getCurrentUserMemoriesBySearch("coffee", 100)).data?.results).toEqual([
+      second,
+    ]);
+    expect(mockSearchMemories).toHaveBeenNthCalledWith(1, "tea", "sb_test_user", { limit: 100 });
+    expect(mockSearchMemories).toHaveBeenNthCalledWith(2, "coffee", "sb_test_user", { limit: 100 });
+    expect(mockCheckMemorySearchLimit).toHaveBeenCalledTimes(2);
+    expect(mockCheckMemorySearchLimit).toHaveBeenCalledWith("sb_test_user");
+  });
+
+  test.each([
+    [9999, 100],
+    [-3, 1],
+    [0, 5],
+    [2.8, 2],
+  ])("search page bounds limit %s to %s", async (requested, expected) => {
+    await operations.getCurrentUserMemoriesBySearch("query", requested);
+    expect(mockSearchMemories).toHaveBeenCalledWith("query", "sb_test_user", { limit: expected });
+  });
+
+  test("rate-limited page searches never call the vector store", async () => {
+    mockCheckMemorySearchLimit.mockResolvedValueOnce({
+      success: false,
+      error: "Too many search requests",
+    } as RateLimitResult);
+
+    expect(await operations.getCurrentUserMemoriesBySearch("tea", 100)).toEqual({
+      data: null,
+      error: "Too many search requests",
+    });
+    expect(mockSearchMemories).not.toHaveBeenCalled();
+  });
+
+  test("page search rejects oversized queries and malformed store results", async () => {
+    expect((await operations.getCurrentUserMemoriesBySearch("x".repeat(2001), 100)).error).toBe(
+      "Invalid or too long query"
+    );
+    expect(mockSearchMemories).not.toHaveBeenCalled();
+    mockSearchMemories.mockResolvedValueOnce({
+      results: [{ id: "invalid", memory: 7 } as never],
+      relations: [],
+    });
+    expect(await operations.getCurrentUserMemoriesBySearch("tea", 100)).toEqual({
+      data: null,
+      error: "Invalid memory response",
+    });
+  });
+
+  test("failed searches recover on the next request", async () => {
+    mockSearchMemories.mockRejectedValueOnce(new Error("Search unavailable"));
+    expect((await operations.getCurrentUserMemoriesBySearch("tea", 100)).error).toBe(
+      "Search unavailable"
+    );
+    expect((await operations.getCurrentUserMemoriesBySearch("tea", 100)).data?.results).toEqual([]);
+  });
+
+  test("delete limits are enforced before reading ownership or deleting", async () => {
+    mockCheckMemoryDeleteLimit.mockResolvedValueOnce({
+      success: false,
+      error: "Too many delete requests",
+    } as RateLimitResult);
+    expect((await operations.deleteMemoryForCurrentUser("mem_1")).error).toBe(
+      "Too many delete requests"
+    );
+    expect(mockGetAllMemories).not.toHaveBeenCalled();
+    expect(mockDeleteMemory).not.toHaveBeenCalled();
+  });
+
+  test("delete validates ownership with the current profile and propagates unsuccessful deletion", async () => {
+    mockDeleteMemory.mockResolvedValueOnce(false);
+    expect(await operations.deleteMemoryForCurrentUser(" mem_1 ")).toEqual({
+      data: false,
+      error: null,
+    });
+    expect(mockCheckMemoryDeleteLimit).toHaveBeenCalledWith("sb_test_user");
+    expect(mockGetAllMemories).toHaveBeenCalledWith("sb_test_user");
+    expect(mockDeleteMemory).toHaveBeenCalledWith("mem_1");
   });
 
   test("invalid query returns validation error", async () => {
@@ -229,11 +332,7 @@ describe("Memory operations (secure client–store)", () => {
       relations: [],
     });
 
-    const result = await operations.searchMemoriesForUser(
-      "sb_test_user",
-      "query",
-      { limit: 5 }
-    );
+    const result = await operations.searchMemoriesForUser("sb_test_user", "query", { limit: 5 });
 
     expect(result.error).toBeNull();
     expect(result.data?.results).toHaveLength(1);
@@ -325,10 +424,9 @@ describe("Memory operations (secure client–store)", () => {
   });
 
   test("addLatestMessagesToMemoryForUser returns error for empty userId", async () => {
-    const result = await operations.addLatestMessagesToMemoryForUser(
-      "",
-      [{ id: "u1", role: "user", parts: [] }] as any
-    );
+    const result = await operations.addLatestMessagesToMemoryForUser("", [
+      { id: "u1", role: "user", parts: [] },
+    ] as any);
 
     expect(result.error).toBe("User ID is required");
     expect(mockAddLatestMessagesToMemory.mock.calls.length).toBe(0);

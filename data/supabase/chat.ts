@@ -1397,7 +1397,36 @@ export async function updateChatStream(params: {
   const sb = await supabaseServer();
   const { error } = await sb
     .from("threads")
-    .update({ active_stream_id: activeStreamId })
+    .update(
+      activeStreamId === null
+        ? { active_stream_id: null, active_stream_started_at: null }
+        : { active_stream_id: activeStreamId }
+    )
+    .eq("id", chatId);
+
+  if (error) {
+    return {
+      ok: false,
+      error: new Error(error?.message ?? "Unknown error"),
+    };
+  }
+
+  return {
+    ok: true,
+    error: null,
+  };
+}
+
+/**
+ * Marks the thread as generating a reply. The sidebar reads `active_stream_started_at` as its
+ * working signal — independent of Redis, which only `active_stream_id` (resumable streams) needs.
+ * Cleared by {@link updateChatStream} / `updateChatStreamWithAdmin` when the stream id is cleared.
+ */
+export async function markChatStreamStarted(chatId: string): Promise<SimpleResult> {
+  const sb = await supabaseServer();
+  const { error } = await sb
+    .from("threads")
+    .update({ active_stream_started_at: new Date().toISOString() })
     .eq("id", chatId);
 
   if (error) {

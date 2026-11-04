@@ -1,6 +1,7 @@
 "use client";
 
 import type { Dispatch, ReactNode, SetStateAction } from "react";
+import type { AutoModelPreviewState } from "@/hooks/use-auto-model-preview";
 import type { ChatModel } from "@/lib/schemas/chat";
 import type { ChatEffortLevel } from "@/lib/schemas/chat-effort";
 import type { ContextEffortLevel } from "@/lib/memory/context-effort";
@@ -30,6 +31,8 @@ export type CoreInputControlsValue = {
   showContextEffort: boolean;
   contextEffort: ContextEffortLevel;
   onContextEffortChange: (level: ContextEffortLevel) => void;
+  /** Live Auto-model router preview state when the user has selected Auto. */
+  autoModelPreview?: AutoModelPreviewState;
 };
 
 const CoreInputControlsContext = createContext<CoreInputControlsValue | null>(null);

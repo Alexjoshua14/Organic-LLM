@@ -28,6 +28,14 @@
  */
 export const SPEAK_IDLE_PAUSE_MS = 20_000;
 
+/**
+ * Persona calls only. Painting is mostly quiet work between questions, so the 20s Speak value
+ * would hang up on every brushstroke. **Provisional** and outside the approved Speak range — see
+ * `docs/personas/decisions/20260930-unified-personas-v0.md`; confirm with the user before
+ * treating it as settled. Default Speak behaviour is unchanged.
+ */
+export const PERSONA_IDLE_PAUSE_MS = 2 * 60_000;
+
 export type VoiceActivity = "user-speech" | "response" | "playback" | `tool:${string}`;
 
 export type VoiceIdleTimer = {
@@ -45,7 +53,7 @@ export function createVoiceIdleTimer({
   timeoutMs = SPEAK_IDLE_PAUSE_MS,
   onIdle,
 }: {
-  timeoutMs?: number;
+  timeoutMs?: number | (() => number);
   onIdle: () => void;
 }): VoiceIdleTimer {
   const active = new Set<VoiceActivity>();
@@ -60,10 +68,13 @@ export function createVoiceIdleTimer({
 
   const arm = () => {
     disarm();
-    timer = setTimeout(() => {
-      timer = null;
-      if (active.size === 0) onIdle();
-    }, timeoutMs);
+    timer = setTimeout(
+      () => {
+        timer = null;
+        if (active.size === 0) onIdle();
+      },
+      typeof timeoutMs === "function" ? timeoutMs() : timeoutMs
+    );
   };
 
   return {

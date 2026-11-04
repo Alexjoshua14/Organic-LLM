@@ -14,6 +14,7 @@ export type SubagentBoardEntry = {
   status: ArcadiaSubagentStatus;
   statusAt: string | null;
   goal: string | null;
+  latestGoalId?: string | null;
   outcome: string | null;
   modelId?: string | null;
 };
@@ -83,6 +84,7 @@ function mergeEntry(
 
   if (
     agent.threadId === entry.threadId &&
+    (agent.latestGoalId ?? null) === (entry.latestGoalId ?? null) &&
     agent.activitySeed === activitySeed &&
     agent.status === entry.status &&
     agent.goal === goal &&
@@ -98,6 +100,7 @@ function mergeEntry(
     ...agent,
     activitySeed,
     threadId: entry.threadId,
+    latestGoalId: entry.latestGoalId ?? null,
     status: entry.status,
     goal,
     modelId,

@@ -3,9 +3,10 @@ import "server-only";
 import type { LanguageModel, LanguageModelUsage } from "ai";
 import type { PlanBudgetSnapshot } from "@/lib/plans/plan-tags";
 
+import { auth } from "@clerk/nextjs/server";
+
 import { getPlanBudgetForUser } from "@/lib/plans/plan-budget";
 import { recordGatewayCallUsage } from "@/lib/usage/record-gateway-call";
-import { auth } from "@clerk/nextjs/server";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 
 type BudgetHookInput = {
@@ -21,9 +22,26 @@ type BudgetHookDeps = {
   record(input: BudgetHookInput & StepUsage): Promise<void>;
 };
 
+/**
+ * A turn stopped by its plan budget, before the next model step. This is policy, not a fault:
+ * streams end at once, keep what was generated, and show the budget copy instead of a generic
+ * failure. The message is what the client maps to copy (`lib/chat/error-messages.ts`).
+ */
+export class PlanBudgetStopError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PlanBudgetStopError";
+  }
+}
+
+export function isPlanBudgetStopError(error: unknown): error is PlanBudgetStopError {
+  return error instanceof PlanBudgetStopError;
+}
+
 /** Direct providers report a bare model slug; the price registry uses provider/model IDs. */
 export function budgetModelId(model: LanguageModel): string {
   if (typeof model === "string") return model;
+
   return model.modelId.includes("/")
     ? model.modelId
     : `${model.provider.split(".")[0]}/${model.modelId}`;
@@ -38,14 +56,16 @@ export function createLlmBudgetHooks(
   }
 ) {
   let ledgerFailure: Error | null = null;
+
   return {
     prepareStep: async () => {
       // SDK 7 awaits notification callbacks but swallows their errors. Retain the failure
       // and throw from prepareStep, which is part of the generation control flow.
       if (ledgerFailure) throw ledgerFailure;
       const budget = await deps.read(input);
+
       if (!budget.canDispatch)
-        throw new Error(
+        throw new PlanBudgetStopError(
           JSON.stringify({
             error: budget.holdReason,
             status: budget.status === "unavailable" ? 503 : 429,
@@ -54,17 +74,32 @@ export function createLlmBudgetHooks(
             resetsRemaining: budget.resetsRemaining,
           })
         );
+
       return {};
     },
     onStepFinish: async (step: StepUsage) => {
       try {
         await deps.record({ ...input, usage: step.usage, providerMetadata: step.providerMetadata });
       } catch {
-        ledgerFailure = new Error("Usage ledger unavailable; further model steps are paused");
+        ledgerFailure = new PlanBudgetStopError(
+          "Usage ledger unavailable; further model steps are paused"
+        );
         throw ledgerFailure;
       }
     },
   };
+}
+
+/**
+ * Background work that already knows the Supabase profile id. Does not call `auth()`.
+ * Awaits the initial budget check because `generateObject` has no `prepareStep` hook.
+ */
+export async function createOwnerLlmBudgetHooks(input: BudgetHookInput) {
+  const hooks = createLlmBudgetHooks(input);
+
+  await hooks.prepareStep();
+
+  return hooks;
 }
 
 /** For server actions/helpers: resolve identity from the request, never from action arguments. */
@@ -72,11 +107,15 @@ export async function createAuthenticatedLlmBudgetHooks(
   input: Omit<BudgetHookInput, "ownerId" | "clerkUserId">
 ) {
   const { userId } = await auth();
+
   if (!userId) throw new Error("Unauthorized");
   const profile = await getSupabaseUserId(userId);
+
   if (!profile.data || profile.error) throw new Error("User not found");
   const hooks = createLlmBudgetHooks({ ...input, ownerId: profile.data, clerkUserId: userId });
+
   // generateObject has no prepareStep hook. This initial check protects both SDK APIs.
   await hooks.prepareStep();
+
   return hooks;
 }

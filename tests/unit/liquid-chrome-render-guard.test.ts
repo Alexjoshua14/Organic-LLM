@@ -64,16 +64,14 @@ describe("liquid-chrome-render-guard", () => {
 
   test("findLiquidChromeFillElement prefers section.page-liquid-chrome over fixed fill", () => {
     installTestJsdom();
-    document.documentElement.innerHTML = `
-      <body>
+    document.body.innerHTML = `
         <div class="liquid-chrome-page-fill"></div>
         <section class="page-liquid-chrome app-shell"></section>
-      </body>
     `;
 
     const match = findLiquidChromeFillElement();
 
     expect(match?.selector).toBe("section.page-liquid-chrome");
-    document.documentElement.innerHTML = "";
+    document.body.innerHTML = "";
   });
 });

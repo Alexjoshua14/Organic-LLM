@@ -7,6 +7,7 @@ import type { ContextBudgetEstimate } from "@/lib/chat/context-budget";
 
 import { useMemo, useState } from "react";
 
+import { CompositionBar, CompositionBarDetail } from "@/components/design-system/composition-bar";
 import { glass } from "@/components/design-system/primitives";
 import {
   HoverCard,
@@ -14,6 +15,7 @@ import {
   HoverCardTrigger,
 } from "@/components/third-party/ui/hover-card";
 import {
+  estimateDraftTokens,
   formatTokenCount,
   getContextComposition,
   getContextHeadroomTurns,
@@ -85,6 +87,7 @@ function formatMemoriesLabel(budget: ContextBudgetEstimate): string {
   if (budget.memoryContext) {
     return String(summarizeContextMemories(budget.memoryContext).total);
   }
+
   return "Not recorded";
 }
 
@@ -135,6 +138,7 @@ function segmentSlices(segments: ContextBudgetSegment[], total: number, fillRati
   if (total <= 0) return [];
 
   const used = segments.filter((segment) => segment.id !== "free");
+
   return used.map((segment) => {
     const pct = (segment.tokens / total) * 100;
 
@@ -186,6 +190,7 @@ export function ContextDonut({
         {usedSegments.map((segment) => {
           const length = (segment.pct / 100) * circumference;
           const offset = cursor;
+
           cursor += length;
           const geometry = {
             cx: diameter / 2,
@@ -239,39 +244,20 @@ function ContextCompositionBar({ budget }: { budget: ContextBudgetEstimate }) {
 
   return (
     <div>
-      <div className="flex h-6 w-full items-center" aria-label="Breakdown of used input tokens">
-        {rows.map((segment) => (
-          <button
-            key={segment.id}
-            type="button"
-            aria-label={`${segment.label}: ${segment.tokens.toLocaleString()} estimated tokens`}
-            title={`${segment.label} · ${segment.tokens.toLocaleString()} tokens`}
-            aria-pressed={selectedId === segment.id}
-            onMouseEnter={() => setSelectedId(segment.id)}
-            onMouseLeave={() => setSelectedId(null)}
-            onFocus={() => setSelectedId(segment.id)}
-            onBlur={() => setSelectedId(null)}
-            onClick={() => setSelectedId(segment.id)}
-            className="relative h-full shrink-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-            style={{ width: `${total > 0 ? (segment.tokens / total) * 100 : 0}%` }}
-          >
-            <span
-              className="pointer-events-none absolute inset-x-px top-1/2 h-1 -translate-y-1/2 rounded-full"
-              style={{
-                backgroundColor: contextSegmentColor(segment.id, budget.fillRatio),
-                boxShadow: `0 0 4px ${contextSegmentColor(segment.id, budget.fillRatio, 0.4)}`,
-              }}
-            >
-              <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 rounded-full bg-white/55" />
-            </span>
-          </button>
-        ))}
-      </div>
-      <div
-        className="-mt-1 h-8 text-xs leading-4 text-muted-foreground"
-        role="status"
-        aria-live="polite"
-      >
+      <CompositionBar
+        label="Breakdown of used input tokens"
+        selectedId={selectedId}
+        onSelectionChange={setSelectedId}
+        segments={rows.map((segment) => ({
+          id: segment.id,
+          value: segment.tokens,
+          color: contextSegmentColor(segment.id, budget.fillRatio),
+          glowColor: contextSegmentColor(segment.id, budget.fillRatio, 0.4),
+          ariaLabel: `${segment.label}: ${segment.tokens.toLocaleString()} estimated tokens`,
+          title: `${segment.label} · ${segment.tokens.toLocaleString()} tokens`,
+        }))}
+      />
+      <CompositionBarDetail>
         {selected ? (
           <>
             <span className="block truncate text-foreground">{selected.label}</span>
@@ -281,7 +267,7 @@ function ContextCompositionBar({ budget }: { budget: ContextBudgetEstimate }) {
             </span>
           </>
         ) : null}
-      </div>
+      </CompositionBarDetail>
     </div>
   );
 }
@@ -415,14 +401,26 @@ export function ContextBudgetPopover({ budget }: { budget: ContextBudgetEstimate
 }
 
 /**
+ * Right padding a textarea needs so typed text wraps before the badge while the draft count
+ * shows. Sized for the widest label `formatTokenCount` gives below 1M ("9,999 tok", 54px at
+ * 10px mono) plus the ring, gap, button padding, and corner offset (~86px), with a little air.
+ */
+export const CONTEXT_BUDGET_DRAFT_RESERVE_CLASS = "pr-[5.75rem]";
+
+/**
  * Badge + hover card for a resolved budget. No data fetching — the indicator below pairs
  * this with {@link useThreadContextBudget}; the CoreInput lab feeds it fixture budgets.
+ *
+ * `draftTokens` is what the typed message alone would add on send. It sits beside the ring
+ * only while there is a draft, so the badge stays a bare ring at rest.
  */
 export function ContextBudgetIndicatorView({
   budget,
+  draftTokens = 0,
   className,
 }: {
   budget: ContextBudgetEstimate;
+  draftTokens?: number;
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -432,21 +430,28 @@ export function ContextBudgetIndicatorView({
   const coverageLabel = coverage
     ? `${coverage.percent}% thread in context`
     : "thread coverage unavailable";
+  const draftLabel =
+    draftTokens > 0 ? `, your message about ${draftTokens.toLocaleString()} tokens` : "";
 
   return (
     <HoverCard closeDelay={80} openDelay={120} open={open} onOpenChange={setOpen}>
       <HoverCardTrigger asChild>
         <button
-          aria-label={`Context usage ${pctLabel} percent, ${coverageLabel}, model ${resolvedModel}. Open context breakdown.`}
+          aria-label={`Context usage ${pctLabel} percent${draftLabel}, ${coverageLabel}, model ${resolvedModel}. Open context breakdown.`}
           aria-expanded={open}
           onClick={() => setOpen(true)}
           className={cn(
-            "inline-flex items-center rounded-md p-1 transition-colors",
+            "inline-flex items-center gap-1 rounded-md p-1 transition-colors",
             "hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
             className
           )}
           type="button"
         >
+          {draftTokens > 0 ? (
+            <span className="font-mono text-2xs leading-none tabular-nums text-muted-foreground">
+              {formatTokenCount(draftTokens)} tok
+            </span>
+          ) : null}
           <ContextDonut budget={budget} size="xs" />
         </button>
       </HoverCardTrigger>
@@ -495,6 +500,11 @@ export const ContextBudgetIndicator: React.FC<ContextBudgetIndicatorProps> = ({
     threadMessages,
     enabled: Boolean(chatId),
   });
+  // Counted here, not read from the budget: the budget's draft segment is debounced and
+  // absent before a thread exists, and this should track every keystroke.
+  const draftTokens = useMemo(() => estimateDraftTokens(draftText), [draftText]);
 
-  return <ContextBudgetIndicatorView budget={budget} className={className} />;
+  return (
+    <ContextBudgetIndicatorView budget={budget} className={className} draftTokens={draftTokens} />
+  );
 };

@@ -22,7 +22,7 @@ export function readGatewayBilledCostUsd(providerMetadata: unknown): number | un
   if (!gateway || typeof gateway !== "object") return undefined;
 
   const raw = (gateway as Record<string, unknown>).cost;
-  const value = typeof raw === "string" ? raw.trim() === "" ? Number.NaN : Number(raw) : raw;
+  const value = typeof raw === "string" ? (raw.trim() === "" ? Number.NaN : Number(raw)) : raw;
 
   return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : undefined;
 }

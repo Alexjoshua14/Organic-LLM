@@ -40,6 +40,7 @@ export async function getPlanBudgetForUser(
 ): Promise<PlanBudgetSnapshot> {
   const now = args.now ?? new Date();
   let read: EntitlementRead;
+
   try {
     read = await deps.readEntitlement(args.ownerId);
   } catch {
@@ -59,6 +60,7 @@ export async function getPlanBudgetForUser(
       : "default";
   const cycle = currentBudgetCycle(entitlement?.cycleAnchor ?? DEFAULT_BUDGET_CYCLE_ANCHOR, now);
   let spend: UsageCostSum;
+
   try {
     spend = await deps.sumCost({
       ownerId: args.ownerId,

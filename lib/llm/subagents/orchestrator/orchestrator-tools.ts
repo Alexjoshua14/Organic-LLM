@@ -7,10 +7,16 @@ import type {
 import type { SubagentThreadRow } from "@/lib/llm/subagents/threads/snapshot";
 import type { WorktableSession } from "@/lib/llm/subagents/worktable/session";
 import type {
+  BundleSelection,
   ContextBundle,
   ResolvedWorktableItem,
   WorktableItemInput,
 } from "@/lib/llm/subagents/worktable/types";
+import type {
+  RabbitHoleNodeLike,
+  ShorthandResolutionResult,
+} from "@/lib/llm/subagents/worktable/shorthand";
+import type { GithubConnectorSnapshot, UserConnectorsProfile } from "@/lib/schemas/user-connectors";
 
 import { createHash } from "crypto";
 
@@ -27,11 +33,29 @@ import {
   ORCHESTRATOR_MAX_DISPATCHES_PER_TURN,
 } from "@/lib/llm/subagents/orchestrator/constants";
 import { createWorkerGoal } from "@/lib/llm/subagents/orchestrator/delegate";
-import { selectSubagentModel } from "@/lib/llm/subagents/orchestrator/cost-policy";
+import {
+  createSubagentBudgetPolicy,
+  selectSubagentModel,
+  type SubagentBudgetPolicy,
+  type SubagentPlanBudgetInput,
+} from "@/lib/llm/subagents/orchestrator/cost-policy";
 import { listRosterHardSetSubagents } from "@/lib/llm/subagents/hard-set/registry";
 import { withReadSubagentThreadTool } from "@/lib/llm/subagents/orchestrator/read-subagent-thread-tool";
 import { buildSubagentGoalMessage, uiMessageText } from "@/lib/llm/subagents/threads/messages";
+import {
+  CONTEXT_DATA_INSTRUCTIONS,
+  createReadContextItemTool,
+  readSubagentContext,
+  selectContextExcerpt,
+} from "@/lib/llm/subagents/threads/context-items";
+import {
+  estimateWorkerInput,
+  selectWorkerHistory,
+  workerModelMessages,
+} from "@/lib/llm/subagents/worker/prepare-input";
+import { SUBAGENT_THREAD_CONTEXT_MESSAGES } from "@/lib/llm/subagents/worker/cost-limits";
 import { resolveEffectiveSubagentStatus } from "@/lib/llm/subagents/threads/status";
+import { getWorkbenchManpage } from "@/lib/llm/subagents/worktable/manpages";
 import {
   type WorktableOutcome,
   addBundleItems,
@@ -47,10 +71,16 @@ import {
 import {
   describeBundle,
   renderDispatchContext,
+  selectDispatchBundles,
   summarizeBundle,
 } from "@/lib/llm/subagents/worktable/render";
 import { WORKTABLE_UNAVAILABLE_ERROR } from "@/lib/llm/subagents/worktable/session";
-import { WORKTABLE_LIMITS, WorktableItemInputSchema } from "@/lib/llm/subagents/worktable/types";
+import { resolveShorthandRef } from "@/lib/llm/subagents/worktable/shorthand";
+import {
+  BundleSelectionSchema,
+  WORKTABLE_LIMITS,
+  WorktableItemInputSchema,
+} from "@/lib/llm/subagents/worktable/types";
 
 /** Orchestrator-thread messages searched when quoting the user. */
 const USER_MESSAGE_LOOKBACK = 40;
@@ -60,7 +90,13 @@ const BRIEF_MAX_CHARS = 8_000;
 
 export type OrchestratorToolDeps = Pick<
   MultitaskTurnDeps,
-  "listChildren" | "loadMessages" | "ensureChild" | "appendMessages" | "setStatus" | "enqueueWorker"
+  | "listChildren"
+  | "loadMessages"
+  | "ensureChild"
+  | "appendMessages"
+  | "setStatus"
+  | "enqueueWorker"
+  | "inspectWorkerInput"
 >;
 
 export type OrchestratorToolsInput = {
@@ -82,15 +118,44 @@ export type OrchestratorToolsInput = {
   currentUserMessage?: { id: string; text: string } | null;
   writer?: MultitaskStreamWriter;
   now?: () => number;
+  /** Optional Rabbit Hole session graph nodes for `node:<nodeId>` shorthand expansion. */
+  rabbitHoleNodes?: Record<string, RabbitHoleNodeLike> | null;
+  rabbitHoleActiveNodeId?: string | null;
+  rabbitHoleRootNodeId?: string | null;
+  /** Private connectors profile for `connector:<slice>` shorthand. */
+  userConnectors?: UserConnectorsProfile | null;
+  /** Optional live GitHub snapshot. Defaults to `userConnectors.cachedGithubSnapshot`. */
+  githubSnapshot?: GithubConnectorSnapshot | null;
+  /** Loads connectors when a `connector:` ref is expanded and `userConnectors` was not passed. */
+  loadUserConnectors?: () => Promise<UserConnectorsProfile | null>;
+  /** Optional plan budget snapshot or turn hard limit for self-managed USD gating. */
+  planBudget?: SubagentPlanBudgetInput | null;
+  hardLimitUsd?: number;
+  /** Override max parallel dispatches per turn (defaults to 2 in Arcadia, 4 in Rabbit Hole). */
+  maxDispatchesPerTurn?: number;
+  /** Pre-created budget policy/ledger shared across the turn. */
+  budgetLedger?: SubagentBudgetPolicy | null;
+  budgetPolicy?: SubagentBudgetPolicy | null;
+  /** Optional custom shorthand item resolver hook. */
+  resolveShorthandItem?: (
+    ref: string
+  ) => Promise<ShorthandResolutionResult> | ShorthandResolutionResult;
+  /** When true, always attach `read_subagent_thread` even before child threads exist. */
+  alwaysIncludeReadSubagentThread?: boolean;
 };
+
+export type CreateOrchestratorToolsInput = OrchestratorToolsInput;
 
 type Resolution<T> = { ok: true; value: T } | { ok: false; error: string };
 
 function isSuccessfulDispatchPart(part: UIMessage["parts"][number]): boolean {
   if (part.type !== "tool-dispatch_subagent") return false;
-  const { state, output } = part as { state?: string; output?: { success?: unknown } };
+  const { state, output } = part as {
+    state?: string;
+    output?: { success?: unknown; dryRun?: unknown };
+  };
 
-  return state === "output-available" && output?.success === true;
+  return state === "output-available" && output?.success === true && output.dryRun !== true;
 }
 
 /**
@@ -118,28 +183,39 @@ export function countAutonomousDispatchesSinceUser(messages: ReadonlyArray<UIMes
 }
 
 export const ORCHESTRATOR_TOOL_INSTRUCTIONS = [
-  "Use dispatch_subagent only when the budget-first policy in [Orchestrator] warrants a specialist. Prefer one economy worker; a second dispatch needs additionalDispatchReason, and standard modelTier needs modelReason.",
-  "Use worktable to keep reusable context bundles — create once, update single items, and send again.",
+  "Use dispatch_subagent only when the budget-first policy in [Orchestrator] warrants a specialist. Prefer one economy worker; additional parallel dispatches need additionalDispatchReason, and standard/frontier modelTier needs modelReason.",
+  'Use worktable to keep reusable context bundles — create once, update single items, and send again. Call worktable({ action: "man", topic }) for detailed LLM manpages on shorthand, budget, rabbit_hole, or any specialist.',
+  "Use shorthand references (node:<id>, connector:<slice>, out:<agentId>, msg:<id>, th:<threadId>, bundle:<id>) to bundle context without copying bulky text. Route connector:github to Reed, connector:dossier|education|career|resume to Lyra, and connector:preferences to Archer. Select only relevant bundle items and source excerpts. Use dryRun to inspect complete input and USD budget sizing.",
 ].join(" ");
 
+export const WorktableActionSchema = z.enum([
+  "man",
+  "list",
+  "view",
+  "create",
+  "update",
+  "add_items",
+  "update_item",
+  "remove_items",
+  "delete",
+]);
+
 const WorktableToolInputSchema = z.object({
-  action: z
-    .enum([
-      "list",
-      "view",
-      "create",
-      "update",
-      "add_items",
-      "update_item",
-      "remove_items",
-      "delete",
-    ])
-    .describe("What to do on the worktable."),
+  action: WorktableActionSchema.describe(
+    "What to do on the worktable. Use 'man' to read LLM workbench manpages."
+  ),
+  topic: z
+    .string()
+    .max(64)
+    .optional()
+    .describe(
+      "man: topic to read (overview, worktable, dispatch_subagent, budget, shorthand, connectors, rabbit_hole, lyra, reed, archer, mira, cass, vesper)."
+    ),
   bundle: z
     .string()
     .max(128)
     .optional()
-    .describe("Bundle id or name. Required for every action except list and create."),
+    .describe("Bundle id or name. Required for every action except man, list, and create."),
   name: z
     .string()
     .max(WORKTABLE_LIMITS.nameChars)
@@ -160,6 +236,13 @@ const WorktableToolInputSchema = z.object({
     .max(WORKTABLE_LIMITS.itemsPerBundle)
     .optional()
     .describe("create/add_items: items to add. update_item: exactly one replacement item."),
+  shorthand: z
+    .array(z.string().max(128))
+    .max(WORKTABLE_LIMITS.itemsPerBundle)
+    .optional()
+    .describe(
+      "create/add_items: shorthand refs to expand into items (node:<id>, connector:<slice>, out:<agentId>, msg:<id>, th:<threadId>)."
+    ),
   itemIds: z
     .array(z.string().max(32))
     .max(WORKTABLE_LIMITS.itemsPerBundle)
@@ -183,17 +266,17 @@ const DispatchToolInputSchema = z.object({
       "The assignment in your own words, standing alone: the task, why it matters, constraints, the deliverable, and when it is done."
     ),
   modelTier: z
-    .enum(["economy", "standard"])
+    .enum(["micro", "economy", "standard", "frontier"])
     .optional()
     .describe(
-      "Default economy. Standard only when the assignment needs stronger reasoning; never inherits the orchestrator's model."
+      "Default economy. Micro for fast triage; standard or frontier only when the assignment needs stronger reasoning and budget permits; never inherits the orchestrator's model."
     ),
   modelReason: z
     .string()
     .max(500)
     .optional()
     .describe(
-      "Required for standard: why this task cannot be done well by the economy worker (at least 20 characters)."
+      "Required for standard and frontier: why this task cannot be done well by a cheaper worker (at least 20 characters)."
     ),
   additionalDispatchReason: z
     .string()
@@ -203,10 +286,38 @@ const DispatchToolInputSchema = z.object({
       "Required after the first dispatch this turn: the independent work another specialist adds (at least 20 characters)."
     ),
   bundles: z
-    .array(z.string().max(128))
+    .array(BundleSelectionSchema)
     .max(WORKTABLE_LIMITS.bundles)
     .optional()
-    .describe("Worktable bundle ids or names to send with the brief."),
+    .describe(
+      "Whole bundle ids/names, or {bundle, items:[{itemId,offset?,limit?}], includeInstructions?}. Prefer selected items; omitted items sends all, [] sends instructions only."
+    ),
+  shorthand: z
+    .array(z.string().max(128))
+    .max(WORKTABLE_LIMITS.itemsPerBundle)
+    .optional()
+    .describe(
+      "Compact shorthand refs for this dispatch (node:<id>, connector:<slice>, out:<agentId>, msg:<id>, th:<threadId>, bundle:<id>)."
+    ),
+  history: z
+    .enum(["continue", "fresh"])
+    .optional()
+    .describe(
+      "Default continue preserves prior input/cache prefix. Fresh sends only this new assignment."
+    ),
+  historyMessageIds: z
+    .array(z.string().min(1).max(128))
+    .max(SUBAGENT_THREAD_CONTEXT_MESSAGES)
+    .optional()
+    .describe(
+      "Explicit own-thread history IDs from read_subagent_thread; excludes other history. [] keeps none."
+    ),
+  dryRun: z
+    .boolean()
+    .optional()
+    .describe(
+      "Inspect selection and complete token/cost estimates without saving or queueing an assignment."
+    ),
   items: z
     .array(WorktableItemInputSchema)
     .max(WORKTABLE_LIMITS.itemsPerBundle)
@@ -218,22 +329,14 @@ function normalizeQuote(text: string): string {
   return text.replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/\s+/g, " ").trim().toLowerCase();
 }
 
-function clampItemText(text: string): string {
-  const trimmed = text.trim();
-
-  return trimmed.length > WORKTABLE_LIMITS.itemChars
-    ? `${trimmed.slice(0, WORKTABLE_LIMITS.itemChars - 16)}\n…(truncated)`
-    : trimmed;
-}
-
 function lastReply(messages: ReadonlyArray<UIMessage>): { text: string; messageId: string } | null {
   for (let i = messages.length - 1; i >= 0; i -= 1) {
     const message = messages[i]!;
 
     if (message.role !== "assistant") continue;
-    const text = uiMessageText(message);
+    const text = uiMessageText(message, false);
 
-    if (text) return { text: clampItemText(text), messageId: message.id };
+    if (text.trim()) return { text, messageId: message.id };
   }
 
   return null;
@@ -254,7 +357,7 @@ export function resolveDispatchTarget(
   agent: string,
   children: ReadonlyArray<SubagentThreadRow>
 ): string | null {
-  const wanted = agent.trim().toLowerCase();
+  const wanted = agent.trim().replace(/^@/, "").toLowerCase();
 
   if (!wanted) return null;
   const child = children.find((c) => matchesAgent(c.agentId, wanted));
@@ -281,13 +384,28 @@ export function resolveDispatchTarget(
 }
 
 /**
- * `worktable` and `dispatch_subagent` for an Arcadia orchestrator turn (COA-258). References
- * resolve only inside this orchestrator's own thread and its children.
+ * `worktable` and `dispatch_subagent` for an Arcadia or Rabbit Hole orchestrator turn. References
+ * resolve only inside this orchestrator's own thread, its children, and its active Rabbit Hole graph.
  */
 export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet {
   const { deps, orchestratorThreadId } = input;
   const now = input.now ?? Date.now;
   const iso = () => new Date(now()).toISOString();
+  const maxDispatchesPerTurn =
+    input.maxDispatchesPerTurn ??
+    input.budgetLedger?.maxParallelDispatches ??
+    input.budgetPolicy?.maxParallelDispatches ??
+    ORCHESTRATOR_MAX_DISPATCHES_PER_TURN;
+  const budgetLedger =
+    input.budgetLedger ??
+    input.budgetPolicy ??
+    createSubagentBudgetPolicy({
+      planBudget: input.planBudget,
+      hardLimitUsd: input.hardLimitUsd,
+      maxParallelDispatches: maxDispatchesPerTurn,
+      zeroDataRetention: input.zeroDataRetention,
+    });
+
   let dispatchesThisTurn = 0;
   let autonomousLeft = Math.min(
     input.autonomousRemaining ?? 0,
@@ -300,7 +418,7 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
   const listChildren = () => deps.listChildren(orchestratorThreadId);
 
   const findChild = async (agent: string) => {
-    const wanted = agent.trim().toLowerCase();
+    const wanted = agent.trim().replace(/^@/, "").toLowerCase();
 
     return (await listChildren()).find((c) => matchesAgent(c.agentId, wanted));
   };
@@ -313,47 +431,119 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
       : null;
   };
 
+  const resolveShorthandList = async (
+    refs: ReadonlyArray<string> | undefined
+  ): Promise<
+    Resolution<{
+      items: ResolvedWorktableItem[];
+      bundles: string[];
+    }>
+  > => {
+    if (!refs || refs.length === 0) {
+      return { ok: true, value: { items: [], bundles: [] } };
+    }
+
+    const needsChildren = refs.some((r) => /^(out|th):/i.test(r.trim()));
+    const needsMessages = refs.some((r) => /^msg:/i.test(r.trim()));
+    const children = needsChildren ? await listChildren() : [];
+    let messages: Array<UIMessage | { id: string; role: string; text: string }> = [];
+
+    if (needsMessages) {
+      const loaded = await deps.loadMessages(orchestratorThreadId, USER_MESSAGE_LOOKBACK);
+
+      messages = [...loaded];
+      if (
+        input.currentUserMessage?.text.trim() &&
+        !messages.some((m) => m.id === input.currentUserMessage!.id)
+      ) {
+        messages.push({
+          id: input.currentUserMessage.id,
+          role: "user",
+          text: input.currentUserMessage.text,
+        });
+      }
+    }
+
+    const needsConnectors = refs.some((ref) => /^connector:/i.test(ref.trim()));
+    let userConnectors = input.userConnectors ?? null;
+
+    if (needsConnectors && !userConnectors && input.loadUserConnectors) {
+      userConnectors = await input.loadUserConnectors();
+    }
+
+    const resolvedItems: ResolvedWorktableItem[] = [];
+    const resolvedBundles: string[] = [];
+
+    for (const ref of refs) {
+      const outcome = input.resolveShorthandItem
+        ? await input.resolveShorthandItem(ref)
+        : resolveShorthandRef(ref, {
+            nodesById: input.rabbitHoleNodes,
+            activeNodeId: input.rabbitHoleActiveNodeId,
+            rootNodeId: input.rabbitHoleRootNodeId,
+            children,
+            messages,
+            resolveAgentId: (agent) => resolveDispatchTarget(agent, children),
+            userConnectors,
+            githubSnapshot: input.githubSnapshot ?? userConnectors?.cachedGithubSnapshot ?? null,
+          });
+
+      if (!outcome.ok) {
+        return { ok: false, error: outcome.error };
+      }
+      if (outcome.kind === "bundle") {
+        if (!resolvedBundles.includes(outcome.bundle)) {
+          resolvedBundles.push(outcome.bundle);
+        }
+      } else {
+        resolvedItems.push(outcome.item);
+      }
+    }
+
+    return { ok: true, value: { items: resolvedItems, bundles: resolvedBundles } };
+  };
+
   const resolveItem = async (
     item: WorktableItemInput
   ): Promise<Resolution<ResolvedWorktableItem>> => {
     const label = item.label?.trim() || null;
     const base = { kind: item.kind, label, sourceMessageId: null, agentId: null };
+    const attach = (text: string, fields: Partial<ResolvedWorktableItem> = {}) => ({
+      ok: true as const,
+      value: { ...base, ...fields, ...selectContextExcerpt(text, item) },
+    });
 
     if (item.kind === "note" || item.kind === "memory") {
-      const text = item.text?.trim();
+      const text = item.text;
 
-      return text
-        ? { ok: true, value: { ...base, text: clampItemText(text) } }
-        : { ok: false, error: `A ${item.kind} item needs text.` };
+      return text?.trim() ? attach(text) : { ok: false, error: `A ${item.kind} item needs text.` };
     }
 
     if (item.kind === "user_message") {
       const recent = await deps.loadMessages(orchestratorThreadId, USER_MESSAGE_LOOKBACK);
       const pool = recent
         .filter((m) => m.role === "user")
-        .map((m) => ({ id: m.id, text: uiMessageText(m) }))
+        .map((m) => ({ id: m.id, text: uiMessageText(m, false) }))
         .filter((m) => m.text);
       const current = input.currentUserMessage;
 
       if (current?.text.trim() && !pool.some((m) => m.id === current.id)) pool.push(current);
-      const quote = item.text?.trim();
+      const quote = item.text;
+      const sources = item.messageId ? pool.filter((m) => m.id === item.messageId) : pool;
 
-      if (!quote) {
-        const latest = pool.at(-1);
+      if (!quote?.trim()) {
+        const latest = sources.at(-1);
 
         return latest
-          ? {
-              ok: true,
-              value: { ...base, text: clampItemText(latest.text), sourceMessageId: latest.id },
-            }
+          ? attach(latest.text, { sourceMessageId: latest.id })
           : { ok: false, error: "There is no user message in this thread to attach." };
       }
 
       const wanted = normalizeQuote(quote);
-      const source = [...pool].reverse().find((m) => normalizeQuote(m.text).includes(wanted));
+      const source = [...sources].reverse().find((m) => normalizeQuote(m.text).includes(wanted));
 
       return source
-        ? { ok: true, value: { ...base, text: clampItemText(quote), sourceMessageId: source.id } }
+        ? attach(quote, { sourceMessageId: source.id })
         : {
             ok: false,
             error:
@@ -369,7 +559,16 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
       const agentId = resolveDispatchTarget(agent, await listChildren());
 
       return agentId
-        ? { ok: true, value: { ...base, text: "", agentId } }
+        ? {
+            ok: true,
+            value: {
+              ...base,
+              text: "",
+              agentId,
+              sourceOffset: item.offset,
+              sourceLimit: item.limit,
+            },
+          }
         : { ok: false, error: `No subagent "${agent}" on the roster.` };
     }
 
@@ -381,7 +580,7 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
     const picked = item.messageId
       ? messages.find((m) => m.id === item.messageId)
       : [...messages].reverse().find((m) => m.role === "assistant" && uiMessageText(m));
-    const text = picked ? uiMessageText(picked) : "";
+    const text = picked ? uiMessageText(picked, false) : "";
 
     if (!picked || !text) {
       return {
@@ -392,15 +591,7 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
       };
     }
 
-    return {
-      ok: true,
-      value: {
-        ...base,
-        text: clampItemText(text),
-        sourceMessageId: picked.id,
-        agentId: child.agentId,
-      },
-    };
+    return attach(text, { sourceMessageId: picked.id, agentId: child.agentId });
   };
 
   const resolveItems = async (
@@ -409,7 +600,16 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
     const resolved: ResolvedWorktableItem[] = [];
 
     for (const [index, item] of (items ?? []).entries()) {
-      const result = await resolveItem(item);
+      let result: Resolution<ResolvedWorktableItem>;
+
+      try {
+        result = await resolveItem(item);
+      } catch (error) {
+        return {
+          ok: false,
+          error: `Item ${index + 1}: ${error instanceof Error ? error.message : "Context selection failed."}`,
+        };
+      }
 
       if (!result.ok) return { ok: false, error: `Item ${index + 1}: ${result.error}` };
       resolved.push(result.value);
@@ -420,9 +620,24 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
 
   const worktable = tool({
     description:
-      "Your private worktable of reusable context bundles for subagents. List, view, create, update, or delete bundles, and add, replace, or remove single items. Bundles are only sent when you pass them to dispatch_subagent.",
+      "Your private worktable of reusable context bundles for subagents, plus 'man' to read LLM workbench manpages. List, view, create, update, or delete bundles, and add, replace, or remove single items. Bundles are only sent when you pass them to dispatch_subagent.",
     inputSchema: WorktableToolInputSchema,
-    execute: async (args) => {
+    execute: async (
+      args: z.infer<typeof WorktableToolInputSchema> & { shorthandRefs?: string[] }
+    ) => {
+      if (args.action === "man") {
+        const page = getWorkbenchManpage(args.topic);
+
+        return {
+          success: true,
+          ok: true,
+          topic: page.topic,
+          known: page.known,
+          manpage: page.manpage,
+          availableTopics: page.availableTopics,
+        };
+      }
+
       const session = input.worktable;
 
       if (!session) return { success: false, error: WORKTABLE_UNAVAILABLE_ERROR };
@@ -448,6 +663,13 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
       const items = await resolveItems(args.items);
 
       if (!items.ok) return { success: false, error: items.error };
+      const shorthandTokens = [...(args.shorthand ?? []), ...(args.shorthandRefs ?? [])];
+      const expandedShorthand = await resolveShorthandList(shorthandTokens);
+
+      if (!expandedShorthand.ok) {
+        return { success: false, error: expandedShorthand.error };
+      }
+      const combinedItems = [...items.value, ...expandedShorthand.value.items];
       const at = iso();
 
       const outcome = await session.mutate((table): WorktableOutcome<ContextBundle> => {
@@ -459,7 +681,7 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
                 name: args.name ?? "",
                 purpose: args.purpose,
                 instructions: args.instructions,
-                items: items.value,
+                items: combinedItems,
               },
               at
             );
@@ -471,12 +693,12 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
               at
             );
           case "add_items":
-            return items.value.length > 0
-              ? addBundleItems(table, ref, items.value, at)
+            return combinedItems.length > 0
+              ? addBundleItems(table, ref, combinedItems, at)
               : { ok: false, error: "add_items needs items." };
           case "update_item":
-            return args.itemIds?.length === 1 && items.value.length === 1
-              ? replaceBundleItem(table, ref, args.itemIds[0]!, items.value[0]!, at)
+            return args.itemIds?.length === 1 && combinedItems.length === 1
+              ? replaceBundleItem(table, ref, args.itemIds[0]!, combinedItems[0]!, at)
               : {
                   ok: false,
                   error: "update_item needs exactly one itemId and one replacement item.",
@@ -500,16 +722,20 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
     },
   });
 
-  const runDispatch = async (args: z.infer<typeof DispatchToolInputSchema>) => {
-    if (dispatchesThisTurn >= ORCHESTRATOR_MAX_DISPATCHES_PER_TURN) {
+  const runDispatch = async (
+    args: z.infer<typeof DispatchToolInputSchema> & { shorthandRefs?: string[] }
+  ) => {
+    if (dispatchesThisTurn >= maxDispatchesPerTurn) {
       return {
         success: false,
-        error: `You can dispatch at most ${ORCHESTRATOR_MAX_DISPATCHES_PER_TURN} times per turn. Tell the user what is queued next.`,
+        ok: false,
+        error: `You can dispatch at most ${maxDispatchesPerTurn} times per turn. Tell the user what is queued next.`,
       };
     }
     if (dispatchesThisTurn > 0 && (args.additionalDispatchReason?.trim().length ?? 0) < 20) {
       return {
         success: false,
+        ok: false,
         error:
           "One specialist is the default. A second dispatch needs additionalDispatchReason explaining the independent work it adds (at least 20 characters).",
       };
@@ -520,17 +746,18 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
       zeroDataRetention: input.zeroDataRetention,
     });
 
-    if (!selection.ok) return { success: false, error: selection.error };
+    if (!selection.ok) return { success: false, ok: false, error: selection.error };
 
     const brief = args.brief.trim();
 
-    if (!brief) return { success: false, error: "The brief is empty." };
+    if (!brief) return { success: false, ok: false, error: "The brief is empty." };
     const children = await listChildren();
     const agentId = resolveDispatchTarget(args.agent, children);
 
     if (!agentId) {
       return {
         success: false,
+        ok: false,
         error: `No subagent "${args.agent}" on the roster. Use an agentId, name, or role from [Orchestrator].`,
       };
     }
@@ -543,57 +770,224 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
     ) {
       return {
         success: false,
+        ok: false,
         agentId,
         error: `${resolveSubagentIdentity(agentId).name} already has work in flight. Wait for its result; no additional assignment was queued.`,
       };
     }
 
-    let bundles: ContextBundle[] = [];
+    const shorthandTokens = [...(args.shorthand ?? []), ...(args.shorthandRefs ?? [])];
+    const expandedShorthand = await resolveShorthandList(shorthandTokens);
 
-    if (args.bundles?.length) {
+    if (!expandedShorthand.ok) {
+      return { success: false, ok: false, error: expandedShorthand.error };
+    }
+
+    const bundleSelections: BundleSelection[] = [
+      ...(args.bundles ?? []),
+      ...expandedShorthand.value.bundles,
+    ];
+    let bundles: ContextBundle[] = [];
+    let omittedBundleItems = 0;
+
+    if (bundleSelections.length) {
       const table = input.worktable ? await input.worktable.read() : null;
 
-      if (!table) return { success: false, error: WORKTABLE_UNAVAILABLE_ERROR };
-      const missing = args.bundles.filter((ref) => !findBundle(table, ref));
+      if (!table) return { success: false, ok: false, error: WORKTABLE_UNAVAILABLE_ERROR };
+      try {
+        const selected = selectDispatchBundles(table, bundleSelections);
 
-      if (missing.length > 0) {
+        bundles = selected.bundles;
+        omittedBundleItems = selected.omittedItems;
+      } catch (error) {
         return {
           success: false,
-          error: `No bundle ${missing.map((m) => `"${m}"`).join(", ")} on the worktable.`,
+          ok: false,
+          error: error instanceof Error ? error.message : "Bundle selection failed.",
         };
       }
-      const byId = new Map<string, ContextBundle>();
-
-      for (const ref of args.bundles) {
-        const bundle = findBundle(table, ref);
-
-        if (bundle) byId.set(bundle.id, bundle);
-      }
-      bundles = [...byId.values()];
     }
 
     const items = await resolveItems(args.items);
 
-    if (!items.ok) return { success: false, error: items.error };
-    const context = await renderDispatchContext({ bundles, items: items.value, resolveLive });
+    if (!items.ok) return { success: false, ok: false, error: items.error };
+    const combinedItems = [...items.value, ...expandedShorthand.value.items];
+    let rendered: Awaited<ReturnType<typeof renderDispatchContext>>;
+
+    try {
+      rendered = await renderDispatchContext({ bundles, items: combinedItems, resolveLive });
+    } catch (error) {
+      return {
+        success: false,
+        ok: false,
+        error: error instanceof Error ? error.message : "Context rendering failed.",
+      };
+    }
+    const { context } = rendered;
 
     if (context.length > WORKTABLE_LIMITS.dispatchContextChars) {
       return {
         success: false,
+        ok: false,
         error: `That context is ${context.length} characters; the limit per dispatch is ${WORKTABLE_LIMITS.dispatchContextChars}. Send fewer bundles or trim items.`,
       };
     }
     const fingerprint = createHash("sha256")
-      .update(JSON.stringify([brief, context]))
+      .update(
+        JSON.stringify([
+          brief,
+          bundles.map((bundle) => [bundle.name, bundle.instructions]),
+          rendered.items.map(({ itemId: _id, ...item }) => item),
+        ])
+      )
       .digest("hex");
 
     if (dispatchedWork.has(fingerprint)) {
       return {
         success: false,
+        ok: false,
         error:
           "This work was already dispatched this turn. Reuse its result instead of sending it to another specialist.",
       };
     }
+
+    const goal = createWorkerGoal({
+      orchestratorId: orchestratorThreadId,
+      workerAgentId: agentId,
+      goal: brief,
+      now: now(),
+    });
+    let selectedHistory: ReturnType<typeof selectWorkerHistory>;
+
+    try {
+      selectedHistory = selectWorkerHistory(
+        existing
+          ? await deps.loadMessages(existing.threadId, SUBAGENT_THREAD_CONTEXT_MESSAGES)
+          : [],
+        args.history,
+        args.historyMessageIds
+      );
+    } catch (error) {
+      return {
+        success: false,
+        ok: false,
+        error: error instanceof Error ? error.message : "History selection failed.",
+      };
+    }
+    let assignment = buildSubagentGoalMessage({
+      goal: brief,
+      goalId: goal.goalId,
+      id: goal.goalId,
+      modelId: selection.modelId,
+      modelTier: selection.tier,
+      modelReason: args.modelReason?.trim(),
+      context,
+      bundles: bundles.map((bundle) => ({ id: bundle.id, name: bundle.name })),
+      subagentContext: { version: 1, items: rendered.items, history: selectedHistory.selection },
+    });
+
+    const inspectFn =
+      deps.inspectWorkerInput ??
+      (async (req) =>
+        estimateWorkerInput({
+          instructions: "worker",
+          toolSchemaText: "[]",
+          messages: await workerModelMessages(req.history, req.assignment),
+          modelId: req.modelId,
+        }));
+    let inspection: Awaited<ReturnType<NonNullable<OrchestratorToolDeps["inspectWorkerInput"]>>>;
+
+    try {
+      inspection = await inspectFn({
+        assignment,
+        history: selectedHistory.messages,
+        threadId: existing?.threadId ?? goal.goalId,
+        agentId,
+        modelId: selection.modelId,
+      });
+    } catch {
+      return {
+        success: false,
+        ok: false,
+        error: "Could not inspect worker input; nothing was queued.",
+      };
+    }
+
+    if (inspection.windowedHistory && selectedHistory.selection.mode === "continue") {
+      const kept = inspection.windowedHistory;
+
+      selectedHistory = {
+        messages: kept,
+        selection: { mode: "continue", messageIds: kept.map((message) => message.id) },
+      };
+      const prior = readSubagentContext(assignment);
+      const metadata = assignment.metadata;
+
+      if (prior && metadata) {
+        assignment = {
+          ...assignment,
+          metadata: {
+            ...metadata,
+            subagentContext: { ...prior, history: selectedHistory.selection },
+          },
+        };
+      }
+    }
+
+    const manifest = {
+      items: rendered.manifest,
+      omittedBundleItems,
+      history: selectedHistory.selection,
+      budget: inspection.budget,
+    };
+
+    const budgetCheck = budgetLedger.checkDispatch({
+      tier: selection.tier,
+      modelId: selection.modelId,
+      estimatedInputTokens: inspection.budget.estimatedInputTokens,
+    });
+    const budgetReport = {
+      estimatedCostUsd: budgetCheck.estimatedCostUsd,
+      turnEstimatedSpendUsd: budgetCheck.turnEstimatedSpendUsd,
+      hardLimitUsd: budgetCheck.hardLimitUsd,
+      remainingUsd: budgetCheck.remainingUsd,
+      zeroDataRetention: input.zeroDataRetention,
+    };
+
+    if (!budgetCheck.ok) {
+      return {
+        success: false,
+        ok: false,
+        agentId,
+        modelId: selection.modelId,
+        modelTier: selection.tier,
+        manifest,
+        budget: budgetReport,
+        suggestedTier: budgetCheck.suggestedTier,
+        error: budgetCheck.error,
+      };
+    }
+
+    if (!inspection.fits)
+      return {
+        success: false,
+        ok: false,
+        manifest,
+        budget: budgetReport,
+        error:
+          "Selected worker input exceeds its budget including tools, instructions, retained history, and tool-result headroom. Select fewer items/excerpts or use fresh/historyMessageIds; required content must stay intact.",
+      };
+    if (args.dryRun)
+      return {
+        success: true,
+        ok: true,
+        dryRun: true,
+        agentId,
+        modelId: selection.modelId,
+        modelTier: selection.tier,
+        manifest,
+        budget: budgetReport,
+      };
 
     if (input.autonomous) {
       if (input.worktable) {
@@ -601,11 +995,12 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
           reserveAutonomousDispatch(table, ORCHESTRATOR_MAX_AUTONOMOUS_DISPATCHES)
         );
 
-        if (!reserved.ok) return { success: false, error: reserved.error };
+        if (!reserved.ok) return { success: false, ok: false, error: reserved.error };
       } else {
         if (autonomousLeft <= 0) {
           return {
             success: false,
+            ok: false,
             error: `Automatic turns may dispatch at most ${ORCHESTRATOR_MAX_AUTONOMOUS_DISPATCHES} times until the user speaks again. Tell the user what you would send next instead.`,
           };
         }
@@ -625,32 +1020,20 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
     if (!threadId) {
       return {
         success: false,
+        ok: false,
         error:
           "Subagent storage is unavailable, so nothing was sent. Do the work here or tell the user.",
       };
     }
 
-    const goal = createWorkerGoal({
-      orchestratorId: orchestratorThreadId,
-      workerAgentId: agentId,
-      goal: brief,
-      now: now(),
-    });
-    const saved = await deps.appendMessages(threadId, [
-      buildSubagentGoalMessage({
-        goal: brief,
-        goalId: goal.goalId,
-        id: goal.goalId,
-        modelId: selection.modelId,
-        modelTier: selection.tier,
-        modelReason: args.modelReason?.trim(),
-        context,
-        bundles: bundles.map((b) => ({ id: b.id, name: b.name })),
-      }),
-    ]);
+    const saved = await deps.appendMessages(threadId, [assignment]);
 
     if (!saved)
-      return { success: false, error: "Could not save the assignment, so nothing was sent." };
+      return {
+        success: false,
+        ok: false,
+        error: "Could not save the assignment, so nothing was sent.",
+      };
     await deps.setStatus(threadId, "working");
     await deps.enqueueWorker({
       goal,
@@ -661,6 +1044,7 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
     dispatchesThisTurn += 1;
     dispatchedAgents.add(agentId);
     dispatchedWork.add(fingerprint);
+    const recordedBudget = budgetLedger.recordDispatch(budgetCheck.estimatedCostUsd);
 
     if (bundles.length > 0) {
       const at = iso();
@@ -689,21 +1073,31 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
 
     return {
       success: true,
+      ok: true,
       agentId,
       name: identity.name,
       role: identity.role,
+      threadId,
       goalId: goal.goalId,
       modelId: selection.modelId,
       modelTier: selection.tier,
       bundlesSent: bundles.map((b) => b.name),
-      contextItems: bundles.reduce((n, b) => n + b.items.length, 0) + items.value.length,
+      contextItems: bundles.reduce((n, b) => n + b.items.length, 0) + combinedItems.length,
       contextChars: context.length,
+      manifest,
+      budget: {
+        estimatedCostUsd: budgetCheck.estimatedCostUsd,
+        turnEstimatedSpendUsd: recordedBudget.turnSpentEstimatedUsd,
+        hardLimitUsd: recordedBudget.hardLimitUsd,
+        remainingUsd: recordedBudget.remainingUsd,
+        zeroDataRetention: input.zeroDataRetention,
+      },
     };
   };
 
   const dispatch_subagent = tool({
     description:
-      "Send necessary work to one idle specialist under the budget-first policy. Defaults to an economy model. A second dispatch needs a reason for independent work; standard tier needs a model justification. Repeated work and busy specialists are blocked. Returns immediately.",
+      "Send necessary work to one idle specialist under the budget-first policy. Defaults to an economy model (or micro/standard/frontier with budget check). Additional dispatches need a reason for independent work; standard and frontier tiers need a model justification. Supports shorthand context refs (node:<id>, connector:<slice>, out:<agentId>, msg:<id>, bundle:<id>). Route GitHub to Reed, research and career slices to Lyra, and architecture preferences to Archer. Returns immediately.",
     inputSchema: DispatchToolInputSchema,
     // One at a time: parallel calls in a step must not overrun the caps or race a child thread.
     execute: (args) => {
@@ -719,9 +1113,9 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
 }
 
 /**
- * Merge an Arcadia orchestrator's own tools into a compiled toolset: `read_subagent_thread` once
- * it has subagent threads, and `worktable` + `dispatch_subagent` whenever it writes its own
- * dispatches — including the first turn, before any subagent thread exists.
+ * Merge an Arcadia or Rabbit Hole orchestrator's own tools into a compiled toolset:
+ * `read_subagent_thread` once it has subagent threads (or when `alwaysIncludeReadSubagentThread` is set),
+ * and `worktable` + `dispatch_subagent` whenever it writes its own dispatches.
  */
 export function withArcadiaOrchestratorTools(
   compiled: { tools: ToolSet; toolInstructions: string },
@@ -729,16 +1123,46 @@ export function withArcadiaOrchestratorTools(
 ): { tools: ToolSet; toolInstructions: string } {
   const { multitask, ...toolsInput } = args;
 
+  if (multitask?.role === "subagent" && multitask.parentThreadId) {
+    let items: Promise<NonNullable<ReturnType<typeof readSubagentContext>>["items"]> | undefined;
+    const reader = createReadContextItemTool(() => {
+      items ??= toolsInput.deps
+        .loadMessages(toolsInput.orchestratorThreadId, SUBAGENT_THREAD_CONTEXT_MESSAGES)
+        .then((messages) => {
+          const assignment = [...messages]
+            .reverse()
+            .find(
+              (message) =>
+                message.role === "user" &&
+                (message.metadata as { source?: string } | undefined)?.source === "orchestrator"
+            );
+
+          return assignment ? (readSubagentContext(assignment)?.items ?? []) : [];
+        });
+
+      return items;
+    });
+
+    return {
+      tools: { ...compiled.tools, read_context_item: reader },
+      toolInstructions: [compiled.toolInstructions, CONTEXT_DATA_INSTRUCTIONS]
+        .filter(Boolean)
+        .join("\n\n"),
+    };
+  }
   if (multitask?.role !== "orchestrator") return compiled;
   let next = compiled;
 
-  if (multitask.hasSubagentThreads) {
+  if (
+    (multitask.hasSubagentThreads || toolsInput.alwaysIncludeReadSubagentThread) &&
+    !next.tools.read_subagent_thread
+  ) {
     next = withReadSubagentThreadTool(next, {
       orchestratorThreadId: toolsInput.orchestratorThreadId,
       deps: toolsInput.deps,
     });
   }
-  if (multitask.orchestratorDispatch) {
+  if (multitask.orchestratorDispatch && !next.tools.dispatch_subagent) {
     next = {
       tools: {
         ...next.tools,

@@ -9,8 +9,6 @@
  * navigation, source analysis, and prompt bar with the useRabbitHoles hook.
  */
 
-import type { CenterViewState } from "@/lib/rabbit-holes/centerViewState";
-
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -29,7 +27,12 @@ import { toast } from "sonner";
 import { glass } from "../design-system/primitives";
 import { useSidebar } from "../third-party/ui/sidebar";
 
+import {
+  resolveRabbitHoleCenterView,
+  type CenterViewState,
+} from "@/lib/rabbit-holes/centerViewState";
 import Page from "@/components/layout/page";
+import { RABBIT_HOLE_OPEN_NODE_EVENT } from "@/components/chat/organic-tool-call-presence";
 import { useVoiceScreenContext } from "@/hooks/use-voice-screen-context";
 import { RabbitHolePathRail } from "@/app/rabbitholes/_components/RabbitHolePathRail";
 import { RabbitHoleArticle } from "@/app/rabbitholes/_components/RabbitHoleArticle";
@@ -184,38 +187,70 @@ function RabbitHoleShellInner() {
       sessionIdToLoad != null &&
       isLoading &&
       (session == null || session.sessionId !== sessionIdToLoad);
+    const isBranch = Boolean(
+      activeNode && session?.rootNodeId && activeNode.id !== session.rootNodeId
+    );
 
-    if (loadingPrevious) return { kind: "loading_previous_session" };
-
-    if (isAnalyzingSource) return { kind: "loading_source_analysis" };
-
-    if (selectedSourceId && sourceAnalysis)
-      return { kind: "viewing_source_analysis", sourceId: selectedSourceId };
-
-    const isGeneratingThisNode = activeNode && generatingNodeId === activeNode.id;
-    const hasRealArticle = !!activeNode?.articleHtml?.trim();
-
-    if (isGeneratingThisNode && !hasRealArticle) {
-      const variant = activeNode ? "branch" : "initial";
-
-      return { kind: "generating_new_node", variant };
-    }
-
-    if (activeNode) return { kind: "article_loaded", nodeId: activeNode.id };
-
-    return { kind: "empty" };
+    return resolveRabbitHoleCenterView({
+      loadingPrevious,
+      isAnalyzingSource,
+      selectedSourceId,
+      hasSourceAnalysis: Boolean(sourceAnalysis),
+      activeNode,
+      isBranch,
+    });
   }, [
     sessionIdToLoad,
     isLoading,
-    session?.sessionId,
     session,
     isAnalyzingSource,
     selectedSourceId,
     sourceAnalysis,
-    isBusy,
     activeNode,
-    generatingNodeId,
   ]);
+
+  const resumeAttemptedRef = useRef<Set<string>>(new Set());
+  const loadSessionRef = useRef(loadExistingSession);
+
+  loadSessionRef.current = loadExistingSession;
+
+  // A node with no article is never a finished page. Kick resume once so a failed
+  // background job (cleared generatingNodeId) starts again, then reload so polling
+  // or the finished article can take over.
+  useEffect(() => {
+    const sessionId = session?.sessionId;
+    const nodeId = activeNode?.id;
+
+    if (!sessionId || !nodeId || activeNode.articleHtml?.trim()) return;
+    if (isAnalyzingSource || selectedSourceId) return;
+
+    const generationInFlight = generatingNodeId === nodeId || session.generatingNodeId === nodeId;
+
+    if (generationInFlight) return;
+
+    const key = `${sessionId}:${nodeId}`;
+
+    if (resumeAttemptedRef.current.has(key)) return;
+    resumeAttemptedRef.current.add(key);
+
+    void fetch(`/api/rabbitholes/${sessionId}/resume`, { method: "POST" })
+      .then(async (res) => {
+        if (!res.ok) {
+          logger.error("resume", `Resume failed: HTTP ${res.status}`);
+        }
+      })
+      .catch((error: unknown) => {
+        logger.error("resume", "Resume request failed", error);
+      })
+      .finally(() => {
+        void loadSessionRef.current(sessionId);
+      });
+  }, [session, activeNode, generatingNodeId, isAnalyzingSource, selectedSourceId]);
+
+  const showSourcesColumn =
+    Boolean(activeNode) &&
+    (centerViewState.kind === "article_loaded" ||
+      (centerViewState.kind === "generating_new_node" && (activeNode?.sources?.length ?? 0) > 0));
 
   // --- Event handlers (thin wrappers around hook actions) ---
   const handleBackToArticle = () => {
@@ -266,6 +301,20 @@ function RabbitHoleShellInner() {
     ensureEmptySession: ensureEmptySessionForChat,
     onSessionCreated: handleSessionCreated,
   });
+
+  useEffect(() => {
+    const onOpenNode = (event: Event) => {
+      const detail = (event as CustomEvent<{ nodeId?: string }>).detail;
+
+      if (detail?.nodeId) {
+        setActiveNode(detail.nodeId);
+      }
+    };
+
+    window.addEventListener(RABBIT_HOLE_OPEN_NODE_EVENT, onOpenNode);
+
+    return () => window.removeEventListener(RABBIT_HOLE_OPEN_NODE_EVENT, onOpenNode);
+  }, [setActiveNode]);
 
   // --- Path navigation (back/forward along session.path) ---
   const getCurrentPathIndex = () => {
@@ -496,20 +545,26 @@ function RabbitHoleShellInner() {
                       </DelayedContent>
                     )}
 
+                    {centerViewState.kind === "article_loaded" && activeNode?.articleHtml && (
+                      <div key={activeNode.id}>
+                        <RabbitHoleArticle
+                          activeTakeawayIndex={activeTakeawayIndex}
+                          articleHtml={activeNode.articleHtml}
+                          nodeId={activeNode.id}
+                          takeaways={activeNode.keyTakeaways}
+                          title={activeNode.title?.trim() || RABBIT_HOLE_UNTITLED}
+                          onActiveSectionChange={setActiveTakeawayIndex}
+                          onBranchClick={followBranch}
+                        />
+                      </div>
+                    )}
+
                     {centerViewState.kind === "article_loaded" &&
                       activeNode &&
-                      activeNode.articleHtml && (
-                        <div key={activeNode.id}>
-                          <RabbitHoleArticle
-                            activeTakeawayIndex={activeTakeawayIndex}
-                            articleHtml={activeNode.articleHtml}
-                            nodeId={activeNode.id}
-                            takeaways={activeNode.keyTakeaways}
-                            title={activeNode.title?.trim() || RABBIT_HOLE_UNTITLED}
-                            onActiveSectionChange={setActiveTakeawayIndex}
-                            onBranchClick={followBranch}
-                          />
-                        </div>
+                      !activeNode.articleHtml?.trim() && (
+                        <DelayedContent key="article-pending" delayMs={400}>
+                          <RabbitHoleLoadingState preview={preview} variant="branch" />
+                        </DelayedContent>
                       )}
 
                     {centerViewState.kind === "empty" && (
@@ -550,9 +605,7 @@ function RabbitHoleShellInner() {
 
               {/* ── Right column: Sources + Explore Further ── */}
               <AnimatePresence initial={false} mode="popLayout">
-                {!focusMode &&
-                  (chatOpen ||
-                    (centerViewState.kind === "article_loaded" && Boolean(activeNode))) && (
+                {!focusMode && (chatOpen || showSourcesColumn) && (
                   <motion.aside
                     key={chatOpen ? "rabbit-hole-assistant" : "rabbit-hole-right-column"}
                     animate={{ opacity: 1, x: 0 }}
@@ -566,7 +619,11 @@ function RabbitHoleShellInner() {
                         activeNode={activeNode}
                         canGoBack={canGoBack()}
                         isBusy={isBusy}
+                        planBudget={desktopChat.planBudget}
+                        processingIntensity={desktopChat.processingIntensity}
                         session={session}
+                        subagents={desktopChat.subagents}
+                        zeroDataRetention={desktopChat.zeroDataRetention}
                         onBranchClick={followBranch}
                         onClose={() => setChatOpen(false)}
                         ensureEmptySession={ensureEmptySessionForChat}
@@ -578,7 +635,7 @@ function RabbitHoleShellInner() {
                       />
                     ) : (
                       <AnimatePresence>
-                        {centerViewState.kind === "article_loaded" && activeNode && (
+                        {showSourcesColumn && activeNode && (
                           <div key={activeNode.id} className="flex flex-col gap-3">
                             <RabbitHoleSourceList
                               hasBranches={

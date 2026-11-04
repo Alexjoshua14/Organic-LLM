@@ -1,6 +1,6 @@
 "use client";
 
-import { FC, useCallback, useRef, useState } from "react";
+import { FC, useCallback, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MoreVertical } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -19,6 +19,15 @@ import { useSharedChatContext } from "@/lib/context/chat-context";
 import { useChatId } from "@/hooks/use-chat-id";
 import { LazySidebarThreadActionsMenu } from "@/components/sidebar/sidebar-thread-actions-menu";
 import { SidebarChatTitle } from "@/components/sidebar/sidebar-chat-title";
+import { SessionGlyph } from "@/components/sidebar/session-glyph";
+import { SessionSignalTray } from "@/components/sidebar/session-signal-tray";
+import { useThreadTitleGeneration } from "@/hooks/use-thread-title-generation";
+import { getSessionExperience, SESSION_EXPERIENCES } from "@/lib/sidebar/session-experience";
+import {
+  describeSessionSignal,
+  IDLE_SIGNAL,
+  type SessionSignal,
+} from "@/lib/sidebar/session-signal";
 import { cn } from "@/lib/utils";
 
 const logger = createLogger("components/sidebar/sidebar-chat-list.tsx");
@@ -27,13 +36,23 @@ const LONG_PRESS_MS = 500;
 
 type SidebarChatListProps = {
   threads: ThreadLink[];
+  /** Per-thread signal from `SidebarChats`. Threads without one are idle. */
+  signals?: ReadonlyMap<string, SessionSignal>;
+  /**
+   * The thread on screen, when the parent resolved it (covers query-string routes such as
+   * rabbit holes). Omitted → the path-slug id from `useChatId`.
+   */
+  activeThreadId?: string | null;
 };
 
-export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
+export const SidebarChatList: FC<SidebarChatListProps> = ({ threads, signals, activeThreadId }) => {
   const { setOpenMobile, isMobile } = useSidebar();
   const { setChatId, updateSidebarChat } = useSharedChatContext();
-  const currentChatId = useChatId();
+  const pathChatId = useChatId();
+  const currentChatId = activeThreadId !== undefined ? activeThreadId : pathChatId;
   const router = useRouter();
+  const descriptionIdPrefix = useId();
+  const { titleGeneration, generateTitle, announcement } = useThreadTitleGeneration();
 
   const [editingThreadId, setEditingThreadId] = useState<string | null>(null);
   const [openMenuThreadId, setOpenMenuThreadId] = useState<string | null>(null);
@@ -125,9 +144,25 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
           const isEditing = editingThreadId === thread.id;
           const isMenuOpen = openMenuThreadId === thread.id;
           const isArcadia = thread.feature === "arcadia";
+          const experience = getSessionExperience(thread.feature);
+          const titleStatus = titleGeneration.get(thread.id);
+          // Local title work outranks server signals while it lasts: it answers the user's click.
+          const signal: SessionSignal =
+            titleStatus?.phase === "pending"
+              ? { kind: "working", step: null, label: "Generating title" }
+              : titleStatus?.phase === "failed"
+                ? { kind: "notice", text: titleStatus.message }
+                : (signals?.get(thread.id) ?? IDLE_SIGNAL);
+          const isNew = signal.kind === "new";
+          const descriptionId = `${descriptionIdPrefix}-${thread.id}`;
 
           return (
-            <SidebarMenuItem key={thread.id} className="relative">
+            <SidebarMenuItem
+              key={thread.id}
+              className="relative"
+              data-session-signal={signal.kind}
+              data-sidebar-thread={thread.id}
+            >
               <div
                 className={cn(
                   "font-extralight text-sm w-full rounded px-3 transition-colors duration-150 group/thread cursor-pointer min-w-0 relative flex items-center",
@@ -149,14 +184,21 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
                     : "hover:bg-background",
                   isArcadia ? "text-foreground" : "text-foreground-secondary"
                 )}
+                onContextMenu={(event) => {
+                  if (isEditing) return;
+                  event.preventDefault();
+                  setMenuOpen(thread.id);
+                }}
                 onTouchCancel={handleLongPressEnd}
                 onTouchEnd={handleLongPressEnd}
                 onTouchStart={() => handleLongPressStart(thread.id)}
               >
                 <div
                   aria-current={isActiveThread ? "page" : undefined}
+                  aria-describedby={isEditing ? undefined : descriptionId}
                   aria-label={isEditing ? undefined : `Open ${thread.title}`}
                   className="flex-1 min-w-0 overflow-hidden pr-10 py-1"
+                  data-sidebar-thread-open
                   role={isEditing ? undefined : "button"}
                   tabIndex={isEditing ? undefined : 0}
                   onClick={
@@ -178,27 +220,67 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
                         }
                   }
                 >
-                  <SidebarChatTitle
-                    editing={isEditing}
-                    threadId={thread.id}
-                    title={thread.title}
-                    onEditingChange={(editing) => setEditingThreadId(editing ? thread.id : null)}
-                    onSave={(title) => handleSaveTitle(thread.id, title)}
-                    className={
-                      isArcadia
-                        ? "bg-linear-to-tr from-emerald-600/85 via-foreground-secondary to-foreground-secondary bg-clip-text text-transparent"
-                        : undefined
-                    }
-                  />
+                  <div className="flex min-w-0 items-center gap-2">
+                    <SidebarChatTitle
+                      editing={isEditing}
+                      threadId={thread.id}
+                      title={thread.title}
+                      onEditingChange={(editing) => setEditingThreadId(editing ? thread.id : null)}
+                      onSave={(title) => handleSaveTitle(thread.id, title)}
+                      className={cn(
+                        isArcadia
+                          ? "bg-linear-to-tr from-emerald-600/85 via-foreground-secondary to-foreground-secondary bg-clip-text text-transparent"
+                          : isNew && "text-foreground font-light",
+                        // The title being replaced steps back while its successor is written.
+                        titleStatus?.phase === "pending" && "opacity-55"
+                      )}
+                    />
+                  </div>
+                  <SessionSignalTray signal={signal} />
+                  <span className="sr-only" id={descriptionId}>
+                    {describeSessionSignal(SESSION_EXPERIENCES[experience].label, signal)}
+                  </span>
+                </div>
+                {/* The glyph rests in the actions slot. Desktop swaps it for the menu on hover or
+                    focus; mobile shows the menu on the open thread, whose experience is on screen. */}
+                <div
+                  aria-hidden="true"
+                  className={cn(
+                    "pointer-events-none absolute right-0 top-0 bottom-0 z-10 flex items-center pr-1",
+                    "transition-opacity duration-150 ease-out motion-reduce:transition-none",
+                    isMenuOpen || (isMobile && isActiveThread)
+                      ? "opacity-0"
+                      : !isMobile &&
+                          "group-hover/thread:opacity-0 group-focus-within/thread:opacity-0"
+                  )}
+                >
+                  <span className="flex size-7.5 items-center justify-center">
+                    <SessionGlyph
+                      emphasized={isActiveThread}
+                      experience={experience}
+                      signal={signal}
+                    />
+                  </span>
                 </div>
                 {!isMobile && (
                   <div
-                    className={`absolute right-0 top-0 bottom-0 flex items-center z-10 pr-1 transition-opacity duration-250 ${isActiveThread || isMenuOpen ? "opacity-100" : "opacity-0 group-hover/thread:opacity-100"}`}
+                    className={cn(
+                      "absolute right-0 top-0 bottom-0 z-10 flex items-center pr-1",
+                      "transition-[opacity,translate] duration-250 ease-out motion-reduce:transition-none",
+                      isMenuOpen
+                        ? "translate-x-0 opacity-100"
+                        : cn(
+                            "translate-x-2 opacity-0",
+                            "group-hover/thread:translate-x-0 group-hover/thread:opacity-100",
+                            "group-focus-within/thread:translate-x-0 group-focus-within/thread:opacity-100"
+                          )
+                    )}
                   >
                     <LazySidebarThreadActionsMenu
                       open={isMenuOpen}
                       thread={thread}
                       onEditTitle={() => setEditingThreadId(thread.id)}
+                      onGenerateTitle={() => void generateTitle(thread)}
                       onOpenChange={(open) => setMenuOpen(open ? thread.id : null)}
                       onTogglePin={() => togglePinThread(thread)}
                     >
@@ -220,12 +302,17 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
               </div>
               {isMobile && (
                 <div
-                  className={`absolute right-0 top-0 bottom-0 flex items-center z-10 pr-1 ${isActiveThread ? "opacity-100" : "opacity-0 group-hover/thread:opacity-100"}`}
+                  className={cn(
+                    "absolute right-0 top-0 bottom-0 z-10 flex items-center pr-1",
+                    "transition-opacity duration-250 ease-out motion-reduce:transition-none",
+                    isActiveThread || isMenuOpen ? "opacity-100" : "pointer-events-none opacity-0"
+                  )}
                 >
                   <LazySidebarThreadActionsMenu
                     open={isMenuOpen}
                     thread={thread}
                     onEditTitle={() => setEditingThreadId(thread.id)}
+                    onGenerateTitle={() => void generateTitle(thread)}
                     onOpenChange={(open) => setMenuOpen(open ? thread.id : null)}
                     onTogglePin={() => togglePinThread(thread)}
                   >
@@ -261,6 +348,9 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
           );
         })}
       </SidebarMenu>
+      <div aria-live="polite" className="sr-only" role="status">
+        {announcement}
+      </div>
     </SidebarGroupContent>
   );
 };

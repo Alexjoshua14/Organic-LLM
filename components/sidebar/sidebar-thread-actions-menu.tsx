@@ -1,7 +1,8 @@
 "use client";
 
 import { useDisclosure } from "@heroui/modal";
-import { Pencil, Pin, PinOff, Sparkles, Trash2 } from "lucide-react";
+import { Copy, Pencil, Pin, PinOff, Sparkles, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { cloneElement, useCallback, useState, type ReactElement, type HTMLAttributes } from "react";
 import { useRouter, usePathname } from "next/navigation";
 
@@ -18,6 +19,7 @@ import { deleteChat } from "@/data/supabase/chat";
 import { createLogger } from "@/lib/logger";
 import { useTitleRegenSession } from "@/lib/chat/title-regen-store";
 import { useSharedChatContext } from "@/lib/context/chat-context";
+import { copyThreadToClipboard } from "@/lib/clipboard/thread-clipboard";
 
 const logger = createLogger("components/sidebar/sidebar-thread-actions-menu.tsx");
 
@@ -26,6 +28,8 @@ type SidebarThreadActionsMenuProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onEditTitle: () => void;
+  /** Starts AI title regeneration; the row owns the progress feedback. */
+  onGenerateTitle: () => void;
   onTogglePin: () => void;
   children: React.ReactNode;
 };
@@ -35,19 +39,15 @@ export function SidebarThreadActionsMenu({
   open,
   onOpenChange,
   onEditTitle,
+  onGenerateTitle,
   onTogglePin,
   children,
 }: SidebarThreadActionsMenuProps) {
   const { isOpen, onOpen, onClose, onOpenChange: onModalOpenChange } = useDisclosure();
   const pathname = usePathname();
   const router = useRouter();
-  const {
-    removeSidebarChat,
-    isTitleRegenerating,
-    beginTitleRegen,
-    resolveTitleRegen,
-    finishTitleRegen,
-  } = useSharedChatContext();
+  const { removeSidebarChat, isTitleRegenerating } = useSharedChatContext();
+  const titleOwnedByExperience = thread.feature === "rabbit_hole";
   const titleRegenInFlight = useTitleRegenSession(thread.id) != null;
 
   const handleEditTitle = useCallback(() => {
@@ -69,38 +69,8 @@ export function SidebarThreadActionsMenu({
     if (isTitleRegenerating(thread.id)) return;
 
     onOpenChange(false);
-    const threadId = thread.id;
-
-    beginTitleRegen(threadId, thread.title);
-
-    fetch(`/api/chat/${threadId}/generate-title`, { method: "POST" })
-      .then(async (res) => {
-        if (!res.ok) {
-          logger.error("handleGenerateTitle", `Failed to generate title: ${res.status}`);
-          finishTitleRegen(threadId);
-
-          return;
-        }
-
-        const body = (await res.json().catch(() => ({}))) as { data?: string };
-        const nextTitle =
-          typeof body.data === "string" && body.data.trim() !== "" ? body.data.trim() : "Chat";
-
-        resolveTitleRegen(threadId, nextTitle);
-      })
-      .catch((err) => {
-        logger.error("handleGenerateTitle", err);
-        finishTitleRegen(threadId);
-      });
-  }, [
-    thread.id,
-    thread.title,
-    onOpenChange,
-    isTitleRegenerating,
-    beginTitleRegen,
-    resolveTitleRegen,
-    finishTitleRegen,
-  ]);
+    onGenerateTitle();
+  }, [thread.id, isTitleRegenerating, onOpenChange, onGenerateTitle]);
 
   const deleteThread = useCallback(() => {
     const handleDeleteThread = async () => {
@@ -127,18 +97,43 @@ export function SidebarThreadActionsMenu({
       <DropdownMenu open={open} onOpenChange={onOpenChange}>
         <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-40">
-          <DropdownMenuItem onSelect={handleEditTitle}>
-            <Pencil className="size-4" />
-            Edit title
+          <DropdownMenuItem
+            onSelect={() => {
+              void copyThreadToClipboard(thread.id).then(({ copied, saved }) => {
+                if (copied && saved)
+                  toast.success("Thread copied and saved to your thread clipboard");
+                else if (copied)
+                  toast.success("Thread copied", {
+                    description: "Saved clipboard is currently unavailable.",
+                  });
+                else if (saved)
+                  toast.success("Saved to your thread clipboard", {
+                    description: "Native clipboard access was unavailable.",
+                  });
+                else toast.error("Couldn’t copy thread");
+              });
+            }}
+          >
+            <Copy className="size-4" />
+            Copy thread
           </DropdownMenuItem>
-          <DropdownMenuItem disabled={titleRegenInFlight} onSelect={handleGenerateTitle}>
-            <Sparkles className="size-4" />
-            {titleRegenInFlight
-              ? "Generating title…"
-              : thread.hasNoTitle === true
-                ? "Generate title (AI)"
-                : "Regenerate title (AI)"}
-          </DropdownMenuItem>
+          {/* A rabbit hole's title comes from the rabbit hole itself (see GET /api/chats). */}
+          {!titleOwnedByExperience && (
+            <>
+              <DropdownMenuItem onSelect={handleEditTitle}>
+                <Pencil className="size-4" />
+                Edit title
+              </DropdownMenuItem>
+              <DropdownMenuItem disabled={titleRegenInFlight} onSelect={handleGenerateTitle}>
+                <Sparkles className="size-4" />
+                {titleRegenInFlight
+                  ? "Generating title…"
+                  : thread.hasNoTitle === true
+                    ? "Generate title (AI)"
+                    : "Regenerate title (AI)"}
+              </DropdownMenuItem>
+            </>
+          )}
           <DropdownMenuItem onSelect={handleTogglePin}>
             {thread.pinned ? (
               <>

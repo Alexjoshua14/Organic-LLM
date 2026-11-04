@@ -33,9 +33,7 @@ export const RABBIT_HOLE_WIDE_MAX_WIDTH_CLASS = "max-w-7xl";
  * side + center min + side + two gaps.
  */
 export const RABBIT_HOLE_THREE_COL_MIN_WIDTH_PX =
-  RABBIT_HOLE_SIDE_COLUMN_PX * 2 +
-  RABBIT_HOLE_CENTER_MIN_MEASURE_PX +
-  RABBIT_HOLE_GRID_GAP_PX * 2;
+  RABBIT_HOLE_SIDE_COLUMN_PX * 2 + RABBIT_HOLE_CENTER_MIN_MEASURE_PX + RABBIT_HOLE_GRID_GAP_PX * 2;
 
 /**
  * Whether the explorer main area is wide enough for path | article | sources.

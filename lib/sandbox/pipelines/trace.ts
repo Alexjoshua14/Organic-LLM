@@ -84,6 +84,7 @@ export function normalizeUsage(usage: {
     promptTokens: usage.promptTokens ?? usage.inputTokens ?? undefined,
     completionTokens: usage.completionTokens ?? usage.outputTokens ?? undefined,
     totalTokens: usage.totalTokens ?? undefined,
-    reasoningTokens: usage.outputTokenDetails?.reasoningTokens ?? usage.reasoningTokens ?? undefined,
+    reasoningTokens:
+      usage.outputTokenDetails?.reasoningTokens ?? usage.reasoningTokens ?? undefined,
   };
 }

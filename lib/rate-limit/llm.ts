@@ -50,6 +50,7 @@ const rabbitHoleNodeLimiter = new Ratelimit({
 export type RateLimitResult = {
   success: boolean;
   remaining?: number;
+  reset?: number;
   error?: string;
 };
 
@@ -83,7 +84,7 @@ export async function checkLlmMessageLimit(userId: string): Promise<RateLimitRes
       where: "checkLlmMessageLimit",
     });
 
-    return { success: false, error: LLM_MESSAGE_RATE_LIMIT.error, remaining };
+    return { success: false, error: LLM_MESSAGE_RATE_LIMIT.error, remaining, reset };
   }
 
   return { success: true, remaining };

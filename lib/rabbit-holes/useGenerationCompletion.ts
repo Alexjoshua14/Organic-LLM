@@ -5,6 +5,7 @@ import type { RabbitHoleSession } from "@/lib/schemas/rabbitHoleSchemas";
 import { useEffect, useRef } from "react";
 
 import { getSessionById } from "@/data/supabase/rabbitholes";
+import { nudgeSidebarActivity } from "@/hooks/use-sidebar-activity";
 
 const POLL_INTERVAL_MS = 2500;
 
@@ -28,6 +29,9 @@ export function useGenerationCompletion(
   useEffect(() => {
     if (!sessionId || !generatingNodeId) return;
 
+    // The sidebar shows this node as working; tell it now rather than on the next navigation.
+    nudgeSidebarActivity();
+
     let cancelled = false;
     const intervalId = setInterval(async () => {
       if (cancelled) return;
@@ -45,6 +49,7 @@ export function useGenerationCompletion(
         (session.nodesById[generatingNodeId]?.articleHtml?.length ?? 0) > 0;
 
       if (done) {
+        nudgeSidebarActivity();
         onSessionUpdatedRef.current(session);
       }
     }, POLL_INTERVAL_MS);

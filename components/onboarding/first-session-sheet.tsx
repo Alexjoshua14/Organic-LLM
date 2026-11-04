@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Check, Sparkles, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -24,12 +25,15 @@ import {
   shouldShowFirstSessionChecklist,
 } from "@/lib/onboarding/first-session-storage";
 import { requestFeatureGuideResume } from "@/lib/onboarding/feature-hint-explicit-request";
+import { threadEntryPrefetch } from "@/lib/chat/thread-entry-navigation";
 import { cn } from "@/lib/utils";
 
 /**
  * Floating first-session guide — portaled so it is not stretched by the sidebar flex row.
  */
 export function FirstSessionSheet() {
+  // Public showcase demos are watched, not onboarded — the guide would cover the stage.
+  const onShowcase = usePathname()?.startsWith("/showcase") ?? false;
   const [hydrated, setHydrated] = useState(false);
   const [open, setOpen] = useState(false);
   const [visible, setVisible] = useState(false);
@@ -45,7 +49,7 @@ export function FirstSessionSheet() {
   }, []);
 
   useEffect(() => {
-    if (!hydrated || !visible || toastShownRef.current) return;
+    if (!hydrated || !visible || onShowcase || toastShownRef.current) return;
 
     toastShownRef.current = true;
     toast("New here?", {
@@ -57,7 +61,7 @@ export function FirstSessionSheet() {
         onClick: () => setOpen(true),
       },
     });
-  }, [hydrated, visible]);
+  }, [hydrated, onShowcase, visible]);
 
   useEffect(() => {
     if (!open) return;
@@ -71,7 +75,7 @@ export function FirstSessionSheet() {
     setOpen(false);
   }, []);
 
-  if (!hydrated || !visible) return null;
+  if (!hydrated || !visible || onShowcase) return null;
 
   const allDone = isFirstSessionChecklistComplete({
     completedSteps: completed,
@@ -153,6 +157,7 @@ export function FirstSessionSheet() {
                       done && "border-accent/25 bg-accent/5"
                     )}
                     href={step.href}
+                    prefetch={threadEntryPrefetch(step.href)}
                     onClick={() => {
                       const next = completeFirstSessionStep(window.localStorage, step.id);
 

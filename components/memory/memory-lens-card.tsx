@@ -5,10 +5,7 @@ import { MemoryItem } from "mem0ai/oss";
 
 import { cn } from "@/lib/utils";
 import { deleteMemoryForCurrentUser } from "@/lib/memory/operations";
-import { createLogger } from "@/lib/logger";
 import { MemoryFeedbackButtons } from "@/components/memory/memory-feedback-buttons";
-
-const logger = createLogger("memory-lens-card");
 
 const EXIT_DURATION_MS = 280;
 const PREVIEW_RESET_DELAY_MS = 2500;
@@ -34,6 +31,9 @@ export function MemoryLensCard({
   const [isExiting, setIsExiting] = useState(false);
   const [containerHeight, setContainerHeight] = useState<number | null>(null);
   const [showDeletedState, setShowDeletedState] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const deletePendingRef = useRef(false);
   const exitDoneRef = useRef(false);
   const resetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const articleRef = useRef<HTMLElement>(null);
@@ -51,33 +51,60 @@ export function MemoryLensCard({
     };
   }, []);
 
-  const handleRemove = useCallback(() => {
-    if (isExiting) return;
-    if (previewRemove && articleRef.current) {
-      setContainerHeight(articleRef.current.offsetHeight);
+  const handleRemove = useCallback(async () => {
+    if (isExiting || deletePendingRef.current) return;
+    if (previewRemove) {
+      if (articleRef.current) setContainerHeight(articleRef.current.offsetHeight);
+      setIsExiting(true);
+
+      return;
     }
-    setIsExiting(true);
-  }, [isExiting, previewRemove]);
+    deletePendingRef.current = true;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const result = await deleteMemoryForCurrentUser(memory.id);
+
+      if (result.error || result.data !== true) {
+        setDeleteError(result.error ?? "Could not delete memory. Please try again.");
+
+        return;
+      }
+      setIsExiting(true);
+    } catch {
+      setDeleteError("Could not delete memory. Please try again.");
+    } finally {
+      deletePendingRef.current = false;
+      setDeleting(false);
+    }
+  }, [isExiting, previewRemove, memory.id]);
+
+  const finishExit = useCallback(() => {
+    if (exitDoneRef.current) return;
+    exitDoneRef.current = true;
+    if (previewRemove) {
+      setShowDeletedState(true);
+      resetTimeoutRef.current = setTimeout(resetForPreview, PREVIEW_RESET_DELAY_MS);
+    } else {
+      onDeleted?.(memory.id);
+    }
+  }, [memory.id, onDeleted, previewRemove, resetForPreview]);
+
+  useEffect(() => {
+    if (!isExiting) return;
+    // Deletion must finish even when reduced motion or browser timing skips transitionend.
+    const timer = setTimeout(finishExit, EXIT_DURATION_MS);
+
+    return () => clearTimeout(timer);
+  }, [isExiting, finishExit]);
 
   const handleTransitionEnd = useCallback(
     (e: React.TransitionEvent<HTMLDivElement>) => {
       if (e.target !== e.currentTarget || !isExiting || exitDoneRef.current) return;
       if (e.propertyName !== "opacity") return;
-      exitDoneRef.current = true;
-      if (previewRemove) {
-        setShowDeletedState(true);
-        resetTimeoutRef.current = setTimeout(resetForPreview, PREVIEW_RESET_DELAY_MS);
-
-        return;
-      }
-      (async () => {
-        const result = await deleteMemoryForCurrentUser(memory.id);
-
-        if (result.error) logger.error("MemoryLensCard", "Delete failed", result.error);
-        else if (result.data === true) onDeleted?.(memory.id);
-      })();
+      finishExit();
     },
-    [isExiting, memory.id, onDeleted, previewRemove, resetForPreview]
+    [isExiting, finishExit]
   );
 
   const dateLabel = useMemo(() => {
@@ -199,12 +226,18 @@ export function MemoryLensCard({
                 "opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
               )}
               type="button"
+              disabled={deleting || isExiting}
               onClick={handleRemove}
             >
-              Remove
+              {deleting ? "Removing…" : "Remove"}
             </button>
           </div>
         </div>
+        {deleteError && (
+          <p className="mt-2 text-xs text-destructive" role="alert">
+            {deleteError}
+          </p>
+        )}
       </article>
     </div>
   );

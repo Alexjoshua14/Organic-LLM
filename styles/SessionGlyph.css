@@ -1,0 +1,154 @@
+/*
+ * SessionGlyph — sidebar session type marks and their state.
+ * Why and approved ranges: docs/design/sidebar-session-signals.md
+ * Durations come from lib/sidebar/session-signal-timing.ts as --sg-* custom properties.
+ *
+ * Channel discipline: shape = which experience, motion = working, accent = new.
+ * Idle glyphs sit quiet ("lights out"); nothing moves unless work is happening.
+ */
+
+.session-glyph {
+  color: color-mix(in oklch, var(--muted-foreground) 70%, transparent);
+  overflow: visible;
+  transition:
+    color var(--sg-settle) ease-out,
+    filter var(--sg-settle) ease-out;
+}
+
+.session-glyph[data-emphasized],
+.session-glyph[data-signal="working"],
+.session-glyph[data-signal="live"] {
+  color: var(--foreground);
+}
+
+/* The one accent: content landed while you were away. Lit, and it stays lit until seen. */
+.session-glyph[data-signal="new"] {
+  color: var(--accent);
+  filter: drop-shadow(0 0 2.5px color-mix(in oklch, var(--accent) 55%, transparent));
+}
+
+/* ── sweep: a segment of light travels the outline, then rests ─────────────── */
+
+.session-glyph .sg-sweep {
+  opacity: 0;
+  stroke-dasharray: 24 76;
+  stroke-dashoffset: 0;
+}
+
+.session-glyph[data-signal="working"] .sg-sweep {
+  opacity: 1;
+  animation: sg-sweep var(--sg-cycle) cubic-bezier(0.45, 0, 0.35, 1) infinite;
+}
+
+.session-glyph[data-signal="working"][data-motion="sweep"] .sg-base {
+  opacity: 0.35;
+}
+
+/* Motion over the first two thirds, rest for the last third (SESSION_GLYPH_REST_FRACTION). */
+@keyframes sg-sweep {
+  0% {
+    stroke-dashoffset: 100;
+  }
+  66.667%,
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* ── grow: rabbit-hole parts light in step order (stem → node → branches) ──── */
+
+.session-glyph[data-signal="working"][data-step] .sg-part[data-state="done"] {
+  opacity: 1;
+}
+
+.session-glyph[data-signal="working"][data-step] .sg-part[data-state="pending"] {
+  opacity: 0.25;
+}
+
+.session-glyph[data-signal="working"][data-step] .sg-part[data-state="current"],
+.session-glyph[data-signal="working"][data-motion="grow"]:not([data-step]) .sg-part,
+.session-glyph[data-signal="working"][data-motion="breathe"] .sg-breathe {
+  animation: sg-breathe var(--sg-cycle) ease-in-out infinite;
+}
+
+@keyframes sg-breathe {
+  0% {
+    opacity: 0.35;
+  }
+  33.333% {
+    opacity: 1;
+  }
+  66.667%,
+  100% {
+    opacity: 0.35;
+  }
+}
+
+/* ── cascade: layers / cells light in sequence, then rest ─────────────────── */
+
+.session-glyph[data-signal="working"] .sg-cell {
+  opacity: 0.3;
+  animation: sg-cascade var(--sg-cycle) ease-in-out infinite;
+  animation-delay: calc(var(--sg-i, 0) * var(--sg-stagger));
+}
+
+@keyframes sg-cascade {
+  0% {
+    opacity: 0.3;
+  }
+  16% {
+    opacity: 1;
+  }
+  40%,
+  100% {
+    opacity: 0.3;
+  }
+}
+
+/* ── level: voice bars move while the call is live, flatten when paused ────── */
+
+.session-glyph .sg-bar {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform var(--sg-settle) ease-out;
+}
+
+.session-glyph[data-signal="live"] .sg-bar {
+  animation: sg-level var(--sg-level-cycle) ease-in-out infinite;
+  animation-delay: calc(var(--sg-i, 0) * var(--sg-level-cycle) / -3);
+}
+
+.session-glyph[data-signal="paused"] .sg-bar {
+  transform: scaleY(0.3);
+}
+
+@keyframes sg-level {
+  0%,
+  100% {
+    transform: scaleY(0.45);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+/* Reduced motion: every state still reads, statically. The status line carries the words. */
+@media (prefers-reduced-motion: reduce) {
+  .session-glyph,
+  .session-glyph * {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .session-glyph[data-signal="working"] .sg-sweep {
+    stroke-dashoffset: 0;
+  }
+
+  .session-glyph[data-signal="working"][data-step] .sg-part[data-state="current"] {
+    opacity: 0.7;
+  }
+
+  .session-glyph[data-signal="working"] .sg-cell {
+    opacity: 1;
+  }
+}

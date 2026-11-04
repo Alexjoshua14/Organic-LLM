@@ -56,7 +56,8 @@ export function createDotAnimation(
   index: number,
   start: Keyframe,
   restScale = 1,
-  random: () => number = Math.random
+  random: () => number = Math.random,
+  intensity?: number
 ): { frames: Keyframe[]; options: KeyframeAnimationOptions } {
   let scales: number[];
   let duration: number;
@@ -74,6 +75,11 @@ export function createDotAnimation(
           restScale * (1 + direction * (step % 2 ? -1 : 1) * (min + random() * (max - min)))
       );
       duration = fast + random() * (slow - fast);
+      if (intensity !== undefined && Number.isFinite(intensity)) {
+        const clamped = Math.max(0, Math.min(1, intensity));
+
+        duration = Math.round(duration / (0.85 + clamped * 0.65));
+      }
       break;
     }
     case "waiting":

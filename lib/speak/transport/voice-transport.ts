@@ -10,6 +10,8 @@
  * See `docs/speak/decisions/` for the continuity ADR that gated this split.
  */
 
+import { assertVoiceCaptureSupported, microphoneError } from "@/lib/speak/microphone";
+
 export type VoiceTransportKind = "webrtc" | "relay";
 
 export type VoiceTransportEvents = {
@@ -32,6 +34,8 @@ export interface VoiceTransport {
   readonly localStream: MediaStream | null;
   /** Model audio. Available after `onRemoteStream`; the analyser taps it. */
   readonly remoteStream: MediaStream | null;
+  /** Validate browser support and request the mic before creating a server session. */
+  prepare?(): Promise<void>;
   connect(args: VoiceTransportConnectArgs, events: VoiceTransportEvents): Promise<void>;
   /** Client event up to the model. Returns `false` when the channel is not open. */
   send(event: Record<string, unknown>): boolean;
@@ -76,6 +80,30 @@ export function createWebRtcVoiceTransport(): VoiceTransport {
   let local: MediaStream | null = null;
   let remote: MediaStream | null = null;
   let closedByUs = false;
+  let captureGeneration = 0;
+
+  async function prepare() {
+    if (closedByUs) throw new Error("Microphone access was cancelled. Try Speak again.");
+    assertVoiceCaptureSupported();
+    if (local) return;
+
+    const generation = captureGeneration;
+    let stream: MediaStream;
+
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (error) {
+      throw microphoneError(error);
+    }
+
+    // A permission prompt may resolve after navigation/unmount has closed the transport.
+    if (generation !== captureGeneration) {
+      stream.getTracks().forEach((track) => track.stop());
+      throw new Error("Microphone access was cancelled. Try Speak again.");
+    }
+
+    local = stream;
+  }
 
   return {
     kind: "webrtc",
@@ -88,8 +116,11 @@ export function createWebRtcVoiceTransport(): VoiceTransport {
       return remote;
     },
 
+    prepare,
+
     async connect({ clientSecret }, events) {
-      closedByUs = false;
+      await prepare();
+      if (closedByUs) throw new Error("Microphone access was cancelled. Try Speak again.");
       pc = new RTCPeerConnection();
 
       pc.ontrack = (e) => {
@@ -104,8 +135,7 @@ export function createWebRtcVoiceTransport(): VoiceTransport {
         }
       };
 
-      local = await navigator.mediaDevices.getUserMedia({ audio: true });
-      pc.addTrack(local.getTracks()[0]!);
+      pc.addTrack(local!.getAudioTracks()[0]!);
 
       dc = pc.createDataChannel("oai-events");
       dc.addEventListener("message", (ev) => {
@@ -144,6 +174,7 @@ export function createWebRtcVoiceTransport(): VoiceTransport {
 
     close() {
       closedByUs = true;
+      captureGeneration++;
 
       try {
         dc?.close();

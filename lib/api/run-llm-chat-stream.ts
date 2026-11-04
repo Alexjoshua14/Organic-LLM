@@ -9,17 +9,21 @@ import { GatewayProviderOptions } from "@ai-sdk/gateway";
 import { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 
 import { shouldSkipMemoryWriteForExperience } from "@/lib/chat/chat-experience";
-import { getMessageCount } from "@/data/supabase/chat";
+import { getMessageCount, markChatStreamStarted } from "@/data/supabase/chat";
+import { recordThreadActivityWithAdmin } from "@/data/supabase/chat-admin";
 import { shouldAttemptInitialTitle } from "@/lib/chat/summary-title-cadence";
 import { saveChat } from "@/lib/chat/chat-store";
+import { createActivityTrailTimer } from "@/lib/chat/activity-trail";
+import { finalizeStreamingParts } from "@/lib/chat/finalize-message-parts";
 import { ensureChatHasTitle, updateChatSummary } from "@/lib/llm/chat-helpers";
 import { CHAT_MODEL, measureAsync } from "@/lib/llm/helpers";
 import { CHAT_STREAM_CHUNKING } from "@/lib/llm/chat-stream-chunking";
 import { serializeError } from "@/lib/llm/log-error";
 import { addLatestMessagesToMemoryForUser } from "@/lib/memory/operations";
-import { buildEffortProviderOptions, type ChatEffortLevel } from "@/lib/schemas/chat-effort";
+import { buildChatReasoningProviderOptions, type ChatEffortLevel } from "@/lib/schemas/chat-effort";
 import { gatewayAttribution } from "@/lib/usage/gateway-attribution";
-import { createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
+import { prepareChatCompletionStep } from "@/lib/api/chat-step-completion";
+import { createLlmBudgetHooks, isPlanBudgetStopError } from "@/lib/plans/llm-budget-hooks";
 import { ChatAIActionEnum, type ChatUIMessage } from "@/types/ai";
 import {
   memoryReferencesFromToolResult,
@@ -48,11 +52,15 @@ export type RunLLMChatStreamParams = {
   maxSteps: number;
   isZeroDataRetention: boolean;
   coalescenceMode: boolean;
+  /** Experimental: knowledge-capsule title grammar when auto-titling. */
+  experimentalKnowledgeCapsuleTitles?: boolean;
   memoryEnabled: boolean | undefined;
   /** When `delphi` or `topic_explore`, automatic transcript ingest to Mem0 is skipped. */
   experience: ChatExperience | undefined;
   userMessage: UIMessage;
   threadHasTitlePromise: Promise<Result<boolean>>;
+  /** Called with the saved assistant reply's text; the unified persona logs it. */
+  onAssistantMessage?: (text: string) => void;
 };
 
 export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<void> {
@@ -72,10 +80,12 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
     maxSteps,
     isZeroDataRetention,
     coalescenceMode,
+    experimentalKnowledgeCapsuleTitles,
     memoryEnabled,
     experience,
     userMessage,
     threadHasTitlePromise,
+    onAssistantMessage,
   } = params;
 
   const toolNames = Object.keys(tools);
@@ -105,6 +115,11 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
 
   logger.log("POST", `Calling streamText with model: ${selectedModel.id}`);
 
+  // Sidebar working signal. Fire-and-forget: it must not delay the first token.
+  void markChatStreamStarted(chatId).then((res) => {
+    if (res.error) logger.warn("POST", "Could not mark stream started", { err: res.error.message });
+  });
+
   const streamStartTime = performance.now();
 
   type ChunkBreadcrumb = {
@@ -123,7 +138,9 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
     if (chunkRing.length > 24) chunkRing.shift();
   };
 
-  const effortProviderOptions = buildEffortProviderOptions(selectedModel.id, effort);
+  // Effort plus reasoning-summary opt-ins so the chat can show provider reasoning.
+  const effortProviderOptions = buildChatReasoningProviderOptions(selectedModel.id, effort);
+  const observeActivityTrail = createActivityTrailTimer();
 
   const providerOptionsSummary = {
     zeroDataRetention: isZeroDataRetention,
@@ -142,6 +159,11 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
   });
   const result = streamText({
     ...budgetHooks,
+    async prepareStep({ stepNumber, messages: stepMessages }) {
+      await budgetHooks.prepareStep();
+
+      return prepareChatCompletionStep({ stepNumber, maxSteps, hasTools, messages: stepMessages });
+    },
     model: selectedModel.id,
     messages,
     instructions: systemPromptWithLength,
@@ -151,6 +173,7 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
     }),
     maxOutputTokens: CHAT_MODEL.maxOutputTokens, // Cap output for dev guardrails
     onError({ error }) {
+      if (isPlanBudgetStopError(error)) return; // Expected policy stop; logged by the UI stream.
       logger.error("POST", "Stream error", {
         err: serializeError(error),
         model: selectedModel.id,
@@ -223,14 +246,14 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
     providerOptions: {
       openai: {
         include: ["reasoning.encrypted_content"],
-        ...effortProviderOptions?.openai,
+        ...effortProviderOptions.openai,
       } satisfies OpenAIResponsesProviderOptions,
       gateway: {
         zeroDataRetention: isZeroDataRetention,
         ...gatewayAttribution({ userId: sbUserId, operation: "chat" }),
       } satisfies GatewayProviderOptions,
-      ...(effortProviderOptions?.anthropic ? { anthropic: effortProviderOptions.anthropic } : {}),
-      ...(effortProviderOptions?.google ? { google: effortProviderOptions.google } : {}),
+      ...(effortProviderOptions.anthropic ? { anthropic: effortProviderOptions.anthropic } : {}),
+      ...(effortProviderOptions.google ? { google: effortProviderOptions.google } : {}),
     },
     tools,
     toolChoice: hasTools ? "auto" : "none",
@@ -258,11 +281,25 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
       /* optional — usage may be unavailable on abort */
     });
 
+  // Set when the plan budget stopped the turn, so the end of the stream is not reported as a crash.
+  let stoppedForBudget = false;
+
   writer.merge(
     result.toUIMessageStream({
       generateMessageId: () => assistantMessageId,
+      // Per-trail "Thought for Ns", measured in stream order and saved with the message.
+      messageMetadata: ({ part }) => observeActivityTrail(part),
       sendStart: false, // The outer stream announces this ID before context and progress data.
       onError: (error) => {
+        // The SDK may re-report the stop as a plain Error; the first report sets the flag.
+        if (stoppedForBudget || isPlanBudgetStopError(error)) {
+          if (!stoppedForBudget) {
+            logger.warn("POST", "Turn stopped by plan budget", { model: selectedModel.id });
+          }
+          stoppedForBudget = true;
+
+          return error instanceof Error ? error.message : String(error);
+        }
         logger.error("POST", "UI stream error", {
           err: serializeError(error),
           model: selectedModel.id,
@@ -287,7 +324,8 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
           totalChunks: chunkRing.length,
           recentChunks: chunkRing.slice(-12),
         });
-        if (!finishReason && !isAborted) {
+        // A budget stop already reached the client as its own error, with plan copy.
+        if (!finishReason && !isAborted && !stoppedForBudget) {
           logger.error("POST", "No finish reason provided, assuming failure", {
             model: selectedModel.id,
             recentChunks: chunkRing.slice(-12),
@@ -344,8 +382,12 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
         );
 
         try {
-          const messagesWithModel = messages.map((savedMessage) =>
-            savedMessage.role === "assistant"
+          // Saved after the stream ends, so any part still `streaming` was cut off.
+          const messagesWithModel = messages.map((message) => {
+            const savedMessage =
+              message.role === "assistant" ? finalizeStreamingParts(message) : message;
+
+            return savedMessage.role === "assistant"
               ? {
                   ...savedMessage,
                   model: selectedModel.id,
@@ -364,8 +406,8 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
                       }
                     : {}),
                 }
-              : savedMessage
-          );
+              : savedMessage;
+          });
 
           // Use admin client so save succeeds even if the user JWT expired during a long stream (e.g. finish_reason length).
           const { result: saveResult, durationMs: saveChatMs } = await measureAsync(() =>
@@ -389,16 +431,26 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
             return; // Don't continue if save fails
           }
 
-          // Multi-mode queue: after this stream clears, try to send the next queued message.
-          if (clerkUserId) {
-            const { kickDispatchAfterStream } = await import("@/lib/message-queue/dispatch");
+          if (onAssistantMessage) {
+            const reply = messages.findLast((saved) => saved.role === "assistant");
+            const text = reply?.parts
+              .flatMap((part) => (part.type === "text" ? [part.text] : []))
+              .join("")
+              .trim();
 
-            void kickDispatchAfterStream({
-              ownerId: sbUserId,
-              clerkUserId,
-              threadId: chatId,
-            });
+            if (text) onAssistantMessage(text);
           }
+
+          // The next queued message is dispatched by the caller once this turn's stream lease is
+          // released (see app/api/chat/route.ts); kicking here would race that release.
+          // The reply is persisted: the sidebar shows this thread as new until the user sees it.
+          void recordThreadActivityWithAdmin({ threadId: chatId, ownerId: sbUserId }).then(
+            (res) => {
+              if (res.error) {
+                logger.warn("POST", "Could not record thread activity", { err: res.error.message });
+              }
+            }
+          );
 
           // Fire-and-forget post-processing (don't block `onFinish`)
           void (async () => {
@@ -424,7 +476,9 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
               })
             ) {
               const { result: titleResult, durationMs } = await measureAsync(() =>
-                ensureChatHasTitle(chatId)
+                ensureChatHasTitle(chatId, {
+                  knowledgeCapsule: experimentalKnowledgeCapsuleTitles === true,
+                })
               );
 
               ensureChatHasTitleMs = durationMs;

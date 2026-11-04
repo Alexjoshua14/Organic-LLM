@@ -5,8 +5,9 @@ import { cache } from "react";
 
 import { getThreadArcadiaMultitaskView } from "@/data/supabase/chat";
 import { hasSubagentThreadRows } from "@/data/supabase/subagent-threads";
-import { ArcadiaMultitaskHost } from "@/app/sandbox/arcadia/_components/multitask-host";
-import Page from "@/components/layout/page";
+import { ArcadiaThreadMeta } from "@/app/sandbox/arcadia/_components/multitask-host";
+import { readCoreInputInitialSettings } from "@/lib/core-input/server-settings";
+import { coreInputScopes } from "@/lib/core-input/scopes";
 import { Chat } from "@/components/chat/chat";
 import { PerfServerPhases } from "@/components/perf/perf-server-phases";
 import { loadChat } from "@/lib/chat/chat-store";
@@ -83,25 +84,31 @@ export default async function ArcadiaChatPage({ params }: { params: Promise<{ sl
   const initialMultitaskView =
     parentView?.data?.enabled ?? chatData.thread.arcadia_multitask_view === true;
 
+  const initialComposerSettings = await readCoreInputInitialSettings(
+    coreInputScopes.thread("arcadia", id)
+  );
+
   return (
     <>
       <PerfServerPhases
         journey="to-arcadia"
         phases={[...takeServerPhases(id), ...getPhaseCollector()]}
       />
-      <Page>
-        <ArcadiaMultitaskHost
-          threadId={id}
-          orchestratorThreadId={orchestratorThreadId}
-          viewingSubagentId={parentId && agentId ? agentId : undefined}
-          initialMultitaskView={initialMultitaskView}
-          initialHasSubagentThreads={hasSubagents ?? undefined}
-        >
-          <div className="w-full h-full">
-            <Chat chatData={chatData} endpoint="/api/chat" experience="arcadia" />
-          </div>
-        </ArcadiaMultitaskHost>
-      </Page>
+      <ArcadiaThreadMeta
+        threadId={id}
+        orchestratorThreadId={orchestratorThreadId}
+        viewingSubagentId={parentId && agentId ? agentId : undefined}
+        initialMultitaskView={initialMultitaskView}
+        initialHasSubagentThreads={hasSubagents ?? undefined}
+      />
+      <div className="w-full h-full">
+        <Chat
+          initialComposerSettings={initialComposerSettings}
+          chatData={chatData}
+          endpoint="/api/chat"
+          experience="arcadia"
+        />
+      </div>
     </>
   );
 }

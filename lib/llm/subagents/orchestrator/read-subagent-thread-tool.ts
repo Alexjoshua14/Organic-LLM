@@ -11,6 +11,7 @@ import { resolveEffectiveSubagentStatus } from "@/lib/llm/subagents/threads/stat
 /** Ceiling on messages returned per call. */
 export const READ_SUBAGENT_THREAD_MAX_MESSAGES = 40;
 const READ_SUBAGENT_THREAD_DEFAULT_MESSAGES = 20;
+
 /** Total text returned per call — keeps one thread from flooding the orchestrator's context. */
 export const READ_SUBAGENT_THREAD_MAX_CHARS = 16_000;
 

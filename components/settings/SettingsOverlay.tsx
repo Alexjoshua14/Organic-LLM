@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Brain, ExternalLink, Settings2Icon, Sparkles } from "lucide-react";
+import { Brain, ExternalLink, GitBranch, Settings2Icon, Sparkles } from "lucide-react";
 import { useAuth, useUser } from "@clerk/nextjs";
 
 import { QuickSettingRow } from "./quick-setting-row";
@@ -40,6 +40,9 @@ export function SettingsOverlay({ open, onOpenChange, trigger }: SettingsOverlay
   const [experimentalContextEffort, setExperimentalContextEffort] = useState(
     () => getSettings().experimentalContextEffort
   );
+  const [experimentalKnowledgeCapsuleTitles, setExperimentalKnowledgeCapsuleTitles] = useState(
+    () => getSettings().experimentalKnowledgeCapsuleTitles
+  );
   const [ergonLiquidChrome, setErgonLiquidChrome] = useState(() => getSettings().ergonLiquidChrome);
   const [replayFeatureHints, setReplayFeatureHints] = useState(
     () => getSettings().replayFeatureHints
@@ -59,6 +62,7 @@ export function SettingsOverlay({ open, onOpenChange, trigger }: SettingsOverlay
       setCoalescenceMode(s.coalescenceMode);
       setExperimentalArcadiaMarkdownPreview(s.experimentalArcadiaMarkdownPreview);
       setExperimentalContextEffort(s.experimentalContextEffort);
+      setExperimentalKnowledgeCapsuleTitles(s.experimentalKnowledgeCapsuleTitles);
       setErgonLiquidChrome(s.ergonLiquidChrome);
       setReplayFeatureHints(s.replayFeatureHints);
     }
@@ -146,6 +150,21 @@ export function SettingsOverlay({ open, onOpenChange, trigger }: SettingsOverlay
             </QuickSettingRow>
 
             <QuickSettingRow
+              caption="Thread titles become knowledge capsules: action / subject / additional slots, max 5 words. Off keeps today’s title phrasing."
+              label="Knowledge capsule titles (experimental)"
+            >
+              <Switch
+                aria-label="Knowledge capsule titles (experimental)"
+                isSelected={experimentalKnowledgeCapsuleTitles}
+                onValueChange={(enabled) => {
+                  setExperimentalKnowledgeCapsuleTitles(enabled);
+                  setSettings({ experimentalKnowledgeCapsuleTitles: enabled });
+                  if (userId) void persistUserSettingsToSupabase(userId, getSettings());
+                }}
+              />
+            </QuickSettingRow>
+
+            <QuickSettingRow
               caption="Re-show surface tips you dismissed. Sidebar and composer tips stay dismissed; turn off to return to normal."
               icon={<Sparkles aria-hidden className="size-4 shrink-0 text-lumen" />}
               label="Tips & coachmarks"
@@ -193,6 +212,14 @@ export function SettingsOverlay({ open, onOpenChange, trigger }: SettingsOverlay
                 Memory
               </button>
             </section>
+            <Link
+              className="flex min-h-12 items-center gap-2 rounded-lg py-3 text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+              href="/settings?tab=connectors"
+              onClick={() => onOpenChange(false)}
+            >
+              <GitBranch className="size-4 shrink-0" />
+              Connectors
+            </Link>
             <Link
               className="flex min-h-12 items-center gap-2 rounded-lg py-3 text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground"
               href="/settings"

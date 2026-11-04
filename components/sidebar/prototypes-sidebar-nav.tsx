@@ -5,6 +5,7 @@ import type { RankedPrototype } from "@/lib/prototypes/ranking";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { threadEntryPrefetch } from "@/lib/chat/thread-entry-navigation";
 import { cn } from "@/lib/utils";
 
 export function PrototypesSidebarNav({ prototypes }: { prototypes: RankedPrototype[] }) {
@@ -24,6 +25,7 @@ export function PrototypesSidebarNav({ prototypes }: { prototypes: RankedPrototy
                 : "border-border/50 bg-background/35 text-muted-foreground hover:bg-background hover:text-foreground"
             )}
             href={prototype.href}
+            prefetch={threadEntryPrefetch(prototype.href)}
             key={prototype.slug}
           >
             <div className="flex w-full justify-center">

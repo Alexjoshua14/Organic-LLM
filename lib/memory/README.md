@@ -25,13 +25,18 @@ This directory implements the app’s memory (Mem0) integration with a clear bou
 
 ### Quality events (`quality-events.ts`, `feedback.ts`, `daily-rollups.ts`)
 
-- **Role:** ZDR-safe telemetry for memory ingest quality — counts and opaque Mem0 ids only; never memory text.
+- **Role:** Content-free ingest telemetry, plus explicit user votes, optional approved notes, and optional explicitly shared memory copies.
 - **`recordMemoryEvent`:** Structured `console.info` JSON plus optional Supabase insert into `memory_quality_events`.
-- **`recordMemoryFeedbackForCurrentUser`:** Explicit thumbs / Delphi flags → `memory_feedback`.
+- **`feedback.ts` / `feedback-service.ts`:** One current up/down vote per user and Mem0 ID. Server actions authenticate and validate ownership. Only an explicit approval action writes a note, encrypted before storage; draft conversations are never persisted. Automatic Delphi flags do not write feedback.
 - **`computeDailyRollupsForUser`:** Aggregates events into `memory_quality_daily` (delete rate, size percentiles, feedback ratios).
-- **Admin dashboard:** [`app/admin/memory-quality`](/app/admin/memory-quality) (operator-only via `app/admin/layout.tsx`).
+- **Admin dashboard:** [`app/admin/memory-quality`](/app/admin/memory-quality). Access requires an explicit `admin=true` profile. Cross-user access returns current vote totals, approved notes, and explicitly shared memory copies, without retrieving live memory or chat content. Voluntary vote counts do not estimate overall memory accuracy.
+- **User controls:** Memory card popover and Settings → Memory → Your memory feedback. Changing a vote clears its note. Memory deletion retains feedback; note edits/removal and separate feedback deletion remain available in Settings. Mutations use row ID and revision to reject stale changes.
 
-See migration: `docs/migrations/memory_quality_tables.sql`.
+See [deployment and encryption notes](../../docs/memory-feedback.md) for both SQL migrations.
+
+### Reserved reference count
+
+Memories live in Qdrant (`memories_v2`), not a Supabase `memories` table. The vector store wrapper initializes the numeric `reference_count` payload field to zero on insert, preserves it on text updates, and treats missing legacy values as zero on reads. Mem0 exposes it as `metadata.reference_count`. No retrieval path increments it yet. The deployment notes describe the optional backfill for existing records.
 
 ### Summary
 
@@ -39,3 +44,25 @@ See migration: `docs/migrations/memory_quality_tables.sql`.
 |----------|-------------|-------------|-----------------------------------|
 | Operations | Clerk + Supabase for “current user”; pre-resolved id for “for user” | Yes (all ops) | UI, server actions, routes, handlers, chat-store, llm-tool-kit |
 | Store    | None        | No          | Operations only (and tests)       |
+
+## Memory Lens regression tests
+
+Run `bun run test:unit` and `bun run test:integration`; both run in the existing Test workflow.
+
+| Coverage | Tests |
+|----------|-------|
+| Query/result validation, current-user scoping, bounded limits, ownership checks, denied searches/deletes | `tests/unit/memory-operations.test.ts` |
+| Relevance, recency, missing/invalid metadata, stable ties, no mutation | `tests/unit/memory-sort.test.ts` |
+| Actual lens/cards: 350 ms debounce, fresh results, stale response rejection, refresh, errors, pagination, delete/retry, voting | `tests/fixtures/memory-lens.test.tsx` |
+| Real server actions and limiter wiring: per-profile buckets, exhausted limits, limiter failure, signed-out requests | `tests/fixtures/memory-rate-limits.test.ts` |
+| Explicit approval, encryption, removal, stale/foreign edits, exact memory previews | `tests/unit/memory-feedback*.test.ts*` |
+
+`tests/integration/memory-lens.test.ts` runs the two fixtures in separate Bun processes to avoid
+global module mocks leaking between suites. They use real application components and logic with
+mocked Clerk, vector storage, Supabase, and Upstash boundaries; no live credentials or LLM calls.
+They verify rate-limit configuration and enforcement of denial, not Upstash's internal algorithm.
+
+The workflow also runs `bash scripts/test-memory-feedback-db.sh` in a separate Docker job:
+both migrations, actual Postgres grants/RLS, one current vote, note clearing on vote changes,
+encrypted sharing fields, stale-write rejection, and removal. See the
+[feedback deployment notes](../../docs/memory-feedback.md) for prerequisites and local usage.

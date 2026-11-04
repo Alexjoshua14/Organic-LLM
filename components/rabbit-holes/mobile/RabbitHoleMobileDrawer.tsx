@@ -90,8 +90,12 @@ export function useRabbitHoleMobileDrawer({
         isBusy={isBusy}
         isStreaming={chat.isStreaming}
         messages={chat.messages}
+        planBudget={chat.planBudget}
+        processingIntensity={chat.processingIntensity}
         session={session}
         sources={session ? sources : []}
+        subagents={chat.subagents}
+        zeroDataRetention={chat.zeroDataRetention}
         onBranchClick={onBranchClick}
         onNavigateBack={onNavigateBack}
         onSourceClick={onSourceClick}

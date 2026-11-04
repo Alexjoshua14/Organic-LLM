@@ -30,7 +30,7 @@ class MockVectorStore implements VectorStore {
   async search(
     _query: number[],
     limit = 100,
-    _filters?: SearchFilters,
+    _filters?: SearchFilters
   ): Promise<VectorStoreResult[]> {
     const out: VectorStoreResult[] = [];
     for (const [id, row] of this.rows) {
@@ -179,5 +179,30 @@ describe("EncryptedVectorStore", () => {
     await wrap.insert([[1]], ["e"], [{ data: "y", user_id: "u1" }]);
     await wrap.deleteCol();
     expect(inner.storedPayload("e")).toBeUndefined();
+  });
+
+  test("initializes reference_count even without encryption; reads do not increment it", async () => {
+    const inner = new MockVectorStore();
+    const wrap = new EncryptedVectorStore(inner, false);
+
+    await wrap.insert([[1]], ["m1"], [{ data: "memory", reference_count: 123 }]);
+    expect(inner.storedPayload("m1")?.reference_count).toBe(0);
+    expect(inner.storedPayload("m1")?.data).toBe("memory");
+    await wrap.get("m1");
+    await wrap.search([1]);
+    await wrap.list();
+    expect(inner.storedPayload("m1")?.reference_count).toBe(0);
+  });
+
+  test("text updates preserve an existing reference count and legacy reads default to zero", async () => {
+    const inner = new MockVectorStore();
+    const wrap = new EncryptedVectorStore(inner);
+
+    await inner.insert([[1]], ["m1"], [{ data: "old", reference_count: 7 }]);
+    await wrap.update("m1", [2], { data: "new", reference_count: 0 });
+    expect(inner.storedPayload("m1")?.reference_count).toBe(7);
+    await inner.insert([[1]], ["legacy"], [{ data: "old" }]);
+    expect((await wrap.get("legacy"))?.payload.reference_count).toBe(0);
+    expect(inner.storedPayload("legacy")).not.toHaveProperty("reference_count");
   });
 });

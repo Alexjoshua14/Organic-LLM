@@ -47,6 +47,7 @@ export function UsageLedgerDashboard({ initialOwnerId }: { initialOwnerId: strin
         `/api/admin/usage-ledger?ownerId=${encodeURIComponent(ownerId.trim())}&offset=${offset}`,
         { cache: "no-store" }
       );
+
       if (!response.ok)
         throw new Error("Could not load the ledger. Check the profile ID and try again.");
       setLedger(await response.json());
@@ -68,6 +69,7 @@ export function UsageLedgerDashboard({ initialOwnerId }: { initialOwnerId: strin
       reason: reason.trim(),
     };
     const fingerprint = JSON.stringify(payload);
+
     if (correction.current?.fingerprint !== fingerprint)
       correction.current = { fingerprint, id: crypto.randomUUID() };
     pending.current = true;
@@ -80,6 +82,7 @@ export function UsageLedgerDashboard({ initialOwnerId }: { initialOwnerId: strin
         body: JSON.stringify({ id: correction.current.id, ...payload }),
       });
       const result = await response.json();
+
       if (!response.ok) throw new Error(result.error ?? "Could not append the adjustment");
       setMessage("Adjustment recorded. The original charge is preserved.");
       correction.current = null;

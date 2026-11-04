@@ -13,6 +13,7 @@ import {
 } from "@/lib/onboarding/feature-hint-context";
 import type { ArcadiaMultitaskSendTarget } from "@/lib/arcadia/multitask/layout-mode";
 import type { ArcadiaSubagent } from "@/lib/arcadia/multitask/types";
+import { AppRouterProvider } from "../helpers/app-router";
 import { render } from "../helpers/render";
 
 afterEach(cleanup);
@@ -82,18 +83,20 @@ describe("mobile multiagent controls", () => {
         let app!: ReturnType<typeof render>;
         await act(async () => {
           app = render(
-            <FeatureHintRegistryProvider>
-              <SidebarProvider>
-                <ArcadiaMultitaskProvider
-                  threadId="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
-                  initialMultitaskView
-                >
-                  <MultitaskDashboard>
-                    <input aria-label="Draft" defaultValue="Keep this draft" />
-                  </MultitaskDashboard>
-                </ArcadiaMultitaskProvider>
-              </SidebarProvider>
-            </FeatureHintRegistryProvider>
+            <AppRouterProvider>
+              <FeatureHintRegistryProvider>
+                <SidebarProvider>
+                  <ArcadiaMultitaskProvider
+                    threadId="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+                    initialMultitaskView
+                  >
+                    <MultitaskDashboard>
+                      <input aria-label="Draft" defaultValue="Keep this draft" />
+                    </MultitaskDashboard>
+                  </ArcadiaMultitaskProvider>
+                </SidebarProvider>
+              </FeatureHintRegistryProvider>
+            </AppRouterProvider>
           );
         });
         const draft = app.getByRole("textbox", { name: "Draft" });
@@ -113,7 +116,7 @@ describe("mobile multiagent controls", () => {
           ).toBe("Control+W");
           const layout = draft.closest("section")!.parentElement!;
           const columns = layout.style.gridTemplateColumns;
-          const select = app.getAllByRole("button", { name: "View agent" })[0];
+          const select = app.getAllByRole("button", { name: /^View / })[0];
           fireEvent.pointerDown(select);
           fireEvent.focusIn(select);
           fireEvent.click(select);

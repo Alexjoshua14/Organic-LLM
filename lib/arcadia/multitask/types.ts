@@ -38,6 +38,8 @@ export type ArcadiaSubagent = {
   identityImageUrl?: string | null;
   /** The subagent's own thread once the orchestrator has assigned it work (COA-251). */
   threadId?: string | null;
+  /** Assignment whose live status is represented; prevents relabeling older dispatches. */
+  latestGoalId?: string | null;
   /** Model recorded for the latest assignment or reply, never inferred from composer defaults. */
   modelId?: string | null;
 };

@@ -1,7 +1,8 @@
+import type { SubagentIdentity, SubagentIdentityImageRecord } from "@/lib/schemas/subagent-runtime";
 import type {
-  SubagentIdentity,
-  SubagentIdentityImageRecord,
-} from "@/lib/schemas/subagent-runtime";
+  IdentityBlobStore,
+  IdentityImageMetaStore,
+} from "@/lib/llm/subagents/identity/storage";
 
 import {
   generateSubagentIdentityImage,
@@ -9,10 +10,6 @@ import {
 } from "@/lib/llm/subagents/identity/generate";
 import { createLocalIdentityBlobStore } from "@/lib/llm/subagents/identity/local-blob-store";
 import { createLocalIdentityMetaStore } from "@/lib/llm/subagents/identity/local-meta-store";
-import type {
-  IdentityBlobStore,
-  IdentityImageMetaStore,
-} from "@/lib/llm/subagents/identity/storage";
 
 export type EnsureIdentityImageDeps = {
   blobStore?: IdentityBlobStore;
@@ -31,6 +28,7 @@ export async function ensureSubagentIdentityImage(
 ): Promise<SubagentIdentityImageRecord> {
   const metaStore = deps.metaStore ?? createLocalIdentityMetaStore();
   const existing = await metaStore.get(identity.agentId);
+
   if (existing) return existing;
 
   const blobStore = deps.blobStore ?? createLocalIdentityBlobStore();

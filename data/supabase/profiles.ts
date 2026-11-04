@@ -4,6 +4,8 @@ import type { Json } from "@/lib/supabase/types";
 import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
 
+import { cachedProfileId } from "@/lib/supabase/profile-id-cache";
+import { profileIdResult } from "@/data/supabase/profile-id-lookup";
 import { supabaseServer } from "@/lib/supabase/server";
 import { isAdminUser as readIsAdminUser, readAdminProfile } from "@/lib/admin/read-admin-profile";
 import { getGatewayVisibilityForCurrentUser } from "@/data/supabase/gateway-visibility";
@@ -187,27 +189,17 @@ export async function getProfile(clerkUserId: string): Promise<Result<Profile>> 
 /**
  * Retrieves a user's supabase ID from Supabase by Clerk user ID
  * @param clerkUserId
- * @returns User's supabase ID
+ * @returns User's supabase ID, or `ProfileNotFoundError` when no profile row exists
  */
+/** Cached per server instance — see `lib/supabase/profile-id-cache.ts` for why that is safe. */
 export async function getSupabaseUserId(clerkUserId: string): Promise<Result<string>> {
-  const sb = await supabaseServer();
-  const { data, error } = await sb
-    .from("profiles")
-    .select("id")
-    .eq("clerk_user_id", clerkUserId)
-    .single();
+  return cachedProfileId(clerkUserId, async () => {
+    const sb = await supabaseServer();
 
-  if (error) {
-    return {
-      data: null,
-      error: new Error(error?.message ?? "Unknown error"),
-    };
-  }
-
-  return {
-    data: data.id,
-    error: null,
-  };
+    return profileIdResult(
+      await sb.from("profiles").select("id").eq("clerk_user_id", clerkUserId).maybeSingle()
+    );
+  });
 }
 
 /**
@@ -313,13 +305,33 @@ export async function upsertProfileTreeForCurrentUser(
   return { data: undefined, error: null };
 }
 
+/** The revision history table ships in its own migration; a database without it still works. */
+function isMissingRevisionsTable(error: { code?: string; message?: string } | null): boolean {
+  return error?.code === "PGRST205" && Boolean(error.message?.includes("profile_tree_revisions"));
+}
+
+/** Keeps the live profile when revision history is unavailable; there is no revision to return. */
+async function saveWithoutRevisionHistory(
+  tree: ProfileTree,
+  source: ProfileTreeSource,
+  status: ProfileTreeRevisionStatus
+): Promise<Result<{ revisionId: string | null }>> {
+  if (status === "active") {
+    const activeSave = await upsertProfileTreeForCurrentUser(tree, source);
+
+    if (activeSave.error) return errorResult(activeSave.error.message);
+  }
+
+  return { data: { revisionId: null }, error: null };
+}
+
 export async function createProfileTreeRevisionForCurrentUser({
   tree,
   source,
   status,
   reviewScore = null,
   generationMetadata = {},
-}: CreateProfileTreeRevisionInput): Promise<Result<{ revisionId: string }>> {
+}: CreateProfileTreeRevisionInput): Promise<Result<{ revisionId: string | null }>> {
   const profileId = await getCurrentProfileId();
 
   if (profileId.error || !profileId.data) {
@@ -345,6 +357,9 @@ export async function createProfileTreeRevisionForCurrentUser({
       .eq("owner_id", profileId.data)
       .eq("status", "active");
 
+    if (isMissingRevisionsTable(supersede.error)) {
+      return saveWithoutRevisionHistory(validatedTree, validatedSource, status);
+    }
     if (supersede.error) {
       return errorResult(supersede.error.message ?? "Failed to update profile revisions");
     }
@@ -363,6 +378,9 @@ export async function createProfileTreeRevisionForCurrentUser({
     .select("id")
     .single();
 
+  if (isMissingRevisionsTable(error)) {
+    return saveWithoutRevisionHistory(validatedTree, validatedSource, status);
+  }
   if (error) {
     return errorResult(error.message ?? "Failed to create profile revision");
   }

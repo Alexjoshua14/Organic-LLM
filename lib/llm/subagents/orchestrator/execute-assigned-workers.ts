@@ -1,15 +1,15 @@
 import type { WorkerAwarenessEvent, WorkerGoal } from "@/lib/schemas/subagent-runtime";
+import type { ThoughtRouterWorker } from "@/lib/llm/subagents/orchestrator/thought-router";
+import type { RunWorkerGoalResult } from "@/lib/llm/subagents/worker/run";
 
 import {
   defaultOrchestratorAwarenessBus,
   type OrchestratorAwarenessBus,
 } from "@/lib/llm/subagents/orchestrator/awareness";
-import type { ThoughtRouterWorker } from "@/lib/llm/subagents/orchestrator/thought-router";
 import {
   runWorkerGoalWithModel,
   type WorkerGenerateText,
 } from "@/lib/llm/subagents/worker/run-with-model";
-import type { RunWorkerGoalResult } from "@/lib/llm/subagents/worker/run";
 
 export type ExecuteAssignedWorkersInput = {
   goals: ReadonlyArray<WorkerGoal>;
@@ -42,6 +42,7 @@ export async function executeAssignedWorkers(
 
   for (const goal of input.goals) {
     const list = byAgent.get(goal.agentId) ?? [];
+
     list.push(goal);
     byAgent.set(goal.agentId, list);
   }

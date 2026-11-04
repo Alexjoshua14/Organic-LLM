@@ -13,11 +13,13 @@ export class OrchestratorAwarenessBus {
 
   subscribe(orchestratorId: string, listener: WorkerAwarenessListener): () => void {
     let set = this.byOrchestrator.get(orchestratorId);
+
     if (!set) {
       set = new Set();
       this.byOrchestrator.set(orchestratorId, set);
     }
     set.add(listener);
+
     return () => {
       set!.delete(listener);
       if (set!.size === 0) this.byOrchestrator.delete(orchestratorId);
@@ -26,10 +28,12 @@ export class OrchestratorAwarenessBus {
 
   publish(orchestratorId: string, event: WorkerAwarenessEvent): void {
     const prior = this.history.get(orchestratorId) ?? [];
+
     prior.push(event);
     this.history.set(orchestratorId, prior);
 
     const listeners = this.byOrchestrator.get(orchestratorId);
+
     if (!listeners) return;
     for (const listener of listeners) {
       listener(event);

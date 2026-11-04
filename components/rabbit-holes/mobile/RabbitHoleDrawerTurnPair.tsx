@@ -4,6 +4,7 @@ import type { UIMessage } from "ai";
 import type { DrawerChatTurn } from "@/lib/rabbit-holes/drawer-turns";
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useRef } from "react";
 
 import { ChatMessage } from "@/components/chat/chat-message";
@@ -37,7 +38,7 @@ export function RabbitHoleDrawerTurnPair({
   swipeDirection,
   onTurnIndexChange,
   aiBlockRef: aiBlockRefProp,
-  aiScrollClassName = "max-h-[50vh]",
+  aiScrollClassName,
   className,
 }: RabbitHoleDrawerTurnPairProps) {
   const reduceMotion = useReducedMotion();
@@ -51,24 +52,46 @@ export function RabbitHoleDrawerTurnPair({
   });
 
   const slideY = swipeDirection === "older" ? -24 : swipeDirection === "newer" ? 24 : 0;
+  const canGoPrevTurn = turnIndex > 0;
+  const canGoNextTurn = turnIndex < turnCount - 1;
 
   return (
     <div
-      className={cn("flex min-h-0 flex-col gap-2", className)}
+      className={cn("flex min-h-0 flex-col gap-2.5", className)}
       onTouchEnd={onTouchEnd}
       onTouchStart={onTouchStart}
     >
       {turnCount > 1 ? (
-        <p className="text-center text-2xs uppercase tracking-[0.2em] text-muted-foreground">
-          Turn {turnIndex + 1} / {turnCount}
-        </p>
+        <div className="flex items-center justify-between gap-2 rounded-lg border border-border/35 bg-background-secondary/20 px-2 py-1">
+          <button
+            aria-label="Previous turn"
+            className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground disabled:pointer-events-none disabled:opacity-35"
+            disabled={!canGoPrevTurn}
+            type="button"
+            onClick={() => onTurnIndexChange(turnIndex - 1)}
+          >
+            <ChevronLeft aria-hidden className="size-3.5" />
+          </button>
+          <p className="text-center font-mono text-2xs uppercase tracking-[0.2em] text-muted-foreground">
+            Turn {turnIndex + 1} / {turnCount}
+          </p>
+          <button
+            aria-label="Next turn"
+            className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground disabled:pointer-events-none disabled:opacity-35"
+            disabled={!canGoNextTurn}
+            type="button"
+            onClick={() => onTurnIndexChange(turnIndex + 1)}
+          >
+            <ChevronRight aria-hidden className="size-3.5" />
+          </button>
+        </div>
       ) : null}
 
       <AnimatePresence initial={false} mode="wait">
         <motion.div
           key={turn?.user.id ?? `empty-${turnIndex}`}
           animate={{ opacity: 1, y: 0 }}
-          className="flex min-h-0 flex-col gap-2"
+          className="flex min-h-0 flex-col gap-2.5"
           exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: slideY }}
           initial={reduceMotion ? { opacity: 1 } : { opacity: 0, y: -slideY }}
           transition={{ duration: reduceMotion ? 0 : 0.22 }}
@@ -78,23 +101,23 @@ export function RabbitHoleDrawerTurnPair({
               <div className="flex justify-end">
                 <div
                   className={cn(
-                    "max-w-[92%] rounded-2xl rounded-br-md px-3 py-2 text-sm",
+                    "max-w-[92%] rounded-2xl rounded-br-md px-3.5 py-2.5 text-sm",
                     glass({ opaque: true })
                   )}
                 >
-                  <ChatMessage chatId={chatId} message={turn.user} />
+                  <ChatMessage chatId={chatId} embedded message={turn.user} />
                 </div>
               </div>
               <div
                 ref={aiScrollRef}
                 className={cn(
-                  aiScrollClassName,
-                  "min-h-0 flex-1 overflow-y-auto rounded-2xl rounded-bl-md px-3 py-2 text-sm",
-                  glass({ opaque: true })
+                  "min-w-0 rounded-2xl rounded-bl-md px-3.5 py-3 text-sm",
+                  glass({ opaque: true }),
+                  aiScrollClassName
                 )}
               >
                 {turn.assistant ? (
-                  <ChatMessage chatId={chatId} isLastMessage message={turn.assistant} />
+                  <ChatMessage chatId={chatId} embedded isLastMessage message={turn.assistant} />
                 ) : isStreaming ? (
                   aiActionMessage?.toLowerCase().includes("reason") ? (
                     <ChatReasoning text={aiActionMessage} />

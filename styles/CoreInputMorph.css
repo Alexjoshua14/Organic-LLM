@@ -1,0 +1,67 @@
+/*
+ * CoreInput snapshot morph. Timing constants live in lib/core-input/morph-timing.ts and the
+ * why in docs/design/core-input-morph.md. JS drives `--core-input-morph-progress` (0–1) every
+ * frame, so fast-forwarding the timeline speeds the sheen with it.
+ */
+
+.core-input-morph-sheen {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 45;
+  overflow: hidden;
+  border-radius: var(--radius-xl, 0.75rem);
+}
+
+/* A soft band sweeps left to right once, tracking the field changes underneath it. */
+.core-input-morph-sheen::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 40%;
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    color-mix(in oklch, var(--foreground) 8%, transparent) 50%,
+    transparent 100%
+  );
+  transform: translateX(calc(var(--core-input-morph-progress, 0) * 350% - 100%));
+  will-change: transform;
+}
+
+/* Each control flashes once as its value lands. Outline, not box-shadow: the frames draw
+   their resting ring with box-shadow and must keep it. */
+[data-core-input-morph-model] [data-core-input-field="model"],
+[data-core-input-morph-effort] [data-core-input-field="effort"],
+[data-core-input-morph-context-effort] [data-core-input-field="context-effort"],
+[data-core-input-morph-search] [data-chip="search"],
+[data-core-input-morph-memory] [data-chip="memory"],
+[data-core-input-morph-speech] [data-chip="speech"] {
+  animation: core-input-morph-pulse var(--core-input-morph-pulse-ms, 220ms)
+    cubic-bezier(0.2, 0, 0, 1);
+}
+
+@keyframes core-input-morph-pulse {
+  0% {
+    outline: 1.5px solid color-mix(in oklch, var(--ring) 70%, transparent);
+    outline-offset: 0;
+    filter: blur(0.5px);
+  }
+
+  100% {
+    outline: 1.5px solid transparent;
+    outline-offset: 4px;
+    filter: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .core-input-morph-sheen {
+    display: none;
+  }
+
+  [data-core-input-field],
+  [data-chip] {
+    animation: none !important;
+  }
+}

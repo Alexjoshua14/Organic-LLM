@@ -89,6 +89,4 @@ export const SubagentIdentityImageRecordSchema = z.object({
   storageKey: z.string().min(1),
 });
 
-export type SubagentIdentityImageRecord = z.infer<
-  typeof SubagentIdentityImageRecordSchema
->;
+export type SubagentIdentityImageRecord = z.infer<typeof SubagentIdentityImageRecordSchema>;

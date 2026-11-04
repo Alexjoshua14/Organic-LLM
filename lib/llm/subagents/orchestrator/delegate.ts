@@ -1,9 +1,9 @@
+import type { WorkerGoal } from "@/lib/schemas/subagent-runtime";
+import type { AgentRuntimeRole } from "@/lib/llm/subagents/roles";
+
 import { randomUUID } from "crypto";
 
-import type { WorkerGoal } from "@/lib/schemas/subagent-runtime";
-
 import { ORCHESTRATOR_INLINE_MAX_ESTIMATED_MS } from "@/lib/llm/subagents/orchestrator/constants";
-import type { AgentRuntimeRole } from "@/lib/llm/subagents/roles";
 
 export type TaskComplexityHint = {
   /** Caller estimate of how long the work will take if done inline. */
@@ -108,6 +108,7 @@ export async function runOrchestratorTurn(
   if (decision.action === "delegate") {
     await input.onWorkerGoalAssigned?.(decision.goal);
     const elapsedMs = (input.now ?? Date.now)() - started;
+
     return {
       runtimeRole: "orchestrator",
       disposition: "delegated",
@@ -119,6 +120,7 @@ export async function runOrchestratorTurn(
   }
 
   const elapsedMs = (input.now ?? Date.now)() - started;
+
   return {
     runtimeRole: "orchestrator",
     disposition: "inline",

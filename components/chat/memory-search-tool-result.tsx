@@ -2,25 +2,12 @@
 
 import type { MemorySearchInventory } from "@/lib/memory/memory-relevance";
 
-import { memo, useState } from "react";
+import { memo, useId, useState } from "react";
+import { ChevronDownIcon, DatabaseIcon } from "lucide-react";
 
-import {
-  ToolResultInlineRow,
-  ToolResultPinButton,
-  toolResultErrorSummaryButtonClass,
-  toolResultExpandedDetailClass,
-  toolResultSummaryButtonClass,
-} from "./tool-result-inline";
+import { ToolResultInlineRow, ToolResultPinButton } from "./tool-result-inline";
 
-const QUERY_DISPLAY_MAX = 56;
-
-function truncateQueryForTitle(query: string): string {
-  const t = query.trim();
-
-  if (t.length <= QUERY_DISPLAY_MAX) return t;
-
-  return `${t.slice(0, QUERY_DISPLAY_MAX)}…`;
-}
+import "@/styles/MemorySearchResult.css";
 
 export type MemorySearchRowUi = {
   id: string;
@@ -122,6 +109,7 @@ export const MemorySearchToolResultCard = memo(function MemorySearchToolResultCa
   showPin = true,
 }: MemorySearchToolResultCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const detailsId = useId();
 
   if (parsed.status === "error") {
     return (
@@ -131,25 +119,35 @@ export const MemorySearchToolResultCard = memo(function MemorySearchToolResultCa
           <ToolResultPinButton isPinned={isPinned} showPin={showPin} onTogglePin={onTogglePin} />
         }
       >
-        <button
-          className={toolResultErrorSummaryButtonClass}
-          type="button"
-          onClick={() => setExpanded((open) => !open)}
-        >
-          <span className="text-destructive/90">Memory search error</span>
-          {expanded ? (
-            <span className={`${toolResultExpandedDetailClass} text-muted-foreground`}>
-              {parsed.message}
+        <div className="memory-search-result" data-expanded={expanded}>
+          <button
+            aria-controls={expanded ? detailsId : undefined}
+            aria-expanded={expanded}
+            className="memory-search-result__trigger"
+            type="button"
+            onClick={() => setExpanded((open) => !open)}
+          >
+            <span className="memory-search-result__heading">
+              <DatabaseIcon aria-hidden="true" className="memory-search-result__icon" />
+              <span className="memory-search-result__label">Memory search</span>
+              <span className="memory-search-result__count memory-search-result__count--error">
+                Failed
+              </span>
+              <ChevronDownIcon aria-hidden="true" className="memory-search-result__chevron" />
             </span>
-          ) : null}
-        </button>
+          </button>
+          {expanded && (
+            <div className="memory-search-result__details" id={detailsId}>
+              {parsed.message}
+            </div>
+          )}
+        </div>
       </ToolResultInlineRow>
     );
   }
 
   const { count, query, memories, inventory } = parsed;
-  const qShort = truncateQueryForTitle(query);
-  const titleLine = `Fetched ${count} ${count === 1 ? "memory" : "memories"} on “${qShort}”`;
+  const countLabel = `${count} ${count === 1 ? "memory" : "memories"}`;
   const tierLine =
     inventory !== undefined
       ? `Sample ${inventory.sampleSize} (top ${inventory.retrievedLimit}): tier1 ${inventory.tier1} · tier2 ${inventory.tier2} · tier3 ${inventory.tier3} · below min ${inventory.belowThresholdInSample} · no score ${inventory.noScoreInSample}`
@@ -160,31 +158,48 @@ export const MemorySearchToolResultCard = memo(function MemorySearchToolResultCa
       isPinned={isPinned}
       pin={<ToolResultPinButton isPinned={isPinned} showPin={showPin} onTogglePin={onTogglePin} />}
     >
-      <button
-        className={toolResultSummaryButtonClass}
-        type="button"
-        onClick={() => setExpanded((open) => !open)}
-      >
-        <span>{titleLine}</span>
+      <div className="memory-search-result" data-expanded={expanded}>
+        <button
+          aria-controls={expanded ? detailsId : undefined}
+          aria-expanded={expanded}
+          className="memory-search-result__trigger"
+          type="button"
+          onClick={() => setExpanded((open) => !open)}
+        >
+          <span className="memory-search-result__heading">
+            <DatabaseIcon aria-hidden="true" className="memory-search-result__icon" />
+            <span className="memory-search-result__label">Memory search</span>
+            <span className="memory-search-result__count">{countLabel}</span>
+            <ChevronDownIcon aria-hidden="true" className="memory-search-result__chevron" />
+          </span>
+          <span className="memory-search-result__query">{query}</span>
+        </button>
         {expanded ? (
-          <>
-            {tierLine ? (
-              <span className={`${toolResultExpandedDetailClass} tabular-nums`}>{tierLine}</span>
-            ) : null}
+          <div className="memory-search-result__details" id={detailsId}>
+            {tierLine ? <p className="memory-search-result__inventory">{tierLine}</p> : null}
             {memories.length === 0 ? (
-              <span className={toolResultExpandedDetailClass}>No memories matched this query.</span>
+              <p>No memories matched this query.</p>
             ) : (
-              <ul className="mt-0.5 max-h-72 space-y-1 overflow-y-auto pr-1">
-                {memories.map((m) => (
-                  <li key={m.id} className="text-2xs leading-snug text-foreground/85 line-clamp-2">
-                    {m.memory}
-                  </li>
-                ))}
-              </ul>
+              <>
+                {/* eslint-disable jsx-a11y/no-noninteractive-tabindex -- Named scroll region needs keyboard focus for native scrolling (MDN CSS overflow accessibility). */}
+                <div
+                  aria-label="Retrieved memories"
+                  className="memory-search-result__viewport"
+                  role="region"
+                  tabIndex={0}
+                >
+                  <ul className="memory-search-result__matches">
+                    {memories.map((m) => (
+                      <li key={m.id}>{m.memory}</li>
+                    ))}
+                  </ul>
+                </div>
+                {/* eslint-enable jsx-a11y/no-noninteractive-tabindex */}
+              </>
             )}
-          </>
+          </div>
         ) : null}
-      </button>
+      </div>
     </ToolResultInlineRow>
   );
 });

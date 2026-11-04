@@ -1,7 +1,7 @@
+import type { SubagentIdentity } from "@/lib/schemas/subagent-runtime";
+
 import { generateImage as generateImage } from "ai";
 import { openai } from "@ai-sdk/openai";
-
-import type { SubagentIdentity } from "@/lib/schemas/subagent-runtime";
 
 import { buildSubagentIdentityPrompt } from "@/lib/llm/subagents/identity/prompt";
 import { createLogger } from "@/lib/logger";
@@ -47,10 +47,7 @@ export const generateSubagentIdentityImage: IdentityImageGenerator = async (iden
       prompt,
     };
   } catch (err) {
-    logger.error(
-      "generateSubagentIdentityImage",
-      err instanceof Error ? err.message : String(err)
-    );
+    logger.error("generateSubagentIdentityImage", err instanceof Error ? err.message : String(err));
     throw err;
   }
 };

@@ -1,6 +1,9 @@
 "use client";
 
-import { BACKGROUND_ACTIVITY_OPTIONS, BackgroundActivityModeSchema } from "@/lib/background-activity";
+import {
+  BACKGROUND_ACTIVITY_OPTIONS,
+  BackgroundActivityModeSchema,
+} from "@/lib/background-activity";
 import { useBackgroundActivityMode } from "@/hooks/use-background-probe";
 import { setSettings } from "@/lib/user-settings";
 
@@ -29,12 +32,14 @@ export function BackgroundActivitySetting() {
         }}
       >
         {BACKGROUND_ACTIVITY_OPTIONS.map((option) => (
-          <option key={option.value} value={option.value}>{option.label}</option>
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
         ))}
       </select>
       <p className="text-xs text-muted-foreground" id="background-activity-cadence">
-        {BACKGROUND_ACTIVITY_OPTIONS.find((option) => option.value === mode)?.description}
-        {" "}Checks run while an agent thread is open. Notable updates prompt an automatic reply.
+        {BACKGROUND_ACTIVITY_OPTIONS.find((option) => option.value === mode)?.description} Checks
+        run while an agent thread is open. Notable updates prompt an automatic reply.
       </p>
       <p className="text-xs font-light text-muted-foreground">
         Screen lock and low power signals depend on your browser. Cost / battery saver lets you

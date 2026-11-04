@@ -8,14 +8,20 @@ feel — so improvements stay consistent and do not regress quality.
 
 | Doc | When to read |
 |-----|----------------|
+| [Stage grid](./stage-grid.md) | Quiet grid entry/exit, compositor-only layers, no interaction delay |
 | [Spacing](./spacing.md) | Card density, stack/gap/inset tokens, gen-ui vertical rhythm |
 | [Switches & quick settings](./switches-and-quick-settings.md) | Compact glass switches, caption popovers, quick-settings density |
 | [Context usage](./context-usage.md) | Composer context charts, source colors, percentage ramp, hover labels |
+| [Conversation scrolling](./conversation-scrolling.md) | Native reading, reduced-motion following, and isolated browser regression checks |
+| [Reasoning display](./reasoning-display.md) | Secondary summary typography, stable streaming disclosure, and provider-stream verification |
+| [Subagent card lab](./subagent-card-lab.md) | Refining the subagent card: Current vs Next, "promote", shared Speak bar |
 | [Subagent identity mark](./subagent-identity-mark.md) | Layered SVG dots, glass diffusion, agent-state motion |
 | [Welcome scene](./welcome-scene.md) | Photographic pane projection, camera motion, and themed floor continuity |
 | [Glass distortion](./glass-distortion.md) | Opt-in refraction of owned backgrounds, Safari compatibility |
 | [Liquid chrome materials](./liquid-chrome-materials.md) | Light-mode paper and ink, dark-mode preservation, refraction and fallback parity |
+| [CoreInput snapshot morph](./core-input-morph.md) | Composer settings morphing between threads, areas, and `/btw`; fast-forward on touch |
 | [Motion & character text timing](./motion-and-text-timing.md) | Any char-by-char / stagger / status-label / loading-state animation |
+| [Sidebar session signals](./sidebar-session-signals.md) | Sidebar rows: experience glyphs, working / new / live signals, gaze hierarchy |
 | [Adaptive background](../adaptive-background.md) + [timing](../adaptive-background-timing.md) | Ambient dim / focus atmospheres |
 | [Organic presence](../organic-presence.md) | Presence indicators and ambient life |
 | [Mermaid diagram design](../mermaid-diagram-design.md) | Diagram wells, reveal, takeover |

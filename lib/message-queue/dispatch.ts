@@ -3,9 +3,16 @@ import "server-only";
 import type { EnqueueMessageInput, MessageSendQueueRow } from "@/lib/schemas/message-send-queue";
 
 import {
+  acquireChatStreamLease,
+  acquireSubagentStreamLease,
+  type StreamAdmission,
+} from "@/lib/chat/stream-admission";
+
+import {
   claimNextQueuedMessage,
   getThreadActiveStreamId,
   insertQueuedMessage,
+  listBlockedSubagentThreadIds,
   listOpenQueuedMessages,
   releaseClaimedMessage,
   reserveThreadStream,
@@ -85,6 +92,8 @@ export async function tryDispatchThreadQueue(args: {
   dispatchingThreads.add(lockKey);
 
   let shouldContinue = false;
+  /** Set once a worker's subagent lease is released, so a blocked sibling can take its slot. */
+  let releasedSubagentParent: string | undefined;
   let result: { dispatched: boolean; holdReason?: string } = { dispatched: false };
 
   try {
@@ -134,35 +143,93 @@ export async function tryDispatchThreadQueue(args: {
             `Dispatching queue item ${claimed.id} on thread ${threadId}`
           );
 
-          const reservation = { ownerId, threadId, streamId: `queue:${claimed.id}` };
-          if (!(await reserveThreadStream(reservation))) {
-            await releaseClaimedMessage({ id: claimed.id, status: "blocked_streaming", holdReason: "Thread is busy" });
-            return { dispatched: false, holdReason: "Thread is busy" };
-          }
-          let turnResult: Awaited<ReturnType<typeof runQueuedChatTurn>>;
-          try {
-            turnResult = await runQueuedChatTurn({ item: claimed, sbUserId: ownerId, clerkUserId });
-          } catch (error) {
-            turnResult = { ok: false, error: error instanceof Error ? error.message : "Background turn failed" };
-          } finally {
-            await releaseThreadStream(reservation);
-          }
+          // Workers count against their orchestrator's subagent allotment, not the chat slots.
+          const parentThreadId = claimed.payload?.subagentRun?.orchestratorId;
+          let admission: StreamAdmission;
 
-          if (!turnResult.ok) {
+          try {
+            admission = parentThreadId
+              ? await acquireSubagentStreamLease(ownerId, parentThreadId, threadId)
+              : await acquireChatStreamLease(ownerId, threadId);
+          } catch {
+            await releaseClaimedMessage({
+              id: claimed.id,
+              status: "pending",
+              holdReason: "Stream admission unavailable",
+            });
+
+            return { dispatched: false, holdReason: "Stream admission unavailable" };
+          }
+          if (!admission.ok && admission.reason === "not_found") {
+            // The thread is gone or not this owner's: retrying can never succeed.
+            const error = "Thread not found";
+
             await releaseClaimedMessage({
               id: claimed.id,
               status: "failed",
-              error: turnResult.error,
-              holdReason: turnResult.error,
+              error,
+              holdReason: error,
             });
-            result = { dispatched: false, holdReason: turnResult.error };
-          } else {
-            await updateQueuedMessageStatus({
+
+            return { dispatched: false, holdReason: error };
+          }
+          if (!admission.ok) {
+            await releaseClaimedMessage({
               id: claimed.id,
-              status: "sent",
+              status: "blocked_streaming",
+              holdReason: admission.reason,
             });
-            shouldContinue = true;
-            result = { dispatched: true };
+
+            return { dispatched: false, holdReason: admission.reason };
+          }
+          try {
+            const reservation = { ownerId, threadId, streamId: `queue:${claimed.id}` };
+
+            if (!(await reserveThreadStream(reservation))) {
+              await releaseClaimedMessage({
+                id: claimed.id,
+                status: "blocked_streaming",
+                holdReason: "Thread is busy",
+              });
+
+              return { dispatched: false, holdReason: "Thread is busy" };
+            }
+            let turnResult: Awaited<ReturnType<typeof runQueuedChatTurn>>;
+
+            try {
+              turnResult = await runQueuedChatTurn({
+                item: claimed,
+                sbUserId: ownerId,
+                clerkUserId,
+              });
+            } catch (error) {
+              turnResult = {
+                ok: false,
+                error: error instanceof Error ? error.message : "Background turn failed",
+              };
+            } finally {
+              await releaseThreadStream(reservation);
+            }
+
+            if (!turnResult.ok) {
+              await releaseClaimedMessage({
+                id: claimed.id,
+                status: "failed",
+                error: turnResult.error,
+                holdReason: turnResult.error,
+              });
+              result = { dispatched: false, holdReason: turnResult.error };
+            } else {
+              await updateQueuedMessageStatus({
+                id: claimed.id,
+                status: "sent",
+              });
+              shouldContinue = true;
+              result = { dispatched: true };
+            }
+          } finally {
+            await admission.release();
+            releasedSubagentParent = parentThreadId;
           }
         }
       }
@@ -172,10 +239,49 @@ export async function tryDispatchThreadQueue(args: {
   }
 
   if (shouldContinue) {
-    return tryDispatchThreadQueue({ ownerId, clerkUserId, threadId });
+    result = await tryDispatchThreadQueue({ ownerId, clerkUserId, threadId });
+  }
+  if (releasedSubagentParent) {
+    await startBlockedSibling({
+      ownerId,
+      clerkUserId,
+      parentThreadId: releasedSubagentParent,
+      finishedThreadId: threadId,
+    });
   }
 
   return result;
+}
+
+/**
+ * A worker's slot just freed: start the oldest sibling held for capacity. Only one — when it
+ * finishes, its own release starts the next, so the chain never exceeds the allotment. The Arcadia
+ * heartbeat also re-dispatches every child thread, which recovers a chain cut short by a
+ * terminated invocation.
+ */
+async function startBlockedSibling(args: {
+  ownerId: string;
+  clerkUserId: string;
+  parentThreadId: string;
+  finishedThreadId: string;
+}): Promise<void> {
+  try {
+    const siblings = await listBlockedSubagentThreadIds({
+      ownerId: args.ownerId,
+      parentThreadId: args.parentThreadId,
+    });
+    const next = siblings.find((id) => id !== args.finishedThreadId);
+
+    if (next) {
+      await tryDispatchThreadQueue({
+        ownerId: args.ownerId,
+        clerkUserId: args.clerkUserId,
+        threadId: next,
+      });
+    }
+  } catch (err) {
+    logger.warn("startBlockedSibling", err instanceof Error ? err.message : String(err));
+  }
 }
 
 /**

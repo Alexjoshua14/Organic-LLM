@@ -53,18 +53,13 @@ export async function getCachedReleaseNotes(args: {
 }): Promise<ReleaseNotesCachePayload | null> {
   const { data, error } = await supabaseAdmin
     .from(RELEASE_NOTES_CACHE_TABLE)
-    .select(
-      "from_sha, to_sha, from_version, to_version, commit_count, notes, model, generated_at"
-    )
+    .select("from_sha, to_sha, from_version, to_version, commit_count, notes, model, generated_at")
     .eq("from_sha", args.fromSha)
     .eq("to_sha", args.toSha)
     .maybeSingle();
 
   if (error) {
-    logger.error(
-      "getCachedReleaseNotes",
-      `${releaseNotesCacheKey(args)}: ${error.message}`
-    );
+    logger.error("getCachedReleaseNotes", `${releaseNotesCacheKey(args)}: ${error.message}`);
 
     return null;
   }

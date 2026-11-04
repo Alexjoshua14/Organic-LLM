@@ -1,6 +1,6 @@
-import { z } from "zod";
-
 import type { WorkerGoal } from "@/lib/schemas/subagent-runtime";
+
+import { z } from "zod";
 
 import { CHAT_EXPERIENCES } from "@/lib/chat/chat-experience";
 import { ChatEffortLevelSchema } from "@/lib/schemas/chat-effort";
@@ -57,7 +57,10 @@ export type MessageSendQueueRow = {
   target_agent_id: string | null;
   body: string;
   /** Internal heartbeat cause is never accepted by the public enqueue schema. */
-  payload: MessageSendQueuePayload & { heartbeatMessageId?: string; subagentRun?: Omit<WorkerGoal, "goal"> & { modelId: string } };
+  payload: MessageSendQueuePayload & {
+    heartbeatMessageId?: string;
+    subagentRun?: Omit<WorkerGoal, "goal"> & { modelId: string };
+  };
   position: number;
   status: MessageSendQueueStatus;
   hold_reason: string | null;

@@ -10,16 +10,37 @@ const logger = createLogger("lib/rate-limit/run-limiter.ts");
  * with no indication it is Redis-related.
  *
  * Behavior is otherwise unchanged: successful calls and the normal
- * "limit exceeded" result pass through untouched; only thrown errors are logged
- * and then re-thrown.
+ * "limit exceeded" result pass through untouched. Timeout admissions emit a warning
+ * metric without changing policy; thrown errors are logged and re-thrown.
  *
  * @param context Identifier for the failing call (e.g. the rate-limit function
  *   name) so logs point at the exact limiter that failed.
  * @param op Thunk performing the limiter call (`limiter.limit(...)` / `getRemaining(...)`).
  */
 export async function runLimiter<T>(context: string, op: () => Promise<T>): Promise<T> {
+  const startedAt = performance.now();
+
   try {
-    return await op();
+    const result = await op();
+
+    if (
+      typeof result === "object" &&
+      result !== null &&
+      "reason" in result &&
+      result.reason === "timeout" &&
+      "success" in result &&
+      result.success === true
+    ) {
+      // Do not send this telemetry through Redis: that dependency just timed out.
+      logger.warn(context, "Upstash limiter admitted request after timeout", {
+        metric: "rate_limit.timeout_admitted",
+        count: 1,
+        limiter: context,
+        durationMs: performance.now() - startedAt,
+      });
+    }
+
+    return result;
   } catch (error) {
     logger.error(
       context,

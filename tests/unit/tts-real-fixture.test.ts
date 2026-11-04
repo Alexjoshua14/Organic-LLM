@@ -15,7 +15,6 @@ import {
   createRealGenerateSpeechResult,
   uint8ArrayToRecord,
 } from "../helpers/mock-tts";
-import { decodeAudioBase64 } from "@/lib/llm/tts/helpers";
 
 // ---------------------------------------------------------------------------
 // Load fixture — all tests in this file are conditional on it existing
@@ -24,21 +23,12 @@ import { decodeAudioBase64 } from "@/lib/llm/tts/helpers";
 const fixture = loadGenerateSpeechFixture();
 const hasFixture = fixture !== null;
 
-function skipIfNoFixture() {
-  if (!hasFixture) {
-    console.log("  ⏭  Skipping: no generate-speech-response.json fixture");
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
 describe("Real ElevenLabs fixture", () => {
-  test("fixture file exists and has expected shape", () => {
-    skipIfNoFixture();
-    if (!hasFixture) return;
-
+  test.skipIf(!hasFixture)("fixture file exists and has expected shape", () => {
     expect(fixture!._meta).toBeDefined();
     expect(fixture!._meta.text).toBeTruthy();
     expect(fixture!._meta.byteLength).toBeGreaterThan(0);
@@ -46,33 +36,23 @@ describe("Real ElevenLabs fixture", () => {
     expect(fixture!.audioBase64.length).toBeGreaterThan(100);
   });
 
-  test("audioBase64 decodes to correct byte length", () => {
-    skipIfNoFixture();
-    if (!hasFixture) return;
-
+  test.skipIf(!hasFixture)("audioBase64 decodes to correct byte length", () => {
     const bytes = Buffer.from(fixture!.audioBase64, "base64");
     expect(bytes.length).toBe(fixture!._meta.byteLength);
   });
 
-  test("decoded audio starts with valid MP3 sync word", () => {
-    skipIfNoFixture();
-    if (!hasFixture) return;
-
+  test.skipIf(!hasFixture)("decoded audio starts with valid MP3 sync word", () => {
     const bytes = Buffer.from(fixture!.audioBase64, "base64");
 
     // ID3 tag starts with "ID3" (0x49 0x44 0x33) — many MP3 files have this
     // before the actual frames. The raw MP3 sync is 0xFF 0xFB/0xFF 0xFA etc.
-    const startsWithID3 =
-      bytes[0] === 0x49 && bytes[1] === 0x44 && bytes[2] === 0x33;
+    const startsWithID3 = bytes[0] === 0x49 && bytes[1] === 0x44 && bytes[2] === 0x33;
     const startsWithSync = bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0;
 
     expect(startsWithID3 || startsWithSync).toBe(true);
   });
 
-  test("audio bytes survive the full server→client roundtrip", () => {
-    skipIfNoFixture();
-    if (!hasFixture) return;
-
+  test.skipIf(!hasFixture)("audio bytes survive the full server→client roundtrip", () => {
     const originalBytes = Buffer.from(fixture!.audioBase64, "base64");
     const original = new Uint8Array(originalBytes);
 
@@ -97,13 +77,8 @@ describe("Real ElevenLabs fixture", () => {
     expect(Array.from(restored)).toEqual(Array.from(original));
   });
 
-  test("audio bytes survive roundtrip through Blob", async () => {
-    skipIfNoFixture();
-    if (!hasFixture) return;
-
-    const originalBytes = new Uint8Array(
-      Buffer.from(fixture!.audioBase64, "base64"),
-    );
+  test.skipIf(!hasFixture)("audio bytes survive roundtrip through Blob", async () => {
+    const originalBytes = new Uint8Array(Buffer.from(fixture!.audioBase64, "base64"));
 
     // Simulate the full pipeline
     const record = uint8ArrayToRecord(originalBytes);
@@ -119,10 +94,7 @@ describe("Real ElevenLabs fixture", () => {
     expect(Array.from(blobBytes)).toEqual(Array.from(originalBytes));
   });
 
-  test("JSON payload size is proportional to audio size", () => {
-    skipIfNoFixture();
-    if (!hasFixture) return;
-
+  test.skipIf(!hasFixture)("JSON payload size is proportional to audio size", () => {
     const bytes = new Uint8Array(Buffer.from(fixture!.audioBase64, "base64"));
     const record = uint8ArrayToRecord(bytes);
     const json = JSON.stringify(record);
@@ -134,7 +106,7 @@ describe("Real ElevenLabs fixture", () => {
 
     // Log for visibility
     console.log(
-      `  ℹ  Real audio: ${bytes.length} bytes → ${json.length} chars JSON (${ratio.toFixed(1)}x)`,
+      `  ℹ  Real audio: ${bytes.length} bytes → ${json.length} chars JSON (${ratio.toFixed(1)}x)`
     );
   });
 

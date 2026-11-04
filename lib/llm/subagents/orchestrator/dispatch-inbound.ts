@@ -1,9 +1,9 @@
-import { randomUUID } from "crypto";
-
 import type { ArcadiaMultitaskSendTargetParsed } from "@/lib/schemas/arcadia-multitask-send-target";
 import type { MultitaskInboundDispatch } from "@/lib/schemas/thought-routing";
-import { resolveMultitaskSendTarget } from "@/lib/schemas/arcadia-multitask-send-target";
 
+import { randomUUID } from "crypto";
+
+import { resolveMultitaskSendTarget } from "@/lib/schemas/arcadia-multitask-send-target";
 import {
   createWorkerGoal,
   decideOrchestratorDelegation,
@@ -59,6 +59,7 @@ export async function dispatchMultitaskInbound(
       goal: text,
       now: started,
     });
+
     // Mark as long work so the orchestrator does not try to answer inline.
     decideOrchestratorDelegation(
       { estimatedDurationMs: ORCHESTRATOR_RETURN_TARGET_MS + 1, forceDelegate: true },
@@ -113,6 +114,7 @@ export async function dispatchMultitaskInbound(
     const workerAgentId =
       input.resolveNewSubagentId?.(thought.disposition.suggestedRole) ??
       `worker-${thought.disposition.suggestedRole}-${randomUUID().slice(0, 8)}`;
+
     assignedGoals.push(
       createWorkerGoal({
         orchestratorId,

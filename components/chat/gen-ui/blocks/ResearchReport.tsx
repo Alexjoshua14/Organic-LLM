@@ -14,6 +14,7 @@ import {
   RESEARCH_ISSUE_LABELS,
   ResearchSourceSliceSchema,
 } from "@/lib/schemas/gen-ui/research-report";
+import { GenUIMarkdown } from "@/components/chat/gen-ui/GenUIMarkdown";
 import { cn } from "@/lib/utils";
 
 const controlClass =
@@ -343,9 +344,9 @@ export function ResearchReport({ block }: { block: ResearchReportBlock; partial?
       <header className="space-y-stack-xs">
         <p className={labelClass}>Lyra · Research</p>
         <h3 className="text-base font-semibold leading-relaxed text-foreground">{block.title}</h3>
-        <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/85">
+        <GenUIMarkdown className="text-sm leading-relaxed text-foreground/85">
           {block.summary}
-        </p>
+        </GenUIMarkdown>
       </header>
       <div className="space-y-stack-sm">
         <p className={labelClass}>Sources · {block.sources.length}</p>

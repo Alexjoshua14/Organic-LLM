@@ -27,8 +27,8 @@ export type IdentityBlobStore = {
 };
 
 export type IdentityImageMetaStore = {
-  get(agentId: string): Promise<import("@/lib/schemas/subagent-runtime").SubagentIdentityImageRecord | null>;
-  put(
-    record: import("@/lib/schemas/subagent-runtime").SubagentIdentityImageRecord
-  ): Promise<void>;
+  get(
+    agentId: string
+  ): Promise<import("@/lib/schemas/subagent-runtime").SubagentIdentityImageRecord | null>;
+  put(record: import("@/lib/schemas/subagent-runtime").SubagentIdentityImageRecord): Promise<void>;
 };

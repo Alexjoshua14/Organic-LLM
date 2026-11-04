@@ -42,6 +42,7 @@ client-side navigation. Held in a page, the peer connection dies on every route 
 
 | Area | Path |
 |------|------|
+| Stage integration | `components/stage/stage.tsx`, `lib/stage/turn.ts`; [integration decision](./decisions/20261029-stage-voice.md) |
 | Session provider (app-wide) | `components/voice/voice-session-provider.tsx` |
 | Live bar | `components/voice/voice-live-bar{,-host,-page-anchor,-timing}.tsx` |
 | Waveform | `components/voice/voice-waveform.tsx`, `lib/speak/waveform-geometry.ts` |
@@ -49,6 +50,7 @@ client-side navigation. Held in a page, the peer connection dies on every route 
 | FluidGlass material | `components/voice/voice-fluid-glass{,-canvas}.tsx`, geometry in `voice-glass-geometry.ts` |
 | Audio analysis | `hooks/use-voice-audio-levels.ts` |
 | Transport seam | `lib/speak/transport/voice-transport.ts` |
+| Microphone support and recovery | `lib/speak/microphone.ts` |
 | Screen context | `hooks/use-voice-screen-context.ts`, `hooks/use-chat-voice-surface.ts`, `lib/speak/ambient-context.ts`, `lib/speak/ambient-item.ts` |
 | "Sees:" chip (dev only) | `components/voice/voice-sees-chip.tsx` |
 | Idle auto-pause | `lib/speak/voice-idle.ts` |
@@ -120,6 +122,18 @@ Verified against the session route and hook on 2026-09-17. Design rationale is i
 
 Memory is a per-session opt-in sent by the client, mirroring chat's composer toggle. It is
 captured on the session record, so the tool gate and the ingest path read one value.
+
+## Microphone access on mobile and self-hosted deployments
+
+The browser-facing page must use trusted HTTPS. A private LAN address or VPN tunnel over
+HTTP is still an insecure browser origin; the local-development exception applies only to
+the device's own loopback address. A reverse proxy may forward HTTPS to an HTTP app server
+internally. See the [microphone preparation ADR](./decisions/20260925-microphone-preparation.md)
+for deployment checks and recovery.
+
+Speak checks browser capabilities and requests microphone permission before minting a
+Realtime session. Missing APIs and denied permissions show recovery instructions without
+reserving server budget or starting a retry. The browser still owns microphone permission.
 
 ## Current state vs. text chat
 

@@ -6,6 +6,13 @@ import { useReducedMotion } from "framer-motion";
 import { usePageVisible } from "@/components/hooks/use-page-visible";
 import { useWelcomeInView } from "@/components/pages/welcome/use-welcome-in-view";
 
+/**
+ * Longest frame the clock will count. A heavy stage can stall for 100ms+ while it re-renders;
+ * counting only 64ms of that would slow the replay down against wall time, so the progress bar
+ * and the demo would drift apart. Hidden tabs suspend the clock, so this only guards edge cases.
+ */
+const MAX_FRAME_DELTA_MS = 400;
+
 export type UseReplayClockOptions = {
   durationMs: number;
   /** When false, clock freezes (e.g. off-screen). Defaults to in-view + page-visible. */
@@ -13,6 +20,8 @@ export type UseReplayClockOptions = {
   loop?: boolean;
   /** Start playing immediately when active. Default true. */
   autoplay?: boolean;
+  /** Open on a useful settled frame when a demo is meant to be inspected first. */
+  initialTimeMs?: number;
 };
 
 export type ReplayClock = {
@@ -30,23 +39,29 @@ export type ReplayClock = {
  * requestAnimationFrame clock for showcase replays.
  * Runs only when the stage is on-screen and the tab is visible.
  * With reduced motion, jumps to the end and stays paused.
+ * A visitor's pause — or a non-looping replay reaching its end — holds the clock: scrolling
+ * away and back, or switching tabs, does not resume it. `play`/`restart` release the hold.
  */
 export function useReplayClock({
   durationMs,
   stageRef,
   loop = true,
   autoplay = true,
+  initialTimeMs = 0,
 }: UseReplayClockOptions): ReplayClock {
   const reduceMotion = useReducedMotion() ?? false;
   const pageVisible = usePageVisible();
   const inView = useWelcomeInView(stageRef, { threshold: 0.2 });
   const active = inView && pageVisible && !reduceMotion;
 
-  const [tMs, setTMs] = useState(() => (reduceMotion ? durationMs : 0));
+  const initialTime = reduceMotion ? durationMs : Math.max(0, Math.min(initialTimeMs, durationMs));
+  const [tMs, setTMs] = useState(initialTime);
   const [playing, setPlaying] = useState(false);
 
   const playingRef = useRef(false);
-  const tRef = useRef(reduceMotion ? durationMs : 0);
+  /** Paused by the visitor, or finished without looping — autoplay must not resume. */
+  const heldRef = useRef(false);
+  const tRef = useRef(initialTime);
   const lastFrameRef = useRef<number | null>(null);
   const rafRef = useRef<number | null>(null);
 
@@ -68,13 +83,20 @@ export function useReplayClock({
     [durationMs]
   );
 
-  const pause = useCallback(() => {
+  /** Stop the clock without recording intent (off-screen, hidden tab). */
+  const suspend = useCallback(() => {
     playingRef.current = false;
     setPlaying(false);
     stopRaf();
   }, [stopRaf]);
 
+  const pause = useCallback(() => {
+    heldRef.current = true;
+    suspend();
+  }, [suspend]);
+
   const play = useCallback(() => {
+    heldRef.current = false;
     if (reduceMotion) {
       seek(durationMs);
 
@@ -89,6 +111,7 @@ export function useReplayClock({
   }, [durationMs, reduceMotion, seek]);
 
   const restart = useCallback(() => {
+    heldRef.current = false;
     if (reduceMotion) {
       seek(durationMs);
       pause();
@@ -112,15 +135,15 @@ export function useReplayClock({
     if (reduceMotion) return;
 
     if (!active) {
-      pause();
+      suspend();
 
       return;
     }
 
-    if (autoplay) {
+    if (autoplay && !heldRef.current) {
       play();
     }
-  }, [active, autoplay, pause, play, reduceMotion]);
+  }, [active, autoplay, play, reduceMotion, suspend]);
 
   // RAF loop.
   useEffect(() => {
@@ -136,7 +159,7 @@ export function useReplayClock({
       const last = lastFrameRef.current ?? now;
 
       lastFrameRef.current = now;
-      const delta = Math.min(64, now - last);
+      const delta = Math.min(MAX_FRAME_DELTA_MS, now - last);
       let next = tRef.current + delta;
 
       if (next >= durationMs) {

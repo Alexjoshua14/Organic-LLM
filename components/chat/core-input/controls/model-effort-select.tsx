@@ -29,6 +29,7 @@ export function ComposerModelEffortSelect({ className }: { className?: string })
         "motion-safe:transition-[box-shadow] motion-safe:duration-200 hover:ring-border",
         className
       )}
+      data-core-input-field="model"
       data-effort={effortAdjustable ? "shown" : "hidden"}
     >
       <ComposerModelSelect />
@@ -39,6 +40,7 @@ export function ComposerModelEffortSelect({ className }: { className?: string })
        * shrink-to-fit, where fractional tracks do not interpolate smoothly.
        */}
       <div
+        data-core-input-field="effort"
         className={cn(
           "flex items-center overflow-hidden",
           "motion-safe:transition-[max-width,opacity,transform] motion-safe:duration-200 motion-safe:ease-out",

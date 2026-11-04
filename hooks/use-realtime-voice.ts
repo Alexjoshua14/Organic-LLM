@@ -1,5 +1,6 @@
 "use client";
 
+import type { StageTurnSettings } from "@/lib/stage/schema";
 import type { SpeakModalities } from "@/lib/schemas/speak-modalities";
 import type { SpeakRealtimeVoice } from "@/lib/schemas/speak-realtime-voice";
 import type { SpeakSubagentSeed } from "@/lib/schemas/speak-subagent-context";
@@ -30,7 +31,12 @@ import {
   isRetryableConnectError,
   RealtimeConnectError,
 } from "@/lib/speak/transport/voice-transport";
-import { createVoiceIdleTimer, SPEAK_IDLE_PAUSE_MS } from "@/lib/speak/voice-idle";
+import { createPersonaTurnController } from "@/lib/speak/persona-turn-controller";
+import {
+  createVoiceIdleTimer,
+  PERSONA_IDLE_PAUSE_MS,
+  SPEAK_IDLE_PAUSE_MS,
+} from "@/lib/speak/voice-idle";
 import { SPEAK_TURN_BATCH_MAX, type SpeakVoiceTurn } from "@/lib/speak/voice-turns";
 
 export type LiveVoicePhase = "idle" | "listening" | "thinking" | "speaking";
@@ -40,6 +46,17 @@ export type RealtimeTranscriptEntry = {
   role: "user" | "assistant" | "system";
   text: string;
   interim?: boolean;
+};
+
+/**
+ * What the voice persona did with the latest utterance. `heard` is the instant receipt when the
+ * user stops speaking; `deciding` while the gate runs; then `responding` or `held`.
+ */
+export type PersonaVoiceTurn = {
+  state: "listening" | "heard" | "deciding" | "responding" | "held";
+  label: string;
+  /** Changes on every receipt, so the UI can pulse even when the label repeats. */
+  at: number;
 };
 
 export type ResumedThreadInfo = {
@@ -70,7 +87,11 @@ function connectFailureOf(error: RealtimeConnectError): ConnectFailure {
 }
 
 type SessionMintResponse = {
+  stage?: boolean;
+  stageSettings?: StageTurnSettings;
   clientSecret: string;
+  /** Present only when the call speaks as a unified persona. */
+  baseInstructions?: string;
   sessionId: string;
   model: string;
   threadId: string | null;
@@ -137,7 +158,15 @@ export function useRealtimeVoice({
   onBudgetChange,
   transportFactory = createWebRtcVoiceTransport,
   idlePauseMs = SPEAK_IDLE_PAUSE_MS,
+  personaSessionId = null,
+  personaRevision = null,
 }: {
+  /**
+   * Unified persona session to speak as. Read at mint: the gate is on for the whole call.
+   * `personaRevision` changing mid-call refreshes the persona block in the instructions.
+   */
+  personaSessionId?: string | null;
+  personaRevision?: string | null;
   modalities?: SpeakModalities;
   /** Sent at mint; enables `search_memories` and transcript ingest for the session. */
   memoryEnabled?: boolean;
@@ -160,6 +189,9 @@ export function useRealtimeVoice({
   const [connected, setConnected] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [stage, setStage] = useState(false);
+  const stageRef = useRef(false);
+  const stageSettingsRef = useRef<StageTurnSettings | undefined>(undefined);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [threadId, setThreadId] = useState<string | null>(null);
   const [budget, setBudget] = useState<SpeakBudgetSnapshot | null>(null);
@@ -190,9 +222,18 @@ export function useRealtimeVoice({
   const userSpeakingRef = useRef(false);
   const assistantSpeakingRef = useRef(false);
   const connectedRef = useRef(false);
+  /** React state cannot lock two starts in the same render or an older auto-resume closure. */
+  const connectingRef = useRef(false);
+  /** Ending or starting a call invalidates pending permission, mint, and retry continuations. */
+  const connectionGenerationRef = useRef(0);
   const modalitiesRef = useRef(modalities);
   const memoryEnabledRef = useRef(memoryEnabled);
   const threadPolicyRef = useRef(threadPolicy);
+  const personaSessionIdRef = useRef(personaSessionId);
+  /** The persona this call was minted with; `null` when the gate is off. */
+  const callPersonaRef = useRef<string | null>(null);
+  const baseInstructionsRef = useRef("");
+  const [personaTurn, setPersonaTurn] = useState<PersonaVoiceTurn | null>(null);
   /** Usage from `response.done`, accumulated until the next heartbeat carries it. */
   const pendingUsageRef = useRef<RealtimeUsage | null>(null);
   /** Completed turns not yet posted to `/transcript`. */
@@ -217,12 +258,76 @@ export function useRealtimeVoice({
   );
   /** See `lib/speak/voice-idle.ts` for what counts as quiet. */
   const [idleTimer] = useState(() =>
-    createVoiceIdleTimer({ timeoutMs: idlePauseMs, onIdle: () => pauseForIdleRef.current() })
+    createVoiceIdleTimer({
+      timeoutMs: () => (callPersonaRef.current ? PERSONA_IDLE_PAUSE_MS : idlePauseMs),
+      onIdle: () => pauseForIdleRef.current(),
+    })
+  );
+  const markPersonaTurn = useCallback((state: PersonaVoiceTurn["state"], label: string) => {
+    setPersonaTurn({ state, label, at: Date.now() });
+  }, []);
+  /** Respond-or-hold for persona calls; see `lib/speak/persona-turn-controller.ts`. */
+  const [personaTurns] = useState(() =>
+    createPersonaTurnController({
+      async decide(text, signal) {
+        const sid = sessionIdRef.current;
+        const persona = callPersonaRef.current;
+
+        if (!sid || !persona) return { respond: true, kind: "question", label: "Heard" };
+
+        const res = await fetch("/api/ai/speak/realtime/turn", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: AbortSignal.any([signal, AbortSignal.timeout(6_000)]),
+          body: JSON.stringify({
+            sessionId: sid,
+            personaSessionId: persona,
+            text: text.slice(0, 8_000),
+          }),
+        });
+
+        if (!res.ok) throw new Error("Voice gate unavailable");
+        const data = (await res.json()) as { respond?: unknown; kind?: unknown; label?: unknown };
+
+        if (typeof data.respond !== "boolean") throw new Error("Invalid voice gate response");
+
+        return {
+          respond: data.respond,
+          kind: typeof data.kind === "string" ? data.kind : "question",
+          label: typeof data.label === "string" ? data.label : "Heard",
+        };
+      },
+      respond: () =>
+        Boolean(
+          connectedRef.current &&
+            callPersonaRef.current &&
+            transportRef.current?.send({ type: "response.create" })
+        ),
+      onDecision: (decision) =>
+        setPersonaTurn({
+          state: decision.respond ? "responding" : "held",
+          label: decision.label,
+          at: Date.now(),
+        }),
+      onPending: (pending) => {
+        if (pending) {
+          idleTimer.begin("tool:persona-gate");
+          setPersonaTurn((prev) => ({
+            state: "deciding",
+            label: prev?.label ?? "Heard",
+            at: prev?.at ?? Date.now(),
+          }));
+        } else {
+          idleTimer.end("tool:persona-gate");
+        }
+      },
+    })
   );
 
   modalitiesRef.current = modalities;
   memoryEnabledRef.current = memoryEnabled;
   threadPolicyRef.current = threadPolicy;
+  personaSessionIdRef.current = personaSessionId;
   transportFactoryRef.current = transportFactory;
 
   const setPhaseSafe = useCallback(
@@ -268,7 +373,7 @@ export function useRealtimeVoice({
     const sid = sessionIdRef.current;
     const batch = turnBufferRef.current.splice(0, SPEAK_TURN_BATCH_MAX);
 
-    if (!sid || batch.length === 0) return;
+    if (!sid || batch.length === 0 || stageRef.current) return;
 
     const final = opts?.final === true;
 
@@ -302,7 +407,12 @@ export function useRealtimeVoice({
 
   const teardown = useCallback(
     async (opts?: { notifyServer?: boolean; connectFailure?: ConnectFailure }) => {
+      connectionGenerationRef.current++;
+      connectingRef.current = false;
       stopHeartbeat();
+      personaTurns.reset();
+      callPersonaRef.current = null;
+      setPersonaTurn(null);
       idleTimer.stop();
 
       const sid = sessionIdRef.current;
@@ -341,7 +451,7 @@ export function useRealtimeVoice({
       screenDelivery.reset();
       setPhaseSafe("idle");
     },
-    [flushTurns, idleTimer, screenDelivery, setPhaseSafe, stopHeartbeat]
+    [flushTurns, idleTimer, personaTurns, screenDelivery, setPhaseSafe, stopHeartbeat]
   );
 
   const sendHeartbeat = useCallback(async () => {
@@ -457,6 +567,10 @@ export function useRealtimeVoice({
 
       switch (ev.kind) {
         case "user_speech_started":
+          if (callPersonaRef.current) {
+            personaTurns.speechStarted();
+            markPersonaTurn("listening", "Listening");
+          }
           idleTimer.begin("user-speech");
           userSpeakingRef.current = true;
           assistantSpeakingRef.current = false;
@@ -466,12 +580,18 @@ export function useRealtimeVoice({
 
           return;
         case "user_speech_stopped":
+          if (callPersonaRef.current) {
+            // The instant receipt: the user hears nothing back for a held turn, so they see it.
+            personaTurns.speechStopped();
+            markPersonaTurn("heard", "Heard");
+          }
           idleTimer.end("user-speech");
           userSpeakingRef.current = false;
           syncPhase();
 
           return;
         case "assistant_started":
+          personaTurns.responseStarted();
           idleTimer.begin("response");
           assistantSpeakingRef.current = true;
           assistantStartedAtRef.current ??= Date.now();
@@ -479,6 +599,7 @@ export function useRealtimeVoice({
 
           return;
         case "assistant_finished":
+          personaTurns.responseFinished();
           idleTimer.end("response");
           assistantSpeakingRef.current = false;
           pendingUsageRef.current = sumRealtimeUsage(pendingUsageRef.current, ev.usage);
@@ -509,6 +630,7 @@ export function useRealtimeVoice({
           setTranscript((prev) => [...prev, { id, role: "user", text: ev.text }]);
           turnBufferRef.current.push({ id, role: "user", text: ev.text, at });
           onCaptionChange?.({ role: "user", text: ev.text });
+          if (callPersonaRef.current) personaTurns.transcript(ev.text, ev.itemId);
 
           return;
         }
@@ -531,6 +653,19 @@ export function useRealtimeVoice({
           turnBufferRef.current.push({ id, role: "assistant", text: ev.text, at });
           onCaptionChange?.({ role: "assistant", text: ev.text });
           scheduleFlush();
+
+          // Chat reads the persona's voice replies from its log; the gate logged the user side.
+          if (callPersonaRef.current) {
+            void fetch("/api/personas/log", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                personaSessionId: callPersonaRef.current,
+                surface: "voice",
+                entries: [{ role: "assistant", text: ev.text.slice(0, 4_800) }],
+              }),
+            }).catch(() => undefined);
+          }
 
           return;
         }
@@ -556,7 +691,15 @@ export function useRealtimeVoice({
           return;
       }
     },
-    [handleToolCall, idleTimer, onCaptionChange, scheduleFlush, syncPhase]
+    [
+      handleToolCall,
+      idleTimer,
+      markPersonaTurn,
+      onCaptionChange,
+      personaTurns,
+      scheduleFlush,
+      syncPhase,
+    ]
   );
 
   const connect = useCallback(
@@ -567,8 +710,14 @@ export function useRealtimeVoice({
       threadId?: string;
       voice?: SpeakRealtimeVoice;
       subagentSeed?: SpeakSubagentSeed;
+      stage?: boolean;
+      stageSettings?: StageTurnSettings;
     }) => {
-      if (connecting || connectedRef.current) return;
+      if (connectingRef.current || connectedRef.current) return;
+
+      connectingRef.current = true;
+      const generation = ++connectionGenerationRef.current;
+      const isCurrentAttempt = () => connectionGenerationRef.current === generation;
 
       setConnecting(true);
       setError(null);
@@ -583,10 +732,27 @@ export function useRealtimeVoice({
         let transport: VoiceTransport;
 
         for (let attempt = 0; ; attempt++) {
+          const attemptTransport = transportFactoryRef.current();
+          const isCurrentTransport = () =>
+            isCurrentAttempt() && transportRef.current === attemptTransport;
+
+          transport = attemptTransport;
+          transportRef.current = transport;
+          // Unsupported origins and denied microphones must not mint or reserve a session.
+          await transport.prepare?.();
+          if (!isCurrentAttempt()) return;
+
           const mintRes = await fetch("/api/ai/speak/realtime/session", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
+              stage: options?.stage,
+              stageSettings: options?.stageSettings,
+              // Subagent calls speak as their worker, never as a persona.
+              personaSessionId:
+                options?.subagentSeed || options?.stage
+                  ? undefined
+                  : (personaSessionIdRef.current ?? undefined),
               modalities: modalitiesRef.current,
               memory: memoryEnabledRef.current,
               threadPolicy: options?.threadPolicy ?? threadPolicyRef.current,
@@ -603,12 +769,34 @@ export function useRealtimeVoice({
 
           mint = (await mintRes.json()) as SessionMintResponse;
 
+          if (!isCurrentAttempt()) {
+            // The user ended the attempt while minting. Release only that late session.
+            if (mint.sessionId) {
+              void fetch("/api/ai/speak/realtime/end", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ sessionId: mint.sessionId }),
+              }).catch(() => undefined);
+            }
+
+            return;
+          }
+
           if (!mintRes.ok || !mint.clientSecret || !mint.sessionId) {
             throw new Error(mint.error ?? "Failed to start Realtime session");
           }
 
           applyBudget(mint.budget);
+          // The server only returns base instructions when it applied the persona.
+          personaTurns.reset();
+          baseInstructionsRef.current = mint.baseInstructions ?? "";
+          callPersonaRef.current = mint.baseInstructions
+            ? (personaSessionIdRef.current ?? null)
+            : null;
           sessionIdRef.current = mint.sessionId;
+          stageRef.current = mint.stage === true;
+          stageSettingsRef.current = mint.stageSettings ?? options?.stageSettings;
+          setStage(stageRef.current);
           setSessionId(mint.sessionId);
           threadIdRef.current = mint.threadId;
           setThreadId(mint.threadId);
@@ -627,26 +815,29 @@ export function useRealtimeVoice({
           audioEl.autoplay = true;
           audioElRef.current = audioEl;
 
-          transport = transportFactoryRef.current();
-          transportRef.current = transport;
-
           try {
             await transport.connect(
               { clientSecret: mint.clientSecret },
               {
-                onServerEvent: handleDataEvent,
+                onServerEvent: (raw) => {
+                  if (isCurrentTransport()) handleDataEvent(raw);
+                },
                 onRemoteStream: (stream) => {
+                  if (!isCurrentTransport()) return;
                   audioEl.srcObject = stream;
                   setStreams((prev) => ({ ...prev, remote: stream }));
                 },
                 onClosed: (reason) => {
+                  if (!isCurrentTransport()) return;
                   setError(reason);
                   void teardown({ notifyServer: true });
                 },
               }
             );
+            if (!isCurrentAttempt()) return;
             break;
           } catch (err) {
+            if (!isCurrentAttempt()) return;
             if (attempt >= CONNECT_RETRY_LIMIT || !isRetryableConnectError(err)) throw err;
 
             transport.close();
@@ -654,12 +845,14 @@ export function useRealtimeVoice({
             retryFailure = connectFailureOf(err);
             resumeSessionId = mint.sessionId;
             await new Promise((resolve) => setTimeout(resolve, CONNECT_RETRY_DELAY_MS));
+            if (!isCurrentAttempt()) return;
           }
         }
 
         setStreams({ local: transport.localStream, remote: transport.remoteStream });
 
         connectedRef.current = true;
+        connectingRef.current = false;
         setConnected(true);
         setConnecting(false);
         setPaused(false);
@@ -675,6 +868,8 @@ export function useRealtimeVoice({
         startHeartbeat();
         idleTimer.reset();
       } catch (err) {
+        // Permission prompts and requests can settle after End or a newer Start.
+        if (!isCurrentAttempt()) return;
         const msg = err instanceof Error ? err.message : "Failed to connect";
 
         setError(msg);
@@ -688,10 +883,10 @@ export function useRealtimeVoice({
     },
     [
       applyBudget,
-      connecting,
       handleDataEvent,
       idleTimer,
       onCaptionChange,
+      personaTurns,
       screenDelivery,
       setPhaseSafe,
       startHeartbeat,
@@ -724,7 +919,12 @@ export function useRealtimeVoice({
    * failure leaves the call paused, so the bar still offers another try.
    */
   const resume = useCallback(
-    () => connect({ threadId: pausedThreadIdRef.current ?? undefined }),
+    () =>
+      connect({
+        threadId: pausedThreadIdRef.current ?? undefined,
+        stage: stageRef.current,
+        stageSettings: stageSettingsRef.current,
+      }),
     [connect]
   );
 
@@ -741,7 +941,8 @@ export function useRealtimeVoice({
    * "tried and failed".
    */
   const resumeIfActive = useCallback(async (): Promise<boolean> => {
-    if (connectedRef.current || connecting) return false;
+    if (connectedRef.current || connectingRef.current) return false;
+    const generation = connectionGenerationRef.current;
 
     try {
       const res = await fetch("/api/ai/speak/realtime/active");
@@ -750,7 +951,8 @@ export function useRealtimeVoice({
 
       const data = (await res.json()) as ActiveSessionResponse;
 
-      if (!data.session) return false;
+      // A manual Start or End while discovery was pending owns the user's intent now.
+      if (!data.session || connectionGenerationRef.current !== generation) return false;
 
       await connect({ resumeSessionId: data.session.sessionId });
 
@@ -760,7 +962,7 @@ export function useRealtimeVoice({
       // did not ask for. They can always start a session by hand.
       return false;
     }
-  }, [connect, connecting]);
+  }, [connect]);
 
   /**
    * Silent subagent progress via `POST /api/ai/speak/realtime/progress`.
@@ -870,25 +1072,95 @@ export function useRealtimeVoice({
    * Inject a typed/UI text event into the live Realtime conversation (stretch for
    * Aion presence). Returns false when the data channel is not open.
    */
-  const sendTextEvent = useCallback((text: string): boolean => {
+  const sendTextEvent = useCallback(
+    (text: string): boolean => {
+      const transport = transportRef.current;
+      const trimmed = text.trim();
+
+      if (!transport || !connectedRef.current || !trimmed) return false;
+
+      const created = transport.send({
+        type: "conversation.item.create",
+        item: {
+          type: "message",
+          role: "user",
+          content: [{ type: "input_text", text: trimmed }],
+        },
+      });
+
+      if (!created) return false;
+
+      // Typed text into a persona call goes through the same respond-or-hold gate as speech.
+      if (callPersonaRef.current) {
+        markPersonaTurn("heard", "Heard");
+        personaTurns.transcript(trimmed);
+
+        return true;
+      }
+
+      return transport.send({ type: "response.create" });
+    },
+    [markPersonaTurn, personaTurns]
+  );
+
+  /**
+   * A new subject or painting photo mid-call: fetch the current persona block and replace the
+   * instructions with one `session.update`. Instructions, not a conversation item, so the
+   * project state survives truncation. Only `instructions` changes; turn detection stays as
+   * minted.
+   */
+  const refreshedRevisionRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const sid = sessionIdRef.current;
+    const persona = callPersonaRef.current;
     const transport = transportRef.current;
-    const trimmed = text.trim();
 
-    if (!transport || !connectedRef.current || !trimmed) return false;
+    if (!connected || !sid || !persona || !transport || !personaRevision) return;
+    // The mint already carried the revision current at connect time.
+    if (refreshedRevisionRef.current === null) {
+      refreshedRevisionRef.current = `${sid}:${personaRevision}`;
 
-    const created = transport.send({
-      type: "conversation.item.create",
-      item: {
-        type: "message",
-        role: "user",
-        content: [{ type: "input_text", text: trimmed }],
-      },
-    });
+      return;
+    }
+    if (refreshedRevisionRef.current === `${sid}:${personaRevision}`) return;
+    refreshedRevisionRef.current = `${sid}:${personaRevision}`;
 
-    if (!created) return false;
+    const controller = new AbortController();
 
-    return transport.send({ type: "response.create" });
-  }, []);
+    void fetch("/api/ai/speak/realtime/persona", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: controller.signal,
+      body: JSON.stringify({ sessionId: sid, personaSessionId: persona }),
+    })
+      .then(async (res) => {
+        if (!res.ok) return;
+        const data = (await res.json()) as { instructions?: unknown };
+
+        if (
+          typeof data.instructions !== "string" ||
+          transportRef.current !== transport ||
+          sessionIdRef.current !== sid
+        ) {
+          return;
+        }
+        transport.send({
+          type: "session.update",
+          session: {
+            type: "realtime",
+            instructions: `${baseInstructionsRef.current}${data.instructions}`,
+          },
+        });
+      })
+      .catch(() => undefined);
+
+    return () => controller.abort();
+  }, [connected, personaRevision]);
+
+  useEffect(() => {
+    if (!connected) refreshedRevisionRef.current = null;
+  }, [connected]);
 
   useEffect(() => {
     return () => {
@@ -897,7 +1169,10 @@ export function useRealtimeVoice({
   }, [teardown]);
 
   return {
+    stage,
     phase,
+    /** Persona calls only: what happened to the latest utterance. */
+    personaTurn,
     connected,
     connecting,
     /** Ended by the idle timer; `resume` continues it. See `lib/speak/voice-idle.ts`. */

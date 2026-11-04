@@ -169,7 +169,10 @@ export function foldWebSearchResults(
       parseWebSearchToolOutputForFold(snap.body, snap.toolCallId) ??
       ({
         status: "error" as const,
-        message: typeof snap.body === "string" && snap.body.trim() ? snap.body.trim() : "Web search failed.",
+        message:
+          typeof snap.body === "string" && snap.body.trim()
+            ? snap.body.trim()
+            : "Web search failed.",
       } satisfies ParsedWebSearchToolOutput);
 
     combined = appendWebSearchContext(combined, {
@@ -191,9 +194,6 @@ export function foldWebSearchResults(
 }
 
 /** True when this completed invocation should not render its own results card. */
-export function isClosedWebSearchResult(
-  plan: WebSearchFoldPlan,
-  toolCallId: string
-): boolean {
+export function isClosedWebSearchResult(plan: WebSearchFoldPlan, toolCallId: string): boolean {
   return plan.closedToolCallIds.has(toolCallId);
 }

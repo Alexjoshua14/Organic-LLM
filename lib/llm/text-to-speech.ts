@@ -1,7 +1,5 @@
 "use server";
 
-import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
-
 import { openai } from "@ai-sdk/openai";
 import {
   GeneratedAudioFile,
@@ -15,6 +13,7 @@ import { createLogger } from "../logger";
 
 import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "./helpers";
 
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import { recordLlmCall } from "@/lib/llm/metrics";
 import { models, providerModelSlug } from "@/lib/schemas/chat-models";
 import { requireTtsActor } from "@/lib/api/tts-gate";
@@ -81,6 +80,7 @@ const CorrectionSystemPrompt =
 
 export async function textToSpeech(text: string): Promise<GeneratedAudioFile> {
   const actor = await requireTtsActor(text.length);
+
   if (actor.error) throw new Error(await actor.error.text());
   const { audio } = await generateSpeech({
     model: openai.speech("gpt-4o-mini-tts"),
@@ -137,7 +137,6 @@ export async function transformTextToSpeechFriendly(text: string): Promise<strin
   );
 
   recordLlmCall({
-
     persist: false,
     model: models.openai.luna.id,
     usage: speechFriendlyText.usage,
@@ -147,7 +146,6 @@ export async function transformTextToSpeechFriendly(text: string): Promise<strin
   });
 
   recordLlmCall({
-
     persist: false,
     model: models.openai.luna.id,
     usage: validatedTranscript.usage,
@@ -180,7 +178,6 @@ export async function transformTextToSpeechFriendly(text: string): Promise<strin
     );
 
     recordLlmCall({
-
       persist: false,
       model: models.openai.terra.id,
       usage: regeneratedTranscript.usage,
@@ -213,7 +210,6 @@ export async function transformTextToSpeechFriendly(text: string): Promise<strin
     );
 
     recordLlmCall({
-
       persist: false,
       model: models.openai.luna.id,
       usage: betterVersionOfTranscript.usage,
@@ -261,7 +257,6 @@ export async function transformTextToSpeechFriendly(text: string): Promise<strin
     );
 
     recordLlmCall({
-
       persist: false,
       model: models.openai.luna.id,
       usage: betterVersionOfTranscript.usage,
@@ -368,7 +363,10 @@ export async function transformTextToSpeechFriendlyV2(text: string): Promise<str
       operation: "llm/text-to-speech",
     })),
     model: luna,
-    instructions: CorrectionSystemPrompt.replace("{{validationErrorReasoning}}", result.object.reason),
+    instructions: CorrectionSystemPrompt.replace(
+      "{{validationErrorReasoning}}",
+      result.object.reason
+    ),
     prompt: `Original text: ${text}\n\nTransformed text: ${result.object.speechFriendlyText}`,
     temperature: 0,
     schema: SpeechResultSchema,
@@ -383,7 +381,6 @@ export async function transformTextToSpeechFriendlyV2(text: string): Promise<str
   );
 
   recordLlmCall({
-
     persist: false,
     model: models.openai.luna.id,
     usage: result.usage,
@@ -392,7 +389,6 @@ export async function transformTextToSpeechFriendlyV2(text: string): Promise<str
   });
 
   recordLlmCall({
-
     persist: false,
     model: models.openai.luna.id,
     usage: regeneratedTranscript.usage,

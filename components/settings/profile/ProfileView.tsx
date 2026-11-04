@@ -28,6 +28,8 @@ type ProfileViewProps = {
 
 export function ProfileView({ profile, email, displayName }: ProfileViewProps) {
   const [tree, setTree] = useState<ProfileTree | null>(null);
+  /** A generated profile that failed the quality review: shown as a preview, never saved. */
+  const [draftTree, setDraftTree] = useState<ProfileTree | null>(null);
   const [treeSource, setTreeSource] = useState<ProfileTreeSource | null>(null);
   const [treeLoading, setTreeLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -41,14 +43,16 @@ export function ProfileView({ profile, email, displayName }: ProfileViewProps) {
     [resolvedEmail]
   );
   const emptyTree = useMemo(() => getEmptyProfileTree(), []);
-  const renderedTree = tree ?? tailoredSeedTree ?? emptyTree;
-  const treeVariant: ProfileTreeVariant = tree
-    ? treeSource === "tailored-seed"
-      ? "tailored"
-      : "generated"
-    : tailoredSeedTree
-      ? "tailored"
-      : "empty";
+  const renderedTree = draftTree ?? tree ?? tailoredSeedTree ?? emptyTree;
+  const treeVariant: ProfileTreeVariant = draftTree
+    ? "generated"
+    : tree
+      ? treeSource === "tailored-seed"
+        ? "tailored"
+        : "generated"
+      : tailoredSeedTree
+        ? "tailored"
+        : "empty";
 
   useEffect(() => {
     let mounted = true;
@@ -119,6 +123,7 @@ export function ProfileView({ profile, email, displayName }: ProfileViewProps) {
   const generateProfileTree = useCallback(async () => {
     setGenerating(true);
     setError(null);
+    setDraftTree(null);
 
     try {
       const res = await fetch("/api/profile/summary", {
@@ -135,8 +140,14 @@ export function ProfileView({ profile, email, displayName }: ProfileViewProps) {
         throw new Error(payload.error ?? "Failed to generate profile");
       }
 
-      setTree(ProfileTreeSchema.parse(payload.data));
-      setTreeSource("llm-generated");
+      const generated = ProfileTreeSchema.parse(payload.data);
+
+      if (payload.revisionStatus === "draft") {
+        setDraftTree(generated);
+      } else {
+        setTree(generated);
+        setTreeSource(payload.warnings?.length ? "partial-generated" : "llm-generated");
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
     } finally {
@@ -217,11 +228,13 @@ export function ProfileView({ profile, email, displayName }: ProfileViewProps) {
 
       <div className="flex flex-col gap-2">
         <p className="text-xs text-muted-foreground">
-          {tree
-            ? "Profile content is saved to your account and available across devices."
-            : tailoredSeedTree
-              ? "Tailored starter profile. Save it to your account, then edit headline and signature."
-              : "Generate a profile tree to save it to your account across devices."}
+          {draftTree
+            ? "This is a draft. It didn't pass the quality review, so it isn't saved to your account. Regenerate to try again."
+            : tree
+              ? "Profile content is saved to your account and available across devices."
+              : tailoredSeedTree
+                ? "Tailored starter profile. Save it to your account, then edit headline and signature."
+                : "Generate a profile tree to save it to your account across devices."}
         </p>
         <div className="flex flex-wrap gap-2">
           {tailoredSeedTree && !tree && (
@@ -242,7 +255,7 @@ export function ProfileView({ profile, email, displayName }: ProfileViewProps) {
             variant="bordered"
             onPress={generateProfileTree}
           >
-            {tree ? "Regenerate profile tree" : "Generate profile tree"}
+            {tree || draftTree ? "Regenerate profile tree" : "Generate profile tree"}
           </Button>
         </div>
       </div>

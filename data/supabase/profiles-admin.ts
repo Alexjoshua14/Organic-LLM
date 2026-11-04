@@ -1,6 +1,7 @@
 import "server-only";
 
 import { Result } from "@/types";
+import { cachedProfileId } from "@/lib/supabase/profile-id-cache";
 import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
 
 /**
@@ -8,21 +9,24 @@ import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
  * (e.g. in onFinish after a long stream) to verify the current user's Supabase id.
  */
 export async function getSupabaseUserIdWithAdmin(clerkUserId: string): Promise<Result<string>> {
-  const { data, error } = await supabaseAdmin
-    .from("profiles")
-    .select("id")
-    .eq("clerk_user_id", clerkUserId)
-    .single();
+  // Same mapping as getSupabaseUserId, so the same cache.
+  return cachedProfileId(clerkUserId, async () => {
+    const { data, error } = await supabaseAdmin
+      .from("profiles")
+      .select("id")
+      .eq("clerk_user_id", clerkUserId)
+      .single();
 
-  if (error) {
+    if (error) {
+      return {
+        data: null,
+        error: new Error(error?.message ?? "Unknown error"),
+      };
+    }
+
     return {
-      data: null,
-      error: new Error(error?.message ?? "Unknown error"),
+      data: data.id,
+      error: null,
     };
-  }
-
-  return {
-    data: data.id,
-    error: null,
-  };
+  });
 }

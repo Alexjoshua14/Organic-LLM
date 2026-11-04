@@ -1,16 +1,16 @@
+import type { WorkerAwarenessEvent, WorkerGoal } from "@/lib/schemas/subagent-runtime";
+import type { AgentRuntimeRole } from "@/lib/llm/subagents/roles";
+import type { RunWorkerGoalResult } from "@/lib/llm/subagents/worker/run";
+
 import { randomUUID } from "crypto";
 
 import { generateText } from "ai";
 
-import type { WorkerAwarenessEvent, WorkerGoal } from "@/lib/schemas/subagent-runtime";
 import { DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
-
 import {
   defaultOrchestratorAwarenessBus,
   type OrchestratorAwarenessBus,
 } from "@/lib/llm/subagents/orchestrator/awareness";
-import type { AgentRuntimeRole } from "@/lib/llm/subagents/roles";
-import type { RunWorkerGoalResult } from "@/lib/llm/subagents/worker/run";
 
 export type WorkerGenerateText = (args: {
   model: string;
@@ -34,25 +34,31 @@ export type RunWorkerGoalWithModelInput = {
 export function shortError(err: unknown): string {
   const raw = err instanceof Error ? err.message : String(err);
   const trimmed = raw.replace(/\s+/g, " ").trim();
+
   if (!trimmed) return "Worker model call failed";
+
   return trimmed.length > 280 ? `${trimmed.slice(0, 277)}…` : trimmed;
 }
 
 export function summarizeOutcome(text: string): string {
   const cleaned = text.replace(/\s+/g, " ").trim();
+
   if (!cleaned) return "Worker finished with an empty response.";
+
   return cleaned.length > 600 ? `${cleaned.slice(0, 597)}…` : cleaned;
 }
 
 export function milestoneFromOutcome(summary: string): string {
   const first = summary.split(/(?<=[.!?])\s+/)[0]?.trim() ?? summary;
   const label = first.length > 140 ? `${first.slice(0, 137)}…` : first;
+
   return label || "Worker completed assigned goal";
 }
 
 export function buildWorkerSystem(name?: string, role?: string): string {
   const who = name?.trim() || "Worker";
   const asRole = role?.trim() || "specialist";
+
   return [
     `You are ${who}, a ${asRole} subagent in Organic LLM's Arcadia multitask shell.`,
     "Pursue the assigned goal carefully and reply with a concise, usable outcome.",
@@ -71,7 +77,9 @@ export async function runWorkerGoalWithModel(
   const bus = input.bus ?? defaultOrchestratorAwarenessBus;
   const now = input.now ?? Date.now;
   const modelId = input.modelId?.trim() || DEFAULT_CHAT_MODEL.id;
-  const gen = input.generateText ?? (({ system, ...args }) => generateText({ ...args, instructions: system }));
+  const gen =
+    input.generateText ??
+    (({ system, ...args }) => generateText({ ...args, instructions: system }));
   const events: WorkerAwarenessEvent[] = [];
 
   const publish = (event: WorkerAwarenessEvent) => {

@@ -4,6 +4,24 @@
  */
 export const SETTINGS_PAGE_TITLE = "Preferences";
 
+/** Tabs on the full settings page. `advanced` renders only when dev settings are enabled. */
+export const SETTINGS_PAGE_TABS = [
+  "profile",
+  "connectors",
+  "chats",
+  "memory",
+  "appearance",
+  "ai",
+  "privacy",
+  "advanced",
+] as const;
+
+export type SettingsPageTab = (typeof SETTINGS_PAGE_TABS)[number];
+
+export function isSettingsPageTab(value: string | null | undefined): value is SettingsPageTab {
+  return Boolean(value && (SETTINGS_PAGE_TABS as readonly string[]).includes(value));
+}
+
 /**
  * 10 alternative names for the full settings/profile/memory page (better than "Settings"):
  * 1. Preferences  — clear, standard

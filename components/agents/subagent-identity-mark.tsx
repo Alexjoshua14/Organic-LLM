@@ -12,6 +12,7 @@ type SubagentIdentityMarkProps = {
   className?: string;
   size?: "sm" | "md" | "lg";
   state?: AgentDotState;
+  intensity?: number;
 };
 
 /**
@@ -25,11 +26,13 @@ export function SubagentIdentityMark({
   className,
   size = "md",
   state = "idle",
+  intensity,
 }: SubagentIdentityMarkProps) {
   return (
     <OrganicActivityMark
       className={className}
       imageUrl={imageUrl}
+      intensity={intensity}
       label={`${name} identity mark`}
       seed={seed}
       size={size}

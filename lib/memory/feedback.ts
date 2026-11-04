@@ -1,125 +1,93 @@
 import "server-only";
 
-import type { MemoryFeedbackSignal, RecordMemoryFeedbackInput } from "@/lib/schemas/memory-quality";
+import type { Result } from "@/types";
 
 import { auth } from "@clerk/nextjs/server";
 
-import { insertMemoryFeedbackRow } from "@/data/supabase/memory-quality";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
-import { getAllMemories as storeGetAllMemories } from "@/lib/memory/store";
-import { recordMemoryEvent } from "@/lib/memory/quality-events";
-import { RecordMemoryFeedbackInputSchema } from "@/lib/schemas/memory-quality";
-import { Result } from "@/types";
+import {
+  deleteFeedbackRow,
+  getFeedbackRow,
+  listFeedbackRows,
+  updateFeedbackNote,
+  updateFeedbackMemory,
+  upsertFeedbackVote,
+} from "@/data/supabase/memory-feedback";
+import { getMemoriesOwnershipSnapshotForUser } from "@/lib/memory/operations";
+import {
+  createFeedbackService,
+  decodeFeedbackRow,
+  FEEDBACK_CONFLICT,
+  FEEDBACK_MEMORY_CHANGED,
+  FEEDBACK_MEMORY_UNAVAILABLE,
+  FEEDBACK_MEMORY_TOO_LONG,
+} from "@/lib/memory/feedback-service";
+import { checkMemoryFeedbackLimit } from "@/lib/rate-limit/memory";
 
-async function resolveCurrentUserId(): Promise<Result<string, string>> {
-  const { userId: clerkUserId } = await auth();
+export async function resolveFeedbackUser(): Promise<string | null> {
+  const { userId } = await auth();
 
-  if (!clerkUserId) {
-    return { data: null, error: "Not signed in" };
-  }
+  if (!userId) return null;
+  const profile = await getSupabaseUserId(userId);
 
-  const sbResult = await getSupabaseUserId(clerkUserId);
-
-  if (sbResult.error || !sbResult.data) {
-    return { data: null, error: "User profile not found" };
-  }
-
-  return { data: sbResult.data, error: null };
+  return profile.error ? null : profile.data;
 }
 
-async function verifyMemoryOwnership(userId: string, memoryId: string): Promise<boolean> {
+export const feedbackService = createFeedbackService(
+  {
+    get: getFeedbackRow,
+    upsertVote: upsertFeedbackVote,
+    updateNote: updateFeedbackNote,
+    updateMemory: updateFeedbackMemory,
+    remove: deleteFeedbackRow,
+  },
+  async (userId, memoryId) => {
+    const snapshot = await getMemoriesOwnershipSnapshotForUser(userId);
+
+    if (snapshot.error) throw new Error("Could not read memories");
+
+    return snapshot.data?.results.find((memory) => memory.id === memoryId)?.memory ?? null;
+  }
+);
+
+export async function withFeedbackUser<T>(
+  operation: (userId: string) => Promise<T>
+): Promise<Result<T, string>> {
   try {
-    const owned = await storeGetAllMemories(userId);
+    const userId = await resolveFeedbackUser();
 
-    return owned.results?.some((m) => m.id === memoryId) ?? false;
-  } catch {
-    return false;
+    if (!userId) return { data: null, error: "Not signed in" };
+    const limit = await checkMemoryFeedbackLimit(userId);
+
+    if (!limit.success) return { data: null, error: "Please wait before updating feedback again." };
+
+    return { data: await operation(userId), error: null };
+  } catch (error) {
+    // Database/crypto/provider errors can contain submitted text. Never return or log them.
+    return {
+      data: null,
+      error:
+        error instanceof Error &&
+        [
+          FEEDBACK_CONFLICT,
+          FEEDBACK_MEMORY_CHANGED,
+          FEEDBACK_MEMORY_UNAVAILABLE,
+          FEEDBACK_MEMORY_TOO_LONG,
+        ].includes(error.message)
+          ? error.message
+          : "Could not update feedback. Please try again.",
+    };
   }
 }
 
-export async function recordMemoryFeedbackForUser(
-  userId: string,
-  input: RecordMemoryFeedbackInput
-): Promise<Result<boolean, string>> {
-  const parsed = RecordMemoryFeedbackInputSchema.safeParse(input);
+export async function readFeedback(userId: string, memoryId: string) {
+  const row = await getFeedbackRow(userId, memoryId);
 
-  if (!parsed.success) {
-    return { data: null, error: "Invalid feedback input" };
-  }
-
-  const { memoryId, signal, source, chatId, note } = parsed.data;
-
-  const owned = await verifyMemoryOwnership(userId, memoryId);
-
-  if (!owned) {
-    return { data: null, error: "Memory not found" };
-  }
-
-  const insertResult = await insertMemoryFeedbackRow({
-    userId,
-    memoryId,
-    signal,
-    source,
-    chatId,
-    note,
-  });
-
-  if (!insertResult.ok) {
-    return { data: null, error: insertResult.error ?? "Failed to save feedback" };
-  }
-
-  await recordMemoryEvent({
-    userId,
-    event: "feedback",
-    source: "unknown",
-    memoryId,
-    metadata: { signal, feedbackSource: source },
-  });
-
-  return { data: true, error: null };
+  return row ? decodeFeedbackRow(row) : null;
 }
 
-export async function recordMemoryFeedbackForCurrentUser(
-  input: RecordMemoryFeedbackInput
-): Promise<Result<boolean, string>> {
-  const userResult = await resolveCurrentUserId();
+export async function listFeedback(userId: string, offset: number, limit: number) {
+  const { rows, hasMore } = await listFeedbackRows(userId, offset, limit);
 
-  if (userResult.error || !userResult.data) {
-    return { data: null, error: userResult.error ?? "Not signed in" };
-  }
-
-  return recordMemoryFeedbackForUser(userResult.data, input);
-}
-
-export async function recordDelphiFlagFeedback(args: {
-  userId: string;
-  chatId: string;
-  signal: Extract<MemoryFeedbackSignal, "flag_review" | "flag_followup">;
-  note?: string;
-  memoryId?: string;
-}): Promise<Result<boolean, string>> {
-  const memoryId = args.memoryId?.trim() || `chat:${args.chatId}`;
-
-  const insertResult = await insertMemoryFeedbackRow({
-    userId: args.userId,
-    memoryId,
-    signal: args.signal,
-    source: "delphi_tool",
-    chatId: args.chatId,
-    note: args.note,
-  });
-
-  if (!insertResult.ok) {
-    return { data: null, error: insertResult.error ?? "Failed to save flag" };
-  }
-
-  await recordMemoryEvent({
-    userId: args.userId,
-    event: "feedback",
-    source: "delphi",
-    memoryId: args.memoryId,
-    metadata: { signal: args.signal },
-  });
-
-  return { data: true, error: null };
+  return { rows: rows.map((row) => decodeFeedbackRow(row)), hasMore };
 }

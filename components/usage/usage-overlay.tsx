@@ -87,29 +87,33 @@ export function UsageOverlay({ className, triggerClassName }: UsageOverlayProps)
     }
   }, []);
 
-  const spendReset = useCallback(async (resetVersion: string): Promise<string | null> => {
-    try {
-      const response = await fetch("/api/usage/reset", {
-        method: "POST", cache: "no-store",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resetVersion }),
-      });
+  const spendReset = useCallback(
+    async (resetVersion: string): Promise<string | null> => {
+      try {
+        const response = await fetch("/api/usage/reset", {
+          method: "POST",
+          cache: "no-store",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ resetVersion }),
+        });
 
-      if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        if (!response.ok) {
+          const body = (await response.json().catch(() => null)) as { error?: string } | null;
 
-        return body?.error ?? "Could not start a fresh window";
+          return body?.error ?? "Could not start a fresh window";
+        }
+        const result = (await response.json()) as Pick<UsageApiPayload, "plan">;
+
+        setData((previous) => (previous ? { ...previous, plan: result.plan } : previous));
+        await loadUsage(range);
+
+        return null;
+      } catch {
+        return "Could not start a fresh window";
       }
-      const result = await response.json() as Pick<UsageApiPayload, "plan">;
-
-      setData((previous) => previous ? { ...previous, plan: result.plan } : previous);
-      await loadUsage(range);
-
-      return null;
-    } catch {
-      return "Could not start a fresh window";
-    }
-  }, [loadUsage, range]);
+    },
+    [loadUsage, range]
+  );
 
   useEffect(() => {
     if (!open || !isSignedIn) return;
@@ -236,7 +240,11 @@ export function UsageOverlay({ className, triggerClassName }: UsageOverlayProps)
                       label="Total tokens"
                       value={formatTokenCount(data.totals.totalTokens)}
                     />
-                    <UsageStatCard label="Tracked cost" value={formatUsd(data.totals.costUsd)} accent />
+                    <UsageStatCard
+                      label="Tracked cost"
+                      value={formatUsd(data.totals.costUsd)}
+                      accent
+                    />
                     <UsageStatCard
                       label="Input"
                       value={formatTokenCount(data.totals.inputTokens)}
@@ -252,11 +260,33 @@ export function UsageOverlay({ className, triggerClassName }: UsageOverlayProps)
                   {data.gatewaySpend ? (
                     <div className="space-y-2 rounded-xl border border-border/50 px-3 py-3 text-xs">
                       <p className="font-medium">Gateway spend · admin</p>
-                      {data.gatewaySpend.status === "available" ? <>
-                        <p className="flex justify-between gap-3"><span>Gateway account total</span><span className="tabular-nums">{formatUsd(data.gatewaySpend.accountCostUsd)}</span></p>
-                        <p className="flex justify-between gap-3"><span>Attributed to you</span><span className="tabular-nums">{formatUsd(data.gatewaySpend.attributedCostUsd)}</span></p>
-                        <p className="text-muted-foreground">Account total includes other users and apps on this Gateway account. User attribution covers tagged requests; older calls may be unattributed. Direct-provider calls are separate. Reports can lag recent activity.</p>
-                      </> : <p className="text-muted-foreground">Gateway reporting is unavailable. Tracked cost below is not a complete account bill.</p>}
+                      {data.gatewaySpend.status === "available" ? (
+                        <>
+                          <p className="flex justify-between gap-3">
+                            <span>Gateway account total</span>
+                            <span className="tabular-nums">
+                              {formatUsd(data.gatewaySpend.accountCostUsd)}
+                            </span>
+                          </p>
+                          <p className="flex justify-between gap-3">
+                            <span>Attributed to you</span>
+                            <span className="tabular-nums">
+                              {formatUsd(data.gatewaySpend.attributedCostUsd)}
+                            </span>
+                          </p>
+                          <p className="text-muted-foreground">
+                            Account total includes other users and apps on this Gateway account.
+                            User attribution covers tagged requests; older calls may be
+                            unattributed. Direct-provider calls are separate. Reports can lag recent
+                            activity.
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-muted-foreground">
+                          Gateway reporting is unavailable. Tracked cost below is not a complete
+                          account bill.
+                        </p>
+                      )}
                     </div>
                   ) : null}
                   <UsageTrackingNote />
@@ -270,8 +300,8 @@ export function UsageOverlay({ className, triggerClassName }: UsageOverlayProps)
                   <UsageModelBreakdown byModel={data.byModel} pricingAsOf={data.pricingAsOf} />
 
                   <p className="text-[11px] leading-relaxed text-muted-foreground/80">
-                    This cycle: {formatTokenCount(data.billingCycleTotals.totalTokens)}{" "}
-                    tokens · {formatUsd(data.billingCycleTotals.costUsd)} est. cost ·{" "}
+                    This cycle: {formatTokenCount(data.billingCycleTotals.totalTokens)} tokens ·{" "}
+                    {formatUsd(data.billingCycleTotals.costUsd)} est. cost ·{" "}
                     {data.billingCycleTotals.callCount.toLocaleString()} calls
                   </p>
                 </>

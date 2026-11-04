@@ -12,9 +12,7 @@ export const ArcadiaMultitaskSendTargetSchema = z.discriminatedUnion("kind", [
   }),
 ]);
 
-export type ArcadiaMultitaskSendTargetParsed = z.infer<
-  typeof ArcadiaMultitaskSendTargetSchema
->;
+export type ArcadiaMultitaskSendTargetParsed = z.infer<typeof ArcadiaMultitaskSendTargetSchema>;
 
 /** Default when the client omits the field — same as the dashboard default. */
 export const DEFAULT_CHAT_MULTITASK_SEND_TARGET: ArcadiaMultitaskSendTargetParsed = {

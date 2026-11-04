@@ -53,6 +53,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         status: snapshot.status,
         statusAt: snapshot.statusAt,
         goal: snapshot.lastGoal,
+        latestGoalId: snapshot.latestGoalId ?? null,
         outcome: snapshot.lastOutcome,
         modelId: snapshot.modelId ?? null,
       };

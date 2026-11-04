@@ -228,6 +228,7 @@ export function MemoryLensContent({
           <button
             aria-label="Refresh memory list"
             className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            disabled={isRefreshing}
             type="button"
             onClick={onRefresh}
           >
@@ -276,11 +277,13 @@ export function MemoryLensContent({
           >
             {error ? (
               <>
-                <p>No memories found.</p>
+                <p role="alert">{error}</p>
                 <p className="text-xs text-muted-foreground/80">
-                  Memory service may be unavailable. Check your connection and try again.
+                  Try refreshing the list in a moment.
                 </p>
               </>
+            ) : hasSearch ? (
+              <p>No memories match this search.</p>
             ) : (
               <p>
                 No memories yet. Chat with memory enabled and the model will add important facts

@@ -1,5 +1,6 @@
 "use client";
 
+import type { StageTurnSettings } from "@/lib/stage/schema";
 import type { SpeakModalities } from "@/lib/schemas/speak-modalities";
 import type { SpeakRealtimeVoice } from "@/lib/schemas/speak-realtime-voice";
 import type { SpeakScreenSurface } from "@/lib/schemas/speak-screen-context";
@@ -23,7 +24,9 @@ import {
 
 import { VoiceLiveBarHost } from "./voice-live-bar-host";
 
-import { useRealtimeVoice } from "@/hooks/use-realtime-voice";
+import { STAGE_VIEW_EVENT } from "@/lib/stage/view-schema";
+import { usePersonaSessionOptional } from "@/components/personas/persona-session-provider";
+import { useRealtimeVoice, type PersonaVoiceTurn } from "@/hooks/use-realtime-voice";
 import { DEFAULT_COMPOSER_MEMORIES } from "@/lib/chat/composer-tool-defaults";
 import { DEFAULT_SPEAK_MODALITIES } from "@/lib/schemas/speak-modalities";
 import { screenSurfaceKey } from "@/lib/schemas/speak-screen-context";
@@ -36,11 +39,14 @@ export type VoiceCaption = {
 };
 
 export type VoiceConnectOptions = {
+  stage?: boolean;
+  stageSettings?: StageTurnSettings;
   voice?: SpeakRealtimeVoice;
   subagentSeed?: SpeakSubagentSeed;
 };
 
 export type VoiceSessionValue = {
+  stage: boolean;
   phase: LiveVoicePhase;
   connected: boolean;
   connecting: boolean;
@@ -56,6 +62,8 @@ export type VoiceSessionValue = {
   budget: ReturnType<typeof useRealtimeVoice>["budget"];
   transcript: RealtimeTranscriptEntry[];
   caption: VoiceCaption;
+  /** Persona calls only: what happened to the latest utterance (heard, answered, held). */
+  personaTurn: PersonaVoiceTurn | null;
   /** Epoch ms the conversation began, across reloads. `null` when idle. */
   startedAt: number | null;
   localStream: MediaStream | null;
@@ -137,14 +145,20 @@ export function VoiceSessionProvider({
   const [surface, setSurfaceState] = useState<SpeakScreenSurface | null>(null);
 
   const handleEffects = useCallback((effects: SpeakToolClientEffect[]) => {
+    for (const effect of effects)
+      if (effect.type === "stage_view")
+        window.dispatchEvent(new CustomEvent(STAGE_VIEW_EVENT, { detail: effect.command }));
     setVisual((prev) => applyVoiceEffects(prev, effects));
   }, []);
 
+  const persona = usePersonaSessionOptional();
   const voice = useRealtimeVoice({
     modalities,
     memoryEnabled,
     transportFactory,
     idlePauseMs,
+    personaSessionId: persona?.session?.id ?? null,
+    personaRevision: persona?.revision ?? null,
     onCaptionChange: setCaption,
     onClientEffects: handleEffects,
   });
@@ -221,6 +235,7 @@ export function VoiceSessionProvider({
 
   const value = useMemo<VoiceSessionValue>(
     () => ({
+      stage: voice.stage,
       phase: voice.phase,
       connected: voice.connected,
       connecting: voice.connecting,
@@ -232,6 +247,7 @@ export function VoiceSessionProvider({
       budget: voice.budget,
       transcript: voice.transcript,
       caption,
+      personaTurn: voice.personaTurn,
       startedAt: voice.startedAt,
       localStream: voice.localStream,
       remoteStream: voice.remoteStream,
@@ -257,6 +273,7 @@ export function VoiceSessionProvider({
       setSuppressHostBar,
     }),
     [
+      voice.stage,
       voice.phase,
       voice.connected,
       voice.connecting,
@@ -268,6 +285,7 @@ export function VoiceSessionProvider({
       voice.budget,
       voice.transcript,
       voice.startedAt,
+      voice.personaTurn,
       voice.localStream,
       voice.remoteStream,
       voice.screenContext,

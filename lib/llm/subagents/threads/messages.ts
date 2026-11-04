@@ -1,4 +1,7 @@
 import type { UIMessage } from "ai";
+import type { SubagentContext } from "./context-items";
+import type { SubagentModelTier } from "@/lib/llm/subagents/orchestrator/cost-policy";
+import type { ContextBudgetUsage } from "@/lib/chat/context-budget";
 
 import { randomUUID } from "crypto";
 
@@ -17,7 +20,7 @@ export type SubagentGoalMessageMetadata = {
   /** Server-selected model queued for this assignment. Older assignments may omit it. */
   modelId?: string;
   /** Budget policy for orchestrator-authored assignments. Direct sends may omit it. */
-  modelTier?: "economy" | "standard";
+  modelTier?: SubagentModelTier;
   modelReason?: string;
   /**
    * The orchestrator's brief when context was sent with it (COA-258). The text holds brief plus
@@ -26,6 +29,8 @@ export type SubagentGoalMessageMetadata = {
   brief?: string;
   /** Worktable bundles sent with this assignment. */
   bundles?: Array<{ id: string; name: string }>;
+  /** Encrypted with the assignment; metadata is excluded from model conversion. */
+  subagentContext?: SubagentContext;
 };
 
 export type SubagentReplyMessageMetadata = {
@@ -33,15 +38,17 @@ export type SubagentReplyMessageMetadata = {
   goalId: string;
   modelId: string;
   failed?: true;
+  contextUsage?: ContextBudgetUsage;
 };
 
 /** Plain text of a UI message (text parts only). */
-export function uiMessageText(message: UIMessage): string {
-  return message.parts
+export function uiMessageText(message: UIMessage, trim = true): string {
+  const text = message.parts
     .filter((part): part is { type: "text"; text: string } => part.type === "text")
     .map((part) => part.text)
-    .join("")
-    .trim();
+    .join("");
+
+  return trim ? text.trim() : text;
 }
 
 /** Assignment text without the “From the orchestrator:” label. */
@@ -67,11 +74,12 @@ export function buildSubagentGoalMessage(args: {
   goalId: string;
   id?: string;
   modelId?: string;
-  modelTier?: "economy" | "standard";
+  modelTier?: SubagentModelTier;
   modelReason?: string;
   /** Rendered context sent below the brief. */
   context?: string;
   bundles?: Array<{ id: string; name: string }>;
+  subagentContext?: SubagentContext;
 }): UIMessage<SubagentGoalMessageMetadata> {
   const brief = args.goal.trim();
   const context = args.context?.trim();
@@ -87,6 +95,7 @@ export function buildSubagentGoalMessage(args: {
       ...(args.modelReason ? { modelReason: args.modelReason } : {}),
       ...(context ? { brief } : {}),
       ...(args.bundles?.length ? { bundles: args.bundles } : {}),
+      ...(args.subagentContext ? { subagentContext: args.subagentContext } : {}),
     },
     parts: [
       {
@@ -104,6 +113,7 @@ export function buildSubagentReplyMessage(args: {
   failed?: boolean;
   id?: string;
   toolParts?: UIMessage["parts"];
+  contextUsage?: ContextBudgetUsage;
 }): UIMessage<SubagentReplyMessageMetadata> {
   return {
     id: args.id ?? randomUUID(),
@@ -113,6 +123,7 @@ export function buildSubagentReplyMessage(args: {
       goalId: args.goalId,
       modelId: args.modelId,
       ...(args.failed ? { failed: true as const } : {}),
+      ...(args.contextUsage ? { contextUsage: args.contextUsage } : {}),
     },
     parts: [...(args.toolParts ?? []), { type: "text", text: args.text }],
   };

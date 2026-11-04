@@ -76,11 +76,7 @@ export function tryParseWebSearchToolOutput(body: unknown): ParsedWebSearchToolO
 
   const hasErr = b.error != null && b.error !== false;
   const errMsg =
-    typeof b.error === "string"
-      ? b.error
-      : typeof b.message === "string"
-        ? b.message
-        : undefined;
+    typeof b.error === "string" ? b.error : typeof b.message === "string" ? b.message : undefined;
 
   if (hasErr || (results === undefined && errMsg)) {
     return {
@@ -141,7 +137,11 @@ export function appendWebSearchContext(
   existing: ParsedWebSearchToolOutput | null,
   next: { query?: string; parsed: ParsedWebSearchToolOutput }
 ): ParsedWebSearchToolOutput {
-  const nextQueries = uniqueQueries([...(existing?.queries ?? []), next.query, ...(next.parsed.queries ?? [])]);
+  const nextQueries = uniqueQueries([
+    ...(existing?.queries ?? []),
+    next.query,
+    ...(next.parsed.queries ?? []),
+  ]);
 
   if (!existing) {
     if (nextQueries.length === 0) return next.parsed;

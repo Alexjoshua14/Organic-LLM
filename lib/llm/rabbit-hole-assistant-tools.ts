@@ -4,6 +4,7 @@ import { z } from "zod";
 import { scheduleNodeGeneration } from "@/lib/rabbit-holes/scheduleNodeGeneration";
 import { getSessionById, saveSession } from "@/data/supabase/rabbitholes";
 import { createLogger } from "@/lib/logger";
+import { draftGeneratedRabbitHoleNode } from "@/lib/rabbit-holes/draft-node";
 
 const logger = createLogger("lib/llm/rabbit-hole-assistant-tools.ts");
 
@@ -18,6 +19,9 @@ export type RabbitHoleStreamWriter = {
     transient?: boolean;
   }) => void;
 };
+
+// Kept for callers that import the draft from here.
+export { draftGeneratedRabbitHoleNode };
 
 const nodeCreationAttemptedByMessage = new WeakMap<object, boolean>();
 
@@ -49,6 +53,7 @@ export function createRabbitHoleAssistantTools({
         return { ok: false as const, error: "Unknown node id" };
       }
 
+      const targetNode = sessionRes.data.nodesById[nodeId];
       const updated = {
         ...sessionRes.data,
         activeNodeId: nodeId,
@@ -63,7 +68,7 @@ export function createRabbitHoleAssistantTools({
         transient: true,
       });
 
-      return { ok: true as const, activeNodeId: nodeId };
+      return { ok: true as const, activeNodeId: nodeId, title: targetNode.title };
     },
   });
 
@@ -92,43 +97,29 @@ export function createRabbitHoleAssistantTools({
         return { ok: false as const, error: "Session not found" };
       }
 
-      const session = sessionRes.data;
-      const parent = parentNodeId ?? getActiveNodeId() ?? session.activeNodeId;
-      const nodeId = crypto.randomUUID();
-
-      const stubNode = {
-        id: nodeId,
-        rawPrompt: query,
-        userQuestion: query,
-        title: label ?? query.slice(0, 80),
-        keyTakeaways: [],
-        createdAt: new Date().toISOString(),
-      };
-
-      const updatedSession = {
-        ...session,
-        nodesById: { ...session.nodesById, [nodeId]: stubNode },
-        path: [
-          ...session.path,
-          {
-            nodeId,
-            label: label ?? query.slice(0, 40),
-            parentNodeId: parent,
-          },
-        ],
-        generatingNodeId: nodeId,
-        generationStep: "sources" as const,
-      };
+      const drafted = draftGeneratedRabbitHoleNode({
+        session: sessionRes.data,
+        query,
+        label,
+        parentNodeId,
+        activeNodeId: getActiveNodeId(),
+      });
 
       await scheduleNodeGeneration({
         sessionId,
-        nodeId,
-        serializedSession: JSON.stringify(updatedSession),
+        nodeId: drafted.nodeId,
+        serializedSession: JSON.stringify(drafted.session),
       });
 
-      logger.log("generate_rabbit_hole_node", "scheduled", { nodeId, toolCallId });
+      writer?.write({
+        type: "data-rabbit-hole-nav",
+        data: { activeNodeId: drafted.nodeId },
+        transient: true,
+      });
 
-      return { ok: true as const, nodeId, sessionId };
+      logger.log("generate_rabbit_hole_node", "scheduled", { nodeId: drafted.nodeId, toolCallId });
+
+      return { ok: true as const, nodeId: drafted.nodeId, sessionId, title: drafted.title };
     },
   });
 

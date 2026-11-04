@@ -43,6 +43,9 @@ describe("heartbeat telemetry", () => {
     const { row } = await run({ listChildren: async () => [] });
     expect(row.status).toBe("no-subagents");
     expect(row.subagent_count).toBe(0);
+    expect(row.working_subagent_count).toBe(0);
+    expect(row.snapshot_chars).toBeNull();
+    expect(row.snapshot_duration_ms).toBeNull();
     expect(row.evaluation_attempted).toBe(false);
     expect(row.evaluation_duration_ms).toBeNull();
     expect(row.cost_usd).toBeNull();
@@ -188,5 +191,43 @@ describe("heartbeat telemetry", () => {
     expect(row.event_count).toBe(1);
     expect(JSON.stringify(row)).not.toContain("private-goal");
     expect(JSON.stringify(row)).not.toContain("private-outcome");
+  });
+});
+
+describe("snapshot measurement privacy", () => {
+  test("counts effective working agents and snapshot size without retaining text", async () => {
+    const { row } = await run({
+      listChildren: async () => [
+        { threadId, agentId: "worker", status: "working", statusAt: new Date().toISOString() },
+        {
+          threadId: "stalled",
+          agentId: "stalled",
+          status: "working",
+          statusAt: "2000-01-01T00:00:00Z",
+        },
+        { threadId: "done", agentId: "done", status: "done", statusAt: null },
+      ],
+      loadMessages: async () => [
+        { id: "message", role: "user", parts: [{ type: "text", text: "private assignment" }] },
+      ],
+    });
+    expect(row.subagent_count).toBe(3);
+    expect(row.working_subagent_count).toBe(1);
+    expect(row.snapshot_chars).toBeGreaterThan(0);
+    expect(row.snapshot_duration_ms).toBeGreaterThanOrEqual(0);
+    expect(JSON.stringify(row)).not.toContain("private assignment");
+  });
+
+  test("measures snapshots even when the digest skips the evaluator", async () => {
+    const { buildSubagentThreadSnapshot, digestSubagentSnapshots } = await import(
+      "@/lib/llm/subagents/threads/snapshot"
+    );
+    const child = { threadId, agentId: "worker", status: "done", statusAt: null };
+    const digest = digestSubagentSnapshots([buildSubagentThreadSnapshot(child, [])]);
+    const { row } = await run({ getState: async () => ({ baseline: null, digest, at: null }) });
+    expect(row.status).toBe("unchanged");
+    expect(row.snapshot_chars).toBeGreaterThan(0);
+    expect(row.input_tokens).toBeNull();
+    expect(row.evaluation_attempted).toBe(false);
   });
 });

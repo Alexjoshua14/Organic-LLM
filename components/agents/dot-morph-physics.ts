@@ -34,6 +34,7 @@ export class DotMorphPhysics {
   private age = 0;
   private nextTargetAt = 0;
   private phase = -1;
+  private intensity: number | undefined = undefined;
   complete = false;
 
   constructor(
@@ -43,6 +44,16 @@ export class DotMorphPhysics {
   ) {
     this.current = { x: 0, y: 0, scale: restScale };
     this.target = { ...this.current };
+  }
+
+  setIntensity(intensity?: number) {
+    if (intensity === undefined || !Number.isFinite(intensity)) {
+      this.intensity = undefined;
+
+      return;
+    }
+
+    this.intensity = clamp(intensity, 0, 1);
   }
 
   setState(state: AgentDotState) {
@@ -119,9 +130,25 @@ export class DotMorphPhysics {
     if (this.state === "idle" || this.state === "working") {
       if (this.age < this.nextTargetAt) return;
       const working = this.state === "working";
-      const variance = (working ? 0.2 : 0.05) + this.random() * (working ? 0.15 : 0.1);
+      const baseVariance = (working ? 0.2 : 0.05) + this.random() * (working ? 0.15 : 0.1);
       const direction = this.random() < 0.5 ? -1 : 1;
-      const offset = working ? 0.5 : 0.2;
+      const baseOffset = working ? 0.5 : 0.2;
+
+      if (this.intensity === undefined) {
+        this.morphTo({
+          scale: this.restScale * (1 + direction * baseVariance),
+          x: (this.random() * 2 - 1) * baseOffset,
+          y: (this.random() * 2 - 1) * baseOffset,
+        });
+        this.nextTargetAt =
+          this.age + (working ? 600 : 1500) + this.random() * (working ? 300 : 1000);
+
+        return;
+      }
+
+      const motionScale = 0.85 + this.intensity * 1.0;
+      const variance = baseVariance * (0.9 + this.intensity * 0.35);
+      const offset = Math.min(MAX_OFFSET, baseOffset * (0.85 + this.intensity * 0.35));
 
       this.morphTo({
         scale: this.restScale * (1 + direction * variance),
@@ -129,7 +156,7 @@ export class DotMorphPhysics {
         y: (this.random() * 2 - 1) * offset,
       });
       this.nextTargetAt =
-        this.age + (working ? 600 : 1500) + this.random() * (working ? 300 : 1000);
+        this.age + ((working ? 600 : 1500) + this.random() * (working ? 300 : 1000)) / motionScale;
     } else if (this.state === "waiting") {
       const breath = Math.sin((this.age / WAITING_PERIOD_MS) * Math.PI * 2);
 

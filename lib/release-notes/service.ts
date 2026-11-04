@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { ReleaseNotesCachePayload } from "@/lib/schemas/release-notes";
+
 import {
   getCachedReleaseNotes,
   upsertCachedReleaseNotes,
@@ -9,13 +11,9 @@ import {
   generateReleaseNotesWithLlm,
   type ReleaseNotesGenerator,
 } from "@/lib/release-notes/generate";
-import {
-  formatCommitLogForPrompt,
-  listCommitsBetween,
-} from "@/lib/release-notes/git-log";
+import { formatCommitLogForPrompt, listCommitsBetween } from "@/lib/release-notes/git-log";
 import { createSingleFlight } from "@/lib/release-notes/single-flight";
 import { createLogger } from "@/lib/logger";
-import type { ReleaseNotesCachePayload } from "@/lib/schemas/release-notes";
 
 const logger = createLogger("lib/release-notes/service.ts");
 
@@ -158,10 +156,7 @@ export async function getOrGenerateReleaseNotes(
 
       return { status: "ok", cached: false, payload };
     } catch (err) {
-      logger.error(
-        "getOrGenerateReleaseNotes",
-        err instanceof Error ? err.message : String(err)
-      );
+      logger.error("getOrGenerateReleaseNotes", err instanceof Error ? err.message : String(err));
 
       return {
         status: "empty",

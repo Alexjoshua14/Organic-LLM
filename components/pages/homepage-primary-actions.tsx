@@ -11,6 +11,7 @@ import { ShowcaseGatewayButton } from "./showcase-gateway-button";
 import { StatusGatewayButton } from "./status-gateway-button";
 
 import { HomeComposerActionButton } from "@/components/chat/home-composer-action-button";
+import { useIsAdmin } from "@/hooks/use-is-admin";
 import { createChat } from "@/lib/chat/chat-store";
 import { createLogger } from "@/lib/logger";
 import { PERF_PHASES } from "@/lib/perf/journeys";
@@ -41,6 +42,7 @@ export function HomepagePrimaryActions({
   className,
 }: HomepagePrimaryActionsProps) {
   const router = useRouter();
+  const isAdmin = useIsAdmin();
   const { refreshSidebarChats } = useSharedChatContext();
   const [creating, setCreating] = useState(false);
 
@@ -112,15 +114,16 @@ export function HomepagePrimaryActions({
             Rabbit Holes
           </HomeComposerActionButton>
         )}
-        {wrap(
-          "strata",
-          <HomeComposerActionButton
-            className={primaryBtnClass}
-            onClick={() => router.push("/sandbox/prototypes/strata")}
-          >
-            Strata
-          </HomeComposerActionButton>
-        )}
+        {isAdmin === true &&
+          wrap(
+            "strata",
+            <HomeComposerActionButton
+              className={primaryBtnClass}
+              onClick={() => router.push("/sandbox/prototypes/strata")}
+            >
+              Strata
+            </HomeComposerActionButton>
+          )}
       </ActionRow>
 
       <ActionRow>

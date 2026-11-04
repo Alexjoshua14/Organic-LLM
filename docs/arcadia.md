@@ -39,6 +39,22 @@ Direct visits to `/sandbox/arcadia` create a thread and redirect to its canonica
 | Role → voice presets | `lib/arcadia/multitask/voice-assignment.ts` (also shown in the shell legend) |
 | Speak ADR | [`docs/speak/decisions/20260925-multitask-subagent-speak.md`](./speak/decisions/20260925-multitask-subagent-speak.md) |
 
+**Inline subagent activity.** The orchestrator conversation renders accepted `dispatch_subagent`
+results as collapsed assignment rows after the assistant turn. Expand a row for its brief,
+latest available progress/outcome, model, and a link to the child's conversation. Working and
+blocked agents also appear in a compact strip outside the message scroll viewport; selecting
+one expands and focuses its row without changing the composer target or dashboard mode.
+The strip scrolls horizontally on small screens. Completed agents leave the strip while their
+rows remain in the conversation. Failures and dry-run tool previews keep the normal tool UI.
+
+Live status is correlated by `latestGoalId` from the existing subagent board endpoint and
+inbound dispatch events. Older assignments never inherit a later run's progress. When the
+current assignment has no retained parent dispatch (including direct sends), its current
+activity appears at the end of the thread. Older rows with no matching live snapshot say
+“Sent”; full historical results remain in the linked child conversation. This adds no polling
+loop or transcript fetch. Rendering lives in `components/chat/subagent-activity.tsx` and
+`chat-thread.tsx`; dispatch validation lives in `lib/arcadia/multitask/inline-dispatches.ts`.
+
 **Layout.** Multiagent view is a **per-thread toggle** (default off). Working sandbox agents
 do not force the dashboard. When on: chat shares the ordinary Arcadia canvas, without a
 separate glass frame or thread-style badge. The header shows the current message recipient
@@ -102,6 +118,9 @@ A message sent straight to one subagent is still delivered verbatim.
 `ARCADIA_ORCHESTRATOR_DISPATCH_ENABLED=false` restores Jev router auto-dispatch. Code:
 `lib/llm/subagents/worktable/`, `lib/llm/subagents/orchestrator/orchestrator-tools.ts`.
 
+Bundle-item selection, excerpts, explicit worker history, input preflight and attachment
+paging are documented in [Subagent dispatch context](./aion/subagent-context.md).
+
 **First-use guidance.** Opening Multiagent registers its controls tip with the existing
 feature-hint system. Dismissal persists; replay tips can show it again. The tip explains
 recipient selection and Ctrl+Q / Ctrl+W. Panel buttons show those shortcuts in tooltips
@@ -138,6 +157,12 @@ bound:
 **Queued composer (optional multi mode):** CoreInput can still take `queueSendMode` when a
 shell wants enqueue-only submits; do not enable it for the Arcadia multitask orchestrator
 window if visible streaming is required. See [`docs/message-send-queue.md`](./message-send-queue.md).
+
+**Side questions (`/btw`):** `/btw <question>` opens an unsaved side thread above the composer.
+It answers from a compact snapshot of the thread (summary plus recent turns, no tools) and
+works while the main turn streams. CoreInput takes the side thread's settings while it is
+open and morphs back on close. See
+[Composer preferences → `/btw`](../content/dev-docs/composer-preferences.md#btw-side-questions-arcadia).
 
 ## Tech + design (3 lines)
 - **Stack**: Next.js (App Router) + React + AI SDK streaming + Clerk + Supabase

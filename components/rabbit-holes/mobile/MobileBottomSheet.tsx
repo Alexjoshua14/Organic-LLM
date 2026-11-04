@@ -41,6 +41,8 @@ export interface MobileBottomSheetProps {
   composer: React.ReactNode;
   /** @deprecated Use `composer` */
   footer?: React.ReactNode;
+  /** Controlled snap level (when updated externally, animates the sheet to that position) */
+  snap?: MobileSheetSnap;
   /** Called when snap level changes (for scroll lock / padding) */
   onSnapChange?: (snap: MobileSheetSnap) => void;
 }
@@ -51,6 +53,7 @@ export function MobileBottomSheet({
   children,
   composer,
   footer,
+  snap: controlledSnap,
   onSnapChange,
 }: MobileBottomSheetProps) {
   const composerNode = composer ?? footer;
@@ -136,6 +139,16 @@ export function MobileBottomSheet({
 
     y.set(target);
   }, [y, yCollapsed, yFull, yHalf]);
+
+  useEffect(() => {
+    if (!controlledSnap || controlledSnap === snapRef.current) return;
+    snapRef.current = controlledSnap;
+    setSnap(controlledSnap);
+    const target =
+      controlledSnap === "full" ? yFull : controlledSnap === "half" ? yHalf : yCollapsed;
+
+    animate(y, target, SPRING);
+  }, [controlledSnap, y, yCollapsed, yFull, yHalf]);
 
   useEffect(() => {
     const locked = snap === "full" || snap === "half";

@@ -6,6 +6,7 @@ import { RabbitHoleContext } from "../context/rabbithole-context";
 
 import { analyzeSource, generateQuickPreview } from "./actions";
 import { RABBIT_HOLE_UNTITLED } from "./constants";
+import { buildEmptyRabbitHoleSession } from "./new-session";
 
 import {
   RabbitHoleSession,
@@ -77,6 +78,9 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
 
   const handleGenerationComplete = useCallback((updated: RabbitHoleSession) => {
     setSession(updated);
+    if (updated.activeNodeId ?? updated.rootNodeId) {
+      setActiveNodeId(updated.activeNodeId ?? updated.rootNodeId ?? null);
+    }
     setGeneratingNodeId(null);
     setPreview(null);
   }, []);
@@ -93,16 +97,7 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
    */
   function newSession(): Result<RabbitHoleSession, Error> {
     try {
-      const newSession: RabbitHoleSession = {
-        sessionId: clientRandomUUID(),
-        rootQuestion: "",
-        activeNodeId: null,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        path: [],
-        nodesById: {},
-        edges: [],
-      };
+      const newSession = buildEmptyRabbitHoleSession({ sessionId: clientRandomUUID() });
 
       return {
         data: newSession,
@@ -174,6 +169,8 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
         if (generatingNode && generatingNode.preview) {
           setPreview(generatingNode.preview);
         }
+      } else {
+        setGeneratingNodeId(null);
       }
 
       return {
@@ -536,16 +533,34 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
   }
 
   function setActiveNode(nodeId: RabbitHoleNodeId) {
-    /** Don't allow setting any arbitrary node as active */
+    /**
+     * When a server tool (`generate_rabbit_hole_node`) creates a new node in Supabase,
+     * the client's local `session.nodesById` does not have `nodeId` yet.
+     * Reload the session from storage so `nodesById`, `activeNodeId`, and `generatingNodeId`
+     * sync immediately and `useGenerationCompletion` starts polling for the finished article.
+     */
     if (!session?.nodesById[nodeId]) {
+      if (session?.sessionId) {
+        setActiveNodeId(nodeId);
+        void loadExistingSession(session.sessionId);
+
+        return;
+      }
+
       logger.error("setActiveNode", "Node not found", nodeId);
       setError("Node not found");
 
       return;
     }
 
+    const targetNode = session.nodesById[nodeId];
+
+    if (!targetNode.articleHtml?.trim() && !session.generatingNodeId && session.sessionId) {
+      void loadExistingSession(session.sessionId);
+    }
+
     /** Skip updates when node is already active */
-    if (nodeId === activeNodeId) {
+    if (nodeId === activeNodeId && session.activeNodeId === nodeId) {
       logger.log("setActiveNode", "Node is already active", nodeId);
 
       return;

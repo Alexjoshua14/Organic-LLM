@@ -1,11 +1,13 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  buildChatReasoningProviderOptions,
   buildEffortProviderOptions,
   clampEffortForModel,
   getEffortLevelsForModel,
   modelSupportsEffortControl,
 } from "@/lib/schemas/chat-effort";
+import { AUTO_CHAT_MODEL_ID } from "@/lib/schemas/chat-model-ids";
 
 describe("getEffortLevelsForModel", () => {
   test("GPT-5.6 exposes none through max (no minimal)", () => {
@@ -122,6 +124,37 @@ describe("buildEffortProviderOptions", () => {
     });
   });
 
+  test("maps Sonnet 5.5 none to between_tools (disabled is rejected)", () => {
+    const opts = buildEffortProviderOptions("anthropic/claude-sonnet-5.5", "none");
+
+    expect(opts?.anthropic).toEqual({ thinking: { type: "between_tools" } });
+  });
+
+  test("maps Auto none through Sonnet 5.5 to between_tools", () => {
+    const opts = buildEffortProviderOptions(AUTO_CHAT_MODEL_ID, "none");
+
+    expect(opts?.anthropic).toEqual({ thinking: { type: "between_tools" } });
+  });
+
+  test("maps Haiku 5.5 to adaptive + effort, not budget tokens", () => {
+    expect(getEffortLevelsForModel("anthropic/claude-haiku-5.5").map((r) => r.id)).toEqual([
+      "auto",
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max",
+    ]);
+    expect(buildEffortProviderOptions("anthropic/claude-haiku-5.5", "medium")?.anthropic).toEqual({
+      thinking: { type: "adaptive" },
+      effort: "medium",
+    });
+    expect(buildEffortProviderOptions("anthropic/claude-haiku-5.5", "none")?.anthropic).toEqual({
+      thinking: { type: "disabled" },
+    });
+  });
+
   test("maps Haiku to budget tokens", () => {
     const opts = buildEffortProviderOptions("anthropic/claude-haiku-4.5", "medium");
 
@@ -158,5 +191,76 @@ describe("buildEffortProviderOptions", () => {
     const opts = buildEffortProviderOptions("openai/gpt-5.5-pro", "none");
 
     expect(opts?.openai).toEqual({ reasoningEffort: "medium" });
+  });
+});
+
+describe("buildChatReasoningProviderOptions", () => {
+  test("requests OpenAI reasoning summaries alongside effort", () => {
+    expect(buildChatReasoningProviderOptions("openai/gpt-5.6-sol", "auto").openai).toEqual({
+      reasoningSummary: "auto",
+    });
+    expect(buildChatReasoningProviderOptions("openai/gpt-5.6-sol", "high").openai).toEqual({
+      reasoningEffort: "high",
+      reasoningSummary: "auto",
+    });
+  });
+
+  test("skips OpenAI summaries when reasoning is off", () => {
+    expect(buildChatReasoningProviderOptions("openai/gpt-5.6-sol", "none").openai).toEqual({
+      reasoningEffort: "none",
+    });
+  });
+
+  test("leaves non-reasoning OpenAI models untouched", () => {
+    expect(buildChatReasoningProviderOptions("openai/gpt-4o-mini", "auto").openai).toBeUndefined();
+  });
+
+  test("skips Gemini thoughts when thinking is budgeted off", () => {
+    expect(
+      buildChatReasoningProviderOptions("google/gemini-2.5-flash-lite", "none").google
+    ).toEqual({ thinkingConfig: { thinkingBudget: 0 } });
+  });
+
+  test("merges Gemini includeThoughts into thinkingConfig", () => {
+    expect(buildChatReasoningProviderOptions("google/gemini-3.5-flash", "low").google).toEqual({
+      thinkingConfig: { thinkingLevel: "low", includeThoughts: true },
+    });
+    expect(buildChatReasoningProviderOptions("google/gemini-3.5-flash", "auto").google).toEqual({
+      thinkingConfig: { includeThoughts: true },
+    });
+  });
+
+  test("asks adaptive Claude thinking for summarized display", () => {
+    expect(
+      buildChatReasoningProviderOptions("anthropic/claude-sonnet-5", "medium").anthropic
+    ).toEqual({
+      thinking: { type: "adaptive", display: "summarized" },
+      effort: "medium",
+    });
+  });
+
+  test("sets summarized display on auto for Claude models that think by default", () => {
+    expect(
+      buildChatReasoningProviderOptions("anthropic/claude-opus-5.5", "auto").anthropic
+    ).toEqual({
+      thinking: { type: "adaptive", display: "summarized" },
+    });
+  });
+
+  test("leaves Sonnet 5.5 between_tools without display (display alongside is a 400)", () => {
+    expect(
+      buildChatReasoningProviderOptions("anthropic/claude-sonnet-5.5", "none").anthropic
+    ).toEqual({ thinking: { type: "between_tools" } });
+  });
+
+  test("never turns Claude thinking on where it is off", () => {
+    expect(
+      buildChatReasoningProviderOptions("anthropic/claude-opus-4.8", "auto").anthropic
+    ).toBeUndefined();
+    expect(
+      buildChatReasoningProviderOptions("anthropic/claude-sonnet-5", "none").anthropic
+    ).toEqual({
+      thinking: { type: "disabled" },
+    });
   });
 });

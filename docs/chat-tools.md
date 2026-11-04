@@ -69,7 +69,15 @@ Requires `useGetMoreMessages` and a `chatId`. See also [Context building](./arch
 
 *Arcadia is the sandbox where chat goes beyond prose — the model can publish diagrams, structured UI blocks, and live boards so replies are easier to scan, compare, and act on in-thread.* See [Arcadia](./arcadia.md).
 
-Registered when `experience` is **arcadia** or **topic explore**.
+Registered when `experience` is **arcadia** or **topic explore**. GitHub read tools are **arcadia** only.
+
+### `github_repo_overview`, `github_recent_commits`, `github_pull_requests`, `github_read_file`
+
+Read-only GitHub access for an allowlisted repository. The user-selected chat model calls the tool. When the payload is larger than a short passthrough, a smaller zero-data-retention gateway model (Luna, the Terra alias, Haiku, or Kimi K2.7 Code) distills it. [Jev](https://vercel.com/ai-gateway/models/jev) (`typesafe-ai/jev`) picks fidelity — summary, excerpts, or a capped raw slice — when the caller leaves fidelity on `auto`. A deterministic heuristic runs when Jev is unavailable.
+
+`raw` still caps the slice returned to the main model. Repository text is treated as untrusted data. The deployment token cannot read a repository that is absent from `GITHUB_READ_ALLOWLIST`.
+
+- Implementation: [`createGithubReadTools`](../lib/llm/github-tools.ts) · decision: [`20261002-arcadia-github-read`](./architecture/decisions/20261002-arcadia-github-read.md)
 
 ### `make_mermaid_diagram`
 
@@ -99,6 +107,22 @@ When `chatStyle === "ergon"`, the model drives a **live** kanban board over a tr
 
 - Implementation: [`createKanbanBoardTool`](../lib/llm/kanban-tool.ts) · [`lib/schemas/kanban`](../lib/schemas/kanban) · UI [`components/chat/kanban/KanbanView.tsx`](../components/chat/kanban/KanbanView.tsx)
 - Public scripted demo (zero live API): [`/showcase/ergon`](https://organic.coalescencelabs.app/showcase/ergon)
+
+### Connected Ergon engineering tickets (`ergon_*` ticket tools)
+
+An optional connection to a separate Ergon engineering workspace adds `ergon_list_issues`,
+`ergon_get_issue`, `ergon_save_issue`, `ergon_save_comment`, `ergon_list_projects`,
+`ergon_list_issue_statuses`, and `ergon_list_issue_labels` to main chat. Connect with
+**per-user MCP OAuth** in Settings → Connectors (`Connect with Ergon`; AuthKit / WorkOS Connect
+PKCE). Access and refresh tokens stay server-side only. Tools call Ergon over MCP
+(`callErgonTool` / `@ai-sdk/mcp`) when the connection includes Organic `write` scope. Optional
+server-only `ERGON_URL` / `ERGON_TOKEN` / `ERGON_OWNER_PROFILE_ID` stay an admin REST fallback
+for one Supabase profile. Paste-token connect is not the product UX (`PUT` returns 405).
+Other users cannot select another profile through tool arguments. The personal todo tool
+remains independent. Operational notes: [`docs/ergon/README.md`](./ergon/README.md).
+Implementation: [`ergon-ticket-tools.ts`](../lib/llm/ergon-ticket-tools.ts) ·
+[`ergon-mcp-client.ts`](../lib/llm/ergon-mcp-client.ts) ·
+[`ergonConfigForUser`](../lib/llm/ergon-config.ts).
 
 ### `manage_tasks` (durable Ergon todos)
 
@@ -136,6 +160,95 @@ Always on in the **Remy** route (`/api/ai/remy`); in Arcadia it's the **Remy** c
 
 - Implementation: [`createMisePlanTool` / `createFetchRecipeTool`](../lib/llm/mise-tool.ts) · [`lib/schemas/mise`](../lib/schemas/mise/) · [`data/supabase/mise.ts`](../data/supabase/mise.ts) · store [`lib/mise/store.ts`](../lib/mise/store.ts)
 - Requires the migration [`docs/migrations/mise_tables.sql`](./migrations/mise_tables.sql) applied and `lib/supabase/types.ts` regenerated.
+
+---
+
+## Rabbit hole toolset
+
+*Gives an agent the user's rabbit hole library: browse it, read it at a chosen depth, and grow it.* Registered for **Arcadia** and for the **rabbit hole drawer** agent. The toolset has two categories, and a caller takes whichever it needs — a future surface could take read-only or create-only.
+
+**Read**
+
+| Tool | Returns |
+|------|---------|
+| `list_rabbit_holes` | The user's sessions, newest first: id, title, description, dates, node count, link. |
+| `search_rabbit_holes` | Keyword search over session titles/questions and node titles, questions, key takeaways and summaries (never article bodies), ranked, with the nodes that matched. |
+| `get_rabbit_hole` | One session by id at a `detail` level (below). |
+| `get_rabbit_hole_node` | One node by id at a `detail` level. |
+| `get_rabbit_hole_node_section` | One article section as plain text, by `sectionIndex` or `sectionId` from the node's section outline. |
+
+`detail` is `high_level` (title, description, dates, and the node graph with ids and titles; for a node, its relatives and section outline), `overview` (adds key takeaways), or `detailed` (adds the full article text, sources and branch suggestions).
+
+**Create**
+
+| Tool | Does |
+|------|------|
+| `create_rabbit_hole` | Starts a new session with one generating root node. |
+| `create_rabbit_hole_node` | Adds one generating node to an existing session. `parentNodeId` is validated against the session; omit it to attach under the root (the drawer uses the active node). |
+
+Both return immediately with a link while the article generates in the background.
+
+**Approval lives with the agent, not the tool** (locked 2026-10-27). The create tools never ask the user anything. The calling agent's instructions say an explicit request ("create this as a rabbit hole") is approval, and that an agent proposing one on its own waits for a yes. Arcadia is also told to search first and extend a matching session instead of starting a disjoint one.
+
+What the tools do enforce, whoever calls them:
+
+- **Ownership.** Every session id the model supplies is checked against the signed-in user; a foreign id and a missing id get the same "not found".
+- **Spend gates.** The same node rate limit and weekly plan budget as `POST /api/rabbitholes/[sessionId]/generate`.
+- **One creation per assistant turn**, and no new node while another is generating in that session (a flag older than 10 minutes is treated as abandoned).
+- **Response size.** Temporary development cap of ~150k tokens (chars ÷ 4) per read call, applied in the tool wrappers rather than the shaping functions. Over the cap, the call is refused with advice to read narrower.
+
+Provisional: default parent when none is given; the 10-minute staleness window; one creation per turn.
+
+Limits today: search is keyword-only, and the caller must pick (or default) the parent for a new node.
+
+The rabbit hole drawer keeps its older `generate_rabbit_hole_node` (branch from the node being viewed) alongside these.
+
+- Implementation: [`lib/llm/rabbit-hole-toolset/`](../lib/llm/rabbit-hole-toolset/) · wired in [`compile-chat-tools.ts`](../lib/llm/compile-chat-tools.ts)
+
+---
+
+## Connected-app tools (hard-set tool policy)
+
+These are registered only when a hard-set subagent's tool policy forces them on, in its shell, its
+queued sends and its dispatched worker runs. They are never composer toggles. Chronos remains
+owner-gated via env. Mira uses the user's Ergon MCP OAuth connection when it includes `agents`
+scope; admin `ERGON_AGENT_TOKEN` remains a REST fallback. Main chat loads write ticket tools
+whenever the user is connected with Organic `write` scope (or the env owner bridge). Mira's turns
+skip that write set.
+
+### `chronos_list_repos` + `chronos_git` (Reed, `tools.chronos`)
+
+Read-only git over the owner's local repositories, through Chronos's MCP endpoint (Streamable HTTP,
+via `@ai-sdk/mcp`). Each call opens one short-lived MCP session. Chronos runs an exact-token
+allowlist of subcommands and flags with no shell, so `branch` and `tag` only list and commands that
+print file contents are off unless Chronos enables them. Results carry HEAD's SHA and branch, the
+exit code and a truncation flag. Configure `CHRONOS_MCP_URL`, `CHRONOS_MCP_TOKEN` and
+`CHRONOS_OWNER_PROFILE_ID`. A deployed Organic cannot reach `localhost`, so it needs a tunnel.
+
+- Implementation: [`createChronosTools`](../lib/llm/chronos-mcp-tools.ts)
+
+### `ergon_*` agent tools (Mira, `tools.ergon`)
+
+Mira owns Ergon docs / agent-run representation (`tools.ergon`) — there is no second hard-set
+agent for that surface. Through Ergon MCP (same OAuth session as ticket tools) she can
+list/search vault docs, read a doc (content capped at 12,000 characters, clauses complete),
+resolve clauses, list open questions, read issue briefs, hooks and agent runs, and start an
+agent run. She uses a per-user MCP OAuth connection with `agents` scope, or `ERGON_AGENT_TOKEN`
+as admin REST fallback. Her turns skip the write connected-ticket tools. Starts are never
+retried automatically.
+
+- Implementation: [`createErgonAgentTools`](../lib/llm/ergon-agent-tools.ts) ·
+  [`ergon-mcp-client.ts`](../lib/llm/ergon-mcp-client.ts) ·
+  [`ergonConfigForUser`](../lib/llm/ergon-config.ts)
+
+### `ergon_*` ticket tools (main chat)
+
+Write ticket tools register for main chat when the user (or admin `ERGON_TOKEN` REST fallback) is
+connected with Organic `write` scope. There is no second Ergon hard-set ticket-steward — Mira owns
+Ergon representation (`tools.ergon`); Aion uses ticket tools directly in chat when connected.
+
+- Implementation: [`createErgonTicketTools`](../lib/llm/ergon-ticket-tools.ts) ·
+  [`ergonConfigForUser`](../lib/llm/ergon-config.ts)
 
 ---
 
@@ -179,7 +292,8 @@ Export is a **user/UI** feature, not part of `compileChatTools`, but it pairs we
 | Experience | Typical tools |
 |------------|----------------|
 | **Main chat** | Memory, web, history (per settings); Arcadia-style tools when configured |
-| **Arcadia** | + Mermaid, Gen UI; + kanban when Ergon style; + meal planning when Remy style |
+| **Arcadia** | + Mermaid, Gen UI, GitHub read, rabbit hole toolset; + kanban when Ergon style; + meal planning when Remy style |
+| **Rabbit hole drawer** | Session graph tools (`navigate_rabbit_hole_node`, `generate_rabbit_hole_node`, `search_rabbit_hole_context`), the rabbit hole toolset, read-only memory, subagent mesh |
 | **Remy** (`/api/ai/remy`) | Culinary persona + Mem0; `mise_plan` + `prep_plan` + `fetch_recipe` always on |
 | **Delphi** | Memory search + propose/commit/link/flag workflow |
 | **Strata hub** | Navigate + search Strata pages |

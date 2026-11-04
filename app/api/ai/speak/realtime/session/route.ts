@@ -3,9 +3,14 @@ import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { z } from "zod";
 
+import { stageVoiceContext, STAGE_VOICE_INSTRUCTIONS } from "@/lib/stage/voice";
+import { readStage } from "@/lib/stage/store";
+import { StageTurnSettingsSchema } from "@/lib/stage/schema";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { compileSpeakRealtimeTools } from "@/lib/llm/compile-speak-tools";
 import { createLogger } from "@/lib/logger";
+import { buildPersonaInstructions } from "@/lib/personas/unified/prompt";
+import { getPersonaStore } from "@/lib/personas/unified/store";
 import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
 import {
   checkSpeakRealtimeSessionStart,
@@ -42,6 +47,8 @@ const logger = createLogger("app/api/ai/speak/realtime/session/route.ts");
 const RESUME_MIN_REMAINING_MS = 15_000;
 
 const SessionBodySchema = z.object({
+  stage: z.boolean().optional(),
+  stageSettings: StageTurnSettingsSchema.optional(),
   threadId: z.string().uuid().optional().nullable(),
   modalities: SpeakModalitiesSchema.optional(),
   /** `false` starts a thread-less session (no persistence). Older clients only send this. */
@@ -73,6 +80,8 @@ const SessionBodySchema = z.object({
   voice: SpeakRealtimeVoiceSchema.optional(),
   /** Seeds instructions with a subagent's identity, goal, and current progress. */
   subagentSeed: SpeakSubagentSeedSchema.optional(),
+  /** A unified persona session to speak as; ignored for subagent sessions. */
+  personaSessionId: z.uuid().optional(),
 });
 
 export async function POST(req: Request) {
@@ -124,6 +133,8 @@ export async function POST(req: Request) {
   // the user's only concurrency slot, so checking first would reject every reload.
   let continuity: SpeakSessionContinuity | null = null;
   let inheritedThreadId: string | null = null;
+  let stage = parsed.data.stage === true;
+  let stageSettings = parsed.data.stageSettings;
 
   if (parsed.data.retryAfterConnectFailure) {
     const { status, detail } = parsed.data.retryAfterConnectFailure;
@@ -151,6 +162,8 @@ export async function POST(req: Request) {
         expiresAt: previous.expiresAt,
       };
       inheritedThreadId = previous.threadId;
+      stage = previous.stage === true;
+      stageSettings = previous.stageSettings;
 
       // Bills the predecessor's tail and frees its slot. The successor inherits `expiresAt`, so
       // reloading cannot buy more minutes than one session is allowed.
@@ -186,7 +199,7 @@ export async function POST(req: Request) {
   const requestedThreadId = inheritedThreadId ?? parsed.data.threadId;
 
   const thread =
-    parsed.data.createThread === false && !requestedThreadId
+    stage || (parsed.data.createThread === false && !requestedThreadId)
       ? { threadId: null, resumed: false, title: null }
       : await resolveSpeakThread({
           ownerId: sbUserId,
@@ -212,18 +225,31 @@ export async function POST(req: Request) {
   }
 
   const subagentSeed = parsed.data.subagentSeed;
+  const persona =
+    parsed.data.personaSessionId && !subagentSeed && !stage
+      ? await (await getPersonaStore()).load(sbUserId, parsed.data.personaSessionId)
+      : null;
+
+  if (parsed.data.personaSessionId && !subagentSeed && !stage && !persona) {
+    return NextResponse.json({ error: "Persona session not found" }, { status: 404 });
+  }
   // Prefer the seed's voice when both are sent so identity and timbre stay aligned.
   const voice = subagentSeed?.voice ?? parsed.data.voice ?? DEFAULT_SPEAK_REALTIME_VOICE;
   const subagentContext = subagentSeed ? formatSubagentSessionContext(subagentSeed) : null;
 
   const model = getSpeakRealtimeModel();
-  const tools = compileSpeakRealtimeTools(modalities, { memoryEnabled });
-  const instructions = buildSpeakRealtimeInstructions(modalities, {
-    memoryEnabled,
-    sessionContext,
-    resumed: withThreadContext,
-    subagentContext,
-  });
+  const tools = compileSpeakRealtimeTools(modalities, { memoryEnabled, stage });
+  const baseInstructions = stage
+    ? `${STAGE_VOICE_INSTRUCTIONS}\nCurrent Stage (quoted data):\n${stageVoiceContext((await readStage(sbUserId)).state)}`
+    : buildSpeakRealtimeInstructions(modalities, {
+        memoryEnabled,
+        sessionContext,
+        resumed: withThreadContext,
+        subagentContext,
+      });
+  const instructions = persona
+    ? `${baseInstructions}${buildPersonaInstructions(persona, { surface: "voice" })}`
+    : baseInstructions;
 
   const openai = new OpenAI({ apiKey });
 
@@ -244,7 +270,12 @@ export async function POST(req: Request) {
         truncation: { type: "retention_ratio", retention_ratio: 0.8 },
         audio: {
           input: {
-            turn_detection: { type: "server_vad" },
+            // With a persona, the client's gate decides which turns get a reply.
+            turn_detection: {
+              type: "server_vad",
+              create_response: !persona,
+              interrupt_response: true,
+            },
             transcription: { model: "gpt-transcribe" },
           },
           output: {
@@ -277,6 +308,8 @@ export async function POST(req: Request) {
     threadId,
     modalities,
     memoryEnabled,
+    stage,
+    stageSettings,
     continuity,
   });
 
@@ -285,6 +318,8 @@ export async function POST(req: Request) {
     threadId,
     modalities,
     memoryEnabled,
+    stage,
+    stageSettings: stage ? stageSettings : undefined,
     voice,
     subagentId: subagentSeed?.agentId ?? null,
     resumed: thread.resumed,
@@ -295,6 +330,8 @@ export async function POST(req: Request) {
 
   return NextResponse.json({
     clientSecret,
+    /** Persona sessions refresh their block on top of these mid-call; see `/persona`. */
+    baseInstructions: persona ? baseInstructions : undefined,
     sessionId: ourSessionId,
     expiresAt: secretPayload.expires_at ?? null,
     model,
@@ -303,6 +340,8 @@ export async function POST(req: Request) {
     threadTitle: thread.title,
     modalities,
     memoryEnabled,
+    stage,
+    stageSettings: stage ? stageSettings : undefined,
     voice,
     subagentId: subagentSeed?.agentId ?? null,
     budget: startCheck.budget,

@@ -8,7 +8,12 @@ import * as gateway from "@/data/supabase/gateway-visibility";
 import { BlogLink } from "@/components/pages/blog-link";
 import { SandboxGatewayButton } from "@/components/pages/sandbox-gateway-button";
 import { StatusGatewayButton } from "@/components/pages/status-gateway-button";
-import { useGatewayVisibility } from "@/hooks/use-gateway-visibility";
+import {
+  GatewayVisibilityProvider,
+  useGatewayVisibility,
+  type InitialGatewayVisibility,
+} from "@/hooks/use-gateway-visibility";
+import { resolveInitialGatewayVisibility } from "@/lib/admin/initial-gateway-visibility";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { deferred } from "../helpers/mock-realtime-voice";
 import { mockModulePreservingReal } from "../helpers/module-mock";
@@ -27,19 +32,27 @@ function Probe() {
   return null;
 }
 
-function App({ gateways = false }: { gateways?: boolean }) {
+function App({
+  gateways = false,
+  initial = null,
+}: {
+  gateways?: boolean;
+  initial?: InitialGatewayVisibility | null;
+}) {
   return (
     <StrictMode>
-      <SWRConfig value={{ provider: () => cache, onErrorRetry: () => {} }}>
-        <Probe />
-        {gateways ? (
-          <>
-            <SandboxGatewayButton />
-            <BlogLink />
-            <StatusGatewayButton />
-          </>
-        ) : null}
-      </SWRConfig>
+      <GatewayVisibilityProvider initial={initial}>
+        <SWRConfig value={{ provider: () => cache, onErrorRetry: () => {} }}>
+          <Probe />
+          {gateways ? (
+            <>
+              <SandboxGatewayButton />
+              <BlogLink />
+              <StatusGatewayButton />
+            </>
+          ) : null}
+        </SWRConfig>
+      </GatewayVisibilityProvider>
     </StrictMode>
   );
 }
@@ -186,5 +199,68 @@ describe("shared gateway visibility", () => {
     expect(state.visible).toBe(false);
     expect(admin).toBe(false);
     expect(view.getAllByRole("link")).toHaveLength(1);
+  });
+});
+
+describe("server-rendered seed", () => {
+  test("a matching seed shows admin UI on the first render, before the client check returns", () => {
+    readVisibility.mockImplementation(() => deferred<boolean>().promise);
+    const view = render(<App gateways initial={{ userId: "user_a", visible: true }} />);
+
+    expect(state.visible).toBe(true);
+    expect(admin).toBe(true);
+    expect(view.getAllByRole("link")).toHaveLength(3);
+  });
+
+  test("the client check still runs and corrects a stale seed", async () => {
+    readVisibility.mockResolvedValue(false);
+    const view = render(<App gateways initial={{ userId: "user_a", visible: true }} />);
+
+    await waitFor(() => expect(state.visible).toBe(false));
+    expect(readVisibility).toHaveBeenCalledWith({ userId: "user_a", sessionId: "session_a" });
+    expect(view.getAllByRole("link")).toHaveLength(1);
+  });
+
+  test("a seed read for another user is ignored", () => {
+    readVisibility.mockImplementation(() => deferred<boolean>().promise);
+    render(<App gateways initial={{ userId: "user_other", visible: true }} />);
+
+    expect(state.visible).toBeNull();
+    expect(admin).toBeNull();
+  });
+
+  test("a seed never applies while signed out", () => {
+    identity = { isLoaded: true, userId: null, sessionId: null };
+    render(<App gateways initial={{ userId: "user_a", visible: true }} />);
+
+    expect(state.visible).toBe(false);
+    expect(readVisibility).not.toHaveBeenCalled();
+  });
+});
+
+describe("resolveInitialGatewayVisibility", () => {
+  test("seeds nothing when signed out, without reading", async () => {
+    const read = mock(async () => ({ id: "p", admin: true }));
+
+    expect(await resolveInitialGatewayVisibility(null, read)).toBeNull();
+    expect(read).not.toHaveBeenCalled();
+  });
+
+  test("seeds the admin read for the signed-in user", async () => {
+    expect(
+      await resolveInitialGatewayVisibility("user_a", async () => ({ id: "p", admin: true }))
+    ).toEqual({ userId: "user_a", visible: true });
+    expect(await resolveInitialGatewayVisibility("user_a", async () => null)).toEqual({
+      userId: "user_a",
+      visible: false,
+    });
+  });
+
+  test("seeds nothing when the read fails, leaving the answer to the client check", async () => {
+    const failing = async () => {
+      throw new Error("Unavailable");
+    };
+
+    expect(await resolveInitialGatewayVisibility("user_a", failing)).toBeNull();
   });
 });

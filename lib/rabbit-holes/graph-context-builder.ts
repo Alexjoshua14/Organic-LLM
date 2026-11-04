@@ -43,6 +43,8 @@ export type BuildRabbitHoleGraphContextParams = {
   limit?: number;
   /** Max reranked summaries in the prompt (default 90). */
   rerankedLimit?: number;
+  /** When set, summary backfill bills this owner without calling auth(). */
+  ownerId?: string | null;
 };
 
 function formatGraphContextSection(contextBlock: string): string {
@@ -110,7 +112,7 @@ export async function buildRabbitHoleGraphContextBlock(
   const documents: Array<{ text: string; meta: RelatedNodeRef }> = [];
 
   for (const { ref, node } of candidates) {
-    const summary = await ensureRabbitHoleNodeSummary(node);
+    const summary = await ensureRabbitHoleNodeSummary(node, params.ownerId);
 
     if (!summary.trim()) continue;
 

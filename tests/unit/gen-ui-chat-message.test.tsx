@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
 import type { UIMessage } from "ai";
-import { cleanup } from "@testing-library/react";
+import { cleanup, fireEvent } from "@testing-library/react";
 
 import { ChatMessage } from "@/components/chat/chat-message";
 import { mockModulePreservingReal } from "../helpers/module-mock";
@@ -8,6 +8,7 @@ import { render } from "../helpers/render";
 
 import * as ttsContext from "@/lib/context/tts-context";
 import { FIXTURE_ANSWER_CARD, FIXTURE_RESTAURANT_CARD } from "@/lib/schemas/gen-ui/fixtures";
+import { ChatAIActionEnum } from "@/types/ai";
 
 // Merged over the real module so the stub keeps `TTSProvider` and `useTTSOptional` for files
 // loaded after this one. Deliberately not restored: other files register their own TTS stub at
@@ -35,6 +36,7 @@ mock.module("@/lib/user-settings", () => ({
     coalescenceMode: false,
     experimentalArcadiaMarkdownPreview: false,
     experimentalContextEffort: false,
+    experimentalKnowledgeCapsuleTitles: false,
     contextEffortLevel: "quick",
   }),
 }));
@@ -137,5 +139,227 @@ describe("ChatMessage gather_restaurant", () => {
 
     const { getByText } = render(<ChatMessage message={message} />);
     expect(getByText("Looking up restaurant…")).toBeTruthy();
+  });
+});
+
+function assistantWithReasoning(
+  parts: Array<{ text: string; state: "streaming" | "done" }>
+): UIMessage {
+  return {
+    id: "msg-reasoning",
+    role: "assistant",
+    parts: [
+      ...parts.map((part) => ({ type: "reasoning" as const, ...part })),
+      { type: "text", text: "Final answer.", state: "done" },
+    ],
+  };
+}
+
+describe("ChatMessage reasoning", () => {
+  test("done reasoning with text renders one collapsed disclosure", () => {
+    const message = assistantWithReasoning([
+      { text: "First summary.", state: "done" },
+      { text: "Second summary.", state: "done" },
+    ]);
+    const { getAllByRole, getByText } = render(<ChatMessage message={message} />);
+    const triggers = getAllByRole("button", { name: /Reasoning/ });
+
+    expect(triggers).toHaveLength(1);
+    expect(triggers[0].getAttribute("aria-expanded")).toBe("false");
+    expect(getByText("Final answer.")).toBeTruthy();
+  });
+
+  test("streaming reasoning with text shows one live disclosure", () => {
+    const message = assistantWithReasoning([{ text: "Weighing options.", state: "streaming" }]);
+    const { getAllByRole, container } = render(
+      <ChatMessage aiActionPayload={{ action: ChatAIActionEnum.Reasoning }} message={message} />
+    );
+
+    expect(getAllByRole("button", { name: /Reasoning/ })).toHaveLength(1);
+    // One burn label (its sr-only copy) — the tail action shimmer must not double it.
+    const labels = [...container.querySelectorAll(".sr-only")].filter((el) =>
+      el.textContent?.includes("Reasoning")
+    );
+
+    expect(labels).toHaveLength(1);
+  });
+
+  test("done reasoning without text renders nothing", () => {
+    const message = assistantWithReasoning([{ text: "", state: "done" }]);
+    const { queryByRole, queryByText } = render(<ChatMessage message={message} />);
+
+    expect(queryByRole("button", { name: /Reasoning/ })).toBeNull();
+    expect(queryByText(/Reasoning/)).toBeNull();
+  });
+
+  test("streaming reasoning without text keeps the shimmer label", () => {
+    const message = assistantWithReasoning([{ text: "", state: "streaming" }]);
+    const { queryByRole, container } = render(<ChatMessage message={message} />);
+
+    expect(queryByRole("button", { name: /Reasoning/ })).toBeNull();
+    expect(container.textContent).toContain("Reasoning");
+  });
+});
+
+describe("ChatMessage OrganicToolCallPresence", () => {
+  test("renders visual OrganicActivityMark presence for subagent dispatch, worktable, and rabbit hole tools", () => {
+    const message: UIMessage = {
+      id: "msg-organic-tools",
+      role: "assistant",
+      parts: [
+        {
+          type: "dynamic-tool",
+          toolName: "dispatch_subagent",
+          toolCallId: "tc-dispatch-lyra",
+          state: "output-available",
+          input: {
+            agentId: "subagent-researcher",
+            brief: "Synthesize speculative decoding benchmarks",
+          },
+          output: {
+            success: true,
+            agentId: "subagent-researcher",
+            name: "Lyra",
+            goalId: "goal-1",
+          },
+        },
+        {
+          type: "dynamic-tool",
+          toolName: "worktable",
+          toolCallId: "tc-worktable",
+          state: "output-available",
+          input: { op: "bundle" },
+          output: { summary: "Packed 3 node summaries into worktable" },
+        },
+        {
+          type: "dynamic-tool",
+          toolName: "navigate_rabbit_hole_node",
+          toolCallId: "tc-nav-node",
+          state: "input-available",
+          input: { title: "Tree Attention Verification" },
+        },
+      ],
+    };
+
+    const { getByText, container } = render(<ChatMessage message={message} />);
+
+    expect(getByText("Dispatched to Lyra")).toBeTruthy();
+    expect(getByText("Synthesize speculative decoding benchmarks")).toBeTruthy();
+    expect(getByText("Crafting context bundle")).toBeTruthy();
+    expect(getByText("Navigating branch…")).toBeTruthy();
+    expect(container.querySelectorAll("[data-organic-tool-presence]")).toHaveLength(3);
+    expect(container.querySelectorAll('[role="img"][data-activity-state]')).toHaveLength(3);
+  });
+});
+
+function webSearchPart(state: "input-available" | "output-available") {
+  return {
+    type: "dynamic-tool" as const,
+    toolName: "web_search",
+    toolCallId: "search-1",
+    state,
+    input: { query: "vercel" },
+    ...(state === "output-available"
+      ? {
+          output: {
+            results: [
+              { url: "https://a.example", title: "A" },
+              { url: "https://b.example", title: "B" },
+            ],
+          },
+        }
+      : {}),
+  } as UIMessage["parts"][number];
+}
+
+describe("ChatMessage activity trail", () => {
+  test("reasoning around a web search coalesces into one trail with its thought time", () => {
+    const message: UIMessage = {
+      id: "msg-trail",
+      role: "assistant",
+      metadata: { activityDurationsMs: { "0": 14_200 } },
+      parts: [
+        { type: "reasoning", text: "Checking the changelog.", state: "done" },
+        webSearchPart("output-available"),
+        { type: "step-start" },
+        { type: "reasoning", text: "Comparing entries.", state: "done" },
+        { type: "text", text: "The answer.", state: "done" },
+      ],
+    };
+    const view = render(<ChatMessage message={message} />);
+    const trigger = view.getByRole("button", { name: "Thought for 14s · searched 2 sources" });
+
+    expect(view.getAllByRole("button", { expanded: false })).toContain(trigger);
+    expect(view.queryByText("2 Search Results")).toBeNull();
+    fireEvent.click(trigger);
+    expect(view.getByText("2 Search Results")).toBeTruthy();
+    expect(view.getByText("Comparing entries.")).toBeTruthy();
+    expect(view.getByText("The answer.")).toBeTruthy();
+  });
+
+  test("a presentational tool stays inline and splits the trail", () => {
+    const message: UIMessage = {
+      id: "msg-split",
+      role: "assistant",
+      parts: [
+        { type: "reasoning", text: "Plan.", state: "done" },
+        {
+          type: "dynamic-tool",
+          toolName: "render_gen_ui",
+          toolCallId: "gen-1",
+          state: "output-available",
+          input: {},
+          output: { block: FIXTURE_ANSWER_CARD },
+        },
+        { type: "reasoning", text: "Follow-up.", state: "done" },
+      ],
+    };
+    const view = render(<ChatMessage message={message} />);
+
+    expect(view.getAllByRole("button", { name: "Reasoning" })).toHaveLength(2);
+    expect(view.getByText(FIXTURE_ANSWER_CARD.tldr)).toBeTruthy();
+  });
+
+  test("a live trail owns the status; no duplicate tail shimmer", () => {
+    const message: UIMessage = {
+      id: "msg-live",
+      role: "assistant",
+      parts: [
+        { type: "reasoning", text: "**Planning the search**", state: "done" },
+        webSearchPart("input-available"),
+      ],
+    };
+    const view = render(
+      <ChatMessage
+        aiActionPayload={{ action: ChatAIActionEnum.Tool, message: "Using tool: web_search" }}
+        message={message}
+      />
+    );
+    const trigger = view.getByRole("button", { name: /Reasoning in progress/ });
+
+    expect(trigger.textContent).toContain("Searching the web");
+    expect(view.container.querySelector(".processing-text-burn")).toBeNull();
+  });
+
+  test("collapsing a trail releases pins inside it", () => {
+    const message: UIMessage = {
+      id: "msg-pin",
+      role: "assistant",
+      parts: [
+        { type: "reasoning", text: "Looking.", state: "done" },
+        webSearchPart("output-available"),
+        { type: "text", text: "Done.", state: "done" },
+      ],
+    };
+    const view = render(<ChatMessage message={message} />);
+    const trigger = view.getByRole("button", { name: "Searched 2 sources" });
+
+    fireEvent.click(trigger);
+    fireEvent.click(view.getByRole("button", { name: "Pin tool output" }));
+    expect(view.getByRole("button", { name: "Unpin tool output" })).toBeTruthy();
+    fireEvent.click(trigger);
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(trigger);
+    expect(view.getByRole("button", { name: "Pin tool output" })).toBeTruthy();
   });
 });

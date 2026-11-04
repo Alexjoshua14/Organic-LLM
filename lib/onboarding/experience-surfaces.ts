@@ -8,6 +8,8 @@ export type ExperienceSurface = {
   tryHref: string;
   /** Grouped under Chat in docs until variants collapse into one composer. */
   chatVariant?: boolean;
+  /** Unfinished: its route is admin-only, so public pages do not link to it. */
+  adminOnly?: boolean;
 };
 
 export const CHAT_VARIANT_NOTE =
@@ -36,6 +38,7 @@ export const EXPERIENCE_SURFACES: ExperienceSurface[] = [
     description: "Explore a topic with sparks and reply suggestions.",
     tryHref: "/sandbox/topic-explore",
     chatVariant: true,
+    adminOnly: true,
   },
   {
     id: "strata",
@@ -43,6 +46,7 @@ export const EXPERIENCE_SURFACES: ExperienceSurface[] = [
     label: "Strata",
     description: "Rough notes → structured sections on an editorial canvas.",
     tryHref: "/sandbox/prototypes/strata",
+    adminOnly: true,
   },
   {
     id: "rabbitholes",

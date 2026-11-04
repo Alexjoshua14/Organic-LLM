@@ -62,21 +62,17 @@ export const RabbitHoleNodeSchema = z.object({
   createdAt: z.string(),
 });
 
-// Stricter schema for fully generated AI responses (article + 3-6 takeaways + title).
-export const RabbitHoleAIResponseSchema = RabbitHoleNodeSchema.extend({
-  title: z.string().min(4).max(80).describe("Engaging editorial title for this exploration"),
+// Article generation only. A standalone object (not an extend of the stored node) so
+// optional node fields are not sent to strict JSON-schema providers. Title length is
+// not enforced here: a max(80) rejection throws NoObjectGeneratedError and discards
+// the article. Persist a bounded title via resolvedArticleTitle.
+export const RabbitHoleAIResponseSchema = z.object({
+  title: z.string().describe("Engaging editorial title for this exploration"),
   keyTakeaways: z.array(z.string()).min(3).max(6),
   articleHtml: z
     .string()
     .min(1)
     .describe("HTML string containing section tags, paragraphs, and inline spans only"),
-}).omit({
-  id: true,
-  rawPrompt: true,
-  userQuestion: true,
-  sources: true,
-  createdAt: true,
-  branchSuggestions: true,
 });
 
 export const RabbitHolePathSegmentSchema = z.object({

@@ -11,6 +11,7 @@ import { AiInputForm } from "./ai-input-form";
 import { HomepagePrimaryActions } from "@/components/pages/homepage-primary-actions";
 import { createStrataPageWithRawTextAction } from "@/app/sandbox/prototypes/strata/actions";
 import { useAion } from "@/hooks/use-aion";
+import { useIsAdmin } from "@/hooks/use-is-admin";
 import { createLogger } from "@/lib/logger";
 import { PERF_PHASES } from "@/lib/perf/journeys";
 import { mark, startJourney } from "@/lib/perf/trace-store";
@@ -61,6 +62,7 @@ export const AIInput: React.FC<AIInputProps> = ({
   onStrataShortcut: onStrataShortcutProp,
 }) => {
   const router = useRouter();
+  const isAdmin = useIsAdmin();
   const { refreshSidebarChats } = useSharedChatContext();
   const [creating, setCreating] = useState(false);
   const [routing, setRouting] = useState(false);
@@ -279,7 +281,7 @@ export const AIInput: React.FC<AIInputProps> = ({
         submitStatus={routing ? "submitted" : aion.status}
         onComposerDoubleTap={onComposerDoubleTap}
         onPlanModeToggle={onPlanModeToggle}
-        onStrataShortcut={handleStrataShortcut}
+        onStrataShortcut={isAdmin === true ? handleStrataShortcut : undefined}
         onSubmit={handleSubmit}
         onTextChange={onTextChange}
       />

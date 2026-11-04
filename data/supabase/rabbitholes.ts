@@ -139,6 +139,34 @@ export async function advanceGenerationStep(
 }
 
 /**
+ * Mark a node as the in-flight generation target so a later `after()` or resume
+ * can advance `generation_step`. Safe to call with the admin client when the
+ * user JWT is gone.
+ */
+export async function claimRabbitHoleGeneration(
+  sessionId: string,
+  nodeId: string,
+  step: GenerationStepType,
+  client?: RabbitHolesSupabaseClient
+): Promise<void> {
+  const supabase = client ?? (await supabaseServer());
+  const { error } = await supabase
+    .from("rabbit_hole_sessions")
+    .update({
+      generating_node_id: nodeId,
+      generation_step: step,
+      active_node_id: nodeId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("session_id", sessionId);
+
+  if (error) {
+    logger.error("claimRabbitHoleGeneration", error.message);
+    throw error;
+  }
+}
+
+/**
  * Fetch a full session by ID
  */
 export async function getSessionById(
@@ -688,6 +716,53 @@ export async function deleteSession(sessionId: string): Promise<SimpleResult> {
 
   return {
     ok: true,
+    error: null,
+  };
+}
+
+/** Node fields a keyword search needs. Deliberately excludes `article_html`, the heavy column. */
+export type RabbitHoleNodeSearchRow = {
+  sessionId: string;
+  nodeId: string;
+  title: string | null;
+  userQuestion: string;
+  keyTakeaways: string[];
+  summary: string | null;
+};
+
+/**
+ * Light node rows for the given sessions, for keyword search. Scoping comes from the caller
+ * passing only session ids it already listed through the user's own client.
+ */
+export async function getRabbitHoleNodeSearchRows(
+  sessionIds: string[],
+  client?: RabbitHolesSupabaseClient
+): Promise<Result<RabbitHoleNodeSearchRow[]>> {
+  if (sessionIds.length === 0) return { data: [], error: null };
+
+  const supabase = client ?? (await supabaseServer());
+
+  const { data, error } = await supabase
+    .from("rabbit_hole_nodes")
+    .select("session_id, node_id, title, user_question, key_takeaways, summary")
+    .in("session_id", sessionIds);
+
+  if (error) {
+    return {
+      data: null,
+      error: new Error(error.message ?? "Error fetching rabbit hole nodes from Supabase"),
+    };
+  }
+
+  return {
+    data: (data ?? []).map((row) => ({
+      sessionId: row.session_id,
+      nodeId: row.node_id,
+      title: rabbitHoleNodeTitleFromDb(row.title) ?? null,
+      userQuestion: row.user_question ?? "",
+      keyTakeaways: Array.isArray(row.key_takeaways) ? (row.key_takeaways as string[]) : [],
+      summary: row.summary ?? null,
+    })),
     error: null,
   };
 }

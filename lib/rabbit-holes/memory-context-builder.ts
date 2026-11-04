@@ -1,6 +1,6 @@
 import { generateText } from "ai";
-import { budgetModelId, createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
 
+import { budgetModelId, createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
 import {
   RABBIT_HOLE_MEMORY_CONTEXT_MODEL,
   RABBIT_HOLE_MEMORY_CONTEXT_WARN_MS,

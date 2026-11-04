@@ -78,10 +78,7 @@ export async function GET(req: Request) {
     fromLabel = range.fromVersion;
     toLabel = version;
   } else {
-    return NextResponse.json(
-      { error: "Provide version= or both from= and to=" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Provide version= or both from= and to=" }, { status: 400 });
   }
 
   if (!toSha) {

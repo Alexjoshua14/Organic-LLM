@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
-import { mergeRabbitHoleBrowseMetadata } from "@/data/supabase/rabbitHoleBrowseMetadata";
+import {
+  mergeRabbitHoleBrowseMetadata,
+  rabbitHoleDisplayTitle,
+} from "@/data/supabase/rabbitHoleBrowseMetadata";
+import { resolveSidebarThreadRows } from "@/lib/sidebar/sidebar-thread-rows";
 
 const iso = "2025-03-01T12:00:00.000Z";
 
@@ -114,5 +118,50 @@ describe("mergeRabbitHoleBrowseMetadata", () => {
     const [meta] = mergeRabbitHoleBrowseMetadata(sessions, pathSegments, rootNodes);
 
     expect(meta.summary).toBeUndefined();
+  });
+});
+
+describe("rabbit-hole thread titles", () => {
+  test("display title prefers the root article title, then the root question", () => {
+    expect(rabbitHoleDisplayTitle({ rootTitle: " The fall of Rome ", rootQuestion: "why?" })).toBe(
+      "The fall of Rome"
+    );
+    expect(rabbitHoleDisplayTitle({ rootTitle: "  ", rootQuestion: "Why did Rome fall?" })).toBe(
+      "Why did Rome fall?"
+    );
+    expect(rabbitHoleDisplayTitle({ rootTitle: null, rootQuestion: "" })).toBeNull();
+  });
+});
+
+describe("resolveSidebarThreadRows", () => {
+  const base = { updated_at: iso, pinned: false, path: null };
+
+  test("titles rabbit holes, drops unlinked ones, and strips the embed", () => {
+    const rows = resolveSidebarThreadRows([
+      { ...base, id: "t-main", title: "Groceries", feature: "main", rabbit_hole_sessions: [] },
+      {
+        ...base,
+        id: "t-hole",
+        title: null,
+        feature: "rabbit_hole",
+        rabbit_hole_sessions: [
+          { root_question: "Why did Rome fall?", rabbit_hole_path_segments: [{ label: "The fall of Rome" }] },
+        ],
+      },
+      {
+        ...base,
+        id: "t-hole-question",
+        title: "Drawer chat title",
+        feature: "rabbit_hole",
+        rabbit_hole_sessions: [{ root_question: "How do octopi think?", rabbit_hole_path_segments: [] }],
+      },
+      { ...base, id: "t-orphan", title: null, feature: "rabbit_hole", rabbit_hole_sessions: [] },
+    ]);
+
+    expect(rows).toEqual([
+      { ...base, id: "t-main", title: "Groceries", feature: "main" },
+      { ...base, id: "t-hole", title: "The fall of Rome", feature: "rabbit_hole" },
+      { ...base, id: "t-hole-question", title: "How do octopi think?", feature: "rabbit_hole" },
+    ]);
   });
 });

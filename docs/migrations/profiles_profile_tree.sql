@@ -24,6 +24,8 @@ CREATE TRIGGER profiles_profile_tree_updated_at
   EXECUTE FUNCTION update_profiles_profile_tree_updated_at();
 
 -- Profiles are one row per Clerk user; RLS should keep profile content private.
+-- Policies must use clerk_sub(), not current_profile_id(). That function selects from
+-- profiles, so a policy that calls it recurses and every profile read fails.
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
 DO $$
@@ -32,11 +34,11 @@ BEGIN
     SELECT 1 FROM pg_policies
     WHERE schemaname = 'public'
       AND tablename = 'profiles'
-      AND policyname = 'Users can view their own profile'
+      AND cmd = 'SELECT'
   ) THEN
-    CREATE POLICY "Users can view their own profile"
-      ON profiles FOR SELECT
-      USING (id = current_profile_id());
+    CREATE POLICY profiles_select_self
+      ON profiles FOR SELECT TO authenticated
+      USING (clerk_user_id = public.clerk_sub());
   END IF;
 END $$;
 
@@ -63,8 +65,12 @@ BEGIN
       AND policyname = 'Users can view their own profile revisions'
   ) THEN
     CREATE POLICY "Users can view their own profile revisions"
-      ON profile_tree_revisions FOR SELECT
-      USING (owner_id = current_profile_id());
+      ON profile_tree_revisions FOR SELECT TO authenticated
+      USING (
+        owner_id = (
+          SELECT profiles.id FROM profiles WHERE profiles.clerk_user_id = public.clerk_sub()
+        )
+      );
   END IF;
 END $$;
 
@@ -77,8 +83,12 @@ BEGIN
       AND policyname = 'Users can insert their own profile revisions'
   ) THEN
     CREATE POLICY "Users can insert their own profile revisions"
-      ON profile_tree_revisions FOR INSERT
-      WITH CHECK (owner_id = current_profile_id());
+      ON profile_tree_revisions FOR INSERT TO authenticated
+      WITH CHECK (
+        owner_id = (
+          SELECT profiles.id FROM profiles WHERE profiles.clerk_user_id = public.clerk_sub()
+        )
+      );
   END IF;
 END $$;
 
@@ -91,9 +101,17 @@ BEGIN
       AND policyname = 'Users can update their own profile revisions'
   ) THEN
     CREATE POLICY "Users can update their own profile revisions"
-      ON profile_tree_revisions FOR UPDATE
-      USING (owner_id = current_profile_id())
-      WITH CHECK (owner_id = current_profile_id());
+      ON profile_tree_revisions FOR UPDATE TO authenticated
+      USING (
+        owner_id = (
+          SELECT profiles.id FROM profiles WHERE profiles.clerk_user_id = public.clerk_sub()
+        )
+      )
+      WITH CHECK (
+        owner_id = (
+          SELECT profiles.id FROM profiles WHERE profiles.clerk_user_id = public.clerk_sub()
+        )
+      );
   END IF;
 END $$;
 
@@ -103,11 +121,17 @@ BEGIN
     SELECT 1 FROM pg_policies
     WHERE schemaname = 'public'
       AND tablename = 'profiles'
-      AND policyname = 'Users can update their own profile'
+      AND cmd = 'UPDATE'
   ) THEN
-    CREATE POLICY "Users can update their own profile"
-      ON profiles FOR UPDATE
-      USING (id = current_profile_id())
-      WITH CHECK (id = current_profile_id());
+    CREATE POLICY profiles_update_self
+      ON profiles FOR UPDATE TO authenticated
+      USING (clerk_user_id = public.clerk_sub())
+      WITH CHECK (clerk_user_id = public.clerk_sub());
   END IF;
 END $$;
+
+-- A table created in the SQL editor does not automatically grant the API roles.
+GRANT SELECT, INSERT, UPDATE ON TABLE public.profile_tree_revisions TO authenticated;
+GRANT ALL ON TABLE public.profile_tree_revisions TO service_role;
+
+NOTIFY pgrst, 'reload schema';

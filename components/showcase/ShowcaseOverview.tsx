@@ -3,12 +3,12 @@
 import Link from "next/link";
 
 import { glass } from "@/components/design-system/primitives";
+import { threadEntryPrefetch } from "@/lib/chat/thread-entry-navigation";
 import { cn } from "@/lib/utils";
 
 const links = [
   { href: "/chat", label: "Chat" },
   { href: "/sandbox/arcadia", label: "Arcadia" },
-  { href: "/sandbox/prototypes/strata", label: "Strata" },
   { href: "/rabbitholes/browse", label: "Rabbit holes" },
   { href: "/showcase", label: "Showcase" },
 ] as const;
@@ -49,7 +49,7 @@ export function ShowcaseOverview({ className, placement = "footer" }: ShowcaseOv
             key={l.href}
             className="text-foreground/80 underline-offset-4 hover:text-foreground hover:underline"
             href={l.href}
-            prefetch={l.href === "/chat" || l.href === "/sandbox/arcadia" ? false : undefined}
+            prefetch={threadEntryPrefetch(l.href)}
           >
             {l.label}
           </Link>

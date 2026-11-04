@@ -9,6 +9,9 @@ import {
 import { checkProfileTreeGenerationLimit } from "@/lib/rate-limit/profile";
 import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
 
+// Planning, section writing and two reviews run in sequence; a run takes about a minute.
+export const maxDuration = 120;
+
 /**
  * Generates and persists a memory-only ProfileTree for the signed-in settings profile.
  * Kept at /api/profile/summary for compatibility with the existing client path.
@@ -33,6 +36,7 @@ export async function POST(req: Request) {
   }
 
   const planGate = await requirePlanBudget({ clerkUserId: user.userId, sbUserId: sbUserId.data });
+
   if (planGate) return planGate;
 
   let body;

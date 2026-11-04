@@ -76,3 +76,16 @@ export function mergeRabbitHoleBrowseMetadata(
     };
   });
 }
+
+/**
+ * A rabbit hole's display title: the root node's generated article title (root path segment),
+ * else the root question. Same rule as the browse heading and homepage routing.
+ */
+export function rabbitHoleDisplayTitle(source: {
+  rootTitle?: string | null;
+  rootQuestion?: string | null;
+}): string | null {
+  const title = source.rootTitle?.trim() || source.rootQuestion?.trim();
+
+  return title ? title : null;
+}

@@ -8,7 +8,10 @@ import { mockAllowedAuthenticatedBudget } from "../helpers/llm-budget";
 let restoreHooks: () => void;
 let restoreGate: () => void;
 const mockPlanGate = mock(async (): Promise<Response | null> => null);
-afterEach(() => { restoreHooks(); restoreGate(); });
+afterEach(() => {
+  restoreHooks();
+  restoreGate();
+});
 
 import { createMockAuth, createMockClerkUser } from "../helpers/mock-auth";
 
@@ -70,32 +73,54 @@ const sampleTree = {
   sections: [generatedSections.about, generatedSections.tech, generatedSections.lifestyle],
 };
 
+function promptText(args) {
+  if (typeof args?.prompt === "string" && args.prompt) return args.prompt;
+  const messages = Array.isArray(args?.messages) ? args.messages : [];
+
+  return messages
+    .map((message) => {
+      if (typeof message?.content === "string") return message.content;
+      if (!Array.isArray(message?.content)) return "";
+
+      return message.content.map((part) => part?.text ?? "").join("\n");
+    })
+    .join("\n");
+}
+
+// Sections are structured output: the strict schema means every key is present.
+function sectionObject(promptText) {
+  if (!promptText.includes("Section-scoped memory evidence")) return null;
+  const section = generatedSections[/"id":"([^"]+)"/.exec(promptText)[1]];
+
+  return {
+    id: section.id,
+    title: section.title,
+    body: section.body ?? null,
+    items: section.items ?? [],
+    children: [],
+  };
+}
+
 const mockAuth = mock(createMockAuth());
-const mockGenerateText = mock(async ({ prompt }) => {
-  if (String(prompt).includes('"id":"about"')) {
-    return { text: JSON.stringify(generatedSections.about), usage: { inputTokens: 1000, outputTokens: 120 } };
-  }
-  if (String(prompt).includes('"id":"tech"')) {
-    return { text: JSON.stringify(generatedSections.tech), usage: { inputTokens: 1000, outputTokens: 160 } };
-  }
+const mockGenerateText = mock(async (args) => {
+  const promptTextValue = promptText(args);
+  const generated = sectionObject(promptTextValue);
 
-  return { text: JSON.stringify(generatedSections.lifestyle), usage: { inputTokens: 1000, outputTokens: 120 } };
-});
-const mockGenerateObject = mock(async ({ prompt }) => {
-  const promptText = String(prompt);
+  if (generated) return { output: generated, usage: { inputTokens: 1000, outputTokens: 120 } };
 
-  if (promptText.includes("Plan the ideal ProfileTree sections")) {
-    return { object: samplePlan, usage: { inputTokens: 2500, outputTokens: 500 } };
+  if (promptTextValue.includes("Plan the ideal ProfileTree sections")) {
+    return { output: samplePlan, usage: { inputTokens: 2500, outputTokens: 500 } };
   }
-  if (promptText.includes("Review every generated section")) {
+  if (promptTextValue.includes("Review every generated section")) {
     return {
-      object: {
+      output: {
         overallScore: 0.84,
         sections: samplePlan.sections.map((section) => ({
           sectionId: section.id,
           score: 0.84,
           decision: "accept",
           issues: [],
+          rewriteInstructions: null,
         })),
       },
       usage: { inputTokens: 3500, outputTokens: 500 },
@@ -103,11 +128,12 @@ const mockGenerateObject = mock(async ({ prompt }) => {
   }
 
   return {
-    object: {
+    output: {
       score: 0.86,
       decision: "accept",
       weakSectionIds: [],
       issues: [],
+      rewriteInstructions: null,
     },
     usage: { inputTokens: 2200, outputTokens: 260 },
   };
@@ -147,7 +173,6 @@ mock.module("@clerk/nextjs/server", () => ({
 // Keep real SDK predicates: a global stepCountIs stub also replaces its isStepCount alias.
 mockModulePreservingReal("ai", ai, {
   generateText: mockGenerateText,
-  generateObject: mockGenerateObject,
 });
 
 mock.module("@/data/supabase/profiles", () => ({
@@ -181,11 +206,12 @@ import { POST } from "@/app/api/profile/summary/route";
 describe("POST /api/profile/summary", () => {
   beforeEach(() => {
     restoreHooks = mockAllowedAuthenticatedBudget();
-    restoreGate = mockModulePreservingReal("@/lib/api/plan-budget-gate", budgetGate, { requirePlanBudget: mockPlanGate });
+    restoreGate = mockModulePreservingReal("@/lib/api/plan-budget-gate", budgetGate, {
+      requirePlanBudget: mockPlanGate,
+    });
     mockPlanGate.mockClear();
     mockAuth.mockClear();
     mockGenerateText.mockClear();
-    mockGenerateObject.mockClear();
     mockGetSupabaseUserId.mockClear();
     mockCreateProfileTreeRevision.mockClear();
     mockSearchMemoriesForUser.mockClear();
@@ -193,40 +219,25 @@ describe("POST /api/profile/summary", () => {
     mockRecordLlmCall.mockClear();
 
     mockAuth.mockResolvedValue(createMockClerkUser());
-    mockGenerateText.mockImplementation(async ({ prompt }) => {
-      if (String(prompt).includes('"id":"about"')) {
-        return {
-          text: JSON.stringify(generatedSections.about),
-          usage: { inputTokens: 1000, outputTokens: 120 },
-        };
-      }
-      if (String(prompt).includes('"id":"tech"')) {
-        return {
-          text: JSON.stringify(generatedSections.tech),
-          usage: { inputTokens: 1000, outputTokens: 160 },
-        };
-      }
+    mockGenerateText.mockImplementation(async (args) => {
+      const text = promptText(args);
+      const generated = sectionObject(text);
 
-      return {
-        text: JSON.stringify(generatedSections.lifestyle),
-        usage: { inputTokens: 1000, outputTokens: 120 },
-      };
-    });
-    mockGenerateObject.mockImplementation(async ({ prompt }) => {
-      const promptText = String(prompt);
+      if (generated) return { output: generated, usage: { inputTokens: 1000, outputTokens: 120 } };
 
-      if (promptText.includes("Plan the ideal ProfileTree sections")) {
-        return { object: samplePlan, usage: { inputTokens: 2500, outputTokens: 500 } };
+      if (text.includes("Plan the ideal ProfileTree sections")) {
+        return { output: samplePlan, usage: { inputTokens: 2500, outputTokens: 500 } };
       }
-      if (promptText.includes("Review every generated section")) {
+      if (text.includes("Review every generated section")) {
         return {
-          object: {
+          output: {
             overallScore: 0.84,
             sections: samplePlan.sections.map((section) => ({
               sectionId: section.id,
               score: 0.84,
               decision: "accept",
               issues: [],
+              rewriteInstructions: null,
             })),
           },
           usage: { inputTokens: 3500, outputTokens: 500 },
@@ -234,11 +245,12 @@ describe("POST /api/profile/summary", () => {
       }
 
       return {
-        object: {
+        output: {
           score: 0.86,
           decision: "accept",
           weakSectionIds: [],
           issues: [],
+          rewriteInstructions: null,
         },
         usage: { inputTokens: 2200, outputTokens: 260 },
       };
@@ -300,7 +312,7 @@ describe("POST /api/profile/summary", () => {
 
     expect(res.status).toBe(404);
     expect(body).toEqual({ error: "User not found" });
-    expect(mockGenerateObject).not.toHaveBeenCalled();
+    expect(mockGenerateText).not.toHaveBeenCalled();
   });
 
   test("rejects invalid request body", async () => {
@@ -314,7 +326,7 @@ describe("POST /api/profile/summary", () => {
 
     expect(res.status).toBe(400);
     expect(body).toEqual({ error: "Invalid profile generation request" });
-    expect(mockGenerateObject).not.toHaveBeenCalled();
+    expect(mockGenerateText).not.toHaveBeenCalled();
   });
 
   test("orchestrates planner, sections, review, revision, and returns a ProfileTree", async () => {
@@ -335,30 +347,34 @@ describe("POST /api/profile/summary", () => {
       expect.stringContaining("profile biography"),
       { limit: 50 }
     );
-    expect(mockGenerateObject).toHaveBeenCalledWith(
+    expect(mockGenerateText).toHaveBeenCalledWith(
       expect.objectContaining({
-        schemaName: "ProfileSectionPlan",
         prompt: expect.stringContaining("Plan the ideal ProfileTree sections"),
-      })
-    );
-    expect(mockGenerateObject).toHaveBeenCalledWith(
-      expect.objectContaining({
-        schemaName: "ProfileSectionBatchReview",
-      })
-    );
-    expect(mockGenerateObject).toHaveBeenCalledWith(
-      expect.objectContaining({
-        schemaName: "ProfileTreeReview",
+        output: expect.anything(),
       })
     );
     expect(mockGenerateText).toHaveBeenCalledWith(
       expect.objectContaining({
-        tools: expect.objectContaining({
-          search_memories: expect.objectContaining({
-            inputSchema: expect.anything(),
-          }),
-        }),
+        prompt: expect.stringContaining("Review every generated section"),
       })
+    );
+    expect(mockGenerateText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: expect.stringContaining("Review the full tree"),
+      })
+    );
+    const sectionCall = mockGenerateText.mock.calls.find((call) =>
+      promptText(call[0]).includes("Write this section")
+    );
+
+    expect(promptText(sectionCall?.[0])).toContain("Baseline memory evidence");
+    expect(sectionCall?.[0].providerOptions?.anthropic?.thinking?.type).toBe("between_tools");
+    expect(
+      sectionCall?.[0].messages?.[0]?.content?.[0]?.providerOptions?.anthropic?.cacheControl
+    ).toEqual({ type: "ephemeral" });
+    // Sections are written from evidence fetched up front; no model-driven tool calls.
+    expect(mockGenerateText).not.toHaveBeenCalledWith(
+      expect.objectContaining({ tools: expect.anything() })
     );
     expect(mockCreateProfileTreeRevision).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -383,7 +399,6 @@ describe("POST /api/profile/summary", () => {
     expect(res.status).toBe(503);
     expect(body.error).toContain("Memory search is unavailable");
     expect(mockGenerateText).not.toHaveBeenCalled();
-    expect(mockGenerateObject).not.toHaveBeenCalled();
     expect(mockCreateProfileTreeRevision).not.toHaveBeenCalled();
   });
 
@@ -401,40 +416,35 @@ describe("POST /api/profile/summary", () => {
     expect(res.status).toBe(422);
     expect(body.error).toContain("could not find enough relevant memories");
     expect(mockGenerateText).not.toHaveBeenCalled();
-    expect(mockGenerateObject).not.toHaveBeenCalled();
     expect(mockCreateProfileTreeRevision).not.toHaveBeenCalled();
   });
 
   test("rewrites a weak high-priority section exactly once", async () => {
     let aboutCalls = 0;
 
-    mockGenerateText.mockImplementation(async ({ prompt }) => {
-      if (String(prompt).includes('"id":"about"')) {
+    mockGenerateText.mockImplementation(async (args) => {
+      const text = promptText(args);
+      const generated = sectionObject(text);
+
+      if (generated?.id === "about") {
         aboutCalls += 1;
 
         return {
-          text: JSON.stringify({
-            ...generatedSections.about,
+          output: {
+            ...generated,
             body: aboutCalls === 1 ? "Generic builder." : "Memory-aware systems engineer.",
-          }),
-          usage: { inputTokens: 1000, outputTokens: 120 },
+          },
+          usage: {},
         };
       }
-      if (String(prompt).includes('"id":"tech"')) {
-        return { text: JSON.stringify(generatedSections.tech), usage: {} };
-      }
+      if (generated) return { output: generated, usage: {} };
 
-      return { text: JSON.stringify(generatedSections.lifestyle), usage: {} };
-    });
-    mockGenerateObject.mockImplementation(async ({ prompt }) => {
-      const promptText = String(prompt);
-
-      if (promptText.includes("Plan the ideal ProfileTree sections")) {
-        return { object: samplePlan, usage: {} };
+      if (text.includes("Plan the ideal ProfileTree sections")) {
+        return { output: samplePlan, usage: {} };
       }
-      if (promptText.includes("Review every generated section")) {
+      if (text.includes("Review every generated section")) {
         return {
-          object: {
+          output: {
             overallScore: 0.7,
             sections: [
               {
@@ -444,15 +454,36 @@ describe("POST /api/profile/summary", () => {
                 issues: ["Too generic"],
                 rewriteInstructions: "Use concrete memory-backed identity.",
               },
-              { sectionId: "tech", score: 0.84, decision: "accept", issues: [] },
-              { sectionId: "lifestyle", score: 0.84, decision: "accept", issues: [] },
+              {
+                sectionId: "tech",
+                score: 0.84,
+                decision: "accept",
+                issues: [],
+                rewriteInstructions: null,
+              },
+              {
+                sectionId: "lifestyle",
+                score: 0.84,
+                decision: "accept",
+                issues: [],
+                rewriteInstructions: null,
+              },
             ],
           },
           usage: {},
         };
       }
 
-      return { object: { score: 0.8, decision: "accept", weakSectionIds: [], issues: [] }, usage: {} };
+      return {
+        output: {
+          score: 0.8,
+          decision: "accept",
+          weakSectionIds: [],
+          issues: [],
+          rewriteInstructions: null,
+        },
+        usage: {},
+      };
     });
 
     const res = await POST(new Request("http://localhost/api/profile/summary"));
@@ -471,21 +502,25 @@ describe("POST /api/profile/summary", () => {
   });
 
   test("persists low-quality partial output as failed revision without publishing", async () => {
-    mockGenerateObject.mockImplementation(async ({ prompt }) => {
-      const promptText = String(prompt);
+    mockGenerateText.mockImplementation(async (args) => {
+      const text = promptText(args);
+      const generated = sectionObject(text);
 
-      if (promptText.includes("Plan the ideal ProfileTree sections")) {
-        return { object: samplePlan, usage: {} };
+      if (generated) return { output: generated, usage: { inputTokens: 1000, outputTokens: 120 } };
+
+      if (text.includes("Plan the ideal ProfileTree sections")) {
+        return { output: samplePlan, usage: {} };
       }
-      if (promptText.includes("Review every generated section")) {
+      if (text.includes("Review every generated section")) {
         return {
-          object: {
+          output: {
             overallScore: 0.84,
             sections: samplePlan.sections.map((section) => ({
               sectionId: section.id,
               score: 0.84,
               decision: "accept",
               issues: [],
+              rewriteInstructions: null,
             })),
           },
           usage: {},
@@ -493,11 +528,12 @@ describe("POST /api/profile/summary", () => {
       }
 
       return {
-        object: {
+        output: {
           score: 0.6,
           decision: "revise",
           weakSectionIds: ["about"],
           issues: ["Unsupported claims"],
+          rewriteInstructions: null,
         },
         usage: {},
       };
