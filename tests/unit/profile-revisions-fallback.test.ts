@@ -23,6 +23,7 @@ function fakeClient() {
         select: () => chain,
         eq: () =>
           table === "profiles" && !chain.writing ? chain : Promise.resolve({ error: null }),
+        maybeSingle: () => Promise.resolve({ data: { id: "sb_1" }, error: null }),
         single: () =>
           Promise.resolve(
             table === "profiles"

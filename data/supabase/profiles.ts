@@ -191,6 +191,13 @@ export async function getProfile(clerkUserId: string): Promise<Result<Profile>> 
  * @returns User's supabase ID
  */
 /** Cached per server instance — see `lib/supabase/profile-id-cache.ts` for why that is safe. */
+export class ProfileNotFoundError extends Error {
+  constructor() {
+    super("User profile not found");
+    this.name = "ProfileNotFoundError";
+  }
+}
+
 export async function getSupabaseUserId(clerkUserId: string): Promise<Result<string>> {
   return cachedProfileId(clerkUserId, async () => {
     const sb = await supabaseServer();
@@ -198,7 +205,7 @@ export async function getSupabaseUserId(clerkUserId: string): Promise<Result<str
       .from("profiles")
       .select("id")
       .eq("clerk_user_id", clerkUserId)
-      .single();
+      .maybeSingle();
 
     if (error) {
       return {
@@ -206,6 +213,8 @@ export async function getSupabaseUserId(clerkUserId: string): Promise<Result<str
         error: new Error(error?.message ?? "Unknown error"),
       };
     }
+
+    if (!data) return { data: null, error: new ProfileNotFoundError() };
 
     return {
       data: data.id,

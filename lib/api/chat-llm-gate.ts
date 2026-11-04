@@ -2,8 +2,9 @@ import type { Result } from "@/types";
 
 import { auth } from "@clerk/nextjs/server";
 
+import { createLogger } from "@/lib/logger";
 import { countOwnerActiveStreams } from "@/data/supabase/message-send-queue";
-import { getSupabaseUserId } from "@/data/supabase/profiles";
+import { getSupabaseUserId, ProfileNotFoundError } from "@/data/supabase/profiles";
 import {
   evaluateSimultaneousStreamGate,
   FREE_PLAN_MAX_SIMULTANEOUS_STREAMS,
@@ -14,85 +15,91 @@ import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
 
 export type LlmChatActorData = { sbUserId: string; clerkUserId: string };
 
-/**
- * Clerk session + Supabase profile + LLM message rate limit + simultaneous stream cap + the
- * plan's weekly spend budget. On failure, `error` is a JSON `Response` (401 / 404 / 429)
- * matching the main chat route.
- *
- * `planBudget` is on by default so every route that spends tokens is gated. Pass false only
- * from routes that never call a model (e.g. context estimates, settings writes, the send
- * queue, which holds messages until the budget allows).
+const logger = createLogger("lib/api/chat-llm-gate.ts");
+const defaultDeps = {
+  userId: async () => (await auth()).userId,
+  profile: getSupabaseUserId,
+  messageLimit: checkLlmMessageLimit,
+  activeStreams: countOwnerActiveStreams,
+  budget: getPlanBudgetForUser,
+};
+
+function rejected(
+  status: number,
+  code: string,
+  error: string,
+  retryAfter?: number
+): Result<LlmChatActorData, Response> {
+  return {
+    data: null,
+    error: Response.json(
+      { error, status, code },
+      {
+        status,
+        headers: {
+          "Cache-Control": "no-store",
+          ...(retryAfter !== undefined ? { "Retry-After": String(retryAfter) } : {}),
+        },
+      }
+    ),
+  };
+}
+
+/** Authenticate and check capacity/budget. Dependency failures return retryable 503s.
+ * planBudget=false is only for routes that never call a model.
  */
 export async function requireLlmChatActor(
-  options: { planBudget?: boolean } = {}
+  options: { planBudget?: boolean } = {},
+  deps = defaultDeps
 ): Promise<Result<LlmChatActorData, Response>> {
-  const clerkUser = await auth();
+  let stage = "auth";
 
-  if (!clerkUser?.userId) {
-    return {
-      data: null,
-      error: new Response(JSON.stringify({ error: "Unauthorized", status: 401 }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
-      }),
-    };
+  try {
+    const clerkUserId = await deps.userId();
+
+    if (!clerkUserId) return rejected(401, "unauthorized", "Unauthorized");
+    stage = "profile";
+    const profile = await deps.profile(clerkUserId);
+
+    if (profile.error instanceof ProfileNotFoundError || (!profile.error && !profile.data)) {
+      return rejected(404, "profile_not_found", "User profile not found");
+    }
+    if (profile.error) throw profile.error;
+    const sbUserId = profile.data!;
+
+    stage = "rate_limit";
+    const limit = await deps.messageLimit(sbUserId);
+
+    if (!limit.success) {
+      const retryAfter =
+        typeof limit.reset === "number" && Number.isFinite(limit.reset) && limit.reset > 0
+          ? Math.max(1, Math.ceil((limit.reset - Date.now()) / 1000))
+          : undefined;
+
+      return rejected(429, "message_limit", limit.error ?? "Too many requests", retryAfter);
+    }
+
+    stage = "stream_capacity";
+    const activeStreamCount = await deps.activeStreams(sbUserId);
+    const streamGate = evaluateSimultaneousStreamGate({
+      activeStreamCount,
+      maxStreams: FREE_PLAN_MAX_SIMULTANEOUS_STREAMS,
+    });
+
+    if (!streamGate.ok) return rejected(429, "stream_limit", streamGate.holdReason);
+
+    if (options.planBudget !== false) {
+      stage = "plan";
+      const budget = await deps.budget({ clerkUserId, ownerId: sbUserId });
+
+      if (!budget.canDispatch) return { data: null, error: planLimitResponse(budget) };
+    }
+
+    return { data: { sbUserId, clerkUserId }, error: null };
+  } catch {
+    // Do not expose provider errors or credentials in the response or logs.
+    logger.error("requireLlmChatActor", "Chat gate dependency unavailable", { stage });
+
+    return rejected(503, `${stage}_unavailable`, "Chat temporarily unavailable. Please retry.", 30);
   }
-
-  const sbUserIdResult = await getSupabaseUserId(clerkUser.userId);
-
-  if (sbUserIdResult.error || sbUserIdResult.data === null) {
-    return {
-      data: null,
-      error: new Response(
-        JSON.stringify({
-          error: "User not found in supabase",
-          status: 404,
-        }),
-        { status: 404, headers: { "Content-Type": "application/json" } }
-      ),
-    };
-  }
-
-  const sbUserId = sbUserIdResult.data;
-  const messageLimitResult = await checkLlmMessageLimit(sbUserId);
-
-  if (!messageLimitResult.success) {
-    return {
-      data: null,
-      error: new Response(
-        JSON.stringify({
-          error: messageLimitResult.error ?? "Too many requests",
-          status: 429,
-        }),
-        { status: 429, headers: { "Content-Type": "application/json" } }
-      ),
-    };
-  }
-
-  const activeStreamCount = await countOwnerActiveStreams(sbUserId);
-  const streamGate = evaluateSimultaneousStreamGate({
-    activeStreamCount,
-    maxStreams: FREE_PLAN_MAX_SIMULTANEOUS_STREAMS,
-  });
-
-  if (!streamGate.ok) {
-    return {
-      data: null,
-      error: new Response(
-        JSON.stringify({
-          error: streamGate.holdReason,
-          status: 429,
-        }),
-        { status: 429, headers: { "Content-Type": "application/json" } }
-      ),
-    };
-  }
-
-  if (options.planBudget !== false) {
-    const budget = await getPlanBudgetForUser({ clerkUserId: clerkUser.userId, ownerId: sbUserId });
-
-    if (!budget.canDispatch) return { data: null, error: planLimitResponse(budget) };
-  }
-
-  return { data: { sbUserId, clerkUserId: clerkUser.userId }, error: null };
 }

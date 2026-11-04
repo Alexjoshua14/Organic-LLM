@@ -2,6 +2,8 @@ import "server-only";
 
 import type { EnqueueMessageInput, MessageSendQueueRow } from "@/lib/schemas/message-send-queue";
 
+import { acquireChatStreamLease } from "@/lib/chat/stream-admission";
+
 import {
   claimNextQueuedMessage,
   getThreadActiveStreamId,
@@ -134,45 +136,75 @@ export async function tryDispatchThreadQueue(args: {
             `Dispatching queue item ${claimed.id} on thread ${threadId}`
           );
 
-          const reservation = { ownerId, threadId, streamId: `queue:${claimed.id}` };
+          let admission: Awaited<ReturnType<typeof acquireChatStreamLease>>;
 
-          if (!(await reserveThreadStream(reservation))) {
+          try {
+            admission = await acquireChatStreamLease(ownerId, threadId);
+          } catch {
+            await releaseClaimedMessage({
+              id: claimed.id,
+              status: "pending",
+              holdReason: "Stream admission unavailable",
+            });
+
+            return { dispatched: false, holdReason: "Stream admission unavailable" };
+          }
+          if (!admission.ok) {
             await releaseClaimedMessage({
               id: claimed.id,
               status: "blocked_streaming",
-              holdReason: "Thread is busy",
+              holdReason: admission.reason,
             });
 
-            return { dispatched: false, holdReason: "Thread is busy" };
+            return { dispatched: false, holdReason: admission.reason };
           }
-          let turnResult: Awaited<ReturnType<typeof runQueuedChatTurn>>;
-
           try {
-            turnResult = await runQueuedChatTurn({ item: claimed, sbUserId: ownerId, clerkUserId });
-          } catch (error) {
-            turnResult = {
-              ok: false,
-              error: error instanceof Error ? error.message : "Background turn failed",
-            };
-          } finally {
-            await releaseThreadStream(reservation);
-          }
+            const reservation = { ownerId, threadId, streamId: `queue:${claimed.id}` };
 
-          if (!turnResult.ok) {
-            await releaseClaimedMessage({
-              id: claimed.id,
-              status: "failed",
-              error: turnResult.error,
-              holdReason: turnResult.error,
-            });
-            result = { dispatched: false, holdReason: turnResult.error };
-          } else {
-            await updateQueuedMessageStatus({
-              id: claimed.id,
-              status: "sent",
-            });
-            shouldContinue = true;
-            result = { dispatched: true };
+            if (!(await reserveThreadStream(reservation))) {
+              await releaseClaimedMessage({
+                id: claimed.id,
+                status: "blocked_streaming",
+                holdReason: "Thread is busy",
+              });
+
+              return { dispatched: false, holdReason: "Thread is busy" };
+            }
+            let turnResult: Awaited<ReturnType<typeof runQueuedChatTurn>>;
+
+            try {
+              turnResult = await runQueuedChatTurn({
+                item: claimed,
+                sbUserId: ownerId,
+                clerkUserId,
+              });
+            } catch (error) {
+              turnResult = {
+                ok: false,
+                error: error instanceof Error ? error.message : "Background turn failed",
+              };
+            } finally {
+              await releaseThreadStream(reservation);
+            }
+
+            if (!turnResult.ok) {
+              await releaseClaimedMessage({
+                id: claimed.id,
+                status: "failed",
+                error: turnResult.error,
+                holdReason: turnResult.error,
+              });
+              result = { dispatched: false, holdReason: turnResult.error };
+            } else {
+              await updateQueuedMessageStatus({
+                id: claimed.id,
+                status: "sent",
+              });
+              shouldContinue = true;
+              result = { dispatched: true };
+            }
+          } finally {
+            await admission.release();
           }
         }
       }

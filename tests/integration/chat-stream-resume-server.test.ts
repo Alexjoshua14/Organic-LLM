@@ -1,3 +1,4 @@
+import * as streamAdmission from "@/lib/chat/stream-admission";
 import type { LanguageModelV4StreamPart } from "@ai-sdk/provider";
 
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
@@ -166,6 +167,9 @@ function installPostFixture(options?: {
   // Exercise the production POST, streamText, UI stream composition, and persistence.
   // Only external model, database, and post-processing boundaries are replaced.
   restore.push(
+    mockModulePreservingReal("@/lib/chat/stream-admission", streamAdmission, {
+      acquireChatStreamLease: async () => ({ ok: true as const, release: async () => {} }),
+    }),
     mockModulePreservingReal("ai", ai, (real) => ({
       streamText: ((options) => real.streamText({ ...options, model })) as typeof ai.streamText,
     })),

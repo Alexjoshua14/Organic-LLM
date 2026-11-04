@@ -31,7 +31,7 @@ import { getUsagePlanTier } from "@/lib/usage/plans";
 /** Free plan spend per weekly budget cycle (lib/usage/plans.ts is the source). */
 export const FREE_PLAN_WEEKLY_BUDGET_USD = getUsagePlanTier("free").costCapUsd ?? 0;
 
-/** Published free-tier simultaneous LLM stream ceiling (product copy + gate). */
+/** Published stream ceiling. Keep acquire_chat_stream_lease SQL in sync when changing it. */
 export const FREE_PLAN_MAX_SIMULTANEOUS_STREAMS = 5;
 
 /**

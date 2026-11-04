@@ -35,6 +35,12 @@ describe("LLM rate limit (lib/rate-limit/llm)", () => {
     expect(mockLimit.mock.calls.length).toBe(1);
   });
 
+  test("message quota denial preserves the provider reset timestamp", async () => {
+    mockLimit.mockResolvedValueOnce({ success: false, remaining: 0, reset: 1_900_000_000_000 });
+
+    expect((await llmRateLimit.checkLlmMessageLimit("user-1")).reset).toBe(1_900_000_000_000);
+  });
+
   test("checkRabbitHoleNodeLimit returns success when under limit", async () => {
     const result = await llmRateLimit.checkRabbitHoleNodeLimit("user-1");
 
