@@ -37,9 +37,7 @@ export async function callErgonMcpTool(args: {
     const result = await client.callTool({
       name: args.name,
       arguments:
-        args.input && typeof args.input === "object"
-          ? (args.input as Record<string, unknown>)
-          : {},
+        args.input && typeof args.input === "object" ? (args.input as Record<string, unknown>) : {},
       options: { timeout: ERGON_MCP_TIMEOUT_MS },
     });
 
@@ -77,8 +75,34 @@ export async function probeErgonMcpConnection(args: {
   token: string;
   mcpUrl: string;
   fetch?: Fetch;
-}): Promise<{ ok: true } | { ok: false; error: string; status?: number }> {
+}): Promise<
+  | { ok: true }
+  | {
+      ok: false;
+      error: string;
+      status?: number;
+      diagnostic: {
+        stage: "initialize" | "list_projects";
+        httpStatus: number | null;
+        message: string;
+      };
+    }
+> {
   let client: Awaited<ReturnType<typeof createMCPClient>> | undefined;
+  let stage: "initialize" | "list_projects" = "initialize";
+  let httpStatus: number | null = null;
+  const diagnostic = (message: string) => ({
+    stage,
+    httpStatus,
+    // Transport errors can include response bodies. Redact before truncating or logging.
+    message: message
+      .split(args.token)
+      .join("[REDACTED]")
+      .replace(/Bearer\s+[^\s"'<>]+/gi, "Bearer [REDACTED]")
+      .replace(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, "[REDACTED]")
+      .replace(/[\r\n\t]/g, " ")
+      .slice(0, 500),
+  });
 
   try {
     client = await createMCPClient({
@@ -90,11 +114,18 @@ export async function probeErgonMcpConnection(args: {
         url: args.mcpUrl,
         headers: { authorization: `Bearer ${args.token}` },
         redirect: "error",
-        ...(args.fetch ? { fetch: args.fetch } : {}),
+        fetch: async (input, init) => {
+          const response = await (args.fetch ?? globalThis.fetch)(input, init);
+
+          httpStatus = response.status;
+
+          return response;
+        },
       },
     });
 
     // list_projects is a cheap authenticated call shared with the REST probe.
+    stage = "list_projects";
     const result = await client.callTool({
       name: "list_projects",
       arguments: {},
@@ -110,6 +141,7 @@ export async function probeErgonMcpConnection(args: {
         ok: false,
         error: text || "Ergon MCP rejected this credential.",
         status: 401,
+        diagnostic: diagnostic(text || "Ergon MCP rejected this credential."),
       };
     }
 
@@ -119,10 +151,12 @@ export async function probeErgonMcpConnection(args: {
 
     return {
       ok: false,
-      error: message.includes("401") || /unauthor/i.test(message)
-        ? "Ergon MCP rejected this credential. Prefer Connect with Ergon (OAuth)."
-        : `Ergon MCP unreachable: ${message.slice(0, 200)}`,
+      error:
+        message.includes("401") || /unauthor/i.test(message)
+          ? "Ergon MCP rejected this credential. Prefer Connect with Ergon (OAuth)."
+          : `Ergon MCP unreachable: ${message.slice(0, 200)}`,
       status: /401|403/.test(message) ? 401 : 502,
+      diagnostic: diagnostic(message),
     };
   } finally {
     await client?.close().catch(() => {});
