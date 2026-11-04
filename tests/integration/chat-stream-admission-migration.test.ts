@@ -11,6 +11,23 @@ const OTHER = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const THREAD = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const MISSING = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 
+const MIGRATIONS = ["chat_stream_admission.sql", "chat_stream_subagent_allotment.sql"];
+
+/** Both admission migrations, in order, retargeted at `schema` and unwrapped from BEGIN/COMMIT. */
+async function migrationSql(schema: string): Promise<string> {
+  const files = await Promise.all(
+    MIGRATIONS.map((name) =>
+      Bun.file(new URL(`../../docs/migrations/${name}`, import.meta.url)).text()
+    )
+  );
+
+  return files
+    .join("\n")
+    .replace(/^BEGIN;$/gm, "")
+    .replace(/^COMMIT;$/gm, "")
+    .replaceAll("public.", `${schema}.`);
+}
+
 async function expectPermissionDenied(tx: TransactionSQL, query: string) {
   let failure: unknown;
 
@@ -30,9 +47,6 @@ databaseTest(
     const db = new SQL(databaseUrl!);
     const schema = `stream_admission_test_${crypto.randomUUID().replaceAll("-", "")}`;
     const rollback = new Error("Roll back stream admission fixtures");
-    const migration = await Bun.file(
-      new URL("../../docs/migrations/chat_stream_admission.sql", import.meta.url)
-    ).text();
 
     try {
       await db.begin(async (tx) => {
@@ -51,14 +65,7 @@ databaseTest(
           `
           )
           .simple();
-        await tx
-          .unsafe(
-            migration
-              .replace(/^BEGIN;$/gm, "")
-              .replace(/^COMMIT;$/gm, "")
-              .replaceAll("public.", `${schema}.`)
-          )
-          .simple();
+        await tx.unsafe(await migrationSql(schema)).simple();
 
         const acquire = (owner: string, thread: string, token: string) =>
           `SELECT ${schema}.acquire_chat_stream_lease('${owner}', '${thread}', '${token}') AS result`;
@@ -105,6 +112,10 @@ databaseTest(
         for (const role of ["anon", "authenticated"]) {
           await tx.unsafe(`SET LOCAL ROLE ${role}`);
           await expectPermissionDenied(tx, acquire(OWNER, THREAD, rejectedToken));
+          await expectPermissionDenied(
+            tx,
+            `SELECT ${schema}.acquire_subagent_stream_lease('${OWNER}', '${THREAD}', '${MISSING}', '${rejectedToken}')`
+          );
           await expectPermissionDenied(tx, `SELECT * FROM ${schema}.chat_stream_leases`);
           await expectPermissionDenied(tx, `DELETE FROM ${schema}.chat_stream_leases`);
         }
@@ -120,4 +131,211 @@ databaseTest(
     }
   },
   15_000
+);
+
+// Concurrency needs two real connections and committed fixtures, so this test cannot run inside
+// one rolled-back transaction. It owns a uniquely named schema and drops it afterwards.
+databaseTest(
+  "stream admission serializes concurrent requests, caps leases, and recovers expired ones",
+  async () => {
+    const schema = `stream_admission_race_${crypto.randomUUID().replaceAll("-", "")}`;
+    const admin = new SQL({ url: databaseUrl!, max: 1 });
+    const first = new SQL({ url: databaseUrl!, max: 1 });
+    const second = new SQL({ url: databaseUrl!, max: 1 });
+    const threads = Array.from({ length: 7 }, () => crypto.randomUUID());
+    const acquire = (thread: string, token = crypto.randomUUID()) =>
+      `SELECT ${schema}.acquire_chat_stream_lease('${OWNER}', '${thread}', '${token}') AS result`;
+    const leaseCount = async () =>
+      Number(
+        (await admin.unsafe(`SELECT count(*)::int AS n FROM ${schema}.chat_stream_leases`))[0].n
+      );
+
+    /**
+     * Holds `first`'s admission open in a transaction while `second` races it, and checks that
+     * `second` waits for the commit instead of reading the pre-commit lease count.
+     */
+    async function race(firstThread: string, secondThread: string) {
+      let contender: Promise<unknown> | undefined;
+
+      await first.begin(async (tx) => {
+        expect(await tx.unsafe(acquire(firstThread))).toEqual([{ result: "acquired" }]);
+        contender = second.unsafe(acquire(secondThread));
+        const state = await Promise.race([
+          contender.then(() => "finished"),
+          Bun.sleep(300).then(() => "waiting"),
+        ]);
+
+        expect(state).toBe("waiting");
+      });
+
+      return contender!;
+    }
+
+    try {
+      await admin
+        .unsafe(
+          `
+          CREATE SCHEMA ${schema};
+          CREATE TABLE ${schema}.profiles (id uuid PRIMARY KEY);
+          CREATE TABLE ${schema}.threads (
+            id uuid PRIMARY KEY,
+            owner_id uuid NOT NULL REFERENCES ${schema}.profiles(id)
+          );
+          INSERT INTO ${schema}.profiles VALUES ('${OWNER}');
+          INSERT INTO ${schema}.threads VALUES ${threads.map((id) => `('${id}', '${OWNER}')`).join(", ")};
+        `
+        )
+        .simple();
+      await admin.unsafe(await migrationSql(schema)).simple();
+
+      // Two sends to one thread at once: exactly one turn is admitted.
+      expect(await race(threads[0], threads[0])).toEqual([{ result: "busy" }]);
+      expect(await leaseCount()).toBe(1);
+
+      for (const thread of threads.slice(1, 4)) {
+        expect(await admin.unsafe(acquire(thread))).toEqual([{ result: "acquired" }]);
+      }
+      expect(await leaseCount()).toBe(4);
+
+      // One slot left and two threads competing for it: the loser sees the winner's lease.
+      expect(await race(threads[4], threads[5])).toEqual([{ result: "capacity" }]);
+      expect(await leaseCount()).toBe(5);
+
+      // A crashed turn's lease expires; the next admission removes it and takes the slot.
+      await admin.unsafe(
+        `UPDATE ${schema}.chat_stream_leases SET expires_at = clock_timestamp() - interval '1 second'
+         WHERE thread_id = '${threads[0]}'`
+      );
+      expect(await admin.unsafe(acquire(threads[5]))).toEqual([{ result: "acquired" }]);
+      expect(
+        await admin.unsafe(
+          `SELECT 1 FROM ${schema}.chat_stream_leases WHERE thread_id = '${threads[0]}'`
+        )
+      ).toHaveLength(0);
+      expect(await leaseCount()).toBe(5);
+
+      // Release is token-scoped (lib/chat/stream-admission.ts): a stale holder removes nothing.
+      const token = crypto.randomUUID();
+
+      await admin.unsafe(
+        `DELETE FROM ${schema}.chat_stream_leases WHERE thread_id = '${threads[0]}'`
+      );
+      expect(await admin.unsafe(acquire(threads[0], token))).toEqual([{ result: "capacity" }]);
+      await admin.unsafe(
+        `DELETE FROM ${schema}.chat_stream_leases WHERE thread_id = '${threads[1]}'`
+      );
+      expect(await admin.unsafe(acquire(threads[0], token))).toEqual([{ result: "acquired" }]);
+      const release = (releaseToken: string) =>
+        admin.unsafe(
+          `DELETE FROM ${schema}.chat_stream_leases
+           WHERE owner_id = '${OWNER}' AND thread_id = '${threads[0]}' AND token = '${releaseToken}'
+           RETURNING thread_id`
+        );
+
+      expect(await release(crypto.randomUUID())).toHaveLength(0);
+      expect(await release(token)).toHaveLength(1);
+    } finally {
+      await admin.unsafe(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);
+      await Promise.all([admin.close(), first.close(), second.close()]);
+    }
+  },
+  30_000
+);
+
+databaseTest(
+  "subagents use their orchestrator's allotment, and admission does not block profile inserts",
+  async () => {
+    const schema = `stream_admission_subagents_${crypto.randomUUID().replaceAll("-", "")}`;
+    const admin = new SQL({ url: databaseUrl!, max: 1 });
+    const first = new SQL({ url: databaseUrl!, max: 1 });
+    const second = new SQL({ url: databaseUrl!, max: 1 });
+    const ids = (n: number) => Array.from({ length: n }, () => crypto.randomUUID());
+    const orchestrators = ids(6);
+    const workers = ids(8);
+    const foreignThread = crypto.randomUUID();
+    const [o1, o2, o3, o4, o5, o6] = orchestrators;
+    const chat = (thread: string) =>
+      admin.unsafe(
+        `SELECT ${schema}.acquire_chat_stream_lease('${OWNER}', '${thread}', '${crypto.randomUUID()}') AS result`
+      );
+    const subagent = (parent: string, worker: string) =>
+      admin.unsafe(
+        `SELECT ${schema}.acquire_subagent_stream_lease('${OWNER}', '${parent}', '${worker}', '${crypto.randomUUID()}') AS result`
+      );
+    const drop = (where: string) =>
+      admin.unsafe(`DELETE FROM ${schema}.chat_stream_leases WHERE ${where}`);
+    const ACQUIRED = [{ result: "acquired" }];
+    const CAPACITY = [{ result: "capacity" }];
+
+    try {
+      await admin
+        .unsafe(
+          `
+          CREATE SCHEMA ${schema};
+          CREATE TABLE ${schema}.profiles (id uuid PRIMARY KEY);
+          CREATE TABLE ${schema}.threads (
+            id uuid PRIMARY KEY,
+            owner_id uuid NOT NULL REFERENCES ${schema}.profiles(id)
+          );
+          INSERT INTO ${schema}.profiles VALUES ('${OWNER}'), ('${OTHER}');
+          INSERT INTO ${schema}.threads VALUES
+            ${[...orchestrators, ...workers].map((id) => `('${id}', '${OWNER}')`).join(", ")},
+            ('${foreignThread}', '${OTHER}');
+        `
+        )
+        .simple();
+      await admin.unsafe(await migrationSql(schema)).simple();
+
+      // Five workers per orchestrator; the sixth waits.
+      expect(await chat(o1)).toEqual(ACQUIRED);
+      for (const worker of workers.slice(0, 5))
+        expect(await subagent(o1, worker)).toEqual(ACQUIRED);
+      expect(await subagent(o1, workers[5])).toEqual(CAPACITY);
+
+      // The orchestrator's own reply ends; it stays active while its workers run.
+      await drop(`thread_id = '${o1}'`);
+      for (const thread of [o2, o3, o4, o5]) expect(await chat(thread)).toEqual(ACQUIRED);
+      expect(await chat(o6)).toEqual(CAPACITY);
+
+      // The waiting orchestrator is not busy, and messaging it takes no extra slot.
+      expect(await chat(o1)).toEqual(ACQUIRED);
+      expect(await chat(o1)).toEqual([{ result: "busy" }]);
+
+      // A worker under an already-active orchestrator is admitted at the thread cap.
+      await drop(`thread_id = '${workers[0]}'`);
+      expect(await subagent(o2, workers[0])).toEqual(ACQUIRED);
+
+      // Once o1 is fully idle, a late worker would re-activate it: a sixth thread is refused.
+      await drop(`thread_id = '${o1}' OR parent_thread_id = '${o1}'`);
+      expect(await chat(o6)).toEqual(ACQUIRED);
+      expect(await subagent(o1, workers[6])).toEqual(CAPACITY);
+
+      // Ownership: another account's thread can't be a parent; a thread can't parent itself.
+      expect(await subagent(foreignThread, workers[7])).toEqual([{ result: "not_found" }]);
+      expect(await subagent(o2, o2)).toEqual([{ result: "not_found" }]);
+
+      // Lock strength: an in-flight admission must not block inserts that reference the profile.
+      await drop(`owner_id = '${OWNER}'`);
+      await first.begin(async (tx) => {
+        expect(
+          await tx.unsafe(
+            `SELECT ${schema}.acquire_chat_stream_lease('${OWNER}', '${o1}', '${crypto.randomUUID()}') AS result`
+          )
+        ).toEqual(ACQUIRED);
+        const insert = second.unsafe(
+          `INSERT INTO ${schema}.threads VALUES ('${crypto.randomUUID()}', '${OWNER}')`
+        );
+        const state = await Promise.race([
+          insert.then(() => "finished"),
+          Bun.sleep(1_000).then(() => "blocked"),
+        ]);
+
+        expect(state).toBe("finished");
+      });
+    } finally {
+      await admin.unsafe(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);
+      await Promise.all([admin.close(), first.close(), second.close()]);
+    }
+  },
+  30_000
 );

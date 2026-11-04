@@ -23,7 +23,7 @@ import { addLatestMessagesToMemoryForUser } from "@/lib/memory/operations";
 import { buildChatReasoningProviderOptions, type ChatEffortLevel } from "@/lib/schemas/chat-effort";
 import { gatewayAttribution } from "@/lib/usage/gateway-attribution";
 import { prepareChatCompletionStep } from "@/lib/api/chat-step-completion";
-import { createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
+import { createLlmBudgetHooks, isPlanBudgetStopError } from "@/lib/plans/llm-budget-hooks";
 import { ChatAIActionEnum, type ChatUIMessage } from "@/types/ai";
 import {
   memoryReferencesFromToolResult,
@@ -159,15 +159,10 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
   });
   const result = streamText({
     ...budgetHooks,
-    async prepareStep({ stepNumber }) {
+    async prepareStep({ stepNumber, messages: stepMessages }) {
       await budgetHooks.prepareStep();
 
-      return prepareChatCompletionStep({
-        stepNumber,
-        maxSteps,
-        hasTools,
-        instructions: systemPromptWithLength,
-      });
+      return prepareChatCompletionStep({ stepNumber, maxSteps, hasTools, messages: stepMessages });
     },
     model: selectedModel.id,
     messages,
@@ -178,6 +173,7 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
     }),
     maxOutputTokens: CHAT_MODEL.maxOutputTokens, // Cap output for dev guardrails
     onError({ error }) {
+      if (isPlanBudgetStopError(error)) return; // Expected policy stop; logged by the UI stream.
       logger.error("POST", "Stream error", {
         err: serializeError(error),
         model: selectedModel.id,
@@ -285,6 +281,9 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
       /* optional — usage may be unavailable on abort */
     });
 
+  // Set when the plan budget stopped the turn, so the end of the stream is not reported as a crash.
+  let stoppedForBudget = false;
+
   writer.merge(
     result.toUIMessageStream({
       generateMessageId: () => assistantMessageId,
@@ -292,6 +291,15 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
       messageMetadata: ({ part }) => observeActivityTrail(part),
       sendStart: false, // The outer stream announces this ID before context and progress data.
       onError: (error) => {
+        // The SDK may re-report the stop as a plain Error; the first report sets the flag.
+        if (stoppedForBudget || isPlanBudgetStopError(error)) {
+          if (!stoppedForBudget) {
+            logger.warn("POST", "Turn stopped by plan budget", { model: selectedModel.id });
+          }
+          stoppedForBudget = true;
+
+          return error instanceof Error ? error.message : String(error);
+        }
         logger.error("POST", "UI stream error", {
           err: serializeError(error),
           model: selectedModel.id,
@@ -316,7 +324,8 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
           totalChunks: chunkRing.length,
           recentChunks: chunkRing.slice(-12),
         });
-        if (!finishReason && !isAborted) {
+        // A budget stop already reached the client as its own error, with plan copy.
+        if (!finishReason && !isAborted && !stoppedForBudget) {
           logger.error("POST", "No finish reason provided, assuming failure", {
             model: selectedModel.id,
             recentChunks: chunkRing.slice(-12),
@@ -432,16 +441,8 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
             if (text) onAssistantMessage(text);
           }
 
-          // Multi-mode queue: after this stream clears, try to send the next queued message.
-          if (clerkUserId) {
-            const { kickDispatchAfterStream } = await import("@/lib/message-queue/dispatch");
-
-            void kickDispatchAfterStream({
-              ownerId: sbUserId,
-              clerkUserId,
-              threadId: chatId,
-            });
-          }
+          // The next queued message is dispatched by the caller once this turn's stream lease is
+          // released (see app/api/chat/route.ts); kicking here would race that release.
           // The reply is persisted: the sidebar shows this thread as new until the user sees it.
           void recordThreadActivityWithAdmin({ threadId: chatId, ownerId: sbUserId }).then(
             (res) => {

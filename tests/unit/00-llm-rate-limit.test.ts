@@ -1,4 +1,6 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, spyOn, test } from "bun:test";
+
+import { Logger } from "@/lib/logger";
 
 import {
   sharedRatelimitGetRemaining as mockGetRemaining,
@@ -39,6 +41,35 @@ describe("LLM rate limit (lib/rate-limit/llm)", () => {
     mockLimit.mockResolvedValueOnce({ success: false, remaining: 0, reset: 1_900_000_000_000 });
 
     expect((await llmRateLimit.checkLlmMessageLimit("user-1")).reset).toBe(1_900_000_000_000);
+  });
+
+  test("an Upstash timeout admission still admits, and is reported", async () => {
+    const warn = spyOn(Logger.prototype, "warn").mockImplementation(() => {});
+
+    // The shape @upstash/ratelimit 2.x returns when its timeout fires before Redis answers.
+    mockLimit.mockResolvedValueOnce({
+      success: true,
+      limit: 0,
+      remaining: 0,
+      reset: 0,
+      pending: Promise.resolve(),
+      reason: "timeout",
+    });
+
+    try {
+      const result = await llmRateLimit.checkLlmMessageLimit("user-1");
+
+      expect(result.success).toBe(true);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0]?.[2]).toMatchObject({
+        metric: "rate_limit.timeout_admitted",
+        limiter: "checkLlmMessageLimit",
+      });
+      // No user data in the metric.
+      expect(JSON.stringify(warn.mock.calls[0]?.[2])).not.toContain("user-1");
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   test("checkRabbitHoleNodeLimit returns success when under limit", async () => {

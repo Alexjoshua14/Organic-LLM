@@ -4,7 +4,8 @@ import { auth } from "@clerk/nextjs/server";
 
 import { createLogger } from "@/lib/logger";
 import { countOwnerActiveStreams } from "@/data/supabase/message-send-queue";
-import { getSupabaseUserId, ProfileNotFoundError } from "@/data/supabase/profiles";
+import { getSupabaseUserId } from "@/data/supabase/profiles";
+import { ProfileNotFoundError } from "@/data/supabase/profile-id-lookup";
 import {
   evaluateSimultaneousStreamGate,
   FREE_PLAN_MAX_SIMULTANEOUS_STREAMS,
@@ -96,9 +97,17 @@ export async function requireLlmChatActor(
     }
 
     return { data: { sbUserId, clerkUserId }, error: null };
-  } catch {
-    // Do not expose provider errors or credentials in the response or logs.
-    logger.error("requireLlmChatActor", "Chat gate dependency unavailable", { stage });
+  } catch (error) {
+    // Do not expose provider errors or credentials in the response or logs: log the error's
+    // class and machine code (e.g. a Postgres SQLSTATE) to tell causes apart, never its message.
+    const code =
+      typeof error === "object" && error !== null && "code" in error ? error.code : undefined;
+
+    logger.error("requireLlmChatActor", "Chat gate dependency unavailable", {
+      stage,
+      errorName: error instanceof Error ? error.name : typeof error,
+      errorCode: typeof code === "string" || typeof code === "number" ? code : undefined,
+    });
 
     return rejected(503, `${stage}_unavailable`, "Chat temporarily unavailable. Please retry.", 30);
   }

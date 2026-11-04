@@ -2,12 +2,17 @@ import "server-only";
 
 import type { EnqueueMessageInput, MessageSendQueueRow } from "@/lib/schemas/message-send-queue";
 
-import { acquireChatStreamLease } from "@/lib/chat/stream-admission";
+import {
+  acquireChatStreamLease,
+  acquireSubagentStreamLease,
+  type StreamAdmission,
+} from "@/lib/chat/stream-admission";
 
 import {
   claimNextQueuedMessage,
   getThreadActiveStreamId,
   insertQueuedMessage,
+  listBlockedSubagentThreadIds,
   listOpenQueuedMessages,
   releaseClaimedMessage,
   reserveThreadStream,
@@ -87,6 +92,8 @@ export async function tryDispatchThreadQueue(args: {
   dispatchingThreads.add(lockKey);
 
   let shouldContinue = false;
+  /** Set once a worker's subagent lease is released, so a blocked sibling can take its slot. */
+  let releasedSubagentParent: string | undefined;
   let result: { dispatched: boolean; holdReason?: string } = { dispatched: false };
 
   try {
@@ -136,10 +143,14 @@ export async function tryDispatchThreadQueue(args: {
             `Dispatching queue item ${claimed.id} on thread ${threadId}`
           );
 
-          let admission: Awaited<ReturnType<typeof acquireChatStreamLease>>;
+          // Workers count against their orchestrator's subagent allotment, not the chat slots.
+          const parentThreadId = claimed.payload?.subagentRun?.orchestratorId;
+          let admission: StreamAdmission;
 
           try {
-            admission = await acquireChatStreamLease(ownerId, threadId);
+            admission = parentThreadId
+              ? await acquireSubagentStreamLease(ownerId, parentThreadId, threadId)
+              : await acquireChatStreamLease(ownerId, threadId);
           } catch {
             await releaseClaimedMessage({
               id: claimed.id,
@@ -148,6 +159,19 @@ export async function tryDispatchThreadQueue(args: {
             });
 
             return { dispatched: false, holdReason: "Stream admission unavailable" };
+          }
+          if (!admission.ok && admission.reason === "not_found") {
+            // The thread is gone or not this owner's: retrying can never succeed.
+            const error = "Thread not found";
+
+            await releaseClaimedMessage({
+              id: claimed.id,
+              status: "failed",
+              error,
+              holdReason: error,
+            });
+
+            return { dispatched: false, holdReason: error };
           }
           if (!admission.ok) {
             await releaseClaimedMessage({
@@ -205,6 +229,7 @@ export async function tryDispatchThreadQueue(args: {
             }
           } finally {
             await admission.release();
+            releasedSubagentParent = parentThreadId;
           }
         }
       }
@@ -214,10 +239,49 @@ export async function tryDispatchThreadQueue(args: {
   }
 
   if (shouldContinue) {
-    return tryDispatchThreadQueue({ ownerId, clerkUserId, threadId });
+    result = await tryDispatchThreadQueue({ ownerId, clerkUserId, threadId });
+  }
+  if (releasedSubagentParent) {
+    await startBlockedSibling({
+      ownerId,
+      clerkUserId,
+      parentThreadId: releasedSubagentParent,
+      finishedThreadId: threadId,
+    });
   }
 
   return result;
+}
+
+/**
+ * A worker's slot just freed: start the oldest sibling held for capacity. Only one — when it
+ * finishes, its own release starts the next, so the chain never exceeds the allotment. The Arcadia
+ * heartbeat also re-dispatches every child thread, which recovers a chain cut short by a
+ * terminated invocation.
+ */
+async function startBlockedSibling(args: {
+  ownerId: string;
+  clerkUserId: string;
+  parentThreadId: string;
+  finishedThreadId: string;
+}): Promise<void> {
+  try {
+    const siblings = await listBlockedSubagentThreadIds({
+      ownerId: args.ownerId,
+      parentThreadId: args.parentThreadId,
+    });
+    const next = siblings.find((id) => id !== args.finishedThreadId);
+
+    if (next) {
+      await tryDispatchThreadQueue({
+        ownerId: args.ownerId,
+        clerkUserId: args.clerkUserId,
+        threadId: next,
+      });
+    }
+  } catch (err) {
+    logger.warn("startBlockedSibling", err instanceof Error ? err.message : String(err));
+  }
 }
 
 /**

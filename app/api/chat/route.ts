@@ -73,6 +73,26 @@ export const maxDuration = 300;
 
 const logger = createLogger(`app/api/chat/route.ts`);
 
+/** Stream admission denials, in the gate's body shape so the client can map `code` to copy. */
+const ADMISSION_DENIALS = {
+  busy: [429, "thread_busy", "Thread is busy"],
+  capacity: [429, "stream_limit", "Simultaneous stream limit reached"],
+  not_found: [404, "thread_not_found", "Thread not found"],
+} as const;
+
+function admissionRejected(status: number, code: string, error: string): Response {
+  return Response.json(
+    { error, status, code },
+    {
+      status,
+      headers: {
+        "Cache-Control": "no-store",
+        ...(status === 503 ? { "Retry-After": "30" } : {}),
+      },
+    }
+  );
+}
+
 export async function POST(req: Request) {
   const requestStartedAt = performance.now();
   let body: unknown;
@@ -139,20 +159,12 @@ export async function POST(req: Request) {
   try {
     admission = await acquireChatStreamLease(sbUserId, id);
   } catch {
-    return Response.json({ error: "Stream admission unavailable" }, { status: 503 });
+    return admissionRejected(503, "stream_admission_unavailable", "Stream admission unavailable");
   }
   if (!admission.ok) {
-    return Response.json(
-      {
-        error:
-          admission.reason === "busy"
-            ? "Thread is busy"
-            : admission.reason === "capacity"
-              ? "Simultaneous stream limit reached"
-              : "Thread not found",
-      },
-      { status: admission.reason === "not_found" ? 404 : 429 }
-    );
+    const [status, code, error] = ADMISSION_DENIALS[admission.reason];
+
+    return admissionRejected(status, code, error);
   }
   const release = admission.release;
 
@@ -205,43 +217,59 @@ export async function POST(req: Request) {
           timeToFirstUpdateMs: performance.now() - requestStartedAt,
         });
 
-        // Resolve before orchestration and tool compilation, which both need the model ID.
-        const modelResolutionStartedAt = performance.now();
-        const { selectedModel, requestedModelId } = await selectChatModel({
-          requestedModel,
-          draftText: getLastUserMessageText(message),
-          experience,
-          zeroDataRetention: isZeroDataRetention,
-          clerkUserId,
-          logger,
-        });
+        // Model and persona are independent, so they load concurrently. The model resolves before
+        // orchestration and tool compilation, which both need its ID.
+        const setupStartedAt = performance.now();
+        const resolveModel = async () => {
+          const selection = await selectChatModel({
+            requestedModel,
+            draftText: getLastUserMessageText(message),
+            experience,
+            zeroDataRetention: isZeroDataRetention,
+            clerkUserId,
+            logger,
+          });
 
-        logger.log("timing", "Model resolution completed", {
-          chatId: id,
-          durationMs: performance.now() - modelResolutionStartedAt,
-        });
+          logger.log("timing", "Model resolution completed", {
+            chatId: id,
+            durationMs: performance.now() - setupStartedAt,
+          });
 
-        const personaLoadStartedAt = performance.now();
+          return selection;
+        };
         // A unified persona that cannot be loaded (expired, switched off elsewhere) degrades to a
-        // normal reply rather than failing the user's message.
-        let personaStore: PersonaStore | null = null;
-        let personaSession: PersonaSession | null = null;
+        // normal reply rather than failing the user's message. Never rejects.
+        const loadPersona = async () => {
+          let store: PersonaStore | null = null;
+          let session: PersonaSession | null = null;
 
-        if (personaSessionId) {
-          try {
-            personaStore = await getPersonaStore();
-            personaSession = await personaStore.load(sbUserId, personaSessionId);
-          } catch (err) {
-            logger.error("POST", "Persona session unavailable; replying without it", {
-              err: err instanceof Error ? err.message : String(err),
-            });
+          if (personaSessionId) {
+            try {
+              store = await getPersonaStore();
+              session = await store.load(sbUserId, personaSessionId);
+            } catch (err) {
+              logger.error("POST", "Persona session unavailable; replying without it", {
+                err: err instanceof Error ? err.message : String(err),
+              });
+            }
           }
-        }
 
-        logger.log("timing", "Persona loading completed", {
+          logger.log("timing", "Persona loading completed", {
+            chatId: id,
+            requested: Boolean(personaSessionId),
+            durationMs: performance.now() - setupStartedAt,
+          });
+
+          return { store, session };
+        };
+        const [
+          { selectedModel, requestedModelId },
+          { store: personaStore, session: personaSession },
+        ] = await Promise.all([resolveModel(), loadPersona()]);
+
+        logger.log("timing", "Model and persona setup completed", {
           chatId: id,
-          requested: Boolean(personaSessionId),
-          durationMs: performance.now() - personaLoadStartedAt,
+          durationMs: performance.now() - setupStartedAt,
         });
 
         // Not every message needs a reply. The gate decides; the receipt tells the user either way.
@@ -710,7 +738,13 @@ export async function POST(req: Request) {
     });
 
     return createUIMessageStreamResponse({
-      stream: releaseAfterStream(stream, release),
+      // Kick the thread's send queue only after the lease is gone, or dispatch sees it as busy.
+      stream: releaseAfterStream(stream, async () => {
+        await release();
+        const { kickDispatchAfterStream } = await import("@/lib/message-queue/dispatch");
+
+        void kickDispatchAfterStream({ ownerId: sbUserId, clerkUserId, threadId: id });
+      }),
       async consumeSseStream({ stream: sseStream }) {
         await consumeChatSseStream({ stream: sseStream, chatId: id, logger });
       },
