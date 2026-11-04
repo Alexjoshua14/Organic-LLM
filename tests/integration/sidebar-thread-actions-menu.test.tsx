@@ -18,9 +18,15 @@ const mockOnGenerateTitle = mock(() => {});
 let currentPathname = "/";
 let fetchImpl: typeof fetch = async () => new Response(null, { status: 500 });
 
-mock.module("@/data/supabase/chat", () => ({
-  deleteChat: mockDeleteChat,
-}));
+// Reinstall before each test: other suites replace this process-wide module.
+function registerChatMock() {
+  mock.module("@/data/supabase/chat", () => ({
+    ...globalThis.__realChat,
+    deleteChat: mockDeleteChat,
+  }));
+}
+
+registerChatMock();
 
 mock.module("next/navigation", () => ({
   useRouter: () => ({ push: mockRouterPush }),
@@ -98,6 +104,7 @@ describe("SidebarThreadActionsMenu", () => {
   });
 
   beforeEach(() => {
+    registerChatMock();
     mockDeleteChat.mockReset();
     mockRefreshSidebarChats.mockReset();
     mockBeginTitleRegen.mockReset();
