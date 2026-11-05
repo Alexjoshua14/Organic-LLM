@@ -22,6 +22,7 @@ import { SendTargetPicker } from "./send-target-picker";
 import { SubagentCard } from "./subagent-card";
 import { SubagentDetail } from "./subagent-detail";
 import { SubagentSwipeRow } from "./subagent-swipe-row";
+import { useVisibleSubagents } from "./use-visible-subagents";
 import { useMultitaskCondensed } from "./use-multitask-condensed";
 
 import { glass } from "@/components/design-system/primitives";
@@ -95,6 +96,13 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
   const measureUnlockTimer = useRef<number | null>(null);
 
   const speakDisabled = !voice;
+  const visibleAgents = useVisibleSubagents(agents, [
+    viewingSubagentId,
+    selectedId,
+    liveSpeakAgentId,
+    closingSpeakAgentId,
+    sendTarget.kind === "subagent" ? sendTarget.agentId : null,
+  ]);
   const runningCount = agents.filter(isArcadiaSubagentRunning).length;
   const voicePhase = voice?.phase ?? "idle";
   const voiceConnecting = Boolean(voice?.connecting);
@@ -248,7 +256,7 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
   const targetedAgentId = sendTarget.kind === "subagent" ? sendTarget.agentId : null;
   const swipeRow = swipeRowActive ? (
     <SubagentSwipeRow
-      agents={agents}
+      agents={visibleAgents}
       collapsible
       speakDisabled={speakDisabled}
       speakPhaseFor={speakPhaseFor}
@@ -481,7 +489,7 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
                         : undefined
                     }
                   >
-                    {agents.map((agent) => {
+                    {visibleAgents.map((agent) => {
                       const speakPhase = resolveSpeakBarPhase({
                         agentId: agent.id,
                         liveAgentId: liveSpeakAgentId,

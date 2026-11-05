@@ -130,7 +130,7 @@ export function SubagentCard({
           <div className="flex items-start gap-3">
             <SubagentIdentityMark
               className={cn(
-                "size-[50px] origin-[50%_63%]",
+                "size-16 origin-[50%_63%] lg:size-[50px]",
                 MARK_MOTION,
                 "group-[:hover:not(:has([data-speak-glass-bar]:hover))]/card:scale-[1.3] group-[:active:not(:has([data-speak-glass-bar]:active))]/card:scale-[1.3]",
                 (selected || speaking) && "scale-[1.3]"

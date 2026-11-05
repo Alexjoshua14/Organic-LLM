@@ -102,10 +102,10 @@ export function formatSendTargetLabel(
 /**
  * Condensed layout (below {@link MULTITASK_DASHBOARD_WIDE_MIN_PX}): chat keeps the full page so
  * CoreInput sits where it does in plain Arcadia, and subagents ride a horizontal swipe row just
- * above the composer. Card width is tuned so ~2.5 cards show on a 390px phone — the partial card
+ * above the composer. Card width is tuned so ~1.8 cards show on a 390px phone — the partial card
  * signals the row scrolls.
  */
-export const MULTITASK_CONDENSED_CARD_WIDTH_PX = 136;
+export const MULTITASK_CONDENSED_CARD_WIDTH_PX = 192;
 export const MULTITASK_CONDENSED_CARD_GAP_PX = 8;
 /** Matches the composer's own mobile gutter (`px-4`), so the row lines up with CoreInput. */
 export const MULTITASK_CONDENSED_GUTTER_PX = 16;

@@ -116,7 +116,11 @@ describe("mobile multiagent controls", () => {
           ).toBe("Control+W");
           const layout = draft.closest("section")!.parentElement!;
           const columns = layout.style.gridTemplateColumns;
-          const select = app.getAllByRole("button", { name: /^View / })[0];
+          // Unused roster slots stay hidden; choosing a recipient makes it available.
+          expect(app.queryByRole("button", { name: /^View / })).toBeNull();
+          fireEvent.click(app.getByRole("button", { name: "Orchestrator", exact: true }));
+          fireEvent.click(app.getByRole("button", { name: "Lyra", exact: true }));
+          const select = app.getByRole("button", { name: "View Lyra", exact: true });
           fireEvent.pointerDown(select);
           fireEvent.focusIn(select);
           fireEvent.click(select);
