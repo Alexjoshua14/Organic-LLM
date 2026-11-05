@@ -1,5 +1,6 @@
 import { UIMessage } from "ai";
 import { auth } from "@clerk/nextjs/server";
+import { unstable_rethrow } from "next/navigation";
 
 import { AionShell } from "./_components/aion-shell";
 import { AionPresenceProvider } from "./_components/aion-presence-provider";
@@ -59,6 +60,7 @@ export default async function AionPage() {
 
     chatData = chatDataRes.data;
   } catch (err) {
+    unstable_rethrow(err);
     logger.error("AionPage", `Error while loading chat: ${err}`);
 
     return <div>Chat creation failed</div>;

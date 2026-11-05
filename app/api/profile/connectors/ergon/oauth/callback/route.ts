@@ -10,7 +10,10 @@ import {
 } from "@/lib/connectors/ergon-oauth";
 import { saveUserConnectorsProfile } from "@/lib/connectors/user-connectors-store";
 import { probeErgonMcpConnection } from "@/lib/llm/ergon-mcp-client";
+import { createLogger } from "@/lib/logger";
 import { toPublicErgonConnection } from "@/lib/schemas/ergon-connection";
+
+const logger = createLogger("ergon/oauth/callback");
 
 type OAuthCookiePayload = {
   state?: string;
@@ -109,6 +112,8 @@ export async function GET(req: Request) {
   });
 
   if (!mcpProbe.ok) {
+    logger.error("GET", "Ergon OAuth MCP probe failed", mcpProbe.diagnostic);
+
     return settingsRedirect(req, {
       ergon_oauth: "error",
       ergon_oauth_error: "mcp_probe_failed",
