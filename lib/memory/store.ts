@@ -89,9 +89,8 @@ export async function getAllMemories(userId: string): Promise<SearchResult> {
   }
 
   try {
-    const memory = getMemory();
     const result: SearchResult = await runMemoryStore("getAllMemories", () =>
-      memory.getAll({
+      getMemory().getAll({
         userId,
         limit: MEM0_GET_ALL_LIMIT,
       })
