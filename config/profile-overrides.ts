@@ -34,7 +34,7 @@ function load(): ProfileOverrides {
   if (_overrides) return _overrides;
 
   try {
-    // Dynamic require so the build doesn't fail when the file is absent.
+    // next.config.js aliases an absent local file to an empty overrides module.
     const mod = require("@/.local-profile-overrides") as Partial<ProfileOverrides>;
 
     _overrides = { ...DEFAULTS, ...mod };
