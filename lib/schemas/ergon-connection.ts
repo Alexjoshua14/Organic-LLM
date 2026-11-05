@@ -16,19 +16,21 @@ export type ErgonConnectionScope = (typeof ERGON_CONNECTION_SCOPES)[number];
 
 export const ErgonConnectionScopeSchema = z.enum(ERGON_CONNECTION_SCOPES);
 
-export const ERGON_AUTH_MODES = ["oauth", "interim_pat", "env"] as const;
+/** OAuth is the only way in: each user delegates their own Ergon session in-app. */
+export const ERGON_AUTH_MODES = ["oauth"] as const;
 export type ErgonAuthMode = (typeof ERGON_AUTH_MODES)[number];
 
 export const ErgonAuthModeSchema = z.enum(ERGON_AUTH_MODES);
 
-export const ERGON_TRANSPORTS = ["mcp", "rest"] as const;
+export const ERGON_TRANSPORTS = ["mcp"] as const;
 export type ErgonTransport = (typeof ERGON_TRANSPORTS)[number];
 
 export const ErgonTransportSchema = z.enum(ERGON_TRANSPORTS);
 
 /**
  * Server-side record. Access (+ optional refresh) tokens are stored only as ciphertext.
- * API responses never include them.
+ * API responses never include them. `version` is the compare-and-swap counter that
+ * `ergon_connections` bumps whenever a token changes (docs/migrations/ergon_connections.sql).
  */
 export const ErgonConnectionRecordSchema = z.object({
   url: z.string().min(1).max(500),
@@ -41,6 +43,7 @@ export const ErgonConnectionRecordSchema = z.object({
   expiresAt: z.string().nullable().default(null),
   connectedAt: z.string().min(1),
   lastOkAt: z.string().nullable().default(null),
+  version: z.number().int().min(1),
 });
 
 export type ErgonConnectionRecord = z.infer<typeof ErgonConnectionRecordSchema>;
@@ -50,7 +53,7 @@ export const ErgonConnectionPublicSchema = z.object({
   connected: z.boolean(),
   authMode: ErgonAuthModeSchema.nullable().default(null),
   transport: ErgonTransportSchema.nullable().default(null),
-  source: z.enum(["user", "env"]).nullable(),
+  source: z.enum(["user"]).nullable(),
   url: z.string().nullable(),
   mcpUrl: z.string().nullable().default(null),
   scopes: z.array(ErgonConnectionScopeSchema).default([]),
@@ -64,18 +67,7 @@ export const ErgonConnectionPublicSchema = z.object({
 
 export type ErgonConnectionPublic = z.infer<typeof ErgonConnectionPublicSchema>;
 
-/** Legacy PUT body for interim PAT (not the Mira product path). */
-export const ErgonConnectionPutSchema = z.object({
-  url: z.string().min(1).max(500),
-  token: z.string().min(1).max(2_000).optional(),
-  scopes: z.array(ErgonConnectionScopeSchema).min(1).max(3),
-});
-
-export type ErgonConnectionPut = z.infer<typeof ErgonConnectionPutSchema>;
-
-export function uniqueErgonScopes(
-  scopes: readonly ErgonConnectionScope[]
-): ErgonConnectionScope[] {
+export function uniqueErgonScopes(scopes: readonly ErgonConnectionScope[]): ErgonConnectionScope[] {
   return ERGON_CONNECTION_SCOPES.filter((scope) => scopes.includes(scope));
 }
 
@@ -144,12 +136,6 @@ export function mcpUrlForWorkspace(workspaceUrl: string): string {
 
 export function toPublicErgonConnection(
   record: ErgonConnectionRecord | null,
-  envFallback?: {
-    url: string;
-    mcpUrl?: string | null;
-    scopes: readonly ErgonConnectionScope[];
-    transport?: ErgonTransport;
-  } | null,
   options?: { oauthReady?: boolean }
 ): ErgonConnectionPublic {
   const oauthReady = options?.oauthReady ?? false;
@@ -157,7 +143,7 @@ export function toPublicErgonConnection(
   if (record) {
     return {
       connected: true,
-      authMode: record.authMode === "env" ? "oauth" : record.authMode,
+      authMode: record.authMode,
       transport: record.transport,
       source: "user",
       url: record.url,
@@ -167,23 +153,6 @@ export function toPublicErgonConnection(
       lastOkAt: record.lastOkAt,
       expiresAt: record.expiresAt,
       hasToken: Boolean(record.tokenCiphertext),
-      oauthReady,
-    };
-  }
-
-  if (envFallback) {
-    return {
-      connected: true,
-      authMode: "env",
-      transport: envFallback.transport ?? "rest",
-      source: "env",
-      url: envFallback.url,
-      mcpUrl: envFallback.mcpUrl ?? null,
-      scopes: uniqueErgonScopes([...envFallback.scopes]),
-      connectedAt: null,
-      lastOkAt: null,
-      expiresAt: null,
-      hasToken: true,
       oauthReady,
     };
   }
@@ -218,7 +187,7 @@ export function formatErgonConnectorForWorktable(
 
   const lines = [
     `User Ergon Connector — ${status.mcpUrl ?? status.url ?? "connected"} (${
-      status.authMode === "oauth" ? "MCP OAuth" : status.authMode ?? "connected"
+      status.authMode === "oauth" ? "MCP OAuth" : (status.authMode ?? "connected")
     })`,
     "Specialist Routing: Mira (`agent-planner`) owns docs / briefs / agent runs (`tools.ergon` over MCP). Main chat gets write ticket tools when the connection includes write. There is no second Ergon hard-set agent.",
   ];
