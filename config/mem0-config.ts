@@ -29,6 +29,9 @@ export function createMem0Config({
   qdrantClient = getMemoryQdrantClient(),
 }: CreateMem0ConfigOptions = {}): MemoryConfig {
   return {
+    // Vercel application files are read-only. Auxiliary history is instance-local;
+    // durable memories remain in Qdrant.
+    ...(process.env.VERCEL === "1" ? { historyDbPath: ":memory:" } : {}),
     embedder: {
       provider: "ollama",
       config: {
