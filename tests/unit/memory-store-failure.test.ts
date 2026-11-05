@@ -7,8 +7,8 @@ describe("diagnoseMemoryStoreFailure", () => {
     const diagnosis = diagnoseMemoryStoreFailure(
       new Error(
         "Mem0 Ollama embedder (https://ollama.example.com, model=nomic-embed-text): Ollama /api/embed request failed — embedder unreachable",
-        { cause: new TypeError("fetch failed") },
-      ),
+        { cause: new TypeError("fetch failed") }
+      )
     );
 
     expect(diagnosis.kind).toBe("embedder");
@@ -20,8 +20,8 @@ describe("diagnoseMemoryStoreFailure", () => {
   test("classifies a successful embed response that had no vector without calling it unreachable", () => {
     const diagnosis = diagnoseMemoryStoreFailure(
       new Error(
-        "Mem0 Ollama embedder (https://ai.example.com, model=nomic-embed-text): Ollama embed returned no embedding vector (status=200, body={\"embeddings\":[]})",
-      ),
+        'Mem0 Ollama embedder (https://ai.example.com, model=nomic-embed-text): Ollama embed returned no embedding vector (status=200, body={"embeddings":[]})'
+      )
     );
 
     expect(diagnosis.kind).toBe("embedder");
@@ -31,7 +31,7 @@ describe("diagnoseMemoryStoreFailure", () => {
 
   test("classifies mem0 ensureModelExists fetch failures", () => {
     const diagnosis = diagnoseMemoryStoreFailure(
-      new Error("Error ensuring model exists: TypeError: fetch failed"),
+      new Error("Error ensuring model exists: TypeError: fetch failed")
     );
 
     expect(diagnosis.kind).toBe("embedder");
@@ -39,7 +39,7 @@ describe("diagnoseMemoryStoreFailure", () => {
 
   test("classifies better-sqlite3 binding failures", () => {
     const diagnosis = diagnoseMemoryStoreFailure(
-      new Error("Could not locate the bindings file. Tried: node-v137-darwin-arm64"),
+      new Error("Could not locate the bindings file. Tried: node-v137-darwin-arm64")
     );
 
     expect(diagnosis.kind).toBe("sqlite");
@@ -55,10 +55,21 @@ describe("diagnoseMemoryStoreFailure", () => {
 
   test("classifies OpenAI fact-extraction failures", () => {
     const diagnosis = diagnoseMemoryStoreFailure(
-      new Error("401 Incorrect API key provided: sk-***"),
+      new Error("401 Incorrect API key provided: sk-***")
     );
 
     expect(diagnosis.kind).toBe("mem0_llm");
     expect(diagnosis.hint).toContain("OPENAI_API_KEY");
   });
+});
+
+test("classifies production SQLite open failures with a serverless history hint", () => {
+  const error = Object.assign(new Error("unable to open database file"), {
+    name: "SqliteError",
+    code: "SQLITE_CANTOPEN",
+  });
+  const diagnosis = diagnoseMemoryStoreFailure(error);
+  expect(diagnosis.kind).toBe("sqlite");
+  expect(diagnosis.hint).toContain("historyDbPath");
+  expect(diagnosis.detail).toContain("SQLITE_CANTOPEN");
 });

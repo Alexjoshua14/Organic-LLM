@@ -8,6 +8,23 @@ mock.module("@/config/memory-qdrant-client", () => ({
 /** Stable mock URL — mem0-config should wire this into embedder.config.url. */
 const MOCK_OLLAMA_URL = "https://ollama.example.com";
 
+test("Vercel history avoids filesystem writes while local history keeps SDK defaults", async () => {
+  const saved = process.env.VERCEL;
+  const { createMem0Config } = await import("@/config/mem0-config");
+
+  try {
+    process.env.VERCEL = "1";
+    const deployed = createMem0Config();
+    expect(deployed.historyDbPath).toBe(":memory:");
+    expect(deployed.vectorStore.provider).toBe("qdrant");
+    delete process.env.VERCEL;
+    expect(createMem0Config().historyDbPath).toBeUndefined();
+  } finally {
+    if (saved === undefined) delete process.env.VERCEL;
+    else process.env.VERCEL = saved;
+  }
+});
+
 describe("mem0-config embedder", () => {
   test("uses OLLAMA_URL for the Mem0 Ollama embedder", async () => {
     const { createMem0Config } = await import("@/config/mem0-config");

@@ -16,7 +16,11 @@ function errorText(error: unknown): string {
     return String(error);
   }
 
-  const parts: string[] = [error.message];
+  const parts: string[] = [
+    error.name,
+    error.message,
+    String((error as Error & { code?: unknown }).code ?? ""),
+  ];
   let cause: unknown = error.cause;
 
   while (cause instanceof Error) {
@@ -38,6 +42,14 @@ function matchesAny(text: string, patterns: RegExp[]): boolean {
 export function diagnoseMemoryStoreFailure(error: unknown): MemoryStoreFailureDiagnosis {
   const text = errorText(error);
   const lower = text.toLowerCase();
+
+  if (matchesAny(lower, [/sqlite_cantopen/, /unable to open database file/, /readonly database/])) {
+    return {
+      kind: "sqlite",
+      hint: "Mem0 auxiliary history database could not be opened — verify serverless deployments use an in-memory historyDbPath instead of the read-only application directory.",
+      detail: text,
+    };
+  }
 
   if (matchesAny(lower, [/better-sqlite3/, /could not locate the bindings file/, /node_sqlite3/])) {
     return {
