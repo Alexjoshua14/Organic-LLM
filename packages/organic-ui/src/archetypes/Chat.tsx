@@ -1,4 +1,5 @@
 import { UIMessage } from "@ai-sdk/react";
+import { unstable_rethrow } from "next/navigation";
 
 import { Chat } from "@/components/chat/chat";
 import { loadChat } from "@/data/supabase/chat";
@@ -20,6 +21,7 @@ export default async function ChatArchetype({ chatId }: { chatId: string }) {
 
     chatData = chatDataRes.data;
   } catch (err) {
+    unstable_rethrow(err);
     logger.error("ChatPage", `Error while loading chat: ${err}`);
 
     // const id = await createChat().then((res) => res.data ?? "");

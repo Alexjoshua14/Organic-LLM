@@ -114,13 +114,13 @@ export async function probeErgonMcpConnection(args: {
         url: args.mcpUrl,
         headers: { authorization: `Bearer ${args.token}` },
         redirect: "error",
-        fetch: async (input, init) => {
+        fetch: (async (input, init) => {
           const response = await (args.fetch ?? globalThis.fetch)(input, init);
 
           httpStatus = response.status;
 
           return response;
-        },
+        }) as Fetch,
       },
     });
 
