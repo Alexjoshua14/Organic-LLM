@@ -3,39 +3,37 @@ import * as clerk from "@clerk/nextjs/server";
 
 import { createMockAuth, createMockClerkUser } from "../helpers/mock-auth";
 import { mockModulePreservingReal } from "../helpers/module-mock";
-import * as userConnectorsStore from "@/lib/connectors/user-connectors-store";
-import {
-  defaultUserConnectorsProfile,
-  normalizeUserConnectorsProfile,
-  type UserConnectorsProfile,
-  type UserConnectorsProfileInput,
-} from "@/lib/schemas/user-connectors";
+import { createMemoryErgonRepo } from "../helpers/ergon-memory-repo";
+import { createMemoryUserConnectorsRepo } from "../helpers/user-connectors-memory-repo";
+import { setProfileLookupForTests } from "@/lib/api/profile-actor";
+import { setErgonConnectionRepoForTests } from "@/lib/connectors/ergon-connection-repo";
+import { setUserConnectorsRepoForTests } from "@/lib/connectors/user-connectors-repo";
+import { loadUserConnectorsProfile } from "@/lib/connectors/user-connectors-store";
+import { type UserConnectorsProfile } from "@/lib/schemas/user-connectors";
 
+const PROFILE_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const mockAuth = mock(createMockAuth());
-let stored: UserConnectorsProfile = defaultUserConnectorsProfile();
+let connectorsRepo = createMemoryUserConnectorsRepo();
 
-// Restored in afterAll: user-connectors.test.ts exercises the real store, and a stub left
-// registered here made it fail on the Linux runner, where files run in a different order.
+// The routes run against the real store with in-memory repositories, so these tests exercise
+// authentication → profile id → encrypted persistence end to end. Only Clerk is module-stubbed
+// (restored in afterAll); the Clerk→profile lookup uses an explicit seam.
 const restoreStubs = [
   mockModulePreservingReal("@clerk/nextjs/server", clerk, {
     auth: mockAuth as unknown as typeof clerk.auth,
   }),
-  mockModulePreservingReal("@/lib/connectors/user-connectors-store", userConnectorsStore, {
-    loadUserConnectorsProfile: async () => stored,
-    saveUserConnectorsProfile: async (
-      _userId: string,
-      input: Partial<UserConnectorsProfileInput>
-    ) => {
-      stored = normalizeUserConnectorsProfile(input, stored);
-
-      return stored;
-    },
-  }),
 ];
+
+setProfileLookupForTests(async () => ({ data: PROFILE_ID, error: null }));
 
 afterAll(() => {
   for (const restore of restoreStubs) restore();
+  setProfileLookupForTests(null);
+  setUserConnectorsRepoForTests(null);
+  setErgonConnectionRepoForTests(null);
 });
+
+const stored = () => loadUserConnectorsProfile(PROFILE_ID);
 
 import { GET, PUT } from "@/app/api/profile/connectors/route";
 import { GET as getGithub } from "@/app/api/profile/connectors/github/route";
@@ -44,7 +42,10 @@ const originalFetch = globalThis.fetch;
 
 describe("profile connectors routes", () => {
   beforeEach(() => {
-    stored = defaultUserConnectorsProfile();
+    connectorsRepo = createMemoryUserConnectorsRepo();
+    setUserConnectorsRepoForTests(connectorsRepo);
+    setErgonConnectionRepoForTests(createMemoryErgonRepo());
+    process.env.ORGANIC_LLM_ROOT_SECRET ??= "test-root-secret";
     mockAuth.mockReset();
     mockAuth.mockResolvedValue(createMockClerkUser());
     globalThis.fetch = originalFetch;
@@ -113,7 +114,7 @@ describe("profile connectors routes", () => {
     );
 
     expect(res.status).toBe(400);
-    expect(stored.educationAndTranscripts).toBe("");
+    expect((await stored()).educationAndTranscripts).toBe("");
   });
 
   test("GitHub sync fetches the public profile and stores the snapshot", async () => {
@@ -158,13 +159,17 @@ describe("profile connectors routes", () => {
     );
     const body = (await res.json()) as {
       data: { username: string; repos: Array<{ name: string }> };
+      persisted: boolean;
     };
 
     expect(res.status).toBe(200);
     expect(body.data.username).toBe("Alexjoshua14");
     expect(body.data.repos[0]?.name).toBe("organic-llm");
-    expect(stored.githubUsername).toBe("Alexjoshua14");
-    expect(stored.cachedGithubSnapshot?.repos[0]?.language).toBe("TypeScript");
+    expect(body.persisted).toBe(true);
+    const after = await stored();
+
+    expect(after.githubUsername).toBe("Alexjoshua14");
+    expect(after.cachedGithubSnapshot?.repos[0]?.language).toBe("TypeScript");
   });
 
   test("GitHub sync rejects a missing handle", async () => {
@@ -173,5 +178,58 @@ describe("profile connectors routes", () => {
     );
 
     expect(res.status).toBe(400);
+  });
+
+  test("a store outage answers 503 and never claims the profile was saved", async () => {
+    connectorsRepo.failNext.add("get");
+    const down = await GET();
+
+    expect(down.status).toBe(503);
+
+    connectorsRepo.failNext.add("get");
+    const put = await PUT(
+      new Request("http://localhost/api/profile/connectors", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ careerHistory: "lost" }),
+      })
+    );
+
+    expect(put.status).toBe(503);
+    expect(connectorsRepo.rows.size).toBe(0);
+  });
+
+  test("a client cannot set the Ergon connection status", async () => {
+    const put = await PUT(
+      new Request("http://localhost/api/profile/connectors", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          careerHistory: "x",
+          ergonConnection: {
+            connected: true,
+            authMode: "oauth",
+            transport: "mcp",
+            source: "user",
+            url: "https://ergon.example.com",
+            mcpUrl: "https://ergon.example.com/mcp",
+            scopes: ["read", "write", "agents"],
+            connectedAt: "2026-11-05T00:00:00.000Z",
+            lastOkAt: null,
+            expiresAt: null,
+            hasToken: true,
+            oauthReady: true,
+          },
+        }),
+      })
+    );
+    const body = (await put.json()) as { data: UserConnectorsProfile };
+
+    expect(put.status).toBe(200);
+    expect(body.data.ergonConnection).toBeNull();
+
+    const get = (await (await GET()).json()) as { data: UserConnectorsProfile };
+
+    expect(get.data.ergonConnection).toBeNull();
   });
 });

@@ -1,6 +1,18 @@
-import { mkdir, readFile, writeFile } from "fs/promises";
-import path from "path";
+import "server-only";
 
+import type { encryptForStorage } from "@/lib/crypto/message-encryption";
+
+import {
+  getDefaultUserConnectorsRepo,
+  UserConnectorsStoreError,
+  type UserConnectorsRepo,
+} from "@/lib/connectors/user-connectors-repo";
+import {
+  EncryptionRequiredError,
+  openFromStorage,
+  sealForStorage,
+} from "@/lib/crypto/stored-payload";
+import { createLogger } from "@/lib/logger";
 import {
   defaultUserConnectorsProfile,
   normalizeUserConnectorsProfile,
@@ -8,146 +20,162 @@ import {
   type UserConnectorsProfile,
   type UserConnectorsProfileInput,
 } from "@/lib/schemas/user-connectors";
-import { decryptFromStorage, encryptForStorage } from "@/lib/crypto/message-encryption";
 
-const memoryStore = new Map<string, UserConnectorsProfile>();
+export { UserConnectorsStoreError } from "@/lib/connectors/user-connectors-repo";
 
-function getStoreRootDir(customRootDir?: string): string {
-  return customRootDir ?? path.join(process.cwd(), ".data", "user-connectors");
-}
-
-function fileForUser(userId: string, rootDir?: string): string {
-  const safe = userId.replace(/[^a-zA-Z0-9_-]/g, "_");
-
-  return path.join(getStoreRootDir(rootDir), `${safe}.json`);
-}
-
-function tryEncryptPayload(userId: string, payload: UserConnectorsProfile): string {
-  const plaintext = JSON.stringify(payload);
-
-  if (!process.env.ORGANIC_LLM_ROOT_SECRET) {
-    return JSON.stringify({ encrypted: false, data: payload }, null, 2);
-  }
-
-  try {
-    const ciphertext = encryptForStorage(plaintext, {
-      userId,
-      threadId: "user-connectors",
-      fieldName: "user_connectors.profile",
-    });
-
-    return JSON.stringify({ encrypted: true, ciphertext }, null, 2);
-  } catch {
-    return JSON.stringify({ encrypted: false, data: payload }, null, 2);
-  }
-}
-
-function tryDecryptPayload(userId: string, rawFileContent: string): UserConnectorsProfile | null {
-  try {
-    const envelope = JSON.parse(rawFileContent) as {
-      encrypted?: boolean;
-      ciphertext?: string;
-      data?: unknown;
-    };
-
-    if (envelope.encrypted && typeof envelope.ciphertext === "string") {
-      const decrypted = decryptFromStorage(envelope.ciphertext, {
-        userId,
-        threadId: "user-connectors",
-        fieldName: "user_connectors.profile",
-      });
-      const parsed = UserConnectorsProfileSchema.safeParse(JSON.parse(decrypted));
-
-      return parsed.success ? normalizeUserConnectorsProfile(parsed.data) : null;
-    }
-
-    const candidate = envelope.data ?? envelope;
-    const parsed = UserConnectorsProfileSchema.safeParse(candidate);
-
-    return parsed.success ? normalizeUserConnectorsProfile(parsed.data) : null;
-  } catch {
-    return null;
-  }
-}
-
-export type UserConnectorsStoreOptions = {
-  rootDir?: string;
-};
+const logger = createLogger("lib/connectors/user-connectors-store.ts");
 
 /**
- * Load a user's private connectors & personal dossier from the server store
- * (in-memory cache + encrypted local file persistence under `.data/user-connectors/`).
+ * A user's private connectors profile (dossier + connector handles), stored durably in
+ * `public.user_connectors_profiles`, keyed by the Organic profile id (never an auth-provider id).
+ *
+ * The whole profile is one encrypted JSON document. The document is open: fields this build does
+ * not know are carried through every save untouched, so a newer deploy's (or an experiment's)
+ * fields survive an older instance's write. Nothing is cached in process memory or on disk, so
+ * every server instance sees the same profile.
+ *
+ * Failures are never swallowed. A load that cannot read or open the stored profile throws rather
+ * than returning defaults, because the next save would otherwise overwrite real data with them.
+ * `ergonConnection` is never stored: it is derived from the durable Ergon connection on read.
+ */
+
+const PAYLOAD_SCHEMA_VERSION = 1;
+const SCHEMA_VERSION_KEY = "_schema";
+const MAX_SAVE_ATTEMPTS = 3;
+const KNOWN_KEYS = new Set<string>([
+  ...Object.keys(UserConnectorsProfileSchema.shape),
+  SCHEMA_VERSION_KEY,
+]);
+
+export type UserConnectorsStoreOptions = {
+  /** Injected for tests; defaults to the service-role Supabase repository. */
+  repo?: UserConnectorsRepo;
+  now?: () => number;
+  /** Injected for tests to simulate an encryption failure. */
+  encrypt?: typeof encryptForStorage;
+};
+
+const payloadContext = (profileId: string) => ({
+  userId: profileId,
+  threadId: "user-connectors",
+  fieldName: "user_connectors.profile" as const,
+});
+
+type Decoded = { profile: UserConnectorsProfile; extras: Record<string, unknown> };
+
+function decode(profileId: string, ciphertext: string): Decoded {
+  const plaintext = openFromStorage(ciphertext, payloadContext(profileId));
+
+  if (plaintext === null) {
+    logger.error("decode", "Stored connectors profile could not be opened");
+
+    throw new UserConnectorsStoreError("decrypt");
+  }
+
+  let raw: unknown;
+
+  try {
+    raw = JSON.parse(plaintext);
+  } catch {
+    throw new UserConnectorsStoreError("corrupt_row");
+  }
+
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new UserConnectorsStoreError("corrupt_row");
+  }
+
+  // Stored values were normalized on write, so a single schema parse is enough on the read path.
+  const parsed = UserConnectorsProfileSchema.safeParse(raw);
+
+  if (!parsed.success) {
+    logger.error("decode", "Stored connectors profile does not match the schema");
+
+    throw new UserConnectorsStoreError("corrupt_row");
+  }
+
+  const extras: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(raw)) {
+    if (!KNOWN_KEYS.has(key)) extras[key] = value;
+  }
+
+  return { profile: { ...parsed.data, ergonConnection: null }, extras };
+}
+
+/**
+ * Load a user's connectors profile by Organic profile id. Returns the empty default only when
+ * no profile has been saved. Store failures throw `UserConnectorsStoreError`.
  */
 export async function loadUserConnectorsProfile(
-  userId: string,
+  profileId: string,
   options?: UserConnectorsStoreOptions
 ): Promise<UserConnectorsProfile> {
-  const key = userId.trim();
+  const key = profileId.trim();
 
   if (!key) return defaultUserConnectorsProfile();
 
-  const cached = memoryStore.get(key);
+  const repo = options?.repo ?? (await getDefaultUserConnectorsRepo());
+  const row = await repo.get(key);
 
-  if (cached && !options?.rootDir) {
-    return cached;
-  }
-
-  try {
-    const raw = await readFile(fileForUser(key, options?.rootDir), "utf8");
-    const loaded = tryDecryptPayload(key, raw);
-
-    if (loaded) {
-      if (!options?.rootDir) memoryStore.set(key, loaded);
-
-      return loaded;
-    }
-  } catch {
-    // File does not exist yet or cannot be read; fall through to default.
-  }
-
-  return cached ?? defaultUserConnectorsProfile();
+  return row ? decode(key, row.payload_ciphertext).profile : defaultUserConnectorsProfile();
 }
 
 /**
- * Save a user's private connectors & personal dossier to the server store.
+ * Merge `input` into the user's stored profile and persist it. Concurrent saves are detected with
+ * a version compare-and-swap and re-merged, so one writer never drops another's fields. Throws if
+ * the write does not durably succeed.
  */
 export async function saveUserConnectorsProfile(
-  userId: string,
+  profileId: string,
   input: Partial<UserConnectorsProfileInput>,
-  options?: UserConnectorsStoreOptions & { now?: () => number }
+  options?: UserConnectorsStoreOptions
 ): Promise<UserConnectorsProfile> {
-  const key = userId.trim();
+  const key = profileId.trim();
 
-  if (!key) {
-    return normalizeUserConnectorsProfile(input);
-  }
+  if (!key) throw new UserConnectorsStoreError("invalid_owner");
 
-  const existing = await loadUserConnectorsProfile(key, options);
+  const repo = options?.repo ?? (await getDefaultUserConnectorsRepo());
   const nowIso = new Date((options?.now ?? Date.now)()).toISOString();
-  const next = normalizeUserConnectorsProfile(
-    {
-      ...input,
-      updatedAt: nowIso,
-    },
-    existing
-  );
 
-  if (!options?.rootDir) {
-    memoryStore.set(key, next);
+  for (let attempt = 0; attempt < MAX_SAVE_ATTEMPTS; attempt++) {
+    const row = await repo.get(key);
+    const existing = row ? decode(key, row.payload_ciphertext) : null;
+    const next = {
+      ...normalizeUserConnectorsProfile(
+        { ...input, updatedAt: nowIso },
+        existing?.profile ?? undefined
+      ),
+      // Derived on read from the durable Ergon connection; never persisted.
+      ergonConnection: null,
+    };
+    let ciphertext: string;
+
+    try {
+      ciphertext = sealForStorage(
+        JSON.stringify({
+          ...existing?.extras,
+          ...next,
+          [SCHEMA_VERSION_KEY]: PAYLOAD_SCHEMA_VERSION,
+        }),
+        payloadContext(key),
+        options?.encrypt
+      );
+    } catch (error) {
+      if (error instanceof EncryptionRequiredError) {
+        logger.error("save", "Refusing to store a connectors profile without encryption");
+
+        throw new UserConnectorsStoreError("encrypt");
+      }
+
+      throw error;
+    }
+
+    const written = row
+      ? await repo.update(key, row.version, ciphertext)
+      : await repo.insert(key, ciphertext);
+
+    if (written) return next;
   }
 
-  try {
-    const dir = getStoreRootDir(options?.rootDir);
-
-    await mkdir(dir, { recursive: true });
-    await writeFile(fileForUser(key, options?.rootDir), tryEncryptPayload(key, next), "utf8");
-  } catch {
-    // If filesystem is read-only (e.g. serverless edge), in-memory store still holds it for the instance.
-  }
-
-  return next;
-}
-
-export function clearUserConnectorsMemoryStore(): void {
-  memoryStore.clear();
+  throw new UserConnectorsStoreError("conflict");
 }

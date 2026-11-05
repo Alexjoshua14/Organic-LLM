@@ -2,16 +2,17 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { requireLlmChatActor } from "@/lib/api/chat-llm-gate";
-import { saveErgonConnectionRecord } from "@/lib/connectors/ergon-connection-store";
+import {
+  ErgonConnectionStoreError,
+  saveErgonConnectionRecord,
+} from "@/lib/connectors/ergon-connection-store";
 import {
   ergonOAuthClientConfig,
   ERGON_OAUTH_COOKIE_NAME,
   exchangeErgonOAuthToken,
 } from "@/lib/connectors/ergon-oauth";
-import { saveUserConnectorsProfile } from "@/lib/connectors/user-connectors-store";
 import { probeErgonMcpConnection } from "@/lib/llm/ergon-mcp-client";
 import { createLogger } from "@/lib/logger";
-import { toPublicErgonConnection } from "@/lib/schemas/ergon-connection";
 
 const logger = createLogger("ergon/oauth/callback");
 
@@ -37,7 +38,7 @@ function settingsRedirect(req: Request, query: Record<string, string>): NextResp
 /**
  * GET /api/profile/connectors/ergon/oauth/callback
  *
- * Completes Ergon MCP OAuth. Stores access (+ refresh) ciphertext server-side only.
+ * Completes Ergon MCP OAuth. Stores access (+ refresh) ciphertext server-side only, in the durable `ergon_connections` table.
  * Never returns refresh tokens to the browser — redirects to Settings with public status.
  */
 export async function GET(req: Request) {
@@ -45,7 +46,7 @@ export async function GET(req: Request) {
 
   if (authGate.error != null) return authGate.error;
 
-  const { sbUserId, clerkUserId } = authGate.data!;
+  const { sbUserId } = authGate.data!;
   const config = ergonOAuthClientConfig();
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
@@ -121,21 +122,27 @@ export async function GET(req: Request) {
   }
 
   // Organic-side scopes: one OAuth session powers Mira (agents) and chat writes separately.
-  const record = await saveErgonConnectionRecord(sbUserId, {
-    url: config.workspaceUrl,
-    mcpUrl: config.mcpUrl,
-    token: exchanged.tokens.accessToken,
-    refreshToken: exchanged.tokens.refreshToken,
-    authMode: "oauth",
-    transport: "mcp",
-    scopes: ["read", "write", "agents"],
-    expiresAt: exchanged.tokens.expiresAt,
-    lastOkAt: new Date().toISOString(),
-  });
+  // "Connected" is only reported after the durable write succeeds.
+  try {
+    await saveErgonConnectionRecord(sbUserId, {
+      url: config.workspaceUrl,
+      mcpUrl: config.mcpUrl,
+      token: exchanged.tokens.accessToken,
+      refreshToken: exchanged.tokens.refreshToken,
+      scopes: ["read", "write", "agents"],
+      expiresAt: exchanged.tokens.expiresAt,
+      lastOkAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    logger.error("GET", "Ergon connection could not be saved", {
+      code: error instanceof ErgonConnectionStoreError ? (error.code ?? error.operation) : null,
+    });
 
-  const publicStatus = toPublicErgonConnection(record, null, { oauthReady: true });
-
-  await saveUserConnectorsProfile(clerkUserId, { ergonConnection: publicStatus });
+    return settingsRedirect(req, {
+      ergon_oauth: "error",
+      ergon_oauth_error: "connection_not_saved",
+    });
+  }
 
   return settingsRedirect(req, { ergon_oauth: "connected" });
 }
