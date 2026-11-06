@@ -85,6 +85,7 @@ function hinted(show: boolean, id: FeatureHintId, node: ReactNode, showWhen?: bo
  * - submit: steer, send
  *
  * Leading and trailing share the tools row (`toolsRef`); the submit cluster sits beside it.
+ * On condensed shells, leading settings wrap above a shared trailing-actions / submit row.
  *
  * The CoreInput lab's "Assembled toolbar" card renders this same component, so a layout change
  * here shows up in `/sandbox/prototypes/core-input?view=focus&control=toolbar` as well.
@@ -102,19 +103,28 @@ export function CoreInputFooter({
   onThreadReference,
   submit,
 }: CoreInputFooterProps) {
-  const { showLabels } = useCoreInputControls();
+  const { showLabels, useCondensedLayout } = useCoreInputControls();
   const inline = (id: keyof FooterPlacementMap) => placement[id] === "inline";
 
   return (
-    <PromptInputFooter className="cursor-default overflow-visible">
-      <div ref={toolsRef} className="min-w-0 flex-1 overflow-visible">
-        <PromptInputTools className="flex min-w-0 w-full items-center justify-between gap-1 overflow-visible">
+    <PromptInputFooter className="cursor-default flex-wrap gap-y-2 overflow-visible">
+      <div
+        ref={toolsRef}
+        className={cn("min-w-0 flex-1 overflow-visible", useCondensedLayout && "contents")}
+      >
+        <PromptInputTools
+          className={cn(
+            "flex min-w-0 w-full items-center justify-between gap-1 overflow-visible",
+            useCondensedLayout && "contents"
+          )}
+        >
           {/* Leading: settings for the next turn. `gap-3` separates control groups; the
               tighter `gap-1` inside each group is owned by the group itself. */}
           <div
             aria-hidden={settingsReady ? undefined : true}
             className={cn(
-              "flex min-w-0 items-center gap-3 overflow-visible",
+              "flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 overflow-visible",
+              useCondensedLayout && "basis-full",
               "transition-[opacity,visibility] ease-out motion-reduce:transition-none",
               settingsReady ? "visible opacity-100" : "invisible opacity-0"
             )}
@@ -132,8 +142,9 @@ export function CoreInputFooter({
             {inline("contextEffort") ? <ComposerContextEffortSlider /> : null}
           </div>
 
-          {/* Trailing: things added to the draft, then the overflow menu. */}
-          <div className="flex shrink-0 items-center gap-1">
+          {/* Trailing: draft actions, then overflow. On narrow shells these share the next
+              row with submit. `contents` above keeps their DOM order and shell measurement. */}
+          <div className={cn("flex shrink-0 items-center gap-1", useCondensedLayout && "flex-1")}>
             {inline("addFiles") ? <ComposerAddFilesButton /> : null}
             {inline("threadClipboard") && onThreadReference ? (
               <ThreadClipboardPicker onSelect={onThreadReference} />

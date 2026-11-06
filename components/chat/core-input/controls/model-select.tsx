@@ -42,7 +42,7 @@ export function ComposerModelSelect() {
           composerSelectSegmentClasses,
           // Reclaims the right corners once effort slides away, so the hover
           // fill stops squaring off against the frame's rounded edge.
-          "rounded-l-md rounded-r-none group-data-[effort=hidden]/segments:rounded-r-md",
+          "shrink rounded-l-md rounded-r-none group-data-[effort=hidden]/segments:rounded-r-md",
           isAuto
             ? useCondensedLayout
               ? "max-w-48 pl-1 pr-1.5"
