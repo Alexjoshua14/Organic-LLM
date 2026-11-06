@@ -97,7 +97,7 @@ test("mounting Stage beta does not reset global composer preferences", () => {
 
 test("default CoreInput keeps its existing layout and never adds beta controls", () => {
   const app = render(<Composer variant="default" />);
-  expect(app.container.querySelector(".core-input-stage-beta")).toBeNull();
+  expect(app.container.querySelector(".core-input-condensed")).toBeNull();
   expect(app.queryByRole("button", { name: "Composer options" })).toBeNull();
   expect(app.queryByRole("button", { name: "Start voice session" })).toBeNull();
 });

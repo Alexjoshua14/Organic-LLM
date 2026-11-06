@@ -710,3 +710,79 @@ describe("CoreInput first paint", () => {
     expect(observed).toEqual([true, true]);
   });
 });
+
+describe("CoreInput shared compact layout", () => {
+  afterEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+    localStorage.clear();
+  });
+
+  test.each(["default", "compact", "stage-beta"] as const)(
+    "%s uses the same compact controls, glass, and settings without losing its draft",
+    async (variant) => {
+      const rect = spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(() => ({
+        width: 375,
+        height: 60,
+        top: 0,
+        left: 0,
+        right: 375,
+        bottom: 60,
+        x: 0,
+        y: 0,
+        toJSON() {},
+      }));
+      try {
+        const app = render(
+          <Providers>
+            <CoreInput
+              variant={variant}
+              modelRef={{ current: DEFAULT_COMPOSER_MODEL }}
+              useWebSearchRef={{ current: false }}
+              useMemoriesRef={{ current: false }}
+              useSpeechFriendlyRef={{ current: false }}
+              defaultWebSearch={false}
+              defaultMemories={false}
+              sendMessage={async () => {}}
+              stop={async () => {}}
+              status="ready"
+              featureHints={false}
+              showContextBudget={false}
+            />
+          </Providers>
+        );
+        const input = app.getByRole("textbox") as HTMLTextAreaElement;
+        fireEvent.change(input, { target: { value: "Keep this draft" } });
+        expect(app.container.querySelector(".core-input-compact-row")).toBeTruthy();
+        expect(
+          app.container
+            .querySelector("[data-prompt-input-shell]")
+            ?.classList.contains("organic-glass-smoke")
+        ).toBe(true);
+        expect(app.queryByRole("combobox", { name: "Model" })).toBeNull();
+        const options = app.getByRole("button", { name: "Composer options" });
+        await waitFor(() => expect(options.hasAttribute("disabled")).toBe(false));
+        fireEvent.click(options);
+        const panel = await app.findByRole("dialog", { name: "Composer settings" });
+        expect(panel.classList.contains("organic-glass-smoke")).toBe(true);
+        expect(within(panel).getByRole("combobox", { name: "Model" })).toBeTruthy();
+        expect(Boolean(within(panel).queryByRole("button", { name: "Add files" }))).toBe(
+          variant !== "stage-beta"
+        );
+        fireEvent.click(within(panel).getByRole("button", { name: "Web search off" }));
+        expect(within(panel).getByRole("button", { name: "Web search on" })).toBeTruthy();
+        fireEvent.click(within(panel).getByRole("button", { name: "Memory off" }));
+        expect(within(panel).getByRole("button", { name: "Memory on" })).toBeTruthy();
+        expect(app.getByRole("textbox") === input).toBe(true);
+        expect(input.value).toBe("Keep this draft");
+        fireEvent.click(within(panel).getByRole("button", { name: "Close composer settings" }));
+        await waitFor(() =>
+          expect(app.queryByRole("dialog", { name: "Composer settings" })).toBeNull()
+        );
+        expect(document.activeElement).toBe(options);
+      } finally {
+        rect.mockRestore();
+      }
+    }
+  );
+});

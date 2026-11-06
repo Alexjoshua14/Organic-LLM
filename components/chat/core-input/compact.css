@@ -1,0 +1,102 @@
+/* Shared compact presentation for narrow CoreInput, side surfaces, and Stage. */
+.core-input-condensed [data-prompt-input-shell] {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  border-radius: 16px;
+}
+.core-input-condensed
+  [data-prompt-input-shell]:has(textarea:focus-visible):not(:has([aria-invalid="true"])) {
+  --tw-ring-shadow: 0 0 #0000;
+  --tw-ring-offset-shadow: 0 0 #0000;
+}
+.core-input-compact-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  min-height: 54px;
+}
+.core-input-condensed textarea {
+  flex: 1;
+  width: 0;
+  min-width: 0;
+  min-height: 36px;
+  max-height: clamp(36px, calc((100dvh - 450px) / 2), 164px);
+  padding: 6px 4px;
+  margin: 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 24px;
+  resize: none;
+  outline: none;
+  box-shadow: none;
+  mask-image: none;
+}
+.core-input-condensed .core-input-compact-submit {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 50%;
+}
+.core-input-options-panel {
+  z-index: 40;
+  width: min(340px, calc(100vw - 32px));
+  max-height: min(70dvh, var(--radix-popover-content-available-height));
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 16px;
+  border-radius: 14px;
+  color: var(--popover-foreground);
+}
+.core-input-options-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+.core-input-options-setting {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 8px 0;
+}
+.core-input-options-setting > span {
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+@media (max-width: 480px) {
+  .core-input-compact-row {
+    gap: 2px;
+    padding: 8px;
+  }
+}
+
+.core-input-condensed [role="region"][aria-label="Markdown preview"] {
+  flex: 1;
+  min-width: 0;
+}
+.core-input-options-setting > :not(span) {
+  max-width: 100%;
+}
+@media (pointer: coarse) {
+  .core-input-compact-row button,
+  .core-input-options-panel button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .core-input-options-setting {
+    min-height: 44px;
+  }
+  .core-input-options-panel [data-core-input-field="model"] {
+    height: 44px;
+  }
+  .core-input-condensed textarea {
+    font-size: 16px;
+  }
+}
