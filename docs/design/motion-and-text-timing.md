@@ -272,6 +272,19 @@ Timing lives in `app/sandbox/arcadia/_components/send-target-picker-motion.ts`:
 settles immediately. Escape and clicking outside collapse the picker; hidden recipients
 leave the tab order and accessibility tree.
 
+## Multiagent activity retention
+
+The dashboard board and condensed row omit unused idle slots. Working and blocked
+agents stay visible; other agents remain for **30 seconds** after their latest live
+status timestamp, giving completed work a readable hold before it clears. This is
+an activity grace period, not an animation duration. Polling does not renew it.
+Agents being viewed, selected, addressed, or called stay visible until that interaction
+ends. The recipient picker retains the full roster so an idle agent can still be addressed.
+The client schedules the next expiry directly, so clearing does not wait for a poll.
+
+`MULTITASK_RECENT_ACTIVITY_MS` lives in
+`lib/arcadia/multitask/agent-visibility.ts`.
+
 ## Usage refresh indicator
 
 The Usage overlay keeps the small uppercase wordmark as `Organic • Usage`, with a 1px,

@@ -35,6 +35,9 @@ import { OrganicActivityMark } from "@/components/agents/organic-activity-mark";
 ```
 
 Sizes are 32, 40, and 56px (`sm`, `md`, `lg`); `className` can override dimensions.
+The mobile multiagent board overrides the mark to 64px; its condensed row uses
+56px marks in 192px cards, leaving a partial next card as the scroll cue. Desktop
+board marks remain 50px.
 An optional `label` gives the mark image semantics; otherwise it is decorative.
 Callers do not need to mount filters, schedule animation, or arrange layers.
 `renderer="v0"` selects the original grid for lab comparisons; the default `"auto"`

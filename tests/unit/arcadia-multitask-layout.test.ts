@@ -117,12 +117,12 @@ describe("queueAgentIdFromSendTarget", () => {
 });
 
 describe("condensed multiagent swipe row", () => {
-  test("a phone shows a few compact cards, with a partial one hinting the row scrolls", () => {
+  test("a phone shows larger compact cards, with a partial one hinting the row scrolls", () => {
     const cards = multitaskCondensedCardsInView(390);
 
-    expect(cards).toBeGreaterThanOrEqual(2.4);
+    expect(cards).toBeGreaterThanOrEqual(1.7);
     expect(cards % 1).toBeGreaterThan(0.2);
-    expect(multitaskCondensedCardsInView(360)).toBeGreaterThanOrEqual(2);
+    expect(multitaskCondensedCardsInView(360)).toBeGreaterThanOrEqual(1.5);
   });
 });
 

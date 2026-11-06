@@ -46,6 +46,12 @@ function mergeEntry(
   entry: SubagentBoardEntry,
   now: number
 ): ArcadiaSubagent {
+  const parsedStatusAt = entry.statusAt ? Date.parse(entry.statusAt) : Number.NaN;
+  const statusAt = Number.isFinite(parsedStatusAt)
+    ? parsedStatusAt
+    : agent.status !== entry.status
+      ? now
+      : agent.statusAt;
   const activitySeed = agent.activitySeed ?? createSubagentActivitySeed(agent);
   const finishedNow = entry.status === "done" && agent.status !== "done" && Boolean(entry.outcome);
   const milestoneId = `ms-${entry.threadId}-${entry.statusAt ?? "na"}`;
@@ -87,6 +93,7 @@ function mergeEntry(
     (agent.latestGoalId ?? null) === (entry.latestGoalId ?? null) &&
     agent.activitySeed === activitySeed &&
     agent.status === entry.status &&
+    agent.statusAt === statusAt &&
     agent.goal === goal &&
     (agent.modelId ?? null) === modelId &&
     agent.progress === progress &&
@@ -102,6 +109,7 @@ function mergeEntry(
     threadId: entry.threadId,
     latestGoalId: entry.latestGoalId ?? null,
     status: entry.status,
+    statusAt,
     goal,
     modelId,
     progress,
