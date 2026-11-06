@@ -1,0 +1,7 @@
+---
+description: Design backbone — consult before motion, loading-state, or UI-feel changes
+globs: components/**/*.tsx,styles/**/*.css,lib/chat/**/*.ts,lib/homepage/**/*.ts,lib/rabbit-holes/**/*.ts,lib/rabbit-holes/**/*.tsx,app/sandbox/prototypes/**/*.tsx,docs/design/**/*.md
+alwaysApply: false
+---
+
+Read and follow the shared rule at [.agents/rules/design-backbone.md](../../.agents/rules/design-backbone.md).
