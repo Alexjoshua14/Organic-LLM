@@ -11,6 +11,7 @@ import { useGenUiGalleryScroll } from "../_hooks/use-gen-ui-gallery-scroll";
 
 import { GenUiGalleryNav } from "./GenUiGalleryNav";
 import { GenUiGallerySection } from "./GenUiGallerySection";
+import { GEN_UI_LAB_STATES, GenUiLabStatePanel, type GenUiLabStateId } from "./GenUiLabStates";
 
 import { GenUIRenderer } from "@/components/chat/gen-ui/GenUIRenderer";
 import { GEN_UI_REGISTRY } from "@/components/chat/gen-ui/registry";
@@ -36,6 +37,9 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
   const [blocks, setBlocks] = useState(initialBlocks);
   const [selectedType, setSelectedType] = useState<GenUIBlockType>("restaurant-card");
   const [viewMode, setViewMode] = useState<GenUiLabViewMode>("gallery");
+  // A rendering state (partial, invalid, streaming) takes over the panel until an archetype is picked.
+  const [stateView, setStateView] = useState<GenUiLabStateId | null>(null);
+  const galleryActive = viewMode === "gallery" && stateView == null;
   const [status, setStatus] = useState<ChatStatus>("ready");
   const [aionMessage, setAionMessage] = useState<string | null>(null);
   const [error, setError] = useState<Error | null>(null);
@@ -50,6 +54,7 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
     if (response.selection) {
       setSelectedType(response.selection.blockType);
       setViewMode(response.selection.viewMode);
+      setStateView(null);
     }
 
     if (response.generated) {
@@ -85,7 +90,7 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
 
   const { scrollRef, registerSection, scrollToType, scrollToIndex, selectedIndex } =
     useGenUiGalleryScroll({
-      enabled: viewMode === "gallery",
+      enabled: galleryActive,
       sectionTypes,
       selectedType,
       onSelectType: setSelectedType,
@@ -157,13 +162,17 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
     (blockType: GenUIBlockType) => {
       setSelectedType(blockType);
 
-      if (viewMode === "gallery") {
+      if (stateView != null) {
+        // The gallery scroller is unmounted while a state shows, so focus the archetype instead.
+        setStateView(null);
+        setViewMode("focus");
+      } else if (viewMode === "gallery") {
         scrollToType(blockType);
       } else {
         setViewMode("focus");
       }
     },
-    [scrollToType, viewMode]
+    [scrollToType, stateView, viewMode]
   );
 
   const handleResetFixtures = useCallback(() => {
@@ -203,11 +212,14 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
               type="button"
               className={cn(
                 "rounded-full px-3 py-1 text-xs font-medium transition-colors",
-                viewMode === "gallery"
+                galleryActive
                   ? "bg-primary text-primary-foreground"
                   : "border border-border text-muted-foreground hover:text-foreground"
               )}
-              onClick={() => setViewMode("gallery")}
+              onClick={() => {
+                setStateView(null);
+                setViewMode("gallery");
+              }}
             >
               Gallery
             </button>
@@ -215,11 +227,14 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
               type="button"
               className={cn(
                 "rounded-full px-3 py-1 text-xs font-medium transition-colors",
-                viewMode === "focus"
+                viewMode === "focus" && stateView == null
                   ? "bg-primary text-primary-foreground"
                   : "border border-border text-muted-foreground hover:text-foreground"
               )}
-              onClick={() => setViewMode("focus")}
+              onClick={() => {
+                setStateView(null);
+                setViewMode("focus");
+              }}
             >
               Focus
             </button>
@@ -227,7 +242,7 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
 
           <nav aria-label="Gen UI archetypes" className="min-h-0 flex-1 space-y-1 overflow-y-auto">
             {archetypeList.map(({ type, label }) => {
-              const active = selectedType === type;
+              const active = selectedType === type && stateView == null;
 
               return (
                 <button
@@ -249,6 +264,28 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
               );
             })}
           </nav>
+
+          <div className="space-y-1">
+            <p className="px-3 text-2xs font-medium uppercase tracking-wide text-muted-foreground">
+              Rendering states
+            </p>
+            {GEN_UI_LAB_STATES.map(({ id, label, hint }) => (
+              <button
+                key={id}
+                type="button"
+                title={hint}
+                className={cn(
+                  "flex w-full items-center rounded-xl px-3 py-2 text-left text-sm transition-colors",
+                  stateView === id
+                    ? "bg-primary/10 text-foreground ring-1 ring-primary/30"
+                    : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                )}
+                onClick={() => setStateView(id)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
 
           <div className="flex flex-col gap-2">
             <button
@@ -280,7 +317,7 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
         </aside>
 
         <section className="relative flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border/70 bg-background/40">
-          {viewMode === "gallery" ? (
+          {galleryActive ? (
             <GenUiGalleryNav
               activeIndex={selectedIndex}
               count={archetypeList.length}
@@ -290,25 +327,29 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
           ) : null}
 
           {/* Focus mode: the title bar stays fixed at the top of the panel while the block scrolls. */}
-          {viewMode === "focus" ? (
+          {!galleryActive ? (
             <div className="flex shrink-0 items-baseline justify-between gap-3 border-b border-border/40 px-4 py-3 sm:px-6">
               <h2 className="text-sm font-medium text-foreground">
-                {GEN_UI_REGISTRY[selectedType].label}
+                {stateView
+                  ? GEN_UI_LAB_STATES.find((s) => s.id === stateView)?.label
+                  : GEN_UI_REGISTRY[selectedType].label}
               </h2>
-              <code className="text-[11px] text-muted-foreground">{selectedType}</code>
+              <code className="text-[11px] text-muted-foreground">
+                {stateView ? "rendering state" : selectedType}
+              </code>
             </div>
           ) : null}
 
           <div
-            ref={viewMode === "gallery" ? scrollRef : undefined}
+            ref={galleryActive ? scrollRef : undefined}
             className={cn(
               "min-h-0 flex-1",
-              viewMode === "gallery"
+              galleryActive
                 ? "gen-ui-gallery-scroll overflow-y-auto overflow-x-hidden"
                 : "overflow-y-auto p-4 sm:p-6"
             )}
           >
-            {viewMode === "gallery" ? (
+            {galleryActive ? (
               archetypeList.map(({ type, label }) => (
                 <GenUiGallerySection
                   key={type}
@@ -334,6 +375,10 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
                   </div>
                 </GenUiGallerySection>
               ))
+            ) : stateView ? (
+              <article className="w-full">
+                <GenUiLabStatePanel state={stateView} />
+              </article>
             ) : (
               <article className="w-full">
                 <GenUIRenderer

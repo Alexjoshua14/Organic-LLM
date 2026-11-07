@@ -13,7 +13,7 @@ import {
   FIXTURE_INVALID_BLOCK,
 } from "@/lib/schemas/gen-ui/fixtures";
 
-// The sandbox galleries (/sandbox/prototypes/gen-ui and gen-ui-lab) render ALL_VALID_FIXTURES.
+// The Gen UI Lab (/sandbox/prototypes/gen-ui-lab) renders ALL_VALID_FIXTURES.
 // A block type without a fixture silently drops out of them, so adding a type must add a fixture.
 describe("gen-ui fixtures stay in sync with block types", () => {
   test("every block type has exactly one valid fixture", () => {
