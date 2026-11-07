@@ -11,6 +11,11 @@ import { messagePartsToCopyMarkdown } from "@/lib/chat/message-copy-markdown";
 import { GenUIBlockSchema } from "@/lib/schemas/gen-ui";
 
 const originalFetch = globalThis.fetch;
+
+function openSourcesLibrary(view: ReturnType<typeof render>) {
+  fireEvent.click(view.getByText(`Sources · ${FIXTURE_RESEARCH_REPORT.sources.length}`));
+}
+
 afterEach(() => {
   cleanup();
   globalThis.fetch = originalFetch;
@@ -35,6 +40,7 @@ describe("Lyra's browsable research", () => {
         }}
       />
     );
+
     expect(notes.getByText("Saved article synopsis")).toBeTruthy();
     expect(notes.getByText("Review its methods")).toBeTruthy();
     expect(notes.getByText("No reusable notes for this source and assignment.")).toBeTruthy();
@@ -45,16 +51,21 @@ describe("Lyra's browsable research", () => {
         output={{ cache: { hits: 1, providerCalls: 0 }, sources: [] }}
       />
     );
+
     expect(
       source.getByText("Reused 1 saved source. Original capture dates appear below.")
     ).toBeTruthy();
   });
   test("renders synopses, takeaways, source scope and page evidence through the Gen UI registry", () => {
     const view = render(<GenUIRenderer data={{ block: FIXTURE_RESEARCH_REPORT }} />);
+
     expect(view.getByText(FIXTURE_RESEARCH_REPORT.title)).toBeTruthy();
+    openSourcesLibrary(view);
+    fireEvent.click(view.getByText("Study methods and results", { selector: "span" }));
     expect(view.getByText(FIXTURE_RESEARCH_REPORT.sources[0]!.synopsis)).toBeTruthy();
     expect(view.getByText(FIXTURE_RESEARCH_REPORT.sources[0]!.takeaways[0]!)).toBeTruthy();
     expect(view.getByText("Partial capture")).toBeTruthy();
+    fireEvent.click(view.getByText(/Inspect evidence/));
     expect(view.getByText("Page 2")).toBeTruthy();
     expect(view.getByRole("link", { name: "Open original" }).getAttribute("rel")).toBe(
       "noopener noreferrer"
@@ -66,6 +77,7 @@ describe("Lyra's browsable research", () => {
       const url = new URL(String(input), "http://localhost");
       const page = url.searchParams.get("page");
       const offset = Number(url.searchParams.get("offset"));
+
       return Response.json({
         sourceId: FIXTURE_RESEARCH_REPORT.sources[0]!.id,
         url: "https://example.com/study",
@@ -76,9 +88,12 @@ describe("Lyra's browsable research", () => {
         nextOffset: page || offset ? null : 12000,
       });
     });
+
     globalThis.fetch = fetcher;
     const view = render(<GenUIRenderer data={FIXTURE_RESEARCH_REPORT} />);
+
     expect(fetcher).not.toHaveBeenCalled();
+    openSourcesLibrary(view);
     fireEvent.click(view.getByText("Study methods and results", { selector: "span" }));
     fireEvent.click(view.getByRole("button", { name: "Read captured text" }));
     await waitFor(() => expect(view.getByDisplayValue("First portion.")).toBeTruthy());
@@ -96,8 +111,11 @@ describe("Lyra's browsable research", () => {
 
   test("shows a recoverable error when saved text is inaccessible", async () => {
     const fetcher = mock<typeof fetch>(async () => new Response("Forbidden", { status: 403 }));
+
     globalThis.fetch = fetcher;
     const view = render(<GenUIRenderer data={FIXTURE_RESEARCH_REPORT} />);
+
+    openSourcesLibrary(view);
     fireEvent.click(view.getByText("Study methods and results", { selector: "span" }));
     fireEvent.click(view.getByRole("button", { name: "Read captured text" }));
     await waitFor(() => expect(view.getByRole("alert").textContent).toContain("Could not load"));
@@ -114,12 +132,14 @@ describe("Lyra's browsable research", () => {
         threadId={FIXTURE_RESEARCH_REPORT.threadId}
       />
     );
+
     expect(view.getByText("Pages read · 1")).toBeTruthy();
     expect(view.getByText(source.title, { selector: "span" })).toBeTruthy();
     cleanup();
     const report = render(
       <ResearchToolResult toolName="research_publish" output={{ block: FIXTURE_RESEARCH_REPORT }} />
     );
+
     expect(report.getByText(FIXTURE_RESEARCH_REPORT.title)).toBeTruthy();
     expect(
       GenUIBlockSchema.safeParse({
@@ -133,6 +153,7 @@ describe("Lyra's browsable research", () => {
     const fetcher = mock<typeof fetch>(
       async () => new Response("Unexpected request", { status: 500 })
     );
+
     globalThis.fetch = fetcher;
     const second = {
       ...FIXTURE_RESEARCH_REPORT.sources[0]!,
@@ -145,6 +166,12 @@ describe("Lyra's browsable research", () => {
       sources: [second, ...FIXTURE_RESEARCH_REPORT.sources],
     };
     const view = render(<ResearchReport block={report} />);
+    const library = view.getByText(`Sources · ${report.sources.length}`).closest("details")!;
+
+    expect(library.open).toBe(false);
+    fireEvent.click(view.getByRole("button", { name: "Inspect source 2" }));
+    await waitFor(() => expect(library.open).toBe(true));
+
     const target = view
       .getByText("Study methods and results", { selector: "span" })
       .closest("details")!;
@@ -152,8 +179,6 @@ describe("Lyra's browsable research", () => {
       .getByText("Second captured document", { selector: "span" })
       .closest("details")!;
 
-    expect(target.open).toBe(false);
-    fireEvent.click(view.getByRole("button", { name: "Inspect source 2" }));
     await waitFor(() => expect(target.open).toBe(true));
     expect(unrelated.open).toBe(false);
     expect(fetcher).not.toHaveBeenCalled();
@@ -201,6 +226,24 @@ describe("Lyra's browsable research", () => {
     expect(noEvidence.queryByText("Quotes match captured sources")).toBeNull();
   });
 
+  test("keeps supporting material collapsed by default while findings stay readable", () => {
+    const view = render(<ResearchReport block={FIXTURE_RESEARCH_REPORT} />);
+    const sources = view
+      .getByText(`Sources · ${FIXTURE_RESEARCH_REPORT.sources.length}`)
+      .closest("details")!;
+    const limits = view.getByText(/Limitations & open questions/).closest("details")!;
+    const evidence = view.getByText(/Inspect evidence/).closest("details")!;
+
+    expect(sources.open).toBe(false);
+    expect(limits.open).toBe(false);
+    expect(evidence.open).toBe(false);
+    expect(view.getByText(FIXTURE_RESEARCH_REPORT.claims[0]!.statement)).toBeTruthy();
+    expect(view.getByText(FIXTURE_RESEARCH_REPORT.claims[0]!.assessment)).toBeTruthy();
+    expect(
+      view.getByText(FIXTURE_RESEARCH_REPORT.sources[0]!.synopsis).closest("details")?.open
+    ).toBe(false);
+  });
+
   test("copy includes the published synopsis, interpretation, quotations and original links", () => {
     const markdown = messagePartsToCopyMarkdown([
       {
@@ -212,6 +255,7 @@ describe("Lyra's browsable research", () => {
         output: { block: FIXTURE_RESEARCH_REPORT },
       },
     ]);
+
     expect(markdown).toContain(FIXTURE_RESEARCH_REPORT.sources[0]!.synopsis);
     expect(markdown).toContain("Lyra’s takeaways");
     expect(markdown).toContain("https://example.com/study");

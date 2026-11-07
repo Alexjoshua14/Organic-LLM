@@ -49,7 +49,7 @@ function GalleryNavItem({ active, label, onSelect, reducedMotion }: GalleryNavIt
         type="button"
         aria-current={active ? "true" : undefined}
         aria-label={label}
-        className="relative block cursor-pointer rounded-full focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-primary/50"
+        className="relative block cursor-pointer rounded-full outline-none focus-visible:outline-none"
         style={{ width: GALLERY_NAV_ROW_WIDTH_PX, height: GALLERY_NAV_ROW_HEIGHT_PX }}
         onBlur={() => setOpen(false)}
         onClick={onSelect}
@@ -88,7 +88,7 @@ function GalleryNavItem({ active, label, onSelect, reducedMotion }: GalleryNavIt
               key="label"
               animate={{ opacity: 1 }}
               aria-hidden
-              className="absolute top-1/2 -translate-y-1/2 text-xs text-muted-foreground"
+              className="absolute top-1/2 -translate-y-1/2 text-xs text-muted-foreground [button:focus-visible_&]:text-foreground"
               exit={{
                 opacity: 0,
                 transition: { duration: reducedMotion ? 0 : GALLERY_NAV_EXIT_S },
@@ -121,7 +121,7 @@ export function GenUiGalleryNav({
   return (
     <nav
       aria-label="Gallery sections"
-      className="pointer-events-none absolute inset-y-0 right-2 z-10 hidden items-center @min-[56rem]:flex"
+      className="pointer-events-none absolute inset-y-0 -right-3 z-10 hidden items-center @min-[56rem]:flex"
     >
       <ul className="pointer-events-auto flex flex-col gap-1.5">
         {Array.from({ length: count }).map((_, index) => (

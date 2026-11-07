@@ -94,9 +94,9 @@ export function GenUiDecisionDemoToolbar({ demo }: { demo: DecisionDemoState }) 
   const { index, arrangement, auto, reducedMotion, step, toggleAuto } = demo;
 
   return (
-    <div className="shrink-0 space-y-1 border-b border-border/40 px-2 pb-3">
+    <div className="shrink-0 space-y-stack-xs border-b border-border/40 pb-stack-md">
       <div
-        className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2"
+        className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-inline-sm"
         role="group"
         aria-label="Comparison demo arrangements"
       >
@@ -151,7 +151,13 @@ export function GenUiDecisionDemoToolbar({ demo }: { demo: DecisionDemoState }) 
           </button>
         </div>
       </div>
-      <p className="text-xs leading-relaxed text-muted-foreground">{arrangement.intent}</p>
+      {/* Two lines are always reserved so a longer intent never moves the arrows or the preview. */}
+      <p
+        className="line-clamp-2 min-h-10 text-xs leading-relaxed text-muted-foreground"
+        title={arrangement.intent}
+      >
+        {arrangement.intent}
+      </p>
     </div>
   );
 }

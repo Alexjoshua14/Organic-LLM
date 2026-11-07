@@ -17,9 +17,12 @@ import {
 import { GenUIMarkdown } from "@/components/chat/gen-ui/GenUIMarkdown";
 import { cn } from "@/lib/utils";
 
+/** Hover = muted wash; keyboard focus = inverted fill + underline (no focus rings). */
 const controlClass =
   "min-h-11 rounded-lg px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:bg-foreground focus-visible:text-background focus-visible:underline focus-visible:underline-offset-4";
 const labelClass = "text-2xs font-semibold uppercase tracking-[0.1em] text-muted-foreground";
+const linkClass =
+  "underline underline-offset-2 focus-visible:outline-none focus-visible:bg-foreground focus-visible:text-background focus-visible:decoration-2";
 
 function displayDate(value: string) {
   const date = new Date(value);
@@ -156,32 +159,30 @@ export function ResearchSourceCard({
       <summary
         className={cn(
           controlClass,
-          "flex cursor-pointer list-none items-start gap-inline-sm rounded-none px-0 py-inset-md"
+          "flex cursor-pointer list-none items-start gap-inline-sm rounded-none px-0 py-inset-sm"
         )}
       >
-        <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md border border-border/50 font-mono text-2xs text-muted-foreground">
+        <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md border border-border/50 font-mono text-2xs text-muted-foreground group-open/source:border-foreground/40 group-open/source:text-foreground">
           {index + 1}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block break-words text-sm font-medium leading-relaxed">
+          <span className="block break-words text-sm font-medium leading-snug">
             {source.title || hostname}
           </span>
           <span className="mt-stack-xs flex flex-wrap items-center gap-x-inline-sm gap-y-stack-xs text-2xs font-normal text-muted-foreground">
             <span>{hostname}</span>
             <span>{scope}</span>
           </span>
-          {source.synopsis ? (
-            <span className="mt-stack-sm block text-sm font-normal leading-relaxed text-foreground/80">
-              {source.synopsis}
-            </span>
-          ) : null}
         </span>
         <ChevronDown
           className="mt-1 size-4 shrink-0 text-muted-foreground group-open/source:rotate-180"
           aria-hidden
         />
       </summary>
-      <div className={cn("pb-inset-lg", spacing.card.section)}>
+      <div className={cn("pb-inset-md", spacing.card.section)}>
+        {source.synopsis ? (
+          <p className="text-sm leading-relaxed text-foreground/80">{source.synopsis}</p>
+        ) : null}
         {source.takeaways.length ? (
           <div className={spacing.card.labelStack}>
             <p className={labelClass}>Lyra’s takeaways</p>
@@ -286,19 +287,22 @@ export function ResearchClaimCard({
   const sourceIds = [...new Set(claim.evidence.map((evidence) => evidence.sourceId))];
 
   return (
-    <article aria-labelledby={titleId} className={cn("min-w-0 py-inset-lg", spacing.card.block)}>
+    <article
+      aria-labelledby={titleId}
+      className={cn("min-w-0 py-inset-md", spacing.card.blockItems)}
+    >
       <div className={spacing.card.labelStack}>
-        <h4 id={titleId} className="text-base font-medium leading-relaxed text-foreground">
+        <h4 id={titleId} className="text-sm font-medium leading-snug text-foreground">
           <GenUIMarkdown inline>{claim.statement}</GenUIMarkdown>
         </h4>
         {claim.assessment ? (
-          <GenUIMarkdown className="space-y-stack-sm text-sm leading-relaxed text-foreground/80">
+          <GenUIMarkdown className="space-y-stack-xs text-sm leading-relaxed text-foreground/80">
             {claim.assessment}
           </GenUIMarkdown>
         ) : null}
       </div>
 
-      <p className="text-xs leading-relaxed text-muted-foreground">
+      <p className="text-2xs leading-relaxed text-muted-foreground">
         {claim.issues.length
           ? claim.issues.map((issue) => RESEARCH_ISSUE_LABELS[issue]).join(" · ")
           : claim.evidence.length
@@ -314,13 +318,13 @@ export function ResearchClaimCard({
               "flex w-fit cursor-pointer list-none items-center gap-inline-sm px-0"
             )}
           >
-            <BookOpen className="size-3.5" aria-hidden />
+            <BookOpen className="size-3.5 shrink-0" aria-hidden />
             Inspect evidence · {claim.evidence.length}
             <ChevronDown className="size-3.5 group-open/claim:rotate-180" aria-hidden />
           </summary>
-          <div className={cn("border-t border-border/30 pt-inset-md", spacing.stack.lg)}>
+          <div className={cn("border-t border-border/30 pt-inset-sm", spacing.card.blockItems)}>
             {claim.evidence.map((evidence, index) => (
-              <figure key={`${evidence.sourceId}-${index}`} className={spacing.card.block}>
+              <figure key={`${evidence.sourceId}-${index}`} className={spacing.card.labelStack}>
                 <figcaption className="flex flex-wrap items-center gap-inline-sm text-xs text-muted-foreground">
                   <span
                     className={cn(
@@ -335,7 +339,7 @@ export function ResearchClaimCard({
                       href={evidence.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="underline underline-offset-2 focus-visible:outline-none focus-visible:bg-foreground focus-visible:text-background focus-visible:decoration-2"
+                      className={linkClass}
                     >
                       {evidence.title || evidence.sourceId}
                     </a>
@@ -388,28 +392,37 @@ export function ResearchReport({
   partial?: boolean;
 }) {
   const [inspections, setInspections] = useState<Record<string, number>>({});
+  const sourcesLibraryRef = useRef<HTMLDetailsElement>(null);
   const sourceNumbers = new Map(block.sources.map((source, index) => [source.id, index + 1]));
+
+  const inspectSource = (sourceId: string) => {
+    if (sourcesLibraryRef.current) sourcesLibraryRef.current.open = true;
+    setInspections((previous) => ({
+      ...previous,
+      [sourceId]: (previous[sourceId] ?? 0) + 1,
+    }));
+  };
 
   return (
     <section
-      className={cn("min-w-0 text-foreground", spacing.stack["2xl"])}
+      className={cn("min-w-0 text-foreground", spacing.card.section)}
       aria-label={block.title}
     >
-      <header className={spacing.card.block}>
+      <header className={spacing.card.labelStack}>
         <p className={labelClass}>Lyra · Research</p>
-        <h3 className="text-xl font-semibold leading-snug tracking-tight">{block.title}</h3>
-        <GenUIMarkdown className="space-y-stack-md text-sm leading-relaxed text-foreground/85">
+        <h3 className="text-lg font-semibold leading-snug tracking-tight">{block.title}</h3>
+        <GenUIMarkdown className="space-y-stack-sm text-sm leading-relaxed text-foreground/85">
           {block.summary}
         </GenUIMarkdown>
-        <p className="text-xs leading-relaxed text-muted-foreground">
+        <p className="text-2xs leading-relaxed text-muted-foreground">
           {block.claims.length} {block.claims.length === 1 ? "finding" : "findings"} ·{" "}
           {block.sources.length} {block.sources.length === 1 ? "source" : "sources"}
           {partial ? " · Report arriving" : ""}
         </p>
       </header>
 
-      <section aria-label="Findings and evidence" className="border-t border-border/40 pt-inset-lg">
-        <h4 className={labelClass}>Findings & evidence</h4>
+      <section aria-label="Findings and evidence" className="border-t border-border/40 pt-inset-sm">
+        <h4 className={labelClass}>Findings</h4>
         {block.claims.length ? (
           <div className="divide-y divide-border/30">
             {block.claims.map((claim) => (
@@ -417,17 +430,12 @@ export function ResearchReport({
                 key={claim.id}
                 claim={claim}
                 sourceNumbers={sourceNumbers}
-                onInspectSource={(sourceId) =>
-                  setInspections((previous) => ({
-                    ...previous,
-                    [sourceId]: (previous[sourceId] ?? 0) + 1,
-                  }))
-                }
+                onInspectSource={inspectSource}
               />
             ))}
           </div>
         ) : (
-          <p className="pt-inset-md text-sm leading-relaxed text-muted-foreground">
+          <p className="pt-inset-sm text-sm leading-relaxed text-muted-foreground">
             {partial
               ? "Findings are still arriving."
               : "No findings have been recorded for this report. The source notes below remain available to inspect."}
@@ -436,43 +444,67 @@ export function ResearchReport({
       </section>
 
       {block.limitations.length ? (
-        <section
-          aria-label="Limitations and open questions"
-          className={cn("border-t border-border/40 pt-inset-lg", spacing.card.block)}
-        >
-          <h4 className={labelClass}>Limitations & open questions</h4>
-          <ul className="list-disc space-y-stack-sm pl-inset-lg text-sm leading-relaxed text-muted-foreground">
+        <details className="group/limits border-t border-border/40 pt-inset-sm">
+          <summary
+            className={cn(
+              controlClass,
+              "flex w-full cursor-pointer list-none items-center justify-between gap-inline-sm rounded-none px-0"
+            )}
+          >
+            <span className={labelClass}>
+              Limitations & open questions · {block.limitations.length}
+            </span>
+            <ChevronDown
+              className="size-4 shrink-0 text-muted-foreground group-open/limits:rotate-180"
+              aria-hidden
+            />
+          </summary>
+          <ul className="list-disc space-y-stack-sm pb-inset-sm pl-inset-lg pt-inset-sm text-sm leading-relaxed text-muted-foreground">
             {block.limitations.map((limitation, index) => (
               <li key={index}>{limitation}</li>
             ))}
           </ul>
-        </section>
+        </details>
       ) : null}
 
-      <section
-        aria-label="Source library"
-        className={cn("border-t border-border/40 pt-inset-lg", spacing.card.block)}
+      <details
+        ref={sourcesLibraryRef}
+        className="group/sources border-t border-border/40 pt-inset-sm"
       >
-        <h4 className={labelClass}>Sources · {block.sources.length}</h4>
-        <p className="text-xs leading-relaxed text-muted-foreground">
-          Inspect the captured material behind the findings. Synopses and takeaways are Lyra’s
-          interpretation.
-        </p>
-        {block.sources.map((source, index) => (
-          <ResearchSourceCard
-            key={source.id}
-            source={source}
-            threadId={block.threadId}
-            index={index}
-            inspection={inspections[source.id]}
+        <summary
+          className={cn(
+            controlClass,
+            "flex w-full cursor-pointer list-none items-center justify-between gap-inline-sm rounded-none px-0"
+          )}
+        >
+          <span className={labelClass}>Sources · {block.sources.length}</span>
+          <ChevronDown
+            className="size-4 shrink-0 text-muted-foreground group-open/sources:rotate-180"
+            aria-hidden
           />
-        ))}
-        {!block.sources.length ? (
-          <p className="text-sm text-muted-foreground">
-            {partial ? "Sources are still arriving." : "No captured sources are available."}
+        </summary>
+        <div className={cn("pb-inset-sm pt-inset-sm", spacing.card.blockItems)}>
+          <p className="text-2xs leading-relaxed text-muted-foreground">
+            Inspect the captured material behind the findings. Synopses and takeaways are Lyra’s
+            interpretation.
           </p>
-        ) : null}
-      </section>
+          {block.sources.map((source, index) => (
+            <ResearchSourceCard
+              key={source.id}
+              source={source}
+              threadId={block.threadId}
+              index={index}
+              inspection={inspections[source.id]}
+            />
+          ))}
+          {!block.sources.length ? (
+            <p className="text-sm text-muted-foreground">
+              {partial ? "Sources are still arriving." : "No captured sources are available."}
+            </p>
+          ) : null}
+        </div>
+      </details>
+
       <p className="text-2xs leading-relaxed text-muted-foreground">
         Matching quotations establish traceability, not truth or source independence. Assess the
         source and its methods yourself.
