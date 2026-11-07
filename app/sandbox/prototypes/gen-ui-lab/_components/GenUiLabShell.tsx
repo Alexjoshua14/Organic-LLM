@@ -220,7 +220,9 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
       className={cn(
         LAB_CONTROL,
         "min-h-8 rounded-full px-inset-md text-xs font-medium",
-        pressed ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+        pressed
+          ? "bg-primary text-primary-foreground"
+          : "text-muted-foreground hover:text-foreground"
       )}
       onClick={onClick}
     >
