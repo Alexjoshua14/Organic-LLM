@@ -1,201 +1,306 @@
 "use client";
 
-import type { DecisionMatrixBlock, MatrixScoreValue } from "@/lib/schemas/gen-ui";
+import type { DecisionMatrixBlock } from "@/lib/schemas/gen-ui";
 
-import { computeWeightedTotals, scoreValueToNumeric } from "../lib/decision-matrix-math";
+import { useId, useState } from "react";
 
-import { formatMatrixScoreValue } from "@/lib/schemas/gen-ui";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/third-party/ui/tooltip";
-import { GenUIMarkdown } from "@/components/chat/gen-ui/GenUIMarkdown";
-import { cn } from "@/lib/utils";
+import {
+  DecisionCaption,
+  DecisionCompactGrid,
+  DecisionCriterionSelector,
+  DecisionEvidenceList,
+  DecisionHeadToHead,
+  DecisionOptionLegend,
+  DecisionOptionStack,
+  DecisionQuestion,
+  DecisionRecommendation,
+  DecisionScorePlot,
+} from "../decision";
 
-function cellHeatmapClass(value: MatrixScoreValue): string {
-  const n = scoreValueToNumeric(value);
-  const t = (n - 1) / 4;
+import styles from "./DecisionMatrix.module.css";
 
-  if (value === "✓") return "bg-emerald-500/25 text-emerald-800 dark:text-emerald-200";
-  if (value === "✗") return "bg-red-500/25 text-red-800 dark:text-red-200";
-  if (value === "~") return "bg-amber-500/20 text-amber-900 dark:text-amber-100";
-  if (t >= 0.75) return "bg-emerald-500/20";
-  if (t <= 0.25) return "bg-red-500/20";
-
-  return "bg-amber-500/15";
-}
+export type DecisionArrangement =
+  | "overview"
+  | "recommendation"
+  | "evidence"
+  | "head-to-head"
+  | "compact";
 
 type DecisionMatrixProps = {
   block: DecisionMatrixBlock;
   partial?: boolean;
+  /** Local React composition only — not a schema/tool field. Defaults to overview. */
+  arrangement?: DecisionArrangement;
 };
 
-function MatrixCell({ value, note }: { value: MatrixScoreValue; note?: string }) {
-  const inner = (
-    <span
-      className={cn(
-        "inline-flex min-w-[2rem] items-center justify-center rounded px-1.5 py-0.5 text-xs font-medium tabular-nums",
-        cellHeatmapClass(value)
-      )}
-    >
-      {formatMatrixScoreValue(value)}
-    </span>
-  );
+function useDecisionLens(block: DecisionMatrixBlock) {
+  const [criterionId, setCriterionId] = useState(block.criteria[0]?.id);
+  const [focusedOption, setFocusedOption] = useState<string | null>(null);
+  const highlightedOption = block.options.some((option) => option.id === focusedOption)
+    ? focusedOption
+    : null;
+  const criterion = block.criteria.find((item) => item.id === criterionId) ?? block.criteria[0];
 
-  if (!note?.trim()) return inner;
+  return {
+    criterionId: criterion?.id,
+    setCriterionId,
+    highlightedOption,
+    toggleHighlight: (optionId: string) =>
+      setFocusedOption((current) => (current === optionId ? null : optionId)),
+    criterion,
+  };
+}
+
+function OverviewArrangement({
+  block,
+  partial,
+  id,
+}: {
+  block: DecisionMatrixBlock;
+  partial?: boolean;
+  id: string;
+}) {
+  const { criterionId, setCriterionId, highlightedOption, toggleHighlight, criterion } =
+    useDecisionLens(block);
+  const evidenceId = `${id}-evidence`;
 
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button type="button" className="cursor-help">
-          {inner}
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side="top" className="max-w-xs text-xs">
-        {note}
-      </TooltipContent>
-    </Tooltip>
+    <>
+      <header className={styles.header}>
+        <DecisionQuestion
+          id={`${id}-question`}
+          question={block.question}
+          optionCount={block.options.length}
+        />
+        <DecisionRecommendation block={block} />
+      </header>
+
+      <div className={styles.body}>
+        <div className={styles.map}>
+          <div className={styles.mapMeta}>
+            <span>Scores, 1–5 · not a ranking</span>
+          </div>
+          <DecisionOptionLegend
+            block={block}
+            highlightedOption={highlightedOption}
+            onToggle={toggleHighlight}
+          />
+          <DecisionScorePlot
+            block={block}
+            id={id}
+            activeCriterionId={criterionId}
+            highlightedOption={highlightedOption}
+          />
+          <DecisionCriterionSelector
+            block={block}
+            criterionId={criterionId}
+            evidenceId={evidenceId}
+            onSelect={setCriterionId}
+          />
+          <DecisionCaption block={block} />
+        </div>
+
+        {criterion ? (
+          <DecisionEvidenceList
+            block={block}
+            criterion={criterion}
+            id={evidenceId}
+            partial={partial}
+          />
+        ) : null}
+      </div>
+    </>
   );
 }
 
-export function DecisionMatrix({ block, partial }: DecisionMatrixProps) {
-  const totals = computeWeightedTotals(block);
-  const recommendedId = block.recommendation?.optionId;
+function RecommendationArrangement({
+  block,
+  partial,
+  id,
+}: {
+  block: DecisionMatrixBlock;
+  partial?: boolean;
+  id: string;
+}) {
+  const { criterionId, setCriterionId, criterion } = useDecisionLens(block);
+  const evidenceId = `${id}-evidence`;
 
   return (
-    <div className="space-y-3">
-      <div className="hidden sm:block overflow-x-auto max-h-[min(70vh,480px)]">
-        <table className="w-full min-w-[320px] border-collapse text-sm">
-          <caption className="sr-only">{block.question}</caption>
-          <thead>
-            <tr>
-              <th
-                scope="col"
-                className="sticky left-0 z-20 bg-background border-b border-border/50 p-2 text-left font-medium text-foreground min-w-[120px]"
-              >
-                {block.question}
-              </th>
-              {block.criteria.map((c) => (
-                <th
-                  key={c.id}
-                  scope="col"
-                  className="sticky top-0 z-10 bg-background border-b border-border/50 p-2 text-center font-medium text-muted-foreground min-w-[72px]"
-                >
-                  {c.label}
-                  {c.weight != null ? (
-                    <span className="block text-2xs font-normal opacity-70">w{c.weight}</span>
-                  ) : null}
-                </th>
-              ))}
-              {totals ? (
-                <th
-                  scope="col"
-                  className="sticky top-0 z-10 bg-background border-b border-border/50 p-2 text-center text-xs font-medium text-muted-foreground"
-                >
-                  Total
-                </th>
-              ) : null}
-            </tr>
-          </thead>
-          <tbody>
-            {block.options.map((opt) => {
-              const isRec = opt.id === recommendedId;
+    <>
+      <header className={styles.header}>
+        <DecisionQuestion
+          id={`${id}-question`}
+          question={block.question}
+          optionCount={block.options.length}
+        />
+        <DecisionRecommendation block={block} lead />
+      </header>
 
-              return (
-                <tr
-                  key={opt.id}
-                  className={cn(isRec && "ring-1 ring-inset ring-primary/40 rounded-lg")}
-                >
-                  <th
-                    scope="row"
-                    className="sticky left-0 z-10 bg-background border-b border-border/30 p-2 text-left font-medium text-foreground"
-                  >
-                    <span className="flex flex-col gap-0.5">
-                      {opt.name}
-                      {isRec ? (
-                        <span className="text-2xs font-semibold uppercase tracking-wide text-primary">
-                          Recommended
-                        </span>
-                      ) : null}
-                      {opt.note ? (
-                        <span className="text-[11px] font-normal text-muted-foreground">
-                          <GenUIMarkdown inline>{opt.note}</GenUIMarkdown>
-                        </span>
-                      ) : null}
-                    </span>
-                  </th>
-                  {block.criteria.map((c) => {
-                    const cell = block.scores[opt.id]?.[c.id];
-
-                    return (
-                      <td
-                        key={c.id}
-                        className="border-b border-border/30 p-2 text-center align-middle"
-                      >
-                        {cell ? (
-                          <MatrixCell value={cell.value} note={cell.note} />
-                        ) : partial ? (
-                          <span className="inline-block h-6 w-8 rounded bg-muted/40 animate-pulse" />
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-                    );
-                  })}
-                  {totals ? (
-                    <td className="border-b border-border/30 p-2 text-center text-xs font-medium tabular-nums">
-                      {totals[opt.id]?.toFixed(1) ?? "—"}
-                    </td>
-                  ) : null}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+      <div className={styles.bodyStack}>
+        <DecisionOptionStack block={block} />
+        <div className={styles.recommendationEvidence}>
+          <DecisionCriterionSelector
+            block={block}
+            criterionId={criterionId}
+            evidenceId={evidenceId}
+            onSelect={setCriterionId}
+          />
+          {criterion ? (
+            <DecisionEvidenceList
+              block={block}
+              criterion={criterion}
+              id={evidenceId}
+              partial={partial}
+            />
+          ) : null}
+          <DecisionCaption
+            block={block}
+            lead="Inspect one criterion at a time — no shape chart in this arrangement."
+          />
+        </div>
       </div>
+    </>
+  );
+}
 
-      <div className="sm:hidden space-y-3">
-        <p className="text-sm font-medium text-foreground">{block.question}</p>
-        {block.options.map((opt) => {
-          const isRec = opt.id === recommendedId;
+function EvidenceArrangement({
+  block,
+  partial,
+  id,
+}: {
+  block: DecisionMatrixBlock;
+  partial?: boolean;
+  id: string;
+}) {
+  const { criterionId, setCriterionId, highlightedOption, toggleHighlight, criterion } =
+    useDecisionLens(block);
+  const evidenceId = `${id}-evidence`;
 
-          return (
-            <div
-              key={opt.id}
-              className={cn(
-                "rounded-lg border border-border/50 bg-background-tertiary/20 p-3 space-y-2",
-                isRec && "ring-1 ring-primary/40"
-              )}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-medium text-sm">{opt.name}</span>
-                {isRec ? (
-                  <span className="text-2xs font-semibold uppercase text-primary">Recommended</span>
-                ) : null}
-              </div>
-              {block.criteria.map((c) => {
-                const cell = block.scores[opt.id]?.[c.id];
+  return (
+    <>
+      <header className={styles.header}>
+        <DecisionQuestion
+          id={`${id}-question`}
+          question={block.question}
+          optionCount={block.options.length}
+        />
+        <DecisionRecommendation block={block} />
+      </header>
 
-                return (
-                  <div key={c.id} className="flex items-center justify-between text-xs gap-2">
-                    <span className="text-muted-foreground">{c.label}</span>
-                    {cell ? <MatrixCell value={cell.value} note={cell.note} /> : <span>—</span>}
-                  </div>
-                );
-              })}
-              {totals ? (
-                <p className="text-xs text-muted-foreground pt-1 border-t border-border/30">
-                  Weighted total: <strong>{totals[opt.id]?.toFixed(1) ?? "—"}</strong>
-                </p>
-              ) : null}
+      <div className={styles.bodyEvidence}>
+        <div className={styles.evidenceLead}>
+          <DecisionCriterionSelector
+            block={block}
+            criterionId={criterionId}
+            evidenceId={evidenceId}
+            onSelect={setCriterionId}
+          />
+          {criterion ? (
+            <DecisionEvidenceList
+              block={block}
+              criterion={criterion}
+              id={evidenceId}
+              partial={partial}
+              notesProminent
+            />
+          ) : null}
+          <DecisionCaption
+            block={block}
+            lead="Evidence notes lead; the score map is optional below."
+          />
+        </div>
+
+        <details className={styles.plotDisclosure}>
+          <summary>Score map (optional)</summary>
+          <div className={styles.map}>
+            <div className={styles.mapMeta}>
+              <span>Scores, 1–5 · not a ranking</span>
             </div>
-          );
-        })}
+            <DecisionOptionLegend
+              block={block}
+              highlightedOption={highlightedOption}
+              onToggle={toggleHighlight}
+            />
+            <DecisionScorePlot
+              block={block}
+              id={id}
+              activeCriterionId={criterionId}
+              highlightedOption={highlightedOption}
+            />
+          </div>
+        </details>
       </div>
+    </>
+  );
+}
 
-      {block.recommendation ? (
-        <p className="text-sm text-muted-foreground border-t border-border/30 pt-2">
-          <span className="font-medium text-foreground">Rationale: </span>
-          {block.recommendation.rationale}
-        </p>
+function HeadToHeadArrangement({
+  block,
+  partial,
+  id,
+}: {
+  block: DecisionMatrixBlock;
+  partial?: boolean;
+  id: string;
+}) {
+  return (
+    <>
+      <header className={styles.header}>
+        <DecisionQuestion
+          id={`${id}-question`}
+          question={block.question}
+          optionCount={block.options.length}
+        />
+        <DecisionRecommendation block={block} />
+      </header>
+      <div className={styles.bodyStack}>
+        <DecisionHeadToHead block={block} partial={partial} />
+      </div>
+    </>
+  );
+}
+
+function CompactArrangement({ block, id }: { block: DecisionMatrixBlock; id: string }) {
+  return (
+    <>
+      <header className={styles.header}>
+        <DecisionQuestion
+          id={`${id}-question`}
+          question={block.question}
+          optionCount={block.options.length}
+        />
+        <DecisionRecommendation block={block} />
+      </header>
+      <div className={styles.bodyStack}>
+        <DecisionCompactGrid block={block} />
+      </div>
+    </>
+  );
+}
+
+/** Compare options across criteria; `arrangement` only changes local React composition. */
+export function DecisionMatrix({ block, partial, arrangement = "overview" }: DecisionMatrixProps) {
+  const id = useId();
+
+  return (
+    <section
+      className={styles.root}
+      data-arrangement={arrangement}
+      aria-labelledby={`${id}-question`}
+    >
+      {arrangement === "overview" ? (
+        <OverviewArrangement block={block} partial={partial} id={id} />
       ) : null}
-    </div>
+      {arrangement === "recommendation" ? (
+        <RecommendationArrangement block={block} partial={partial} id={id} />
+      ) : null}
+      {arrangement === "evidence" ? (
+        <EvidenceArrangement block={block} partial={partial} id={id} />
+      ) : null}
+      {arrangement === "head-to-head" ? (
+        <HeadToHeadArrangement block={block} partial={partial} id={id} />
+      ) : null}
+      {arrangement === "compact" ? <CompactArrangement block={block} id={id} /> : null}
+    </section>
   );
 }

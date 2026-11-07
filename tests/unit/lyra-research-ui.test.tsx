@@ -5,6 +5,7 @@ import { render } from "../helpers/render";
 import { FIXTURE_RESEARCH_REPORT } from "../fixtures/lyra-research";
 
 import { GenUIRenderer } from "@/components/chat/gen-ui/GenUIRenderer";
+import { ResearchReport } from "@/components/chat/gen-ui/blocks/ResearchReport";
 import { ResearchToolResult } from "@/components/chat/gen-ui/ResearchToolResult";
 import { messagePartsToCopyMarkdown } from "@/lib/chat/message-copy-markdown";
 import { GenUIBlockSchema } from "@/lib/schemas/gen-ui";
@@ -126,6 +127,78 @@ describe("Lyra's browsable research", () => {
         sources: [{ ...source, url: "javascript:alert(1)" }],
       }).success
     ).toBe(false);
+  });
+
+  test("finding source controls open the exact captured source without fetching it", async () => {
+    const fetcher = mock<typeof fetch>(
+      async () => new Response("Unexpected request", { status: 500 })
+    );
+    globalThis.fetch = fetcher;
+    const second = {
+      ...FIXTURE_RESEARCH_REPORT.sources[0]!,
+      id: "second-source",
+      title: "Second captured document",
+      url: "https://example.com/second",
+    };
+    const report = {
+      ...FIXTURE_RESEARCH_REPORT,
+      sources: [second, ...FIXTURE_RESEARCH_REPORT.sources],
+    };
+    const view = render(<ResearchReport block={report} />);
+    const target = view
+      .getByText("Study methods and results", { selector: "span" })
+      .closest("details")!;
+    const unrelated = view
+      .getByText("Second captured document", { selector: "span" })
+      .closest("details")!;
+
+    expect(target.open).toBe(false);
+    fireEvent.click(view.getByRole("button", { name: "Inspect source 2" }));
+    await waitFor(() => expect(target.open).toBe(true));
+    expect(unrelated.open).toBe(false);
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(view.getByText(report.claims[0]!.assessment).closest("details")).toBeNull();
+  });
+
+  test("unknown source references remain explicit and cannot open an unrelated source", () => {
+    const claim = FIXTURE_RESEARCH_REPORT.claims[0]!;
+    const report = {
+      ...FIXTURE_RESEARCH_REPORT,
+      claims: [
+        {
+          ...claim,
+          issues: ["missing_source" as const],
+          evidence: [{ ...claim.evidence[0]!, sourceId: "missing-source", url: undefined }],
+        },
+      ],
+    };
+    const view = render(<ResearchReport block={report} />);
+
+    expect(view.getByText("Source unavailable · missing-source")).toBeTruthy();
+    expect(view.queryByRole("button", { name: /Inspect source/ })).toBeNull();
+    expect(view.getByText("Source unavailable")).toBeTruthy();
+    expect(view.queryByText("Quotes match captured sources")).toBeNull();
+  });
+
+  test("empty and partial reports explain unavailable evidence without claiming quote verification", () => {
+    const empty = { ...FIXTURE_RESEARCH_REPORT, sources: [], claims: [] };
+    const view = render(<ResearchReport block={empty} partial />);
+
+    expect(view.getByText("Findings are still arriving.")).toBeTruthy();
+    expect(view.getByText("Sources are still arriving.")).toBeTruthy();
+    expect(view.queryByText("Quotes match captured sources")).toBeNull();
+    cleanup();
+    const noEvidence = render(
+      <ResearchReport
+        block={{
+          ...empty,
+          claims: [{ ...FIXTURE_RESEARCH_REPORT.claims[0]!, issues: [], evidence: [] }],
+        }}
+      />
+    );
+
+    expect(noEvidence.getByText("No evidence has been attached to this claim.")).toBeTruthy();
+    expect(noEvidence.queryByText("Quotes match captured sources")).toBeNull();
   });
 
   test("copy includes the published synopsis, interpretation, quotations and original links", () => {

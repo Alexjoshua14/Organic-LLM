@@ -15,7 +15,7 @@ export default function GenUiLabPage() {
   return (
     <Page className="items-stretch justify-start overflow-hidden">
       <div className="h-full min-h-0 w-full overflow-hidden pb-4">
-        <PageContentFrame maxWidth="7xl" withTopClearance>
+        <PageContentFrame className="h-full min-h-0" maxWidth="7xl" withTopClearance>
           <GenUiLabShell initialBlocks={buildDefaultBlockMap()} />
         </PageContentFrame>
       </div>

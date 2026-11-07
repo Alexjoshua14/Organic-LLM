@@ -1,0 +1,631 @@
+.root {
+  container-type: inline-size;
+  min-width: 0;
+  color: var(--foreground);
+}
+
+.header {
+  padding-bottom: var(--spacing-stack-md);
+}
+
+.titleRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--spacing-inline-sm);
+}
+
+.question {
+  margin: 0;
+  min-width: 0;
+  font-size: 1.0625rem; /* 17px — card heading, not a hero */
+  line-height: 1.35;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+
+.meta,
+.mapMeta,
+.caption,
+.evidenceHeading > p,
+.optionNote,
+.recLabel,
+.compactWeight,
+.selectField > span {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 0.6875rem; /* 11px */
+  line-height: 1.5;
+}
+
+.meta {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.recommendation,
+.recommendationLead {
+  margin-top: var(--spacing-stack-sm);
+  padding-left: 10px;
+  border-left: 2px solid var(--foreground);
+  font-size: 0.8125rem; /* 13px */
+  line-height: 1.5;
+}
+
+.recommendationLead {
+  margin-top: var(--spacing-stack-md);
+  padding: var(--spacing-stack-sm) var(--spacing-inline-sm) var(--spacing-stack-sm) 12px;
+  border-left-width: 3px;
+  background: color-mix(in oklab, var(--muted) 55%, transparent);
+  border-radius: 0 6px 6px 0;
+}
+
+.recLabel {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.recommendation > :last-child,
+.recommendationLead > :last-child {
+  margin-top: 2px;
+}
+
+.recChip {
+  font-weight: 500;
+  color: var(--muted-foreground);
+  letter-spacing: 0.02em;
+  text-transform: none;
+  font-size: 0.75rem;
+}
+
+.body {
+  display: grid;
+  gap: var(--spacing-stack-md);
+  border-top: 1px solid var(--border);
+  padding-top: var(--spacing-stack-md);
+}
+
+.bodyStack,
+.bodyEvidence {
+  display: grid;
+  gap: var(--spacing-stack-md);
+  border-top: 1px solid var(--border);
+  padding-top: var(--spacing-stack-md);
+  min-width: 0;
+}
+
+.map {
+  min-width: 0;
+}
+
+.mapMeta {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-stack-xs) var(--spacing-inline-sm);
+  margin: var(--spacing-stack-sm) 0 0;
+}
+
+.legend button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  font-size: 0.75rem; /* 12px */
+  line-height: 1.3;
+  padding: 2px 4px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  background: transparent;
+}
+
+.legend button[aria-pressed="true"] {
+  background: var(--muted);
+  border-color: var(--foreground);
+}
+
+.swatch {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  border-radius: 50%;
+  color: var(--foreground);
+  border: 2px solid var(--option-color);
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.plot {
+  display: block;
+  width: 100%;
+  margin-top: var(--spacing-stack-xs);
+  overflow: visible;
+}
+
+.gridline line {
+  stroke: var(--border);
+  stroke-dasharray: 2 5;
+}
+
+.gridline text,
+.axis text {
+  fill: var(--muted-foreground);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.axis line {
+  stroke: var(--border);
+}
+
+.axis[data-active="true"] line {
+  stroke: var(--foreground);
+  stroke-opacity: 0.35;
+  stroke-width: 2;
+}
+
+.axis[data-active="true"] text {
+  fill: var(--foreground);
+  font-weight: 700;
+}
+
+.series {
+  color: var(--option-color);
+  opacity: 0.85;
+  transition: opacity 140ms ease-out;
+}
+
+.series[data-dimmed="true"] {
+  opacity: 0.12;
+}
+
+.series path {
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.series circle {
+  fill: var(--background);
+  stroke: currentColor;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.criteria {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-stack-xs) var(--spacing-inline-sm);
+  margin-top: var(--spacing-stack-sm);
+}
+
+.criteria button {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.75rem; /* 12px */
+  line-height: 1.3;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  background: transparent;
+}
+
+.criteria button > span {
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.6;
+}
+
+.criteria button[aria-pressed="true"] {
+  color: var(--primary-foreground);
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.root button:focus-visible,
+.root select:focus-visible,
+.root summary:focus-visible {
+  outline: 2px solid var(--foreground);
+  outline-offset: 2px;
+}
+
+.caption {
+  margin: var(--spacing-stack-sm) 0 0;
+}
+
+.evidence,
+.evidenceProminent {
+  container-type: inline-size;
+  min-width: 0;
+  border-top: 1px solid var(--border);
+  padding-top: var(--spacing-stack-md);
+}
+
+.evidenceLead .evidence,
+.evidenceLead .evidenceProminent,
+.recommendationEvidence .evidence,
+.recommendationEvidence .evidenceProminent {
+  border-top: none;
+  padding-top: var(--spacing-stack-sm);
+}
+
+.evidenceHeading {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--spacing-inline-sm);
+}
+
+.evidenceHeading h4,
+.headToHeadCriterion h4 {
+  margin: 0;
+  font-size: 0.875rem; /* 14px */
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.35;
+}
+
+.evidenceHeading > p {
+  white-space: nowrap;
+}
+
+.evidenceList,
+.evidenceListNotes {
+  list-style: none;
+  padding: 0;
+  margin: var(--spacing-stack-sm) 0 0;
+}
+
+.evidenceList li,
+.evidenceListNotes li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 2px var(--spacing-inline-sm);
+  padding: var(--spacing-stack-sm) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.evidenceList li:first-child,
+.evidenceListNotes li:first-child {
+  padding-top: var(--spacing-stack-xs);
+}
+
+.evidenceListNotes li {
+  gap: var(--spacing-stack-xs) var(--spacing-inline-sm);
+  padding: var(--spacing-stack-md) 0;
+}
+
+.optionName {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.8125rem; /* 13px */
+  line-height: 1.35;
+}
+
+.optionName strong {
+  font-weight: 600;
+}
+
+.optionNote {
+  margin-top: 1px;
+}
+
+.score {
+  margin: 0;
+  font-size: 1.125rem; /* 18px — rank signal without dominating the note */
+  line-height: 1.1;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.evidenceListNotes .score {
+  font-size: 0.9375rem; /* notes lead; score secondary */
+}
+
+.score small {
+  margin-left: 2px;
+  font-size: 0.6875rem;
+  letter-spacing: normal;
+  color: var(--muted-foreground);
+  font-weight: 400;
+}
+
+.note,
+.noteProminent {
+  grid-column: 1 / -1;
+  padding-left: 22px;
+  font-size: 0.75rem; /* 12px */
+  line-height: 1.5;
+  color: var(--muted-foreground);
+  overflow-wrap: anywhere;
+}
+
+.noteProminent {
+  font-size: 0.875rem; /* 14px — evidence-led */
+  color: var(--foreground);
+  line-height: 1.55;
+}
+
+.optionStack {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--spacing-stack-sm);
+}
+
+.optionStack li {
+  display: flex;
+  min-width: 0;
+  padding-bottom: var(--spacing-stack-sm);
+  border-bottom: 1px solid var(--border);
+}
+
+.recommendationEvidence {
+  min-width: 0;
+}
+
+.plotDisclosure,
+.notesDisclosure {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: var(--spacing-stack-sm) var(--spacing-inline-sm);
+}
+
+.plotDisclosure > summary,
+.notesDisclosure > summary {
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.notesDisclosureList {
+  list-style: none;
+  margin: var(--spacing-stack-sm) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--spacing-stack-sm);
+}
+
+.notesDisclosureList li {
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+  overflow-wrap: anywhere;
+}
+
+.notesDisclosureList strong {
+  display: block;
+  color: var(--foreground);
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+/* Head-to-head */
+.headToHead {
+  min-width: 0;
+  display: grid;
+  gap: var(--spacing-stack-md);
+}
+
+.headToHeadPickers {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacing-inline-sm);
+}
+
+.selectField {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.selectField select {
+  min-width: 0;
+  width: 100%;
+  min-height: 36px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--background);
+  color: inherit;
+  font-size: 0.8125rem;
+}
+
+.headToHeadMeta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacing-inline-sm);
+}
+
+.headToHeadMeta > div {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+}
+
+.headToHeadList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.headToHeadList > li {
+  padding: var(--spacing-stack-sm) 0;
+  border-bottom: 1px solid var(--border);
+  display: grid;
+  gap: var(--spacing-stack-xs);
+}
+
+.headToHeadCriterion {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--spacing-inline-sm);
+}
+
+.headToHeadScores {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacing-inline-sm);
+}
+
+.headToHeadScores .note {
+  padding-left: 0;
+  grid-column: auto;
+}
+
+/* Compact dense grid */
+.compact {
+  min-width: 0;
+  display: grid;
+  gap: var(--spacing-stack-sm);
+}
+
+.compactScroll {
+  overflow-x: auto;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.compactTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  min-width: 280px;
+}
+
+.compactTable th,
+.compactTable td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: baseline;
+  overflow-wrap: anywhere;
+}
+
+.compactTable thead th {
+  font-weight: 600;
+  font-size: 0.6875rem;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+
+.compactTable tbody th {
+  font-weight: 600;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 7rem;
+}
+
+.compactTable td {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Evidence panel width (not the root): name | score | note when the column can hold it. */
+@container (min-width: 320px) {
+  .evidenceList li {
+    grid-template-columns: minmax(72px, 0.9fr) 2.25rem minmax(0, 1.4fr);
+    align-items: baseline;
+    column-gap: var(--spacing-inline-sm);
+  }
+
+  .evidenceListNotes li {
+    grid-template-columns: minmax(72px, 0.85fr) 2.25rem minmax(0, 1.6fr);
+    align-items: start;
+    column-gap: var(--spacing-inline-sm);
+  }
+
+  .note,
+  .noteProminent {
+    grid-column: auto;
+    padding-left: 0;
+  }
+}
+
+/* Map beside evidence at real card width — compare shape and criterion in one glance. */
+@container (min-width: 540px) {
+  .body {
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+    gap: var(--spacing-inline-lg);
+    align-items: start;
+  }
+
+  .body .evidence,
+  .body .evidenceProminent {
+    border-top: none;
+    padding-top: 0;
+    border-left: 1px solid var(--border);
+    padding-left: var(--spacing-inline-lg);
+  }
+
+  .mapMeta {
+    justify-content: flex-start;
+  }
+
+  .bodyEvidence {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.9fr);
+    gap: var(--spacing-inline-lg);
+    align-items: start;
+  }
+}
+
+@container (max-width: 360px) {
+  .headToHeadPickers,
+  .headToHeadMeta,
+  .headToHeadScores {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .series {
+    transition: none;
+  }
+}

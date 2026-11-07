@@ -121,7 +121,7 @@ export function GenUiGalleryNav({
   return (
     <nav
       aria-label="Gallery sections"
-      className="pointer-events-none absolute inset-y-0 right-2 z-10 hidden items-center sm:flex"
+      className="pointer-events-none absolute inset-y-0 right-2 z-10 hidden items-center @min-[56rem]:flex"
     >
       <ul className="pointer-events-auto flex flex-col gap-1.5">
         {Array.from({ length: count }).map((_, index) => (
