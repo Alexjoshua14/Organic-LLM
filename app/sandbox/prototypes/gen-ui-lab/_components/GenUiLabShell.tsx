@@ -186,7 +186,8 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
 
   return (
     <div className="relative flex h-full max-h-[calc(100dvh-2rem)] min-h-0 flex-col overflow-hidden">
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-6">
+      {/* Rows are bounded (`minmax(0,1fr)`), not `auto`: a tall block scrolls inside its panel instead of growing the row past the viewport. */}
+      <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[auto_minmax(0,1fr)] gap-4 lg:grid-cols-[240px_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)] lg:gap-6">
         <aside className="flex min-h-0 flex-col gap-4">
           <PageNavBack href="/sandbox/prototypes">← Prototypes</PageNavBack>
 
@@ -278,7 +279,7 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
           </div>
         </aside>
 
-        <section className="relative min-h-0 overflow-hidden rounded-2xl border border-border/70 bg-background/40">
+        <section className="relative flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border/70 bg-background/40">
           {viewMode === "gallery" ? (
             <GenUiGalleryNav
               activeIndex={selectedIndex}
@@ -288,10 +289,20 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
             />
           ) : null}
 
+          {/* Focus mode: the title bar stays fixed at the top of the panel while the block scrolls. */}
+          {viewMode === "focus" ? (
+            <div className="flex shrink-0 items-baseline justify-between gap-3 border-b border-border/40 px-4 py-3 sm:px-6">
+              <h2 className="text-sm font-medium text-foreground">
+                {GEN_UI_REGISTRY[selectedType].label}
+              </h2>
+              <code className="text-[11px] text-muted-foreground">{selectedType}</code>
+            </div>
+          ) : null}
+
           <div
             ref={viewMode === "gallery" ? scrollRef : undefined}
             className={cn(
-              "h-full min-h-0",
+              "min-h-0 flex-1",
               viewMode === "gallery"
                 ? "gen-ui-gallery-scroll overflow-y-auto overflow-x-hidden"
                 : "overflow-y-auto p-4 sm:p-6"
@@ -324,13 +335,7 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
                 </GenUiGallerySection>
               ))
             ) : (
-              <article className="w-full space-y-3">
-                <div className="flex items-baseline justify-between gap-3">
-                  <h2 className="text-sm font-medium text-foreground">
-                    {GEN_UI_REGISTRY[selectedType].label}
-                  </h2>
-                  <code className="text-[11px] text-muted-foreground">{selectedType}</code>
-                </div>
+              <article className="w-full">
                 <GenUIRenderer
                   data={{ block: blocks[selectedType] }}
                   messageId={`lab-focus-${selectedType}`}
@@ -341,7 +346,8 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
         </section>
       </div>
 
-      <div className="mt-4 space-y-2">
+      {/* Letter-paper width (8.5in = 816px): a familiar line length, centred under the gallery. */}
+      <div className="mx-auto mt-4 w-full max-w-[8.5in] space-y-2">
         {aionMessage ? (
           <p aria-live="polite" className="px-1 text-xs text-muted-foreground">
             Aion: {aionMessage}

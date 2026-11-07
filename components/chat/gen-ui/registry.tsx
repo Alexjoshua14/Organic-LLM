@@ -80,7 +80,7 @@ export const GEN_UI_REGISTRY: Record<GenUIBlockType, GenUIRegistryEntry> = {
     toMarkdown: genUIBlockToMarkdown,
   },
   "shopping-list": {
-    label: "Shopping list",
+    label: "Shopping",
     schema: ShoppingListBlockSchema,
     Component: ShoppingList as ComponentType<GenUIBlockComponentProps>,
     toMarkdown: genUIBlockToMarkdown,

@@ -1,15 +1,35 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  GEN_UI_BLOCK_TYPES,
   GenUIBlockSchema,
   safeParseGenUIBlock,
   genUIBlockToMarkdown,
 } from "@/lib/schemas/gen-ui";
 import {
+  ALL_VALID_FIXTURES,
   FIXTURE_ANSWER_CARD,
   FIXTURE_DECISION_MATRIX,
   FIXTURE_INVALID_BLOCK,
 } from "@/lib/schemas/gen-ui/fixtures";
+
+// The sandbox galleries (/sandbox/prototypes/gen-ui and gen-ui-lab) render ALL_VALID_FIXTURES.
+// A block type without a fixture silently drops out of them, so adding a type must add a fixture.
+describe("gen-ui fixtures stay in sync with block types", () => {
+  test("every block type has exactly one valid fixture", () => {
+    const fixtureTypes = ALL_VALID_FIXTURES.map((b) => b.type).sort();
+
+    expect(fixtureTypes).toEqual([...GEN_UI_BLOCK_TYPES].sort());
+  });
+
+  test("every fixture passes strict parse", () => {
+    for (const block of ALL_VALID_FIXTURES) {
+      const r = GenUIBlockSchema.safeParse(block);
+
+      expect({ type: block.type, ok: r.success }).toEqual({ type: block.type, ok: true });
+    }
+  });
+});
 
 describe("GenUIBlockSchema", () => {
   test("valid fixtures pass strict parse", () => {
