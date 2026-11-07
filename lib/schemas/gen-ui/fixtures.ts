@@ -203,8 +203,9 @@ export const FIXTURE_SHOPPING_LIST: GenUIBlock = {
   ],
 };
 
+/** Hours 11–23: the schema caps `hour` at 23, so the late bars stop at 11pm. */
 function popularTimesBars(eveningPeak: number): { hour: number; occupancy: number }[] {
-  return Array.from({ length: 15 }, (_, i) => {
+  return Array.from({ length: 13 }, (_, i) => {
     const hour = i + 11;
     const distance = Math.abs(hour - eveningPeak);
 
@@ -350,6 +351,73 @@ export const FIXTURE_RESTAURANT_CARD: GenUIBlock = {
   },
 };
 
+export const FIXTURE_RESEARCH_REPORT: GenUIBlock = {
+  type: "research-report",
+  version: 1,
+  threadId: "6f1d2c1e-8a4b-4c55-9d3e-2b7a5e0c9f10",
+  title: "Dual-write versus shadow reads for the Stratum cutover",
+  summary:
+    "Sources agree that dual-write shortens rollback, but disagree on how long to run it. One engineering write-up reports drift after three weeks.",
+  sources: [
+    {
+      id: "src-runbook",
+      url: "https://example.com/migration-runbook",
+      title: "Zero-downtime store migrations",
+      provider: "exa",
+      fetchedAt: "2026-11-02T18:04:00Z",
+      publishedAt: "2026-03-14",
+      excerptOnly: false,
+      truncated: false,
+      capturedChars: 8200,
+      pages: [],
+      preview: "Dual-write for two weeks, compare checksums nightly, then flip reads.",
+      synopsis: "A phased cutover guide: shadow writes, parity checks, then a read flip.",
+      takeaways: ["Compare checksums nightly.", "Keep a feature flag on the read path."],
+    },
+    {
+      id: "src-postmortem",
+      url: "https://example.com/dual-write-postmortem",
+      title: "What dual-write cost us",
+      provider: "firecrawl",
+      fetchedAt: "2026-11-02T18:05:00Z",
+      publishedAt: null,
+      excerptOnly: true,
+      truncated: true,
+      capturedChars: 1400,
+      pages: [],
+      preview: "After three weeks the stores had drifted on 0.4% of rows.",
+      synopsis: "",
+      takeaways: [],
+    },
+  ],
+  claims: [
+    {
+      id: "claim-rollback",
+      statement: "Dual-write reduces rollback risk.",
+      assessment: "Supported by the runbook; the post-mortem adds a drift caveat.",
+      issues: ["search_excerpt_only"],
+      evidence: [
+        {
+          sourceId: "src-runbook",
+          title: "Zero-downtime store migrations",
+          url: "https://example.com/migration-runbook",
+          quote: "Either store can serve reads at any point during the window.",
+          quoteTruncated: false,
+          relation: "supports",
+        },
+        {
+          sourceId: "src-postmortem",
+          title: "What dual-write cost us",
+          quote: "After three weeks the stores had drifted on 0.4% of rows.",
+          quoteTruncated: false,
+          relation: "contradicts",
+        },
+      ],
+    },
+  ],
+  limitations: ["Only two sources were captured; one is a search excerpt."],
+};
+
 export const ALL_VALID_FIXTURES: GenUIBlock[] = [
   FIXTURE_ANSWER_CARD,
   FIXTURE_DECISION_MATRIX,
@@ -358,4 +426,5 @@ export const ALL_VALID_FIXTURES: GenUIBlock[] = [
   FIXTURE_RECIPE_CARD,
   FIXTURE_SHOPPING_LIST,
   FIXTURE_RESTAURANT_CARD,
+  FIXTURE_RESEARCH_REPORT,
 ];

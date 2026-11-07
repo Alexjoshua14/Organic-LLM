@@ -1,0 +1,573 @@
+/*
+ * Plan: one frame for every plan — summary, focus, index. Flat on purpose: hairlines and a single
+ * tone rule, current Organic tokens only (no glass, no shadows, no card per step).
+ * Sizes are rem so 200% text reflows instead of clipping; layout answers to the container, not the
+ * viewport (Remy's dock is ~360px, the chat column ~700px, the gallery slot smaller still).
+ */
+
+.root {
+  container-type: inline-size;
+  min-width: 0;
+  color: var(--foreground);
+  font-size: 0.875rem; /* 14px */
+  line-height: 1.5;
+}
+
+/* Status tone: set on whichever element carries data-status, inherited by its marks and words. */
+.root [data-status="done"] {
+  --plan-tone: var(--accent);
+  --plan-tone-text: color-mix(in oklab, var(--accent) 62%, var(--foreground));
+}
+
+.root [data-status="now"] {
+  --plan-tone: var(--foreground);
+  --plan-tone-text: var(--foreground);
+}
+
+.root [data-status="next"] {
+  --plan-tone: var(--muted-foreground);
+  --plan-tone-text: var(--muted-foreground);
+}
+
+.root [data-status="blocked"] {
+  --plan-tone: var(--destructive);
+  --plan-tone-text: color-mix(in oklab, var(--destructive) 68%, var(--foreground));
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── Header ─────────────────────────────────────────────── */
+
+.header {
+  display: grid;
+  gap: var(--spacing-stack-sm);
+  padding-bottom: var(--spacing-stack-md);
+}
+
+.title {
+  margin: 0;
+  min-width: 0;
+  font-size: 1.0625rem; /* 17px — card heading, not a hero */
+  line-height: 1.35;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+
+.summary {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 0.75rem; /* 12px */
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Tally strip: one segment per step ──────────────────── */
+
+.tally {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 10px;
+}
+
+.segment {
+  flex: 1 1 0;
+  min-width: 3px;
+  height: 6px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  border: 1px solid var(--plan-tone);
+}
+
+.segment[data-status="done"] {
+  background: var(--plan-tone);
+}
+
+.segment[data-status="now"] {
+  height: 10px;
+  background: var(--plan-tone);
+}
+
+.segment[data-status="next"] {
+  border-color: color-mix(in oklab, var(--muted-foreground) 60%, transparent);
+  background: transparent;
+}
+
+.segment[data-status="blocked"] {
+  background: repeating-linear-gradient(
+    135deg,
+    var(--plan-tone) 0 2px,
+    transparent 2px 4px
+  );
+}
+
+/* ── Status marks and words ─────────────────────────────── */
+
+.mark {
+  flex: 0 0 auto;
+  color: var(--plan-tone);
+}
+
+.statusWord {
+  color: var(--plan-tone-text);
+  font-weight: 600;
+}
+
+/* ── Layout ─────────────────────────────────────────────── */
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--spacing-stack-lg);
+}
+
+/* Focus keeps the larger share; the index becomes a map beside it when the card can hold both. */
+@container (min-width: 34rem) {
+  .layout {
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+    gap: var(--spacing-inline-lg);
+    align-items: start;
+  }
+}
+
+/* ── Focus ──────────────────────────────────────────────── */
+
+.focus {
+  display: grid;
+  gap: var(--spacing-stack-md);
+  min-width: 0;
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--plan-tone);
+}
+
+.kicker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 6px;
+  margin: 0;
+  font-size: 0.6875rem; /* 11px */
+  line-height: 1.5;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.kickerPosition {
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+.kickerPosition::before {
+  content: "·";
+  content: "·" / "";
+  margin-right: 6px;
+}
+
+.focusTitle {
+  margin: 0;
+  min-width: 0;
+  font-size: 1.125rem; /* 18px — the one large thing in the card */
+  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-stack-xs) var(--spacing-inline-lg);
+  margin: 0;
+}
+
+.facts dt {
+  color: var(--muted-foreground);
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.facts dd {
+  margin: 0;
+  font-size: 0.9375rem; /* 15px — exact strings, read at a glance */
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.note {
+  margin: 0;
+  font-size: 0.8125rem; /* 13px */
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.blocker {
+  display: grid;
+  gap: 2px;
+  padding: 0.5rem 0.625rem;
+  border: 1px dashed var(--plan-tone);
+  border-radius: 6px;
+}
+
+.blockerLabel,
+.reasonLabel {
+  margin: 0;
+  color: var(--plan-tone-text);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.reasonMissing {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+  font-style: italic;
+}
+
+.sectionLabel {
+  margin: 0 0 var(--spacing-stack-xs);
+  color: var(--muted-foreground);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Substeps ───────────────────────────────────────────── */
+
+.substeps,
+.links {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.substeps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.subMark {
+  flex: 0 0 auto;
+  margin-top: 0.2em;
+  color: var(--muted-foreground);
+}
+
+.substeps li[data-done="true"] .subMark {
+  color: var(--accent);
+}
+
+.subLabel {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Time rail: exact text, right-aligned, shared by sub-steps and index rows. */
+.railTime {
+  flex: 0 0 auto;
+  margin-left: auto;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* ── Relationship links ─────────────────────────────────── */
+
+.link {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  min-height: 2rem;
+  padding: 4px 6px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.8125rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.link:hover {
+  background: var(--muted);
+}
+
+.linkNumber {
+  flex: 0 0 auto;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.linkLabel {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.linkNote {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+}
+
+.link .statusWord {
+  flex: 0 0 auto;
+  font-size: 0.6875rem;
+}
+
+.dangling {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 8px;
+  padding: 4px 6px;
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+}
+
+.dangling code {
+  color: var(--foreground);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+/* ── Prev / next ────────────────────────────────────────── */
+
+.stepper {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  gap: var(--spacing-inline-sm);
+  padding-top: var(--spacing-stack-md);
+  border-top: 1px solid var(--border);
+}
+
+.nav {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  min-height: 2.75rem;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nav:hover:not(:disabled) {
+  background: var(--muted);
+}
+
+.nav:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.nav[data-direction="Next"] {
+  text-align: right;
+}
+
+.navDirection {
+  color: var(--muted-foreground);
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.navLabel {
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+/* ── Index ──────────────────────────────────────────────── */
+
+.indexWrap {
+  min-width: 0;
+}
+
+.index {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--border);
+}
+
+.row {
+  --plan-gutter: calc(0.25rem + 1.5rem + 1rem + 16px); /* button pad + number + mark + gaps */
+  border-bottom: 1px solid var(--border);
+}
+
+.rowButton {
+  display: grid;
+  grid-template-columns: 1.5rem 1rem minmax(0, 1fr);
+  align-items: baseline;
+  column-gap: 8px;
+  width: 100%;
+  min-height: 2.75rem; /* 44px hit area */
+  padding: 8px 4px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rowButton .mark {
+  align-self: start;
+  margin-top: 0.15em;
+}
+
+.rowButton:hover {
+  background: color-mix(in oklab, var(--muted) 70%, transparent);
+}
+
+.rowButton[aria-pressed="true"] {
+  background: var(--muted);
+  box-shadow: inset 2px 0 0 var(--plan-tone);
+}
+
+.rowNumber {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.rowBody {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rowTop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 8px;
+}
+
+.rowLabel {
+  flex: 1 1 8ch;
+  min-width: 0;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.row[data-status="now"] .rowLabel,
+.row[data-selected="true"] .rowLabel {
+  font-weight: 650;
+}
+
+.rowMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 6px;
+  color: var(--muted-foreground);
+  font-size: 0.6875rem;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+
+.rowMeta > * + *::before {
+  content: "·";
+  content: "·" / "";
+  margin-right: 6px;
+}
+
+.reason {
+  margin: 0 0 8px;
+  padding-left: var(--plan-gutter);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+/* ── Condensed (gallery slot) ───────────────────────────── */
+
+.condensed {
+  display: grid;
+  gap: var(--spacing-stack-sm);
+}
+
+.condensedTitle {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  margin: 0;
+  overflow: hidden;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.condensedLead {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  margin: 0;
+  overflow: hidden;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+/* ── Focus ring and motion ──────────────────────────────── */
+
+.root button:focus-visible {
+  outline: 2px solid var(--foreground);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* The one moving thing: a calm ring on the Now mark, so "current" reads even in the periphery. */
+  .mark[data-status="now"] .markRing {
+    animation: nowBreath 2.8s ease-in-out infinite;
+  }
+
+  .rowButton,
+  .link,
+  .nav {
+    transition: background-color 120ms ease-out;
+  }
+}
+
+@keyframes nowBreath {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.4;
+  }
+}

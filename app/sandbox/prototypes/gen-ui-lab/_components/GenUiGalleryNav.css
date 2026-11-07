@@ -1,0 +1,14 @@
+/* Gallery nav label: ProcessingTextBurn, tuned for a short noun on the page background. */
+
+/* Two classes beat `.processing-text-burn`'s own variable defaults. */
+.gen-ui-gallery-nav__label.processing-text-burn {
+  /* Burn from the full foreground down to a quiet resting tone that reads in light and dark. */
+  --ptb-shine-bright: var(--foreground);
+  --ptb-shine-dim: var(--muted-foreground);
+  line-height: 1;
+}
+
+/* One line, never wrapped. */
+.gen-ui-gallery-nav__label .processing-text-burn__layer {
+  white-space: nowrap;
+}

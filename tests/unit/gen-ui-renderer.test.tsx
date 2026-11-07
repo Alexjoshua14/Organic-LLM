@@ -46,7 +46,7 @@ describe("GenUIRenderer", () => {
       <GenUIRenderer data={{ block: FIXTURE_ANSWER_CARD }} messageId="t1" />
     );
     expect(getByText(FIXTURE_ANSWER_CARD.tldr)).toBeTruthy();
-    expect(getByText(/Summary/)).toBeTruthy();
+    expect(getByText(FIXTURE_ANSWER_CARD.title)).toBeTruthy();
   });
 
   test("answer card shows every key point, with no collapsed overflow", () => {
@@ -58,6 +58,15 @@ describe("GenUIRenderer", () => {
 
     expect(items).toEqual(keyPoints);
     expect(queryByText(/Show \d+ more/)).toBeNull();
+  });
+
+  test("answer card shows section bodies without a disclosure to open", () => {
+    const { container, getByText } = render(
+      <GenUIRenderer data={{ block: FIXTURE_ANSWER_CARD }} messageId="t-sections" />
+    );
+
+    expect(container.querySelector("details")).toBeNull();
+    expect(getByText(/Mirror writes to both stores/)).toBeTruthy();
   });
 
   test("falls back to markdown for invalid block", () => {
