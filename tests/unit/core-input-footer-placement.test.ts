@@ -54,11 +54,15 @@ describe("CoreInput footer placement", () => {
     expect(hasOverflowItems(placement)).toBe(true);
   });
 
-  test("the compact variant drops search and memory entirely", () => {
+  test("the compact variant keeps search and memory available in its options panel", () => {
     const placement = resolveFooterPlacement({ ...FULL, condensed: true, compact: true });
 
-    expect(placement.toolToggles).toBe("hidden");
+    expect(placement.toolToggles).toBe("inline");
     expect(placement.speech).toBe("menu");
+  });
+
+  test("text-only surfaces do not offer file attachments", () => {
+    expect(resolveFooterPlacement({ ...FULL, hasAttachments: false }).addFiles).toBe("hidden");
   });
 
   test("controls the surface did not opt into are hidden", () => {

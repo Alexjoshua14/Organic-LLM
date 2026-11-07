@@ -25,7 +25,7 @@ export function ComposerModelEffortSelect({ className }: { className?: string })
   return (
     <div
       className={cn(
-        "group/segments flex h-8 shrink-0 items-center rounded-md ring-1 ring-inset ring-border/50",
+        "group/segments flex h-8 min-w-0 max-w-full shrink-0 items-center rounded-md ring-1 ring-inset ring-border/50",
         "motion-safe:transition-[box-shadow] motion-safe:duration-200 hover:ring-border",
         className
       )}

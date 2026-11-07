@@ -55,8 +55,9 @@ import {
 } from "./core-input-context";
 import { CoreInputFooter } from "./footer/core-input-footer";
 import { resolveFooterPlacement } from "./footer/footer-placement";
-import { StageBetaOptions } from "./stage-beta-options";
-import "./stage-beta.css";
+import { CoreInputOptions } from "./core-input-options";
+import { ComposerMicButton } from "./controls/mic-button";
+import "./compact.css";
 import { organicGlassSubmitClassName, PromptInputSubmit } from "./submit/submit-button";
 import { OrganicSubmitGlyph, resolveOrganicSubmitState } from "./submit/submit-glyph";
 import { useCoreInputLayout } from "./use-core-input-layout";
@@ -107,7 +108,7 @@ import { useDiagramNodeLinksOptional } from "@/lib/mermaid/diagram-node-links-co
 import { useMessageSendQueue } from "@/hooks/use-message-send-queue";
 import { MessageSendQueueStrip } from "@/components/chat/message-send-queue-strip";
 import { shouldEnqueueInsteadOfSend } from "@/lib/message-queue/dispatch-gates";
-import { ThreadClipboardPicker } from "@/components/chat/thread-reference/thread-clipboard-picker";
+import { glass } from "@/components/design-system/primitives";
 import { ThreadReferenceCard } from "@/components/chat/thread-reference/thread-reference-card";
 import { parseThreadPointer, threadReferenceMarker } from "@/lib/chat/thread-reference";
 
@@ -165,12 +166,12 @@ type CoreInputProps = {
   secondarySubmitDisabled?: boolean;
   secondarySubmitPending?: boolean;
   /**
-   * Compact single-line composer. Always uses the condensed footer, and drops the search and
-   * memory toggles entirely (they are not in the overflow menu). See `footer/footer-placement.ts`.
-   * The Stage beta composer has its own options popover and no footer.
+   * Compact single-row layout with settings behind one options button. Narrow default
+   * composers use the same layout automatically. `stage-beta` keeps Stage-specific submit
+   * and preference behavior, but shares this layout, options, and glass with every surface.
    */
   variant?: "default" | "compact" | "stage-beta";
-  /** Stage-only realtime start/stop control. No effect on other variants. */
+  /** Optional realtime start/stop control in the compact row. */
   voiceControl?: ReactNode;
   /** First-run coachmarks for composer tools (dismiss persists in localStorage). */
   featureHints?: boolean;
@@ -1113,6 +1114,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     previewingMarkdown: inputMarkdownMode === "preview",
     hasSteer: Boolean(onSecondarySubmit),
     showContextEffort,
+    hasAttachments: variant !== "stage-beta",
   });
 
   const controlsValue = useMemo<CoreInputControlsValue>(
@@ -1197,10 +1199,11 @@ export const CoreInput: React.FC<CoreInputProps> = ({
           !personaActive &&
           organicGlassSubmitClassName,
         personaActive && "overflow-hidden rounded-lg bg-transparent p-0 hover:bg-transparent",
-        variant === "stage-beta" && "core-input-stage-submit size-9 rounded-full"
+        useCondensedLayout &&
+          cn(glass({ chip: true }), "core-input-compact-submit size-9 rounded-full")
       )}
       variant={personaActive ? "ghost" : undefined}
-      motionFeedback={variant !== "stage-beta"}
+      motionFeedback={!useCondensedLayout}
       // Multi-mode: always submit (never stop). Default: keep stop available while streaming.
       disabled={
         variant === "stage-beta"
@@ -1240,17 +1243,18 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     </PromptInputSubmit>
   );
 
-  const defaultComposer = (
+  const composer = (
     <PromptInput
       aria-busy={showSentShimmer ? true : undefined}
       data-dim-background
-      globalDrop
+      globalDrop={variant !== "stage-beta"}
       multiple
-      className={cn("z-40 w-full min-w-0", className)}
+      maxFiles={variant === "stage-beta" ? 0 : undefined}
+      className={cn("z-40 w-full min-w-0", useCondensedLayout && "core-input-condensed", className)}
       onSubmit={handleSubmit}
       onSubmitCapture={handleSubmitCapture}
     >
-      {contextBudgetControl ? (
+      {contextBudgetControl && !useCondensedLayout ? (
         <div className="absolute right-1.5 top-1 z-20">{contextBudgetControl}</div>
       ) : null}
 
@@ -1286,76 +1290,66 @@ export const CoreInput: React.FC<CoreInputProps> = ({
         ) : null}
       </PromptInputHeader>
 
-      <PromptInputBody>
-        {draftRestored ? (
-          <span className="sr-only" aria-live="polite">
-            Draft restored
-          </span>
+      <div
+        ref={useCondensedLayout ? toolsRef : undefined}
+        className={useCondensedLayout ? "core-input-compact-row" : "contents"}
+      >
+        {useCondensedLayout ? (
+          <CoreInputOptions
+            placement={footerPlacement}
+            ready={settingsReady}
+            locked={Boolean(disabled) || showSentShimmer}
+            steer={steer}
+            onThreadReference={addThreadReference}
+            contextBudget={contextBudgetControl}
+          />
         ) : null}
-        {renderComposerBody()}
-      </PromptInputBody>
-      <CoreInputFooter
-        locked={Boolean(disabled) || showSentShimmer}
-        placement={footerPlacement}
-        settingsReady={settingsReady}
-        // Coachmark anchors move into the menu or shrink on a condensed footer, so hints wait.
-        showFeatureHints={featureHints && !useCondensedLayout}
-        steer={steer}
-        steerHintShowWhen={steerHintShowWhen}
-        submit={submitControl}
-        textareaRef={textareaRef}
-        toolsRef={toolsRef}
-        onDictation={setText}
-        onThreadReference={addThreadReference}
-      />
+        <PromptInputBody>
+          {draftRestored ? (
+            <span className="sr-only" aria-live="polite">
+              Draft restored
+            </span>
+          ) : null}
+          {renderComposerBody()}
+        </PromptInputBody>
+        {useCondensedLayout ? (
+          <>
+            {voiceControl ??
+              (footerPlacement.mic !== "hidden" ? (
+                <ComposerMicButton textareaRef={textareaRef} onTranscriptionChange={setText} />
+              ) : null)}
+            {submitControl}
+          </>
+        ) : null}
+      </div>
+      {!useCondensedLayout ? (
+        <CoreInputFooter
+          locked={Boolean(disabled) || showSentShimmer}
+          placement={footerPlacement}
+          settingsReady={settingsReady}
+          showFeatureHints={featureHints}
+          steer={steer}
+          steerHintShowWhen={steerHintShowWhen}
+          submit={submitControl}
+          textareaRef={textareaRef}
+          toolsRef={toolsRef}
+          onDictation={setText}
+          onThreadReference={addThreadReference}
+        />
+      ) : null}
     </PromptInput>
   );
 
-  const composer =
-    variant === "stage-beta" ? (
-      <PromptInput
-        aria-label="Talk to Organic"
-        maxFiles={0}
-        className={cn("core-input-stage-beta", className)}
-        onSubmit={handleSubmit}
-        onSubmitCapture={handleSubmitCapture}
-      >
-        <PromptInputHeader className="p-0">
-          {threadReferences.length > 0 ? (
-            <div className="flex flex-wrap gap-1.5 px-3 pt-3">
-              {threadReferences.map((id) => (
-                <ThreadReferenceCard
-                  key={id}
-                  id={id}
-                  onRemove={() =>
-                    setThreadReferences((current) => current.filter((item) => item !== id))
-                  }
-                />
-              ))}
-            </div>
-          ) : null}
-        </PromptInputHeader>
-        <div className="core-input-stage-beta-row">
-          <StageBetaOptions
-            threadPicker={<ThreadClipboardPicker onSelect={addThreadReference} />}
-          />
-          <PromptInputBody>{renderComposerBody()}</PromptInputBody>
-          {voiceControl}
-          {submitControl}
-        </div>
-      </PromptInput>
-    ) : (
-      defaultComposer
-    );
-
-  const shell =
-    !useMemories || variant === "stage-beta" ? (
-      composer
-    ) : (
-      <HomeComposerLumenShell className="core-input-memory-lumen">
-        {composer}
-      </HomeComposerLumenShell>
-    );
+  // Keep the prompt shell mounted when Memory changes so the draft, open settings, and
+  // shell-width observer survive toggling a setting in the compact options panel.
+  const shell = (
+    <HomeComposerLumenShell
+      className="core-input-memory-lumen"
+      enabled={useMemories && variant !== "stage-beta"}
+    >
+      {composer}
+    </HomeComposerLumenShell>
+  );
 
   return (
     <CoreInputControlsProvider value={controlsValue}>

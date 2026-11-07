@@ -53,6 +53,8 @@ export type FooterSurface = {
   hasSteer: boolean;
   /** Context effort is on for this surface (Arcadia + memory on + beta setting). */
   showContextEffort: boolean;
+  /** Stage sends text and references only; other surfaces accept files. Defaults to true. */
+  hasAttachments?: boolean;
 };
 
 /**
@@ -62,7 +64,6 @@ export type FooterSurface = {
 export function resolveFooterPlacement(surface: FooterSurface): FooterPlacementMap {
   const {
     condensed,
-    compact,
     personaEnabled,
     hideWebMemorySpeechToggles,
     hasSpeechFriendly,
@@ -70,6 +71,7 @@ export function resolveFooterPlacement(surface: FooterSurface): FooterPlacementM
     previewingMarkdown,
     hasSteer,
     showContextEffort,
+    hasAttachments = true,
   } = surface;
 
   // The condensed layout keeps the tools a user reaches for on most turns on the toolbar and
@@ -80,10 +82,8 @@ export function resolveFooterPlacement(surface: FooterSurface): FooterPlacementM
   return {
     persona: personaEnabled ? "inline" : "hidden",
 
-    // Quirk: only the compact *variant* drops search and memory. A narrow default composer
-    // keeps them inline. Compact surfaces have no way to reach them at all; they are not in
-    // the overflow menu either.
-    toolToggles: !hideWebMemorySpeechToggles && !compact ? "inline" : "hidden",
+    // Compact layouts expose these same controls in the shared options panel.
+    toolToggles: !hideWebMemorySpeechToggles ? "inline" : "hidden",
 
     // Quirk: `hideWebMemorySpeechToggles` hides the inline speech chip but not the menu item,
     // so a condensed composer that passes both (Introspection) still offers speech in the menu.
@@ -98,7 +98,7 @@ export function resolveFooterPlacement(surface: FooterSurface): FooterPlacementM
     preview: secondary(hasMarkdownPreview),
     modelEffort: "inline",
     contextEffort: showContextEffort ? "inline" : "hidden",
-    addFiles: "inline",
+    addFiles: hasAttachments ? "inline" : "hidden",
     threadClipboard: "inline",
     // Dictation writes into the textarea, which is swapped out while previewing markdown.
     mic: hasMarkdownPreview && previewingMarkdown ? "hidden" : "inline",

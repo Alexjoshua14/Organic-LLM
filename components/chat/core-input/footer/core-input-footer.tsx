@@ -106,7 +106,7 @@ export function CoreInputFooter({
   const inline = (id: keyof FooterPlacementMap) => placement[id] === "inline";
 
   return (
-    <PromptInputFooter className="cursor-default overflow-visible">
+    <PromptInputFooter className="cursor-default flex-wrap gap-y-2 overflow-visible">
       <div ref={toolsRef} className="min-w-0 flex-1 overflow-visible">
         <PromptInputTools className="flex min-w-0 w-full items-center justify-between gap-1 overflow-visible">
           {/* Leading: settings for the next turn. `gap-3` separates control groups; the
@@ -114,7 +114,7 @@ export function CoreInputFooter({
           <div
             aria-hidden={settingsReady ? undefined : true}
             className={cn(
-              "flex min-w-0 items-center gap-3 overflow-visible",
+              "flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 overflow-visible",
               "transition-[opacity,visibility] ease-out motion-reduce:transition-none",
               settingsReady ? "visible opacity-100" : "invisible opacity-0"
             )}
