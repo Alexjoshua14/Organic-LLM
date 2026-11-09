@@ -2,13 +2,12 @@
 
 import type { PlanTimelineBlock } from "@/lib/schemas/gen-ui";
 
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 
-import { PlanFocus } from "../plan/PlanFocus";
 import { PlanIndex } from "../plan/PlanIndex";
 import { PlanTally } from "../plan/PlanTally";
-import { describeTally, derivePlan, type PlanModel } from "../plan/plan-model";
-import { PLAN_STATUS, PlanStatusWord } from "../plan/plan-status";
+import { describeTally, derivePlan, pickOpenIndex, type PlanModel } from "../plan/plan-model";
+import { PlanStatusMark, PlanStatusWord } from "../plan/plan-status";
 import styles from "../plan/Plan.module.css";
 
 type PlanTimelineProps = {
@@ -32,8 +31,15 @@ function CondensedPlan({ block, plan }: { block: PlanTimelineBlock; plan: PlanMo
         <PlanTally morphId="plan-progress" statuses={block.steps.map((step) => step.status)} />
         <p className={styles.summary}>{describeTally(plan.tally)}</p>
         {lead ? (
-          <p className={styles.condensedLead} data-morph-id={`step-${lead.step.id}`}>
-            <PlanStatusWord status={lead.step.status} />: {lead.step.label}
+          <p
+            className={styles.condensedLead}
+            data-morph-id={`step-${lead.step.id}`}
+            data-status={lead.step.status}
+          >
+            <PlanStatusMark status={lead.step.status} />
+            <span>
+              <PlanStatusWord status={lead.step.status} />: {lead.step.label}
+            </span>
           </p>
         ) : null}
       </div>
@@ -42,8 +48,9 @@ function CondensedPlan({ block, plan }: { block: PlanTimelineBlock; plan: PlanMo
 }
 
 /**
- * Plan as one frame: a counted summary, the step in focus, and an index of every step.
- * Selection is local view state only — nothing here completes, edits or persists a step.
+ * Plan as one list: a counted summary, then every step in order on a spine, with the current step
+ * open in place. Opening a step is local view state only — nothing here completes, edits or
+ * persists a step.
  */
 function FullPlan({
   block,
@@ -56,31 +63,10 @@ function FullPlan({
   partial?: boolean;
   morphIds?: boolean;
 }) {
-  const uid = useId();
-  const focusId = `${uid}-focus`;
+  // null: the reader has not chosen, so the open step follows the data (a streaming or updated
+  // plan keeps pointing at its current step). -1: the reader closed every step.
   const [chosen, setChosen] = useState<number | null>(null);
-  const focusRef = useRef<HTMLElement>(null);
-  const revealRef = useRef(false);
-
-  // Until the reader chooses, the focus follows the data (a plan that changes keeps pointing at
-  // its current step). A stale choice — the plan got shorter — falls back to the lead.
-  const selected = chosen !== null && chosen < plan.steps.length ? chosen : plan.lead;
-  const view = plan.steps[selected] ?? plan.steps[0];
-
-  useEffect(() => {
-    if (!revealRef.current) return;
-    revealRef.current = false;
-    // When the focus sits above the index (narrow cards), bring it into view; no-op if visible.
-    focusRef.current?.scrollIntoView?.({ block: "nearest" });
-  }, [selected]);
-
-  if (!view) return null;
-
-  const select = (index: number) => setChosen(index);
-  const selectFromIndex = (index: number) => {
-    revealRef.current = true;
-    setChosen(index);
-  };
+  const open = chosen !== null && chosen < plan.steps.length ? chosen : pickOpenIndex(plan);
 
   return (
     <div className={styles.root} data-partial={partial ? "true" : undefined}>
@@ -88,31 +74,22 @@ function FullPlan({
         <h3 className={styles.title} data-morph-id={morphIds ? "plan-title" : undefined}>
           {block.title}
         </h3>
-        <p className={styles.summary}>{describeTally(plan.tally)}</p>
-        <PlanTally
-          morphId={morphIds ? "plan-progress" : undefined}
-          statuses={block.steps.map((step) => step.status)}
-        />
+        <div className={styles.overview}>
+          <PlanTally
+            morphId={morphIds ? "plan-progress" : undefined}
+            statuses={block.steps.map((step) => step.status)}
+          />
+          <p className={styles.summary}>{describeTally(plan.tally)}</p>
+        </div>
       </header>
 
-      <div className={styles.layout}>
-        <PlanFocus id={focusId} panelRef={focusRef} plan={plan} view={view} onSelect={select} />
-        <PlanIndex
-          focusId={focusId}
-          labelId={`${uid}-index`}
-          morphIds={morphIds}
-          selected={selected}
-          steps={plan.steps}
-          onSelect={selectFromIndex}
-        />
-      </div>
-
-      {chosen !== null ? (
-        <p aria-live="polite" className={styles.srOnly} role="status">
-          Showing step {view.index + 1} of {plan.steps.length}: {view.step.label},{" "}
-          {PLAN_STATUS[view.step.status].meaning}
-        </p>
-      ) : null}
+      <PlanIndex
+        morphIds={morphIds}
+        open={open}
+        plan={plan}
+        onJump={setChosen}
+        onToggle={(index) => setChosen(index === open ? -1 : index)}
+      />
     </div>
   );
 }

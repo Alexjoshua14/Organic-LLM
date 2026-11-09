@@ -7,7 +7,7 @@ type PlanLinksProps = {
   label: string;
   labelId: string;
   steps: readonly PlanStepView[];
-  /** Declared dependencies (may dangle) or plain step indices (peers, dependants). */
+  /** Declared dependencies (may dangle) or plain step indices (dependants). */
   items: readonly (PlanDependency | number)[];
   onSelect: (index: number) => void;
 };
@@ -28,26 +28,24 @@ function StepLink({
           <span className={styles.srOnly}>Step </span>
           {view.number}
         </span>
-        <span className={styles.linkLabel}>
-          {view.step.label}
-          {note ? <span className={styles.linkNote}> · {note}</span> : null}
-        </span>
+        <span className={styles.linkLabel}>{view.step.label}</span>
         <PlanStatusWord status={view.step.status} />
+        {note ? <span className={styles.linkNote}>{note}</span> : null}
       </button>
     </li>
   );
 }
 
 /**
- * Relationships as readable, navigable text. A dependency that points nowhere (or at itself) is
- * stated as such instead of rendering a dead link.
+ * One relationship line — "Depends on  02 Sandbox gallery Now" — as navigable text. A dependency
+ * that points nowhere (or at itself) is stated as such instead of rendering a dead link.
  */
 export function PlanLinks({ label, labelId, steps, items, onSelect }: PlanLinksProps) {
   if (items.length === 0) return null;
 
   return (
-    <div>
-      <p className={styles.sectionLabel} id={labelId}>
+    <div className={styles.relation}>
+      <p className={styles.relationLabel} id={labelId}>
         {label}
       </p>
       {/* eslint-disable-next-line jsx-a11y/no-redundant-roles -- explicit role keeps list semantics in Safari/VoiceOver under list-style reset */}
@@ -74,7 +72,7 @@ export function PlanLinks({ label, labelId, steps, items, onSelect }: PlanLinksP
 
           return (
             <li key={`${item.kind}:${item.id}`} className={styles.dangling}>
-              <code>{item.id}</code>
+              <code>{item.id}</code>{" "}
               <span>
                 {item.kind === "self" ? "depends on itself" : "is not a step in this plan"}
               </span>

@@ -11,7 +11,8 @@ type PlanSubstepsProps = {
 
 /**
  * Read-only: the marks show what the plan says, they are not controls and nothing here persists.
- * A substep with no `done` is "not marked done", not "unknown".
+ * A substep with no `done` is "not marked done", not "unknown". Times sit on the same right-hand
+ * rail as the step rows above, verbatim.
  */
 export function PlanSubsteps({ substeps, labelId }: PlanSubstepsProps) {
   if (substeps.length === 0) return null;
@@ -19,8 +20,8 @@ export function PlanSubsteps({ substeps, labelId }: PlanSubstepsProps) {
   const done = substeps.filter((sub) => sub.done === true).length;
 
   return (
-    <div>
-      <p className={styles.sectionLabel} id={labelId}>
+    <div className={styles.subsWrap}>
+      <p className={styles.relationLabel} id={labelId}>
         Sub-steps · {done} of {substeps.length} marked done
       </p>
       {/* eslint-disable-next-line jsx-a11y/no-redundant-roles -- explicit role keeps list semantics in Safari/VoiceOver under list-style reset */}
@@ -56,11 +57,13 @@ export function PlanSubsteps({ substeps, labelId }: PlanSubstepsProps) {
                 />
               ) : null}
             </svg>
-            <span className={styles.subLabel}>
-              <span className={styles.srOnly}>{sub.done ? "Done: " : "Not marked done: "}</span>
-              {sub.label}
+            <span className={styles.subLine}>
+              <span className={styles.subLabel}>
+                <span className={styles.srOnly}>{sub.done ? "Done: " : "Not marked done: "}</span>
+                {sub.label}
+              </span>
+              {sub.time ? <span className={styles.rail}>{sub.time}</span> : null}
             </span>
-            {sub.time ? <span className={styles.railTime}>{sub.time}</span> : null}
           </li>
         ))}
       </ul>

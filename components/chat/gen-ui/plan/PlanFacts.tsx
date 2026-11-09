@@ -7,7 +7,7 @@ type PlanFactsProps = {
   estimate?: string;
 };
 
-/** Exact, labelled facts. Renders nothing when the step supplied none. */
+/** Exact, labelled facts on one line. Renders nothing when the step supplied none. */
 export function PlanFacts({ time, estimate }: PlanFactsProps) {
   if (!time && !estimate) return null;
 

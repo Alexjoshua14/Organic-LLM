@@ -158,3 +158,25 @@ export function describeNeeds(view: PlanStepView): string | null {
 
   return parts.length > 0 ? `Needs ${parts.join(" · ")}` : null;
 }
+
+/**
+ * Whether opening a step shows anything its collapsed row does not. A row without detail is not a
+ * control — there is nothing to reveal, so it never pretends to be expandable.
+ */
+export function stepHasDetail(view: PlanStepView): boolean {
+  const { step } = view;
+
+  return (
+    step.status === "blocked" ||
+    Boolean(step.note) ||
+    Boolean(step.time && step.estimate) ||
+    view.substeps.total > 0 ||
+    view.dependsOn.length > 0 ||
+    view.neededBy.length > 0
+  );
+}
+
+/** The step open by default: the lead — unless every step is done, then nothing needs opening. */
+export function pickOpenIndex(model: Pick<PlanModel, "lead" | "tally">): number {
+  return model.tally.total > 0 && model.tally.done === model.tally.total ? -1 : model.lead;
+}

@@ -13,9 +13,24 @@ export const PLAN_STATUS: Record<PlanStepStatus, { word: string; meaning: string
   blocked: { word: "Blocked", meaning: "Blocked" },
 };
 
-export function PlanStatusWord({ status }: { status: PlanStepStatus }) {
+/** Statuses that change what the reader does next; the rest are said by the mark (and to AT). */
+export const PLAN_STATUS_NEEDS_WORD: Record<PlanStepStatus, boolean> = {
+  done: false,
+  now: true,
+  next: false,
+  blocked: true,
+};
+
+export function PlanStatusWord({
+  status,
+  hidden = false,
+}: {
+  status: PlanStepStatus;
+  /** Keep the word for assistive tech only (the mark's shape carries it visually). */
+  hidden?: boolean;
+}) {
   return (
-    <span className={styles.statusWord} data-status={status}>
+    <span className={hidden ? styles.srOnly : styles.statusWord} data-status={status}>
       {PLAN_STATUS[status].word}
     </span>
   );
@@ -34,7 +49,6 @@ export function PlanStatusMark({ status }: { status: PlanStepStatus }) {
       width="16"
     >
       <circle
-        className={styles.markRing}
         cx="8"
         cy="8"
         fill={status === "done" ? "currentColor" : "none"}

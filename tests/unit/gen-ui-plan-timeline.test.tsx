@@ -9,6 +9,8 @@ import {
   derivePlan,
   describeTally,
   pickLeadIndex,
+  pickOpenIndex,
+  stepHasDetail,
 } from "@/components/chat/gen-ui/plan/plan-model";
 import { FIXTURE_PLAN_TIMELINE } from "@/lib/schemas/gen-ui/fixtures";
 import type { PlanTimelineBlock, PlanTimelineStep } from "@/lib/schemas/gen-ui";
@@ -29,12 +31,56 @@ function indexOf(view: ReturnType<typeof render>) {
   return view.getByRole("list", { name: "All steps" });
 }
 
+/** The plan's own rows, not the sub-step / relationship items inside an open step. */
+function rowsOf(view: ReturnType<typeof render>) {
+  return [...indexOf(view).children] as HTMLElement[];
+}
+
+/** A row's own button (not a relationship link to that step inside an open detail). */
+function rowButton(view: ReturnType<typeof render>, name: RegExp) {
+  const matches = rowsOf(view)
+    .map((row) => row.firstElementChild)
+    .filter(
+      (head): head is HTMLButtonElement =>
+        head?.tagName === "BUTTON" && name.test(head.textContent ?? "")
+    );
+
+  expect(matches).toHaveLength(1);
+
+  return matches[0]!;
+}
+
+/** The open step's detail region (at most one), or null. */
+function openRegion(view: ReturnType<typeof render>) {
+  return view.queryByRole("region");
+}
+
 describe("plan model", () => {
   test("lead is the first now, else first blocked, else first next, else the last step", () => {
     expect(pickLeadIndex([step("a", "done"), step("b", "now"), step("c", "now")])).toBe(1);
     expect(pickLeadIndex([step("a", "next"), step("b", "blocked"), step("c", "next")])).toBe(1);
     expect(pickLeadIndex([step("a", "done"), step("b", "next")])).toBe(1);
     expect(pickLeadIndex([step("a", "done"), step("b", "done")])).toBe(1);
+  });
+
+  test("nothing opens by default when every step is done", () => {
+    expect(pickOpenIndex(derivePlan(plan([step("a", "done"), step("b", "now")])))).toBe(1);
+    expect(pickOpenIndex(derivePlan(plan([step("a", "done"), step("b", "done")])))).toBe(-1);
+  });
+
+  test("a step has detail only when opening it would reveal something", () => {
+    const model = derivePlan(
+      plan([
+        step("bare", "next"),
+        step("timed", "next", { time: "6 PM" }),
+        step("both", "next", { time: "6 PM", estimate: "1h" }),
+        step("blocked", "blocked"),
+        step("dep", "next", { dependsOn: ["bare"] }),
+      ])
+    );
+
+    expect(model.steps.map(stepHasDetail)).toEqual([true, false, true, true, true]);
+    expect(stepHasDetail(derivePlan(plan([step("solo", "now")])).steps[0]!)).toBe(false);
   });
 
   test("dependencies resolve to steps, and dangling, self and shared ids are classified", () => {
@@ -85,26 +131,37 @@ describe("plan model", () => {
 });
 
 describe("PlanTimeline full", () => {
-  test("states the plan in words: counted summary, status words, current step in focus", () => {
+  test("one ordered list: counted summary, a status word per row, the current step open in place", () => {
     const view = render(<PlanTimeline block={fixture} />);
 
     expect(view.getByRole("heading", { level: 3, name: "Arcadia gen-UI rollout" })).toBeTruthy();
     expect(view.getByText("1 of 4 steps done · 1 now · 1 blocked · 1 next")).toBeTruthy();
-    expect(view.getByRole("heading", { level: 4, name: "Sandbox gallery" })).toBeTruthy();
-    const rows = within(indexOf(view)).getAllByRole("listitem");
+    const rows = rowsOf(view);
 
     expect(rows).toHaveLength(4);
-    const words = rows.map((row) => within(row).getByText(/^(Done|Now|Next|Blocked)$/).textContent);
+    // Every row carries its status as a word (visible for Now / Blocked, for AT on Done / Next).
+    const words = rows.map(
+      (row) => within(row.firstElementChild as HTMLElement).getByText(/^(Done|Now|Next|Blocked)$/).textContent
+    );
 
     expect(words).toEqual(["Done", "Now", "Next", "Blocked"]);
-    // The step that is now is flagged for assistive tech, and is the one selected.
-    const nowButton = within(rows[1]!).getByRole("button");
+    const nowButton = rowButton(view, /Sandbox gallery/);
 
     expect(nowButton.getAttribute("aria-current")).toBe("step");
-    expect(nowButton.getAttribute("aria-pressed")).toBe("true");
+    expect(nowButton.getAttribute("aria-expanded")).toBe("true");
+    expect(openRegion(view)?.getAttribute("aria-labelledby")).toBe(nowButton.id);
+    expect(view.queryAllByRole("region")).toHaveLength(1);
   });
 
-  test("exact time and estimate are labelled and verbatim; sub-steps show a count and their times", () => {
+  test("a step with nothing more to show is a plain row, not a control", () => {
+    const view = render(<PlanTimeline block={fixture} />);
+    const first = rowsOf(view)[0]!;
+
+    expect(within(first).queryByRole("button")).toBeNull();
+    expect(first.textContent).toContain("Schema + registry");
+  });
+
+  test("time sits on the rail verbatim; the estimate is labelled; sub-steps show a count and times", () => {
     const block = plan([
       step("prep", "now", {
         label: "Thursday prep",
@@ -117,23 +174,34 @@ describe("PlanTimeline full", () => {
         ],
       }),
       step("serve", "next", { time: "Friday", label: "Serve" }),
+      step("study", "next", { estimate: "2h", label: "Study" }),
     ]);
     const view = render(<PlanTimeline block={block} />);
+    const [prep, serve, study] = rowsOf(view);
 
-    expect(view.getByText("Time").nextElementSibling?.textContent).toBe("~6:00 PM");
-    expect(view.getByText("Estimate").nextElementSibling?.textContent).toBe("20 min");
+    // Open step: time on the rail (not repeated), estimate as a labelled fact.
+    expect(within(prep!).getByText("~6:00 PM")).toBeTruthy();
+    expect([...openRegion(view)!.querySelectorAll("dt")].map((dt) => dt.textContent)).toEqual([
+      "Estimate",
+    ]);
+    expect(
+      within(openRegion(view)!).getByText("Estimate").nextElementSibling?.textContent
+    ).toBe("20 min");
     expect(view.getByText("Sub-steps · 1 of 3 marked done")).toBeTruthy();
     expect(view.getByText("~6:05 PM")).toBeTruthy();
     expect(view.getByText("~6:30 PM")).toBeTruthy();
     expect(view.getByText("Done:")).toBeTruthy();
     expect(view.getAllByText(/Not marked done:/)).toHaveLength(2);
-    // The index keeps the time on its rail and labels the estimate as an estimate.
-    const row = within(indexOf(view)).getAllByRole("listitem")[0]!;
+    expect(within(serve!).getByText("Friday")).toBeTruthy();
+    // With no time, the estimate takes the rail, still labelled as an estimate.
+    expect(within(study!).getByText("2h").textContent).toBe("Est. Estimate 2h");
 
-    expect(within(row).getByText("~6:00 PM")).toBeTruthy();
-    expect(within(row).getByText("Estimate 20 min")).toBeTruthy();
-    expect(within(row).getByText("1 of 3 sub-steps done")).toBeTruthy();
-    expect(within(indexOf(view)).getByText("Friday")).toBeTruthy();
+    // Collapsed, the row keeps the facts the detail held as a one-line summary.
+    fireEvent.click(rowButton(view, /Thursday prep/));
+    expect(openRegion(view)).toBeNull();
+    expect(within(prep!).getByText("Estimate 20 min")).toBeTruthy();
+    expect(within(prep!).getByText("1 of 3 sub-steps done")).toBeTruthy();
+    expect(within(prep!).getByText("~6:00 PM")).toBeTruthy();
   });
 
   test("nothing implies percent complete or a live completion control", () => {
@@ -153,52 +221,56 @@ describe("PlanTimeline full", () => {
     });
   });
 
-  test("a blocked step's reason is visible in the index without selecting it, and in focus when selected", () => {
+  test("a blocked step's reason is always visible — under its row, or in its detail when open", () => {
     const view = render(<PlanTimeline block={fixture} />);
 
-    expect(within(indexOf(view)).getByText("Awaiting TTS UX sign-off")).toBeTruthy();
-    expect(view.queryByText("Why it is blocked")).toBeNull();
+    expect(within(indexOf(view)).getAllByText("Awaiting TTS UX sign-off")).toHaveLength(1);
+    expect(view.queryByText("Why blocked")).toBeNull();
 
-    fireEvent.click(within(indexOf(view)).getByRole("button", { name: /Audio Phase 2/ }));
-    expect(view.getByRole("heading", { level: 4, name: "Audio Phase 2" })).toBeTruthy();
-    expect(view.getByText("Why it is blocked")).toBeTruthy();
-    expect(view.getAllByText("Awaiting TTS UX sign-off")).toHaveLength(2);
-    expect(view.getByRole("status").textContent).toContain("Showing step 4 of 4: Audio Phase 2");
+    fireEvent.click(rowButton(view, /Audio Phase 2/));
+    expect(within(openRegion(view)!).getByText("Why blocked")).toBeTruthy();
+    expect(within(openRegion(view)!).getByText("Awaiting TTS UX sign-off")).toBeTruthy();
+    expect(view.getAllByText("Awaiting TTS UX sign-off")).toHaveLength(1);
   });
 
   test("a blocked step with no note says no reason was given", () => {
     const view = render(<PlanTimeline block={plan([step("a", "blocked")])} />);
 
-    expect(within(indexOf(view)).getByText("No reason given.")).toBeTruthy();
-    expect(view.getByText("No reason was given.")).toBeTruthy();
+    expect(view.getByText("Why blocked")).toBeTruthy();
+    expect(view.getByText("No reason given.")).toBeTruthy();
+    fireEvent.click(rowButton(view, /Label a/));
+    expect(view.getByText("No reason given.")).toBeTruthy();
   });
 
-  test("selecting rows and prev / next move the focus; selection is only view state", () => {
+  test("one step open at a time; the open row closes on a second press; only view state changes", () => {
     const view = render(<PlanTimeline block={fixture} />);
-    const next = () => view.getByRole("button", { name: /^Next step/ });
-    const previous = () => view.getByRole("button", { name: /^Previous step/ });
+    const gallery = rowButton(view, /Sandbox gallery/);
+    const wiring = rowButton(view, /Arcadia tool wiring/);
 
-    fireEvent.click(next());
-    expect(view.getByRole("heading", { level: 4, name: "Arcadia tool wiring" })).toBeTruthy();
-    fireEvent.click(previous());
-    fireEvent.click(previous());
-    expect(view.getByRole("heading", { level: 4, name: "Schema + registry" })).toBeTruthy();
-    expect((previous() as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.click(within(indexOf(view)).getByRole("button", { name: /Audio Phase 2/ }));
-    expect((next() as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(wiring);
+    expect(wiring.getAttribute("aria-expanded")).toBe("true");
+    expect(gallery.getAttribute("aria-expanded")).toBe("false");
+    expect(view.queryAllByRole("region")).toHaveLength(1);
+    fireEvent.click(wiring);
+    expect(openRegion(view)).toBeNull();
+    // Closing everything is a choice that sticks; the data is untouched.
+    expect(view.getByText("1 of 4 steps done · 1 now · 1 blocked · 1 next")).toBeTruthy();
   });
 
-  test("dependencies are readable with their status and jump to the step", () => {
+  test("dependencies are readable with their status and jump to the step, focus following", () => {
     const view = render(<PlanTimeline block={fixture} />);
 
-    fireEvent.click(within(indexOf(view)).getByRole("button", { name: /Arcadia tool wiring/ }));
+    expect(within(indexOf(view)).getByText("Needs 02")).toBeTruthy();
+    fireEvent.click(rowButton(view, /Arcadia tool wiring/));
     const depends = view.getByRole("list", { name: "Depends on" });
     const link = within(depends).getByRole("button", { name: /Sandbox gallery/ });
 
     expect(link.textContent).toContain("Now");
-    expect(within(indexOf(view)).getByText("Needs 02")).toBeTruthy();
     fireEvent.click(link);
-    expect(view.getByRole("heading", { level: 4, name: "Sandbox gallery" })).toBeTruthy();
+    const gallery = rowButton(view, /Sandbox gallery/);
+
+    expect(gallery.getAttribute("aria-expanded")).toBe("true");
+    expect(document.activeElement).toBe(gallery);
     expect(within(view.getByRole("list", { name: "Needed by" })).getByRole("button")).toBeTruthy();
   });
 
@@ -212,6 +284,7 @@ describe("PlanTimeline full", () => {
     expect(within(depends).getByText("nope")).toBeTruthy();
     expect(within(depends).getByText("is not a step in this plan")).toBeTruthy();
     expect(within(depends).getByText("depends on itself")).toBeTruthy();
+    fireEvent.click(rowButton(view, /Label a/));
     expect(within(indexOf(view)).getByText("Needs 1 unknown · itself")).toBeTruthy();
   });
 
@@ -226,69 +299,72 @@ describe("PlanTimeline full", () => {
       />
     );
 
-    expect(within(indexOf(view)).getAllByRole("listitem")).toHaveLength(3);
-    fireEvent.click(within(indexOf(view)).getByRole("button", { name: /Label y/ }));
+    expect(rowsOf(view)).toHaveLength(3);
+    fireEvent.click(rowButton(view, /Label y/));
     expect(view.getByText(/id shared by 2 steps/)).toBeTruthy();
   });
 
-  test("several now steps are all recognised, and each can be reached from the focus", () => {
+  test("several now steps are all marked current and each says Now", () => {
     const view = render(
       <PlanTimeline block={plan([step("a", "now"), step("b", "done"), step("c", "now")])} />
     );
 
     expect(view.getByText("1 of 3 steps done · 2 now")).toBeTruthy();
-    const current = within(indexOf(view))
-      .getAllByRole("button")
-      .filter((button) => button.getAttribute("aria-current") === "step");
-
-    expect(current).toHaveLength(2);
-    const also = view.getByRole("list", { name: "Also now" });
-
-    fireEvent.click(within(also).getByRole("button", { name: /Label c/ }));
-    expect(view.getByRole("heading", { level: 4, name: "Label c" })).toBeTruthy();
+    expect(indexOf(view).querySelectorAll('[aria-current="step"]')).toHaveLength(2);
+    expect(within(indexOf(view)).getAllByText("Now")).toHaveLength(2);
   });
 
-  test("with no current step the focus lands on what needs attention", () => {
+  test("with no current step the open step is what needs attention", () => {
     const withBlocked = render(
       <PlanTimeline block={plan([step("a", "done"), step("b", "next"), step("c", "blocked")])} />
     );
 
     expect(withBlocked.getByText(/none marked now/)).toBeTruthy();
-    expect(withBlocked.getByRole("heading", { level: 4, name: "Label c" })).toBeTruthy();
+    expect(rowButton(withBlocked, /Label c/).getAttribute("aria-expanded")).toBe("true");
     cleanup();
 
-    const allNext = render(<PlanTimeline block={plan([step("a", "next"), step("b", "next")])} />);
+    const allNext = render(
+      <PlanTimeline
+        block={plan([step("a", "next", { note: "First" }), step("b", "next", { note: "Then" })])}
+      />
+    );
 
-    expect(allNext.getByRole("heading", { level: 4, name: "Label a" })).toBeTruthy();
+    expect(rowButton(allNext, /Label a/).getAttribute("aria-expanded")).toBe("true");
     cleanup();
 
-    const allDone = render(<PlanTimeline block={plan([step("a", "done"), step("b", "done")])} />);
+    const allDone = render(
+      <PlanTimeline
+        block={plan([step("a", "done", { note: "x" }), step("b", "done", { note: "y" })])}
+      />
+    );
 
     expect(allDone.getByText("All 2 steps done")).toBeTruthy();
-    expect(allDone.getByRole("heading", { level: 4, name: "Label b" })).toBeTruthy();
+    expect(openRegion(allDone)).toBeNull();
   });
 
-  test("until the reader chooses, focus follows the data; a choice sticks", () => {
-    const first = plan([step("a", "now"), step("b", "next"), step("c", "next")]);
-    const advanced = plan([step("a", "done"), step("b", "now"), step("c", "next")]);
-    const view = render(<PlanTimeline block={first} />);
+  test("until the reader chooses, the open step follows the data; a choice sticks", () => {
+    const withNotes = (statuses: PlanTimelineStep["status"][]) =>
+      plan(statuses.map((status, i) => step("abc"[i]!, status, { note: `Note ${i}` })));
+    const open = (view: ReturnType<typeof render>) =>
+      openRegion(view)?.getAttribute("aria-labelledby");
+    const view = render(<PlanTimeline block={withNotes(["now", "next", "next"])} />);
 
-    expect(view.getByRole("heading", { level: 4, name: "Label a" })).toBeTruthy();
-    view.rerender(<PlanTimeline block={advanced} />);
-    expect(view.getByRole("heading", { level: 4, name: "Label b" })).toBeTruthy();
-    fireEvent.click(within(indexOf(view)).getByRole("button", { name: /Label c/ }));
-    view.rerender(<PlanTimeline block={first} />);
-    expect(view.getByRole("heading", { level: 4, name: "Label c" })).toBeTruthy();
+    expect(open(view)).toBe(rowButton(view, /Label a/).id);
+    view.rerender(<PlanTimeline block={withNotes(["done", "now", "next"])} />);
+    expect(open(view)).toBe(rowButton(view, /Label b/).id);
+    fireEvent.click(rowButton(view, /Label c/));
+    view.rerender(<PlanTimeline block={withNotes(["now", "next", "next"])} />);
+    expect(open(view)).toBe(rowButton(view, /Label c/).id);
     // A stale choice (the plan got shorter) falls back instead of rendering nothing.
-    view.rerender(<PlanTimeline block={plan([step("a", "now")])} />);
-    expect(view.getByRole("heading", { level: 4, name: "Label a" })).toBeTruthy();
+    view.rerender(<PlanTimeline block={withNotes(["now"])} />);
+    expect(open(view)).toBe(rowButton(view, /Label a/).id);
   });
 
-  test("a single step and a twenty-step plan both render every step", () => {
+  test("a single step and a twenty-step plan both render every step, with one open", () => {
     const one = render(<PlanTimeline block={plan([step("only", "now")])} />);
 
     expect(one.getByText("0 of 1 step done · 1 now")).toBeTruthy();
-    expect((one.getByRole("button", { name: /^Next step/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect(rowsOf(one)).toHaveLength(1);
     cleanup();
 
     const many = plan(
@@ -301,9 +377,10 @@ describe("PlanTimeline full", () => {
     );
     const view = render(<PlanTimeline block={many} />);
 
-    expect(within(indexOf(view)).getAllByRole("listitem")).toHaveLength(20);
+    expect(rowsOf(view)).toHaveLength(20);
     expect(view.getByText("7 of 20 steps done · 1 now · 1 blocked · 11 next")).toBeTruthy();
-    expect(view.container.querySelectorAll("[data-status]").length).toBeGreaterThan(40);
+    expect(view.queryAllByRole("region")).toHaveLength(1);
+    expect(rowButton(view, /Label s7/).getAttribute("aria-expanded")).toBe("true");
   });
 
   test("plans rendered by the gen-UI registry use the new frame", () => {

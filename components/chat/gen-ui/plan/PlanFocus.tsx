@@ -1,124 +1,80 @@
-import type { Ref } from "react";
-
 import { useId } from "react";
 
 import { PlanFacts } from "./PlanFacts";
 import { PlanLinks } from "./PlanLinks";
 import { PlanSubsteps } from "./PlanSubsteps";
 import { type PlanModel, type PlanStepView } from "./plan-model";
-import { PlanStatusMark, PlanStatusWord } from "./plan-status";
 import styles from "./Plan.module.css";
 
 import { GenUIMarkdown } from "@/components/chat/gen-ui/GenUIMarkdown";
 
 type PlanFocusProps = {
+  /** Id the row button points at with `aria-controls`. */
   id: string;
+  /** Id of the row button that names this region. */
+  labelledBy: string;
   plan: PlanModel;
   view: PlanStepView;
+  /** Jump to another step (a dependency or dependant). */
   onSelect: (index: number) => void;
-  panelRef?: Ref<HTMLElement>;
 };
 
-function StepNav({
-  direction,
-  target,
-  onSelect,
-}: {
-  direction: "Previous" | "Next";
-  target: PlanStepView | undefined;
-  onSelect: (index: number) => void;
-}) {
-  return (
-    <button
-      className={styles.nav}
-      data-direction={direction}
-      disabled={!target}
-      type="button"
-      onClick={() => target && onSelect(target.index)}
-    >
-      <span className={styles.navDirection}>{direction} step</span>
-      <span className={styles.navLabel}>{target ? target.step.label : "None"}</span>
-    </button>
-  );
-}
-
 /**
- * One step, in full: where it sits, its exact facts, why it is blocked (or its note), its
- * checklist, what it depends on and what needs it. The first step to reach for is the current one.
+ * The open step's detail, in place under its row: why it is blocked (or its note), the estimate
+ * when the time rail is already taken, its checklist, and what it depends on / what needs it.
+ * Nothing the collapsed row already shows is repeated here.
  */
-export function PlanFocus({ id, plan, view, onSelect, panelRef }: PlanFocusProps) {
+export function PlanFocus({ id, labelledBy, plan, view, onSelect }: PlanFocusProps) {
   const uid = useId();
   const { step } = view;
-  const alsoNow = plan.nowIndexes.filter((index) => index !== view.index);
+  const hasSubsteps = view.substeps.total > 0;
+  const hasLinks = view.dependsOn.length > 0 || view.neededBy.length > 0;
 
   return (
-    <section
-      ref={panelRef}
-      aria-labelledby={`${uid}-title`}
-      className={styles.focus}
-      data-status={step.status}
-      id={id}
-    >
-      <p className={styles.kicker}>
-        <PlanStatusMark status={step.status} />
-        <PlanStatusWord status={step.status} />
-        <span className={styles.kickerPosition}>
-          Step {view.index + 1} of {plan.steps.length}
-        </span>
-      </p>
-      <h4 className={styles.focusTitle} id={`${uid}-title`}>
-        {step.label}
-      </h4>
-
-      <PlanFacts estimate={step.estimate} time={step.time} />
+    <div aria-labelledby={labelledBy} className={styles.detail} id={id} role="region">
+      {/* The row's rail shows the time, or the estimate when there is no time. */}
+      <PlanFacts estimate={step.time ? step.estimate : undefined} />
 
       {step.status === "blocked" ? (
-        <div className={styles.blocker}>
-          <p className={styles.blockerLabel}>Why it is blocked</p>
+        <p className={styles.why}>
+          <span className={styles.whyLabel}>Why blocked</span>{" "}
           {step.note ? (
-            <p className={styles.note}>
-              <GenUIMarkdown inline>{step.note}</GenUIMarkdown>
-            </p>
+            <GenUIMarkdown inline>{step.note}</GenUIMarkdown>
           ) : (
-            <p className={styles.reasonMissing}>No reason was given.</p>
+            <span className={styles.reasonMissing}>No reason given.</span>
           )}
-        </div>
+        </p>
       ) : step.note ? (
         <p className={styles.note}>
           <GenUIMarkdown inline>{step.note}</GenUIMarkdown>
         </p>
       ) : null}
 
-      <PlanSubsteps labelId={`${uid}-subs`} substeps={step.substeps ?? []} />
-
-      <PlanLinks
-        items={view.dependsOn}
-        label="Depends on"
-        labelId={`${uid}-deps`}
-        steps={plan.steps}
-        onSelect={onSelect}
-      />
-      <PlanLinks
-        items={view.neededBy}
-        label="Needed by"
-        labelId={`${uid}-needed`}
-        steps={plan.steps}
-        onSelect={onSelect}
-      />
-      {step.status === "now" ? (
-        <PlanLinks
-          items={alsoNow}
-          label="Also now"
-          labelId={`${uid}-also`}
-          steps={plan.steps}
-          onSelect={onSelect}
-        />
+      {hasSubsteps || hasLinks ? (
+        <div className={styles.detailGrid}>
+          {hasSubsteps ? (
+            <PlanSubsteps labelId={`${uid}-subs`} substeps={step.substeps ?? []} />
+          ) : null}
+          {hasLinks ? (
+            <div className={styles.relations}>
+              <PlanLinks
+                items={view.dependsOn}
+                label="Depends on"
+                labelId={`${uid}-deps`}
+                steps={plan.steps}
+                onSelect={onSelect}
+              />
+              <PlanLinks
+                items={view.neededBy}
+                label="Needed by"
+                labelId={`${uid}-needed`}
+                steps={plan.steps}
+                onSelect={onSelect}
+              />
+            </div>
+          ) : null}
+        </div>
       ) : null}
-
-      <div aria-label="Move through the plan" className={styles.stepper} role="group">
-        <StepNav direction="Previous" target={plan.steps[view.index - 1]} onSelect={onSelect} />
-        <StepNav direction="Next" target={plan.steps[view.index + 1]} onSelect={onSelect} />
-      </div>
-    </section>
+    </div>
   );
 }

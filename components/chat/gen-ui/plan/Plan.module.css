@@ -1,16 +1,37 @@
 /*
- * Plan: one frame for every plan — summary, focus, index. Flat on purpose: hairlines and a single
- * tone rule, current Organic tokens only (no glass, no shadows, no card per step).
- * Sizes are rem so 200% text reflows instead of clipping; layout answers to the container, not the
- * viewport (Remy's dock is ~360px, the chat column ~700px, the gallery slot smaller still).
+ * Plan: one ordered list on a spine — summary, then every step as a single line, the open step
+ * expanded in place. Flat on purpose: no card per step, no glass, no shadows, no focus rings
+ * (focus is a tint + underline, like hover but stronger). Current Organic tokens only.
+ * Sizes are rem so 200% text reflows instead of clipping; layout answers to the container, not
+ * the viewport (Remy's dock is ~360px, the chat column ~700px, the gallery slot smaller still).
  */
 
 .root {
+  /* Row geometry, shared by the rows, the spine and the indented detail so they stay aligned. */
+  --plan-pad-x: var(--spacing-inset-sm); /* 8px — rows tint edge to edge, text sits inset */
+  --plan-pad-y: var(--spacing-stack-sm); /* 8px → 36px rows; 44px on coarse pointers (below) */
+  --plan-line: 1.25rem; /* one row line; the mark centres on it */
+  --plan-mark: 1rem;
+  --plan-number: 1.125rem; /* "02" in tabular figures */
+  --plan-gap: var(--spacing-inline-sm);
+  --plan-gutter: calc(
+    var(--plan-pad-x) + var(--plan-mark) + var(--plan-number) + 2 * var(--plan-gap)
+  );
+  --plan-hover: color-mix(in oklab, var(--muted) 55%, transparent);
+  --plan-open: color-mix(in oklab, var(--muted) 70%, transparent);
+  --plan-focus: color-mix(in oklab, var(--foreground) 10%, transparent);
+
   container-type: inline-size;
   min-width: 0;
   color: var(--foreground);
   font-size: 0.875rem; /* 14px */
   line-height: 1.5;
+}
+
+@media (pointer: coarse) {
+  .root {
+    --plan-pad-y: var(--spacing-stack-md); /* 12px → 44px rows */
+  }
 }
 
 /* Status tone: set on whichever element carries data-status, inherited by its marks and words. */
@@ -50,18 +71,31 @@
 
 .header {
   display: grid;
-  gap: var(--spacing-stack-sm);
-  padding-bottom: var(--spacing-stack-md);
+  gap: var(--spacing-stack-xs);
+  padding: 0 var(--plan-pad-x) var(--spacing-stack-xs);
 }
 
 .title {
   margin: 0;
   min-width: 0;
-  font-size: 1.0625rem; /* 17px — card heading, not a hero */
+  font-size: 1rem; /* 16px — card heading, not a hero */
   line-height: 1.35;
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.015em;
   overflow-wrap: anywhere;
+}
+
+/* Tally then its caption; on one line when the card is wide enough, stacked when not. */
+.overview {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-stack-xs) var(--spacing-inline-md);
+}
+
+.overview .tally {
+  flex: 1 1 6rem;
+  max-width: 12rem;
 }
 
 .summary {
@@ -72,44 +106,23 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* ── Tally strip: one segment per step ──────────────────── */
+/* ── Tally strip: one segment per step (decorative; the summary says it in words) ── */
 
 .tally {
   display: flex;
-  align-items: center;
-  gap: 2px;
-  min-height: 10px;
+  gap: 2px; /* hairline between segments, below the token scale on purpose */
 }
 
 .segment {
   flex: 1 1 0;
   min-width: 3px;
-  height: 6px;
-  box-sizing: border-box;
+  height: 4px;
   border-radius: 999px;
-  border: 1px solid var(--plan-tone);
-}
-
-.segment[data-status="done"] {
-  background: var(--plan-tone);
-}
-
-.segment[data-status="now"] {
-  height: 10px;
   background: var(--plan-tone);
 }
 
 .segment[data-status="next"] {
-  border-color: color-mix(in oklab, var(--muted-foreground) 60%, transparent);
-  background: transparent;
-}
-
-.segment[data-status="blocked"] {
-  background: repeating-linear-gradient(
-    135deg,
-    var(--plan-tone) 0 2px,
-    transparent 2px 4px
-  );
+  background: color-mix(in oklab, var(--muted-foreground) 28%, transparent);
 }
 
 /* ── Status marks and words ─────────────────────────────── */
@@ -124,130 +137,255 @@
   font-weight: 600;
 }
 
-/* ── Layout ─────────────────────────────────────────────── */
+/* ── List on a spine ────────────────────────────────────── */
 
-.layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--spacing-stack-lg);
-}
-
-/* Focus keeps the larger share; the index becomes a map beside it when the card can hold both. */
-@container (min-width: 34rem) {
-  .layout {
-    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
-    gap: var(--spacing-inline-lg);
-    align-items: start;
-  }
-}
-
-/* ── Focus ──────────────────────────────────────────────── */
-
-.focus {
-  display: grid;
-  gap: var(--spacing-stack-md);
-  min-width: 0;
-  padding-left: 0.75rem;
-  border-left: 2px solid var(--plan-tone);
-}
-
-.kicker {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0 6px;
+.index {
+  list-style: none;
   margin: 0;
-  font-size: 0.6875rem; /* 11px */
-  line-height: 1.5;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  padding: 0;
 }
 
-.kickerPosition {
+.row {
+  position: relative;
+  border-radius: 8px;
+}
+
+/* The spine: a hairline through the marks, broken around each one. Done-to-done runs in accent,
+   so where completion stops is visible at a glance. */
+.row::before,
+.row::after {
+  content: "";
+  position: absolute;
+  left: calc(var(--plan-pad-x) + var(--plan-mark) / 2 - 0.5px);
+  width: 1px;
+  background: var(--border);
+}
+
+.row::before {
+  top: 0;
+  height: calc(var(--plan-pad-y) + (var(--plan-line) - var(--plan-mark)) / 2 - 3px);
+}
+
+.row::after {
+  top: calc(var(--plan-pad-y) + (var(--plan-line) + var(--plan-mark)) / 2 + 3px);
+  bottom: 0;
+}
+
+.row:first-child::before,
+.row:last-child::after {
+  display: none;
+}
+
+.row[data-status="done"]::after,
+.row[data-status="done"] + .row::before {
+  background: color-mix(in oklab, var(--accent) 55%, transparent);
+}
+
+.row[data-interactive="true"]:not([data-open="true"]):hover {
+  background: var(--plan-hover);
+}
+
+.row[data-open="true"] {
+  background: var(--plan-open);
+}
+
+.row:has(> .rowHead:focus-visible) {
+  background: var(--plan-focus);
+}
+
+.rowHead {
+  display: grid;
+  grid-template-columns: var(--plan-mark) var(--plan-number) minmax(0, 1fr);
+  column-gap: var(--plan-gap);
+  align-items: start;
+  width: 100%;
+  padding: var(--plan-pad-y) var(--plan-pad-x);
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+button.rowHead {
+  cursor: pointer;
+}
+
+.rowHead > .mark {
+  width: var(--plan-mark);
+  height: var(--plan-mark);
+  margin-top: calc((var(--plan-line) - var(--plan-mark)) / 2);
+}
+
+.rowNumber {
   color: var(--muted-foreground);
+  font-size: 0.75rem;
+  line-height: var(--plan-line);
   font-variant-numeric: tabular-nums;
 }
 
-.kickerPosition::before {
+/* Label takes the room; the rail drops under it (right-aligned) only when both cannot fit. */
+.rowLine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  column-gap: var(--spacing-inline-md);
+  min-width: 0;
+}
+
+.rowLabel {
+  flex: 999 1 10ch;
+  min-width: 0;
+  font-size: 0.8125rem; /* 13px */
+  line-height: var(--plan-line);
+  overflow-wrap: anywhere;
+}
+
+.rowLabel .statusWord {
+  margin-left: 2px;
+  font-size: 0.625rem; /* 10px tag, uppercase so it reads as a state, not as part of the label */
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.row[data-status="done"] .rowLabel {
+  color: var(--muted-foreground);
+}
+
+.row[data-status="now"] .rowLabel,
+.row[data-open="true"] .rowLabel {
+  font-weight: 600;
+}
+
+.rowHead:focus-visible .rowLabel,
+.rowHead:hover .rowLabel {
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.rowHead:hover .rowLabel {
+  text-decoration-color: color-mix(in oklab, currentColor 35%, transparent);
+}
+
+div.rowHead:hover .rowLabel {
+  text-decoration-line: none;
+}
+
+/* Exact text, right-aligned: the one column a timed plan is scanned by. */
+.rail {
+  flex: 1 0 auto;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  line-height: var(--plan-line);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.row[data-status="now"] > .rowHead .rail {
+  color: var(--foreground);
+}
+
+.rowMeta {
+  grid-column: 3;
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 6px;
+  color: var(--muted-foreground);
+  font-size: 0.6875rem; /* 11px */
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+
+.rowMeta > * + *::before {
   content: "·";
   content: "·" / "";
   margin-right: 6px;
 }
 
-.focusTitle {
-  margin: 0;
-  min-width: 0;
-  font-size: 1.125rem; /* 18px — the one large thing in the card */
-  line-height: 1.3;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+/* A blocked row's reason, always visible, aligned under its label. */
+.reason {
+  margin: calc(-1 * var(--plan-pad-y) + 2px) 0 0;
+  padding: 0 var(--plan-pad-x) var(--plan-pad-y) var(--plan-gutter);
+  color: var(--plan-tone-text);
+  font-size: 0.75rem;
+  line-height: 1.5;
   overflow-wrap: anywhere;
+}
+
+.reasonMissing {
+  color: var(--muted-foreground);
+  font-style: italic;
+}
+
+/* ── Open step detail (in place, under its label) ───────── */
+
+.detail {
+  display: grid;
+  gap: var(--spacing-stack-sm);
+  margin-top: calc(-1 * var(--plan-pad-y) + 2px);
+  padding: 0 var(--plan-pad-x) var(--spacing-stack-md) var(--plan-gutter);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+/* Sub-steps beside relationships when the card is wide; stacked when not. */
+.detailGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  gap: var(--spacing-stack-sm) var(--spacing-inline-lg);
 }
 
 .facts {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--spacing-stack-xs) var(--spacing-inline-lg);
+  gap: 0 var(--spacing-inline-md);
   margin: 0;
+}
+
+.facts > div {
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacing-stack-xs);
 }
 
 .facts dt {
   color: var(--muted-foreground);
-  font-size: 0.6875rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-size: 0.75rem;
 }
 
 .facts dd {
   margin: 0;
-  font-size: 0.9375rem; /* 15px — exact strings, read at a glance */
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
 
-.note {
+.note,
+.why {
   margin: 0;
-  font-size: 0.8125rem; /* 13px */
-  line-height: 1.55;
   overflow-wrap: anywhere;
 }
 
-.blocker {
-  display: grid;
-  gap: 2px;
-  padding: 0.5rem 0.625rem;
-  border: 1px dashed var(--plan-tone);
-  border-radius: 6px;
-}
-
-.blockerLabel,
-.reasonLabel {
-  margin: 0;
+.whyLabel {
   color: var(--plan-tone-text);
-  font-size: 0.6875rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 
-.reasonMissing {
+.relationLabel {
   margin: 0;
   color: var(--muted-foreground);
-  font-size: 0.8125rem;
-  font-style: italic;
-}
-
-.sectionLabel {
-  margin: 0 0 var(--spacing-stack-xs);
-  color: var(--muted-foreground);
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: var(--plan-line);
   font-variant-numeric: tabular-nums;
 }
 
-/* ── Substeps ───────────────────────────────────────────── */
+/* ── Sub-steps ──────────────────────────────────────────── */
 
 .substeps,
 .links {
@@ -259,15 +397,14 @@
 .substeps li {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
-  padding: 3px 0;
-  font-size: 0.8125rem;
-  line-height: 1.5;
+  gap: var(--plan-gap);
 }
 
 .subMark {
   flex: 0 0 auto;
-  margin-top: 0.2em;
+  width: 0.875rem;
+  height: 0.875rem;
+  margin-top: calc((var(--plan-line) - 0.875rem) / 2);
   color: var(--muted-foreground);
 }
 
@@ -275,56 +412,89 @@
   color: var(--accent);
 }
 
-.subLabel {
+.substeps li[data-done="true"] .subLabel {
+  color: var(--muted-foreground);
+}
+
+.subLine {
+  display: flex;
   flex: 1 1 0;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  column-gap: var(--spacing-inline-md);
   min-width: 0;
+}
+
+.subLabel {
+  flex: 999 1 10ch;
+  min-width: 0;
+  line-height: var(--plan-line);
   overflow-wrap: anywhere;
 }
 
-/* Time rail: exact text, right-aligned, shared by sub-steps and index rows. */
-.railTime {
-  flex: 0 0 auto;
-  margin-left: auto;
-  color: var(--muted-foreground);
-  font-size: 0.75rem;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
+/* ── Relationships: "Depends on  02 Label Now" ──────────── */
+
+.relations {
+  display: grid;
+  align-content: start;
+  gap: var(--spacing-stack-xs);
 }
 
-/* ── Relationship links ─────────────────────────────────── */
+.relation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--plan-gap);
+}
+
+.relation .relationLabel {
+  flex: 0 0 auto;
+  min-width: 5.5rem;
+}
+
+.links {
+  display: flex;
+  flex: 1 1 12rem;
+  flex-direction: column;
+  min-width: 0;
+}
 
 .link {
-  display: flex;
+  display: inline-flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: 8px;
-  width: 100%;
-  min-height: 2rem;
-  padding: 4px 6px;
-  border: 1px solid transparent;
-  border-radius: 6px;
+  column-gap: 6px;
+  max-width: 100%;
+  margin: 0 -4px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 4px;
   background: transparent;
   color: inherit;
   font: inherit;
-  font-size: 0.8125rem;
+  line-height: var(--plan-line);
   text-align: left;
   cursor: pointer;
 }
 
-.link:hover {
-  background: var(--muted);
-}
-
 .linkNumber {
-  flex: 0 0 auto;
   color: var(--muted-foreground);
   font-size: 0.75rem;
   font-variant-numeric: tabular-nums;
 }
 
 .linkLabel {
-  flex: 1 1 0;
   min-width: 0;
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-decoration-color: color-mix(in oklab, currentColor 30%, transparent);
+  text-underline-offset: 3px;
   overflow-wrap: anywhere;
+}
+
+.link .statusWord {
+  font-size: 0.6875rem;
 }
 
 .linkNote {
@@ -332,189 +502,39 @@
   font-size: 0.75rem;
 }
 
-.link .statusWord {
-  flex: 0 0 auto;
-  font-size: 0.6875rem;
+.link:hover .linkLabel {
+  text-decoration-color: currentColor;
+}
+
+.link:focus-visible {
+  background: var(--plan-focus);
+}
+
+.link:focus-visible .linkLabel {
+  text-decoration-color: currentColor;
+  text-decoration-thickness: 2px;
 }
 
 .dangling {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0 8px;
-  padding: 4px 6px;
   color: var(--muted-foreground);
-  font-size: 0.8125rem;
+  line-height: var(--plan-line);
+  overflow-wrap: anywhere;
 }
 
 .dangling code {
   color: var(--foreground);
   font-size: 0.75rem;
-  overflow-wrap: anywhere;
-}
-
-/* ── Prev / next ────────────────────────────────────────── */
-
-.stepper {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
-  gap: var(--spacing-inline-sm);
-  padding-top: var(--spacing-stack-md);
-  border-top: 1px solid var(--border);
-}
-
-.nav {
-  display: grid;
-  gap: 1px;
-  min-width: 0;
-  min-height: 2.75rem;
-  padding: 6px 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.nav:hover:not(:disabled) {
-  background: var(--muted);
-}
-
-.nav:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-
-.nav[data-direction="Next"] {
-  text-align: right;
-}
-
-.navDirection {
-  color: var(--muted-foreground);
-  font-size: 0.6875rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.navLabel {
-  font-size: 0.8125rem;
-  line-height: 1.35;
-  overflow-wrap: anywhere;
-}
-
-/* ── Index ──────────────────────────────────────────────── */
-
-.indexWrap {
-  min-width: 0;
-}
-
-.index {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  border-top: 1px solid var(--border);
-}
-
-.row {
-  --plan-gutter: calc(0.25rem + 1.5rem + 1rem + 16px); /* button pad + number + mark + gaps */
-  border-bottom: 1px solid var(--border);
-}
-
-.rowButton {
-  display: grid;
-  grid-template-columns: 1.5rem 1rem minmax(0, 1fr);
-  align-items: baseline;
-  column-gap: 8px;
-  width: 100%;
-  min-height: 2.75rem; /* 44px hit area */
-  padding: 8px 4px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.rowButton .mark {
-  align-self: start;
-  margin-top: 0.15em;
-}
-
-.rowButton:hover {
-  background: color-mix(in oklab, var(--muted) 70%, transparent);
-}
-
-.rowButton[aria-pressed="true"] {
-  background: var(--muted);
-  box-shadow: inset 2px 0 0 var(--plan-tone);
-}
-
-.rowNumber {
-  color: var(--muted-foreground);
-  font-size: 0.75rem;
-  font-variant-numeric: tabular-nums;
-}
-
-.rowBody {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
-.rowTop {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0 8px;
-}
-
-.rowLabel {
-  flex: 1 1 8ch;
-  min-width: 0;
-  font-size: 0.8125rem;
-  line-height: 1.4;
-  font-weight: 500;
-  overflow-wrap: anywhere;
-}
-
-.row[data-status="now"] .rowLabel,
-.row[data-selected="true"] .rowLabel {
-  font-weight: 650;
-}
-
-.rowMeta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 6px;
-  color: var(--muted-foreground);
-  font-size: 0.6875rem;
-  line-height: 1.5;
-  font-variant-numeric: tabular-nums;
-}
-
-.rowMeta > * + *::before {
-  content: "·";
-  content: "·" / "";
-  margin-right: 6px;
-}
-
-.reason {
-  margin: 0 0 8px;
-  padding-left: var(--plan-gutter);
-  font-size: 0.75rem;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
 }
 
 /* ── Condensed (gallery slot) ───────────────────────────── */
 
 .condensed {
   display: grid;
-  gap: var(--spacing-stack-sm);
+  gap: var(--spacing-stack-xs);
+}
+
+.condensed .tally {
+  margin: 2px 0;
 }
 
 .condensedTitle {
@@ -530,44 +550,47 @@
 }
 
 .condensedLead {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.25rem;
+}
+
+.condensedLead .mark {
+  width: 0.875rem;
+  height: 0.875rem;
+  margin-top: 0.1875rem;
+}
+
+.condensedLead > span {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
-  margin: 0;
+  min-width: 0;
   overflow: hidden;
-  color: var(--muted-foreground);
-  font-size: 0.75rem;
-  line-height: 1.5;
   overflow-wrap: anywhere;
 }
 
-/* ── Focus ring and motion ──────────────────────────────── */
+/* ── Focus without rings; motion ────────────────────────── */
 
+/* Focus is carried by tint + underline (above). Forced-colours modes drop backgrounds, so they get
+   a system outline back. */
 .root button:focus-visible {
-  outline: 2px solid var(--foreground);
-  outline-offset: 2px;
+  outline: none;
+}
+
+@media (forced-colors: active) {
+  .root button:focus-visible {
+    outline: 2px solid CanvasText;
+    outline-offset: 1px;
+  }
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  /* The one moving thing: a calm ring on the Now mark, so "current" reads even in the periphery. */
-  .mark[data-status="now"] .markRing {
-    animation: nowBreath 2.8s ease-in-out infinite;
-  }
-
-  .rowButton,
-  .link,
-  .nav {
+  .row,
+  .link {
     transition: background-color 120ms ease-out;
-  }
-}
-
-@keyframes nowBreath {
-  0%,
-  100% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.4;
   }
 }
