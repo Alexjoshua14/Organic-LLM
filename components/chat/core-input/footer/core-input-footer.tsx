@@ -48,7 +48,7 @@ export type CoreInputFooterProps = {
    * must stay inside `PromptInput`.
    */
   toolsRef?: RefObject<HTMLDivElement | null>;
-  /** Required when `placement.steer` is not `"hidden"`. */
+  /** Required when `placement.steer` is `"inline"`. */
   steer?: SteerAction | null;
   /** Composer disabled or showing the sent shimmer; see `ComposerSteerButton`. */
   locked?: boolean;
@@ -81,7 +81,7 @@ function hinted(show: boolean, id: FeatureHintId, node: ReactNode, showWhen?: bo
  *
  * - leading: persona, search + memory, speech, preview, model + effort, context effort
  * - trailing: add files, thread clipboard, mic, overflow menu
- * - submit: steer, send
+ * - submit: steer (desktop only; compact composers use the tab above), send
  *
  * Leading and trailing share the tools row (`toolsRef`); the submit cluster sits beside it.
  *
@@ -144,9 +144,7 @@ export function CoreInputFooter({
             ) : null}
             {/* Mounted only while it has items, so its open state resets when the footer
                 widens past the condensed breakpoint mid-open. */}
-            {hasOverflowItems(placement) ? (
-              <ComposerOverflowMenu placement={placement} steer={steer} />
-            ) : null}
+            {hasOverflowItems(placement) ? <ComposerOverflowMenu placement={placement} /> : null}
           </div>
         </PromptInputTools>
       </div>

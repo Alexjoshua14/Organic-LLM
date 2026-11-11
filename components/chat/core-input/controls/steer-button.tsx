@@ -10,8 +10,9 @@ import { PromptInputButton } from "@/components/third-party/ai-elements/prompt-i
 import { cn } from "@/lib/utils";
 
 /**
- * Inline steer button beside send. The label collapses to screen-reader-only on a narrow
- * footer. On a condensed footer steer moves to the overflow menu instead.
+ * Steer button. On the desktop footer it sits beside send, and the label collapses to
+ * screen-reader-only on a narrow footer. On a condensed composer it lives in the tab above the
+ * composer (`steer-tab.tsx`) with its label shown.
  */
 export function ComposerSteerButton({
   steer,
@@ -20,11 +21,11 @@ export function ComposerSteerButton({
 }: {
   steer: SteerAction;
   /**
-   * The composer is disabled or showing the sent-message shimmer. Greys out the inline button
-   * only; the overflow menu item has never checked this.
+   * The composer is disabled or showing the sent-message shimmer. Greys out the button. The
+   * overflow menu item (used only if a placement says `"menu"`) has never checked this.
    */
   locked?: boolean;
-  /** Keep the label visible regardless of the footer width (the compact options panel). */
+  /** Keep the label visible regardless of the footer width (the compact steer tab). */
   showLabel?: boolean;
 }) {
   const { showLabels } = useCoreInputControls();

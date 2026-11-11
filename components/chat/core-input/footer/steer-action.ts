@@ -1,8 +1,8 @@
 /**
  * Noesis "steer": a secondary submit that runs on the draft without sending it to the thread
  * (CoreInput's `onSecondarySubmit`). The same action is reachable from three places: the
- * inline button, the overflow menu item, and Cmd/Ctrl+Enter in the textarea. CoreInput builds
- * one of these so all three share a single guard.
+ * inline footer button (desktop) or the tab above the composer (compact), and Cmd/Ctrl+Enter
+ * in the textarea. CoreInput builds one of these so they share a single guard.
  */
 export type SteerAction = {
   label: string;

@@ -63,12 +63,7 @@
   border-radius: 14px;
   color: var(--popover-foreground);
 }
-/* Context usage sits alone in the panel's top-right corner. */
-.core-input-options-budget-row {
-  display: flex;
-  justify-content: flex-end;
-}
-/* Model & effort and context effort on one row with no labels, spaced between. */
+/* The model & effort selector on the left, context usage in line with it on the right. */
 .core-input-options-model-row {
   display: flex;
   flex-wrap: wrap;
@@ -76,12 +71,35 @@
   justify-content: space-between;
   gap: var(--spacing-inline-sm);
 }
-/* Persona, search, memory, preview and steer share one unlabeled row. */
+.core-input-options-budget {
+  display: flex;
+  align-items: center;
+  /* Stay on the right when the model selector is absent. */
+  margin-left: auto;
+}
+/* Context effort on the left, the toggles pushed to the right, on one row with no labels. */
 .core-input-options-toggle-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: space-between;
   gap: var(--spacing-inline-sm);
+}
+.core-input-options-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-inline-sm);
+  /* Stay on the right when context effort is absent. */
+  margin-left: auto;
+}
+/* Each toggle is a 1:1 square, the same 32px as the compact row's icon buttons. */
+.core-input-options-toggles .composer-tool-chip {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  padding: 0;
+  aspect-ratio: 1;
 }
 .core-input-options-setting {
   display: flex;
@@ -93,6 +111,40 @@
 .core-input-options-setting > span {
   color: var(--muted-foreground);
   font-size: 11px;
+}
+/*
+ * Pull tab above the compact composer (steer lives here). It is one step lower on the z-axis:
+ * in flow directly above the shell, with a negative bottom margin equal to its bottom padding
+ * so the shell (the lumen wrapper, z-10) overlaps the tab's lower edge and the two read as
+ * one object with no gap. The tab keeps z-index 0, below the shell and below the voice drawer
+ * slot (z-30). Material is the default (non-opaque) `glass()`, a lighter tint than the shell's
+ * opaque glass, plus a faint dark wash and an inset shadow so it reads as recessed. Its outer
+ * shadow is wider and fainter than the shell's `shadow-xs`. Spacing uses the design tokens;
+ * the top padding is at least the voice drawer's 8px tuck, so the drawer never covers the
+ * button.
+ */
+.core-input-tab {
+  --core-input-tab-overlap: var(--spacing-stack-md);
+  position: relative;
+  z-index: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-inline-sm);
+  box-sizing: border-box;
+  width: 80%;
+  margin-inline: auto;
+  margin-bottom: calc(-1 * var(--core-input-tab-overlap));
+  padding: var(--spacing-stack-sm) var(--spacing-inset-sm)
+    calc(var(--spacing-stack-xs) + var(--core-input-tab-overlap));
+  /* The shell covers the bottom edge, so the tab has no border of its own there. */
+  border-bottom-width: 0;
+  border-radius: 12px 12px 0 0;
+  background-image: linear-gradient(to bottom, rgb(0 0 0 / 0.05), rgb(0 0 0 / 0.02));
+  color: var(--muted-foreground);
+  box-shadow:
+    inset 0 1px 2px rgb(0 0 0 / 0.06),
+    0 -1px 6px -2px rgb(0 0 0 / 0.08);
 }
 @media (max-width: 480px) {
   .core-input-compact-row {
@@ -110,7 +162,8 @@
 }
 @media (pointer: coarse) {
   .core-input-compact-row button,
-  .core-input-options-panel button {
+  .core-input-options-panel button,
+  .core-input-tab button {
     min-height: 44px;
     min-width: 44px;
   }

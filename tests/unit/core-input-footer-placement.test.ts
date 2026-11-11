@@ -36,7 +36,7 @@ describe("CoreInput footer placement", () => {
     expect(hasOverflowItems(resolveFooterPlacement(FULL))).toBe(false);
   });
 
-  test("a narrow composer drops speech and moves preview and steer into the overflow menu", () => {
+  test("a narrow composer drops speech, moves preview into the overflow menu, and steer into the tab", () => {
     const placement = resolveFooterPlacement({ ...FULL, condensed: true });
 
     expect(placement).toEqual({
@@ -49,7 +49,7 @@ describe("CoreInput footer placement", () => {
       addFiles: "inline",
       threadClipboard: "inline",
       mic: "inline",
-      steer: "menu",
+      steer: "tab",
     });
     expect(hasOverflowItems(placement)).toBe(true);
   });

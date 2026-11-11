@@ -7,7 +7,13 @@
  * whole matrix, and its diff shows exactly what a placement change moved.
  */
 
-export type FooterPlacement = "inline" | "menu" | "hidden";
+/**
+ * - `inline`: on the toolbar.
+ * - `menu`: in the overflow menu.
+ * - `tab`: in the pull tab above the compact composer (`steer-tab.tsx`). Only steer uses it.
+ * - `hidden`: not rendered.
+ */
+export type FooterPlacement = "inline" | "menu" | "tab" | "hidden";
 
 /**
  * Every footer control, in toolbar order. The toolbar has three regions:
@@ -15,6 +21,8 @@ export type FooterPlacement = "inline" | "menu" | "hidden";
  * - **leading** (left): persona, tool toggles, speech, preview, model + effort, context effort
  * - **trailing** (right of the tools row): add files, thread clipboard, mic, overflow menu
  * - **submit cluster** (far right, outside the measured tools row): steer, send
+ *
+ * Steer leaves the toolbar on a condensed composer and lives in the tab above it (`"tab"`).
  */
 export type FooterControlId =
   | "persona"
@@ -75,7 +83,7 @@ export function resolveFooterPlacement(surface: FooterSurface): FooterPlacementM
   } = surface;
 
   // The condensed layout keeps the tools a user reaches for on most turns on the toolbar and
-  // moves the occasional ones (speech, preview, steer) into the overflow menu.
+  // moves the occasional ones (speech, preview) into the overflow menu.
   const secondary = (available: boolean): FooterPlacement =>
     !available ? "hidden" : condensed ? "menu" : "inline";
 
@@ -96,7 +104,9 @@ export function resolveFooterPlacement(surface: FooterSurface): FooterPlacementM
     threadClipboard: "inline",
     // Dictation writes into the textarea, which is swapped out while previewing markdown.
     mic: hasMarkdownPreview && previewingMarkdown ? "hidden" : "inline",
-    steer: secondary(hasSteer),
+    // Steer sits beside send on the desktop footer; a condensed composer has no room for it
+    // there, so it gets its own tab above the composer instead of a menu item.
+    steer: !hasSteer ? "hidden" : condensed ? "tab" : "inline",
   };
 }
 

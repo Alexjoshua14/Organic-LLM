@@ -797,3 +797,128 @@ describe("CoreInput shared compact layout", () => {
     }
   );
 });
+
+describe("CoreInput steer tab", () => {
+  afterEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+    localStorage.clear();
+  });
+
+  /** Pins the measured shell width: narrow is the compact layout, wide is the desktop footer. */
+  function withShellWidth(width: number) {
+    return spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(() => ({
+      width,
+      height: 60,
+      top: 0,
+      left: 0,
+      right: width,
+      bottom: 60,
+      x: 0,
+      y: 0,
+      toJSON() {},
+    }));
+  }
+
+  function renderComposer(
+    variant: "default" | "compact" | "stage-beta",
+    onSecondarySubmit?: (text: string) => void
+  ) {
+    return render(
+      <Providers>
+        <CoreInput
+          variant={variant}
+          modelRef={{ current: DEFAULT_COMPOSER_MODEL }}
+          useWebSearchRef={{ current: false }}
+          useMemoriesRef={{ current: false }}
+          useSpeechFriendlyRef={{ current: false }}
+          defaultWebSearch={false}
+          defaultMemories={false}
+          sendMessage={async () => {}}
+          stop={async () => {}}
+          status="ready"
+          featureHints={false}
+          showContextBudget={false}
+          onSecondarySubmit={onSecondarySubmit}
+        />
+      </Providers>
+    );
+  }
+
+  test.each(["default", "compact", "stage-beta"] as const)(
+    "%s puts steer in a tab above the composer, not in the settings panel",
+    async (variant) => {
+      const rect = withShellWidth(375);
+
+      try {
+        const onSecondarySubmit = mock((_text: string) => {});
+        const app = renderComposer(variant, onSecondarySubmit);
+        const tab = app.getByRole("group", { name: "Draft actions" });
+        const shell = app.container.querySelector("[data-prompt-input-shell]")!;
+        const steer = within(tab).getByRole("button", { name: "Steer assist" });
+
+        // The tab comes directly before the shell in document order and is outside the form.
+        expect(tab.compareDocumentPosition(shell) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        expect(shell.contains(tab)).toBe(false);
+        // Empty draft: present but disabled, so the tab never shifts the layout.
+        expect(steer.hasAttribute("disabled")).toBe(true);
+
+        const input = app.getByRole("textbox") as HTMLTextAreaElement;
+
+        fireEvent.change(input, { target: { value: "Keep it brief" } });
+        await waitFor(() => expect(steer.hasAttribute("disabled")).toBe(false));
+        fireEvent.click(steer);
+        expect(onSecondarySubmit).toHaveBeenCalledWith("Keep it brief");
+
+        fireEvent.change(input, { target: { value: "   " } });
+        await waitFor(() => expect(steer.hasAttribute("disabled")).toBe(true));
+
+        const options = app.getByRole("button", { name: "Composer options" });
+
+        await waitFor(() => expect(options.hasAttribute("disabled")).toBe(false));
+        fireEvent.click(options);
+        const panel = await app.findByRole("dialog", { name: "Composer settings" });
+
+        expect(within(panel).queryByRole("button", { name: "Steer assist" })).toBeNull();
+        // Nothing in the compact row carries steer either.
+        expect(
+          app.container.querySelector(".core-input-compact-row [aria-label='Steer assist']")
+        ).toBeNull();
+      } finally {
+        rect.mockRestore();
+      }
+    }
+  );
+
+  test("a compact composer without a steer action renders no tab", () => {
+    const rect = withShellWidth(375);
+
+    try {
+      const app = renderComposer("default");
+
+      expect(app.queryByRole("group", { name: "Draft actions" })).toBeNull();
+      expect(app.queryByRole("button", { name: "Steer assist" })).toBeNull();
+    } finally {
+      rect.mockRestore();
+    }
+  });
+
+  test("the desktop footer keeps steer inline beside send, with no tab", async () => {
+    const rect = withShellWidth(900);
+
+    try {
+      const app = renderComposer("default", () => {});
+
+      expect(app.container.querySelector(".core-input-compact-row")).toBeNull();
+      expect(app.queryByRole("group", { name: "Draft actions" })).toBeNull();
+      const steer = app.getByRole("button", { name: "Steer assist" });
+
+      expect(steer.closest("[data-core-input-tab]")).toBeNull();
+      expect(steer.hasAttribute("disabled")).toBe(true);
+      fireEvent.change(app.getByRole("textbox"), { target: { value: "Hello" } });
+      await waitFor(() => expect(steer.hasAttribute("disabled")).toBe(false));
+    } finally {
+      rect.mockRestore();
+    }
+  });
+});

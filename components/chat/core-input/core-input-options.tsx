@@ -2,10 +2,8 @@
 
 import type { ReactNode } from "react";
 import type { FooterPlacementMap } from "./footer/footer-placement";
-import type { SteerAction } from "./footer/steer-action";
 
-import { useRef } from "react";
-import { SlidersHorizontal } from "lucide-react";
+import { useRef, useState } from "react";
 import { Popover } from "radix-ui";
 
 import { ComposerActionButton } from "../composer-action-button";
@@ -13,8 +11,8 @@ import { ComposerActionButton } from "../composer-action-button";
 import { ComposerContextEffortSlider } from "./controls/context-effort-slider";
 import { ComposerModelEffortSelect } from "./controls/model-effort-select";
 import { ComposerPreviewChip } from "./controls/preview-chip";
-import { ComposerSteerButton } from "./controls/steer-button";
 import { ComposerToolToggleGroup } from "./controls/tool-toggle-group";
+import { ComposerOptionsIcon } from "./options-icon";
 
 import { glass } from "@/components/design-system/primitives";
 import { ComposerPersonaChip } from "@/components/personas/persona-chip";
@@ -24,21 +22,18 @@ import { cn } from "@/lib/utils";
 export function CoreInputOptions({
   placement,
   ready = true,
-  locked = false,
-  steer,
   contextBudget,
 }: {
   placement: FooterPlacementMap;
   ready?: boolean;
-  locked?: boolean;
-  steer?: SteerAction | null;
   contextBudget?: ReactNode;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
   const available = (id: keyof FooterPlacementMap) => placement[id] !== "hidden";
 
   return (
-    <Popover.Root>
+    <Popover.Root open={open} onOpenChange={setOpen}>
       <ComposerActionButton
         wrapTrigger={Popover.Trigger}
         aria-label="Composer options"
@@ -46,7 +41,7 @@ export function CoreInputOptions({
         disabled={!ready}
         title="Model, tools, and composer settings"
       >
-        <SlidersHorizontal aria-hidden size={16} />
+        <ComposerOptionsIcon open={open} />
       </ComposerActionButton>
       <Popover.Portal>
         <Popover.Content
@@ -64,26 +59,25 @@ export function CoreInputOptions({
           }}
           tabIndex={-1}
         >
-          {contextBudget ? (
-            <div className="core-input-options-budget-row">{contextBudget}</div>
-          ) : null}
-          {available("modelEffort") || available("contextEffort") ? (
+          {available("modelEffort") || contextBudget ? (
             <div className="core-input-options-model-row">
               {available("modelEffort") ? <ComposerModelEffortSelect /> : null}
-              {available("contextEffort") ? <ComposerContextEffortSlider /> : null}
+              {contextBudget ? (
+                <div className="core-input-options-budget">{contextBudget}</div>
+              ) : null}
             </div>
           ) : null}
-          {available("persona") ||
+          {available("contextEffort") ||
+          available("persona") ||
           available("toolToggles") ||
-          available("preview") ||
-          (available("steer") && steer) ? (
+          available("preview") ? (
             <div className="core-input-options-toggle-row">
-              {available("persona") ? <ComposerPersonaChip /> : null}
-              {available("toolToggles") ? <ComposerToolToggleGroup /> : null}
-              {available("preview") ? <ComposerPreviewChip /> : null}
-              {available("steer") && steer ? (
-                <ComposerSteerButton locked={locked} steer={steer} showLabel />
-              ) : null}
+              {available("contextEffort") ? <ComposerContextEffortSlider /> : null}
+              <div className="core-input-options-toggles">
+                {available("persona") ? <ComposerPersonaChip /> : null}
+                {available("toolToggles") ? <ComposerToolToggleGroup /> : null}
+                {available("preview") ? <ComposerPreviewChip /> : null}
+              </div>
             </div>
           ) : null}
         </Popover.Content>

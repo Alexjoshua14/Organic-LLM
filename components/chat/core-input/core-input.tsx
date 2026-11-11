@@ -56,6 +56,7 @@ import {
 import { CoreInputFooter } from "./footer/core-input-footer";
 import { resolveFooterPlacement } from "./footer/footer-placement";
 import { CoreInputOptions } from "./core-input-options";
+import { CoreInputSteerTab } from "./steer-tab";
 import { ComposerAddFilesButton } from "./controls/add-files-button";
 import { ComposerMicButton } from "./controls/mic-button";
 import "./compact.css";
@@ -980,7 +981,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     [autoModelPreview, onComposerTextChange]
   );
 
-  // Steer: one guard shared by Cmd/Ctrl+Enter, the inline button, and the overflow menu item.
+  // Steer: one guard shared by Cmd/Ctrl+Enter, the inline button, and the compact tab.
   const runSecondarySubmit = useCallback(() => {
     const raw = (textareaRef.current?.value ?? text).trim();
 
@@ -1299,8 +1300,6 @@ export const CoreInput: React.FC<CoreInputProps> = ({
           <CoreInputOptions
             placement={footerPlacement}
             ready={settingsReady}
-            locked={Boolean(disabled) || showSentShimmer}
-            steer={steer}
             contextBudget={contextBudgetControl}
           />
         ) : null}
@@ -1378,6 +1377,15 @@ export const CoreInput: React.FC<CoreInputProps> = ({
             budget={messageQueue.budget}
             className="mb-2"
             items={messageQueue.items}
+          />
+        ) : null}
+        {/* Compact steer: a tab directly above the shell, which overlaps its bottom edge. */}
+        {useCondensedLayout && footerPlacement.steer === "tab" && steer ? (
+          <CoreInputSteerTab
+            featureHintShowWhen={steerHintShowWhen}
+            locked={Boolean(disabled) || showSentShimmer}
+            showFeatureHint={featureHints}
+            steer={steer}
           />
         ) : null}
         <div className="relative">

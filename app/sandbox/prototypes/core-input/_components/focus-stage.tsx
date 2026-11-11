@@ -141,7 +141,7 @@ export const FOCUS_CONTROLS: readonly FocusControl[] = [
     title: "Overflow menu",
     file: "core-input/controls/overflow-menu.tsx",
     blurb:
-      "Holds every control placed in the menu. Today: speech, preview, and steer on a condensed footer.",
+      "Holds every control placed in the menu. Today: speech and preview on a condensed footer. Steer has its own tab above the composer.",
   },
   {
     id: "attachments",
@@ -775,8 +775,6 @@ function SettingsMenuCard(ctx: CardContext) {
   const { value } = ctx;
   // The menu only has items on a condensed footer, so both cells pin that layout.
   const placement = labFooterPlacement({ ...value, useCondensedLayout: true });
-  const steer = labSteer(ctx);
-  const lastSteer = ctx.chat.lastSend?.kind === "steer" ? ctx.chat.lastSend.text : null;
 
   return (
     <>
@@ -784,7 +782,7 @@ function SettingsMenuCard(ctx: CardContext) {
         <StateCell label="Interactive · all items">
           <ComposerSurface>
             <div className="ml-auto">
-              <ComposerOverflowMenu placement={placement} steer={steer} />
+              <ComposerOverflowMenu placement={placement} />
             </div>
           </ComposerSurface>
         </StateCell>
@@ -795,16 +793,12 @@ function SettingsMenuCard(ctx: CardContext) {
                 base={value}
                 overrides={{ inputMarkdownMode: "edit", useSpeechFriendly: true }}
               >
-                <ComposerOverflowMenu placement={placement} steer={steer} />
+                <ComposerOverflowMenu placement={placement} />
               </Pinned>
             </div>
           </ComposerSurface>
         </StateCell>
       </StateGrid>
-      <p className="text-2xs leading-relaxed text-muted-foreground">
-        Steer is enabled once the panel draft has text.
-        {lastSteer != null ? ` Last steer: “${lastSteer.trim() || "(empty)"}”.` : ""}
-      </p>
     </>
   );
 }
