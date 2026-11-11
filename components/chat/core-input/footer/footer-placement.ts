@@ -85,15 +85,9 @@ export function resolveFooterPlacement(surface: FooterSurface): FooterPlacementM
     // Compact layouts expose these same controls in the shared options panel.
     toolToggles: !hideWebMemorySpeechToggles ? "inline" : "hidden",
 
-    // Quirk: `hideWebMemorySpeechToggles` hides the inline speech chip but not the menu item,
-    // so a condensed composer that passes both (Introspection) still offers speech in the menu.
-    speech: hasSpeechFriendly
-      ? condensed
-        ? "menu"
-        : hideWebMemorySpeechToggles
-          ? "hidden"
-          : "inline"
-      : "hidden",
+    // Read-aloud style is off the condensed layout for now (not used lately); the setting and
+    // the desktop chip are unchanged.
+    speech: hasSpeechFriendly && !condensed && !hideWebMemorySpeechToggles ? "inline" : "hidden",
 
     preview: secondary(hasMarkdownPreview),
     modelEffort: "inline",

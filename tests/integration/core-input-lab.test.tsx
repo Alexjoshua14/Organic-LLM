@@ -766,16 +766,27 @@ describe("CoreInput shared compact layout", () => {
         const panel = await app.findByRole("dialog", { name: "Composer settings" });
         expect(panel.classList.contains("organic-glass-smoke")).toBe(true);
         expect(within(panel).getByRole("combobox", { name: "Model" })).toBeTruthy();
-        expect(Boolean(within(panel).queryByRole("button", { name: "Add files" }))).toBe(
-          variant !== "stage-beta"
-        );
+        // Photos & files live in the compact row beside the mic and send, not in the panel.
+        expect(within(panel).queryByRole("button", { name: "Add files" })).toBeNull();
+        expect(
+          Boolean(app.container.querySelector('.core-input-compact-row [aria-label="Add files"]'))
+        ).toBe(variant !== "stage-beta");
+        // Thread references share the `+` button; Stage has no files, so it is the thread entry.
+        expect(within(panel).queryByRole("button", { name: "Reference a thread" })).toBeNull();
+        expect(
+          Boolean(
+            app.container.querySelector('.core-input-compact-row [aria-label="Reference a thread"]')
+          )
+        ).toBe(variant === "stage-beta");
         fireEvent.click(within(panel).getByRole("button", { name: "Web search off" }));
         expect(within(panel).getByRole("button", { name: "Web search on" })).toBeTruthy();
         fireEvent.click(within(panel).getByRole("button", { name: "Memory off" }));
         expect(within(panel).getByRole("button", { name: "Memory on" })).toBeTruthy();
         expect(app.getByRole("textbox") === input).toBe(true);
         expect(input.value).toBe("Keep this draft");
-        fireEvent.click(within(panel).getByRole("button", { name: "Close composer settings" }));
+        // No heading or close button: Escape dismisses the panel and returns focus to the trigger.
+        expect(within(panel).queryByRole("button", { name: "Close composer settings" })).toBeNull();
+        fireEvent.keyDown(panel, { key: "Escape" });
         await waitFor(() =>
           expect(app.queryByRole("dialog", { name: "Composer settings" })).toBeNull()
         );

@@ -56,6 +56,7 @@ import {
 import { CoreInputFooter } from "./footer/core-input-footer";
 import { resolveFooterPlacement } from "./footer/footer-placement";
 import { CoreInputOptions } from "./core-input-options";
+import { ComposerAddFilesButton } from "./controls/add-files-button";
 import { ComposerMicButton } from "./controls/mic-button";
 import "./compact.css";
 import { organicGlassSubmitClassName, PromptInputSubmit } from "./submit/submit-button";
@@ -1300,7 +1301,6 @@ export const CoreInput: React.FC<CoreInputProps> = ({
             ready={settingsReady}
             locked={Boolean(disabled) || showSentShimmer}
             steer={steer}
-            onThreadReference={addThreadReference}
             contextBudget={contextBudgetControl}
           />
         ) : null}
@@ -1314,6 +1314,15 @@ export const CoreInput: React.FC<CoreInputProps> = ({
         </PromptInputBody>
         {useCondensedLayout ? (
           <>
+            {footerPlacement.addFiles !== "hidden" ||
+            footerPlacement.threadClipboard !== "hidden" ? (
+              <ComposerAddFilesButton
+                files={footerPlacement.addFiles !== "hidden"}
+                onThreadReference={
+                  footerPlacement.threadClipboard !== "hidden" ? addThreadReference : undefined
+                }
+              />
+            ) : null}
             {voiceControl ??
               (footerPlacement.mic !== "hidden" ? (
                 <ComposerMicButton textareaRef={textareaRef} onTranscriptionChange={setText} />

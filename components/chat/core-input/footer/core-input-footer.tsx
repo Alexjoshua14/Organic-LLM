@@ -20,7 +20,6 @@ import { hasOverflowItems } from "./footer-placement";
 
 import { CORE_INPUT_SETTINGS_REVEAL_MS } from "@/lib/core-input/morph-timing";
 import { cn } from "@/lib/utils";
-import { ThreadClipboardPicker } from "@/components/chat/thread-reference/thread-clipboard-picker";
 import { FeatureHint } from "@/components/onboarding/feature-hint";
 import { ComposerPersonaChip } from "@/components/personas/persona-chip";
 import {
@@ -134,9 +133,11 @@ export function CoreInputFooter({
 
           {/* Trailing: things added to the draft, then the overflow menu. */}
           <div className="flex shrink-0 items-center gap-1">
-            {inline("addFiles") ? <ComposerAddFilesButton /> : null}
-            {inline("threadClipboard") && onThreadReference ? (
-              <ThreadClipboardPicker onSelect={onThreadReference} />
+            {inline("addFiles") || (inline("threadClipboard") && onThreadReference) ? (
+              <ComposerAddFilesButton
+                files={inline("addFiles")}
+                onThreadReference={inline("threadClipboard") ? onThreadReference : undefined}
+              />
             ) : null}
             {inline("mic") ? (
               <ComposerMicButton textareaRef={textareaRef} onTranscriptionChange={onDictation} />

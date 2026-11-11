@@ -13,7 +13,7 @@
 .core-input-compact-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   padding: 8px;
   min-height: 54px;
 }
@@ -41,30 +41,54 @@
   padding: 0;
   border-radius: 50%;
 }
+/* Icon buttons in the compact row (options, +, mic) are 32px squares, the toolbar button height. */
+.core-input-compact-row .composer-tool-chip {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  padding: 0;
+  aspect-ratio: 1;
+}
 .core-input-options-panel {
   z-index: 40;
   width: min(340px, calc(100vw - 32px));
   max-height: min(70dvh, var(--radix-popover-content-available-height));
   overflow: auto;
   overscroll-behavior: contain;
-  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  /* Between rows: stack-md (12px), one step up from the former 8px. */
+  gap: var(--spacing-stack-md);
+  padding: var(--spacing-inset-lg);
   border-radius: 14px;
   color: var(--popover-foreground);
 }
-.core-input-options-heading {
+/* Context usage sits alone in the panel's top-right corner. */
+.core-input-options-budget-row {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
+}
+/* Model & effort and context effort on one row with no labels, spaced between. */
+.core-input-options-model-row {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  margin-bottom: 16px;
-  font-size: 13px;
+  justify-content: space-between;
+  gap: var(--spacing-inline-sm);
+}
+/* Persona, search, memory, preview and steer share one unlabeled row. */
+.core-input-options-toggle-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-inline-sm);
 }
 .core-input-options-setting {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin: 8px 0;
+  gap: var(--spacing-inline-md);
 }
 .core-input-options-setting > span {
   color: var(--muted-foreground);

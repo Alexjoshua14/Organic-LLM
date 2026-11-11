@@ -36,13 +36,13 @@ describe("CoreInput footer placement", () => {
     expect(hasOverflowItems(resolveFooterPlacement(FULL))).toBe(false);
   });
 
-  test("a narrow composer moves speech, preview, and steer into the overflow menu", () => {
+  test("a narrow composer drops speech and moves preview and steer into the overflow menu", () => {
     const placement = resolveFooterPlacement({ ...FULL, condensed: true });
 
     expect(placement).toEqual({
       persona: "inline",
       toolToggles: "inline",
-      speech: "menu",
+      speech: "hidden",
       preview: "menu",
       modelEffort: "inline",
       contextEffort: "inline",
@@ -58,7 +58,7 @@ describe("CoreInput footer placement", () => {
     const placement = resolveFooterPlacement({ ...FULL, condensed: true, compact: true });
 
     expect(placement.toolToggles).toBe("inline");
-    expect(placement.speech).toBe("menu");
+    expect(placement.speech).toBe("hidden");
   });
 
   test("text-only surfaces do not offer file attachments", () => {
@@ -94,12 +94,12 @@ describe("CoreInput footer placement", () => {
     ).toBe(false);
   });
 
-  test("hideWebMemorySpeechToggles hides inline speech but not the menu item", () => {
+  test("hideWebMemorySpeechToggles hides inline speech, and condensed layouts never show it", () => {
     const hidden = { ...FULL, hideWebMemorySpeechToggles: true };
 
     expect(resolveFooterPlacement(hidden).toolToggles).toBe("hidden");
     expect(resolveFooterPlacement(hidden).speech).toBe("hidden");
-    expect(resolveFooterPlacement({ ...hidden, condensed: true }).speech).toBe("menu");
+    expect(resolveFooterPlacement({ ...hidden, condensed: true }).speech).toBe("hidden");
   });
 
   test("the mic hides while the markdown preview replaces the textarea", () => {

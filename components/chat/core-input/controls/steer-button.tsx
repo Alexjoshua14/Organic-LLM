@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 export function ComposerSteerButton({
   steer,
   locked = false,
+  showLabel = false,
 }: {
   steer: SteerAction;
   /**
@@ -23,6 +24,8 @@ export function ComposerSteerButton({
    * only; the overflow menu item has never checked this.
    */
   locked?: boolean;
+  /** Keep the label visible regardless of the footer width (the compact options panel). */
+  showLabel?: boolean;
 }) {
   const { showLabels } = useCoreInputControls();
 
@@ -36,7 +39,7 @@ export function ComposerSteerButton({
       onClick={steer.run}
     >
       {steer.pending ? <Loader2 aria-hidden className="size-4 animate-spin shrink-0" /> : null}
-      <span className={cn("max-w-28 truncate text-xs", !showLabels && "sr-only")}>
+      <span className={cn("max-w-28 truncate text-xs", !(showLabels || showLabel) && "sr-only")}>
         {steer.label}
       </span>
     </PromptInputButton>
