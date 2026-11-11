@@ -48,6 +48,7 @@ const BACKDROP_OPTIONS: readonly SegmentedOption<LabBackdrop>[] = [
 const VARIANT_OPTIONS: readonly SegmentedOption<ProductLabState["variant"]>[] = [
   { value: "default", label: "Default" },
   { value: "compact", label: "Compact" },
+  { value: "stage-beta", label: "Stage" },
 ];
 
 const SUBMIT_OPTIONS: readonly SegmentedOption<ProductLabState["submitVariant"]>[] = [

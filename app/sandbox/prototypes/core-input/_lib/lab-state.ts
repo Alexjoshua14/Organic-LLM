@@ -25,7 +25,7 @@ export type ProductLabState = {
   showThread: boolean;
   backdrop: LabBackdrop;
   sendOutcome: LabSendOutcome;
-  variant: "default" | "compact";
+  variant: "default" | "compact" | "stage-beta";
   submitVariant: "default" | "organic-glass";
   experience: LabExperience;
   enableMarkdownInputPreview: boolean;

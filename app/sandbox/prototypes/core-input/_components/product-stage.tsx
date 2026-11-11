@@ -98,7 +98,12 @@ export function ProductStage({ state, chat, remountKey }: ProductStageProps) {
   }, []);
 
   const layoutMode =
-    shellWidthPx == null ? null : resolveCoreInputLayoutMode(shellWidthPx, state.variant);
+    shellWidthPx == null
+      ? null
+      : resolveCoreInputLayoutMode(
+          shellWidthPx,
+          state.variant === "default" ? "default" : "compact"
+        );
   const inBand =
     shellWidthPx != null &&
     state.variant === "default" &&
