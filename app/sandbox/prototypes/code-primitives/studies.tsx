@@ -269,7 +269,6 @@ export function CodeStudies() {
         <main className={styles.stage} data-mode={mode}>
           <div className={styles.context}>
             <span className={styles.responseLabel}>
-              <span className={styles.presence} />
               Organic<span className={styles.responseDivider}>/</span>
               {mode === "diff"
                 ? "Suggested change"

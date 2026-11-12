@@ -111,12 +111,6 @@
   color: var(--muted-foreground);
   font-size: 11px;
 }
-.presence {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--foreground);
-}
 .responseDivider {
   opacity: 0.4;
   margin: 0 4px;
