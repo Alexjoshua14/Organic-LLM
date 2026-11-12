@@ -17,6 +17,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/third-party/ui/sid
 import { getSidebarDefaultOpenFromCookieValue, SIDEBAR_COOKIE_NAME } from "@/lib/sidebar-cookie";
 import { Sidebar } from "@/components/sidebar/sidebar";
 import { AionLauncherProvider } from "@/components/aion-launcher/aion-launcher";
+import { AionLauncherSurface } from "@/components/aion-launcher/launcher-surface";
 import { ChatProvider } from "@/lib/context/chat-context";
 import { TTSProvider } from "@/lib/context/tts-context";
 import { FontProvider } from "@/components/FontProvider";
@@ -110,6 +111,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                                 </AppOnlyChrome>
                                 <VoiceLiveBarPageAnchor />
                                 {children}
+                                <AionLauncherSurface />
                                 <PerfHudGate />
                                 <Analytics />
                               </main>
