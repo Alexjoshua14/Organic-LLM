@@ -1,4 +1,4 @@
-import type { GenUIBlock } from "./index";
+import type { CodeDiffBlock, GenUIBlock } from "./index";
 
 export const FIXTURE_ANSWER_CARD: GenUIBlock = {
   type: "answer-card",
@@ -418,6 +418,341 @@ export const FIXTURE_RESEARCH_REPORT: GenUIBlock = {
   limitations: ["Only two sources were captured; one is a search excerpt."],
 };
 
+// ── Code diff ─────────────────────────────────────────────
+// Realistic unified diffs, written the way a model writes them. Several deliberately omit git
+// headers or carry wrong hunk counts: the app recomputes both.
+
+const rows = (...lines: string[]) => lines.join("\n");
+
+const RETRY_CLIENT_DIFF = rows(
+  "@@ -38,9 +38,16 @@ export async function searchWebWithQuery(",
+  "   query: string,",
+  "   options: SearchOptions = {}",
+  " ): Promise<WebResult[]> {",
+  "   const client = getExaClient();",
+  "-  const maxAttempts = 1;",
+  "+  const maxAttempts = 3;",
+  " ",
+  "-  const response = await client.searchAndContents(query, options);",
+  "-  return mapResults(response);",
+  "+  for (let attempt = 1; ; attempt += 1) {",
+  "+    try {",
+  "+      const response = await client.searchAndContents(query, options);",
+  "+      return mapResults(response);",
+  "+    } catch (error) {",
+  "+      if (!isRateLimit(error) || attempt >= maxAttempts) throw error;",
+  "+      await sleep(backoffMs(attempt));",
+  "+    }",
+  "+  }",
+  " }"
+);
+
+const RETRY_HELPERS_DIFF = rows(
+  "@@ -0,0 +1,16 @@",
+  "+const BASE_MS = 250;",
+  "+const MAX_MS = 4_000;",
+  "+",
+  "+export function sleep(ms: number): Promise<void> {",
+  "+  return new Promise((resolve) => setTimeout(resolve, ms));",
+  "+}",
+  "+",
+  "+/** Exponential backoff with full jitter, capped. */",
+  "+export function backoffMs(attempt: number): number {",
+  "+  const ceiling = Math.min(MAX_MS, BASE_MS * 2 ** (attempt - 1));",
+  "+  return Math.floor(Math.random() * ceiling);",
+  "+}",
+  "+",
+  "+export function isRateLimit(error: unknown): boolean {",
+  '+  return typeof error === "object" && error !== null && (error as { status?: number }).status === 429;',
+  "+}"
+);
+
+/** The default showcase: a small, readable multi-file change with one comment. */
+export const FIXTURE_CODE_DIFF: CodeDiffBlock = {
+  type: "code-diff",
+  version: 1,
+  title: "Retry web search on rate limits",
+  summary:
+    "Exa answers 429 under load. The search client now retries up to three times with jittered backoff instead of failing the whole turn.",
+  files: [
+    {
+      path: "lib/exa/client.ts",
+      note: "Wraps the request in a bounded retry loop.",
+      diff: RETRY_CLIENT_DIFF,
+      annotations: [
+        {
+          match: "isRateLimit(error)",
+          kind: "suggestion",
+          text: "Only 429 is retried. Exa also returns 503 during incidents; confirm those should still fail fast.",
+        },
+      ],
+    },
+    {
+      path: "lib/exa/retry.ts",
+      note: "New helpers: sleep, capped full-jitter backoff, and a 429 check.",
+      diff: RETRY_HELPERS_DIFF,
+    },
+    {
+      path: ".env.example",
+      note: "Documents the new attempt limit.",
+      diff: rows(
+        "@@ -11,3 +11,4 @@",
+        " # Web search",
+        " EXA_API_KEY=",
+        "+EXA_MAX_ATTEMPTS=3",
+        " EXA_TIMEOUT_MS=8000"
+      ),
+    },
+  ],
+};
+
+/** One file, one small fix, no git headers, no summary — the commonest chat case. */
+export const FIXTURE_CODE_DIFF_SINGLE_FIX: CodeDiffBlock = {
+  type: "code-diff",
+  version: 1,
+  title: "Ignore memories with an unreadable timestamp",
+  files: [
+    {
+      path: "lib/memory/recency.ts",
+      diff: rows(
+        "@@ -22,8 +22,8 @@ export function filterMemoriesSince(",
+        "   const cutoff = Date.now() - windowMs;",
+        " ",
+        "   return memories.filter((memory) => {",
+        "     const updated = Date.parse(memory.updated_at ?? memory.created_at);",
+        "-    return updated > cutoff;",
+        "+    return Number.isFinite(updated) && updated >= cutoff;",
+        "   });",
+        " }"
+      ),
+    },
+  ],
+};
+
+/** A rename with edits, a rename with none, a deletion and an importer, using full git headers. */
+export const FIXTURE_CODE_DIFF_REFACTOR: CodeDiffBlock = {
+  type: "code-diff",
+  version: 1,
+  title: "Rename recent-memories to recency",
+  summary: "The module now covers more than “recent”, so it takes the shorter name everywhere.",
+  files: [
+    {
+      path: "lib/memory/recency.ts",
+      oldPath: "lib/memory/recent-memories.ts",
+      diff: rows(
+        "diff --git a/lib/memory/recent-memories.ts b/lib/memory/recency.ts",
+        "similarity index 94%",
+        "rename from lib/memory/recent-memories.ts",
+        "rename to lib/memory/recency.ts",
+        "index 3f2a9c1..8d41b7e 100644",
+        "--- a/lib/memory/recent-memories.ts",
+        "+++ b/lib/memory/recency.ts",
+        "@@ -1,5 +1,5 @@",
+        "-export const RECENT_WINDOW_MS = { hour: 3_600_000, day: 86_400_000 };",
+        "+export const RECENCY_WINDOW_MS = { hour: 3_600_000, day: 86_400_000 } as const;",
+        " ",
+        "-export type RecentWindow = keyof typeof RECENT_WINDOW_MS;",
+        "+export type RecentWindow = keyof typeof RECENCY_WINDOW_MS;",
+        " ",
+        " export function windowMs(window: RecentWindow): number {"
+      ),
+    },
+    {
+      path: "docs/recency.md",
+      oldPath: "docs/recent.md",
+      note: "Moved only; the content is identical.",
+      diff: rows(
+        "diff --git a/docs/recent.md b/docs/recency.md",
+        "similarity index 100%",
+        "rename from docs/recent.md",
+        "rename to docs/recency.md"
+      ),
+    },
+    {
+      path: "lib/memory/legacy-recent.ts",
+      note: "Removed: nothing imports the alias any more.",
+      diff: rows(
+        "diff --git a/lib/memory/legacy-recent.ts b/lib/memory/legacy-recent.ts",
+        "deleted file mode 100644",
+        "index 9b2c4d0..0000000",
+        "--- a/lib/memory/legacy-recent.ts",
+        "+++ /dev/null",
+        "@@ -1,4 +0,0 @@",
+        "-// Superseded by recency.ts; kept for one release.",
+        '-export { RECENT_WINDOW_MS as LEGACY_RECENT_WINDOW_MS } from "./recent-memories";',
+        "-",
+        '-export const LEGACY_DEFAULT_WINDOW = "day";'
+      ),
+    },
+    {
+      path: "lib/llm/llm-tool-kit.ts",
+      diff: rows(
+        "@@ -18,7 +18,7 @@",
+        ' import { createLogger } from "@/lib/logger";',
+        ' import { getMemoriesForUser } from "@/lib/memory/operations";',
+        '-import { filterMemoriesSince } from "@/lib/memory/recent-memories";',
+        '+import { filterMemoriesSince } from "@/lib/memory/recency";',
+        ' import { searchMemories } from "@/lib/memory/search";'
+      ),
+    },
+  ],
+};
+
+/** Config and environment: a value change, a mode change, and a secret written as *** . */
+export const FIXTURE_CODE_DIFF_CONFIG: CodeDiffBlock = {
+  type: "code-diff",
+  version: 1,
+  title: "Return five search results instead of three",
+  summary: "Secret values are masked; only the keys and the changed numbers are shown.",
+  files: [
+    {
+      path: ".env.example",
+      diff: rows(
+        "@@ -8,7 +8,7 @@ # Search",
+        " EXA_API_KEY=***",
+        "-EXA_RESULTS=3",
+        "+EXA_RESULTS=5",
+        " EXA_TIMEOUT_MS=8000"
+      ),
+    },
+    {
+      path: "scripts/deploy.sh",
+      note: "Made executable.",
+      diff: rows(
+        "diff --git a/scripts/deploy.sh b/scripts/deploy.sh",
+        "old mode 100644",
+        "new mode 100755"
+      ),
+    },
+  ],
+};
+
+/** Review comments: by text, by new-file line, by old-file line, one for the file, one off the diff. */
+export const FIXTURE_CODE_DIFF_REVIEW: CodeDiffBlock = {
+  type: "code-diff",
+  version: 1,
+  title: "Review: retry loop in the search client",
+  summary: "Two things to change before merging; the rest reads fine.",
+  files: [
+    {
+      path: "lib/exa/client.ts",
+      diff: RETRY_CLIENT_DIFF,
+      annotations: [
+        {
+          match: "throw error",
+          kind: "issue",
+          text: "This rethrows the raw SDK error. Callers expect a WebSearchError, so wrap it.",
+        },
+        { line: 42, kind: "note", text: "Default raised from 1 to 3 attempts." },
+        { line: 42, side: "old", kind: "note", text: "The old default never retried." },
+        {
+          line: 900,
+          kind: "suggestion",
+          text: "This points past the end of the diff, so it is listed under the file instead.",
+        },
+        { kind: "suggestion", text: "Add a test that returns 429 twice and then succeeds." },
+      ],
+    },
+  ],
+};
+
+const CONFIG_KEYS = Array.from(
+  { length: 30 },
+  (_, i) => `  "tier${i + 1}": { "burst": ${(i + 1) * 5} },`
+);
+
+/** Large and awkward: a long unchanged run (folded), a lockfile, a binary file, more files left out. */
+export const FIXTURE_CODE_DIFF_LARGE: CodeDiffBlock = {
+  type: "code-diff",
+  version: 1,
+  title: "Raise the free-tier rate limit",
+  summary:
+    "Only the first entry changes; the rest of the table is context. Generated files are summarised, not shown.",
+  moreFiles: 31,
+  files: [
+    {
+      path: "lib/limits/tiers.json",
+      diff: rows(
+        "@@ -1,38 +1,38 @@",
+        " {",
+        '-  "free": { "burst": 10 },',
+        '+  "free": { "burst": 25 },',
+        ...CONFIG_KEYS.slice(0, 29).map((key) => ` ${key}`),
+        '   "last": { "burst": 150 }',
+        " }"
+      ),
+    },
+    {
+      path: "bun.lock",
+      note: "Regenerated by the dependency bump.",
+      added: 1204,
+      removed: 980,
+    },
+    {
+      path: "public/og.png",
+      diff: "Binary files a/public/og.png and b/public/og.png differ",
+    },
+  ],
+};
+
+/** A whole `git diff` pasted into one entry, and a diff with bad counts and no final newline marker. */
+export const FIXTURE_CODE_DIFF_PASTED: CodeDiffBlock = {
+  type: "code-diff",
+  version: 1,
+  title: "Tighten the search timeout",
+  files: [
+    {
+      path: "lib/exa/client.ts",
+      diff: rows(
+        "diff --git a/lib/exa/client.ts b/lib/exa/client.ts",
+        "index 1a2b3c4..5d6e7f8 100644",
+        "--- a/lib/exa/client.ts",
+        "+++ b/lib/exa/client.ts",
+        "@@ -5,3 +5,3 @@",
+        " const DEFAULTS = {",
+        "-  timeoutMs: 15000,",
+        "+  timeoutMs: 8000,",
+        " };",
+        "diff --git a/lib/exa/types.ts b/lib/exa/types.ts",
+        "index 9a8b7c6..0f1e2d3 100644",
+        "--- a/lib/exa/types.ts",
+        "+++ b/lib/exa/types.ts",
+        "@@ -1,2 +1,2 @@",
+        "-export type SearchOptions = { timeoutMs?: number };",
+        "\\ No newline at end of file",
+        "+export type SearchOptions = { timeoutMs?: number; maxAttempts?: number };",
+        "\\ No newline at end of file"
+      ),
+    },
+  ],
+};
+
+/** Output that is not a diff must degrade to text, never crash. */
+export const FIXTURE_CODE_DIFF_MALFORMED: CodeDiffBlock = {
+  type: "code-diff",
+  version: 1,
+  title: "Imperfect model output",
+  files: [
+    { path: "notes.txt", diff: "I changed the retry logic to use exponential backoff." },
+    {
+      path: "src/truncated.ts",
+      diff: rows("@@ -1,2 +1,99 @@", " const a = 1;", "-const b = 2;", "+const b = 3"),
+    },
+  ],
+};
+
+/** Every code-diff fixture; only `FIXTURE_CODE_DIFF` is in ALL_VALID_FIXTURES (one per type). */
+export const CODE_DIFF_FIXTURES: CodeDiffBlock[] = [
+  FIXTURE_CODE_DIFF,
+  FIXTURE_CODE_DIFF_SINGLE_FIX,
+  FIXTURE_CODE_DIFF_REFACTOR,
+  FIXTURE_CODE_DIFF_CONFIG,
+  FIXTURE_CODE_DIFF_REVIEW,
+  FIXTURE_CODE_DIFF_LARGE,
+  FIXTURE_CODE_DIFF_PASTED,
+  FIXTURE_CODE_DIFF_MALFORMED,
+];
+
 export const ALL_VALID_FIXTURES: GenUIBlock[] = [
   FIXTURE_ANSWER_CARD,
   FIXTURE_DECISION_MATRIX,
@@ -427,4 +762,5 @@ export const ALL_VALID_FIXTURES: GenUIBlock[] = [
   FIXTURE_SHOPPING_LIST,
   FIXTURE_RESTAURANT_CARD,
   FIXTURE_RESEARCH_REPORT,
+  FIXTURE_CODE_DIFF,
 ];

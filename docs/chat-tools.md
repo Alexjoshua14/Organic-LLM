@@ -96,6 +96,7 @@ Structured blocks as first-class UI, not markdown-only. Block types (Zod schemas
 | **plan-timeline** | Phased plans with milestones |
 | **audio-snippet** | Short audio-oriented payloads in-thread |
 | **research-report** | Lyra's source synopses, takeaways and quoted evidence; constructed by `research_publish` from saved source/claim ids. |
+| **code-diff** | A change to existing code. The model sends standard unified-diff text per file (plus optional title, summary, notes and line comments); the app parses it, counts lines, detects added/deleted/renamed files, folds long context and marks changed words. See [`lib/diff/`](../lib/diff/) and [`components/chat/gen-ui/diff/`](../components/chat/gen-ui/diff/). |
 
 Also available in the **Delphi** memory-ingest chamber (stricter guidance: one compact block, reserved for hard-commit drafts, session recaps, or genuine filing choices; rendered in the delivery slot beneath the assistant caption).
 

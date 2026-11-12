@@ -3,6 +3,7 @@ import type { GenUIBlock, GenUIBlockType } from "@/lib/schemas/gen-ui";
 
 import { AnswerCard } from "./blocks/AnswerCard";
 import { AudioSnippet } from "./blocks/AudioSnippet";
+import { CodeDiff } from "./blocks/CodeDiff";
 import { DecisionMatrix } from "./blocks/DecisionMatrix";
 import { PlanTimeline } from "./blocks/PlanTimeline";
 import { RecipeCard } from "./blocks/RecipeCard";
@@ -20,6 +21,8 @@ import {
   ShoppingListBlockSchema,
   RestaurantCardBlockSchema,
   ResearchReportBlockSchema,
+  CodeDiffBlockSchema,
+  codeDiffTitle,
 } from "@/lib/schemas/gen-ui";
 
 export type GenUIBlockComponentProps = {
@@ -37,7 +40,8 @@ export type GenUIRegistryEntry = {
     | typeof RecipeCardBlockSchema
     | typeof ShoppingListBlockSchema
     | typeof RestaurantCardBlockSchema
-    | typeof ResearchReportBlockSchema;
+    | typeof ResearchReportBlockSchema
+    | typeof CodeDiffBlockSchema;
   Component: ComponentType<GenUIBlockComponentProps>;
   toMarkdown: (block: GenUIBlock) => string;
 };
@@ -91,6 +95,12 @@ export const GEN_UI_REGISTRY: Record<GenUIBlockType, GenUIRegistryEntry> = {
     Component: RestaurantCard as ComponentType<GenUIBlockComponentProps>,
     toMarkdown: genUIBlockToMarkdown,
   },
+  "code-diff": {
+    label: "Code diff",
+    schema: CodeDiffBlockSchema,
+    Component: CodeDiff as ComponentType<GenUIBlockComponentProps>,
+    toMarkdown: genUIBlockToMarkdown,
+  },
 };
 
 export function getGenUIBlockTitle(block: GenUIBlock): string {
@@ -110,5 +120,7 @@ export function getGenUIBlockTitle(block: GenUIBlock): string {
       return block.title;
     case "restaurant-card":
       return block.name;
+    case "code-diff":
+      return codeDiffTitle(block);
   }
 }
