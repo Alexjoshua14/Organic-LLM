@@ -1,14 +1,27 @@
-import { afterEach, describe, expect, mock, test } from "bun:test";
+import { afterAll, afterEach, describe, expect, mock, test } from "bun:test";
 import type { UIMessage } from "ai";
 import { cleanup, fireEvent } from "@testing-library/react";
 
-import { ChatMessage } from "@/components/chat/chat-message";
+import * as useMobile from "@/hooks/use-mobile";
+import * as ttsContext from "@/lib/context/tts-context";
+
+import { installBrowserMedia } from "../helpers/browser-media";
 import { mockModulePreservingReal } from "../helpers/module-mock";
 import { render } from "../helpers/render";
 
-import * as ttsContext from "@/lib/context/tts-context";
+import { ChatMessage } from "@/components/chat/chat-message";
 import { FIXTURE_ANSWER_CARD, FIXTURE_RESTAURANT_CARD } from "@/lib/schemas/gen-ui/fixtures";
 import { ChatAIActionEnum } from "@/types/ai";
+
+const restoreUseMobile = mockModulePreservingReal("@/hooks/use-mobile", useMobile, {
+  useIsMobile: () => false,
+});
+const restoreMedia = installBrowserMedia();
+
+afterAll(() => {
+  restoreUseMobile();
+  restoreMedia();
+});
 
 // Merged over the real module so the stub keeps `TTSProvider` and `useTTSOptional` for files
 // loaded after this one. Deliberately not restored: other files register their own TTS stub at
@@ -117,9 +130,10 @@ describe("ChatMessage gather_restaurant", () => {
       ],
     };
 
-    const { getByText, queryByText } = render(<ChatMessage message={message} />);
+    const { getByText, queryByText, queryByRole } = render(<ChatMessage message={message} />);
     expect(getByText(FIXTURE_RESTAURANT_CARD.name)).toBeTruthy();
     expect(queryByText("gather_restaurant")).toBeNull();
+    expect(queryByRole("region", { name: /Restaurant results/i })).toBeNull();
   });
 
   test("shows loading label while gather_restaurant is in flight", () => {
@@ -139,6 +153,46 @@ describe("ChatMessage gather_restaurant", () => {
 
     const { getByText } = render(<ChatMessage message={message} />);
     expect(getByText("Looking up restaurant…")).toBeTruthy();
+  });
+
+  test("adjacent restaurant cards in one message render as a carousel", () => {
+    const second = {
+      ...FIXTURE_RESTAURANT_CARD,
+      name: "Tartine Manufactory",
+      heroImage: {
+        ...FIXTURE_RESTAURANT_CARD.heroImage,
+        url: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=1200&q=80",
+      },
+    };
+    const message: UIMessage = {
+      id: "msg-restaurant-carousel",
+      role: "assistant",
+      parts: [
+        {
+          type: "dynamic-tool",
+          toolName: "render_gen_ui",
+          toolCallId: "tc-gen-ui-1",
+          state: "output-available",
+          input: {},
+          output: { block: FIXTURE_RESTAURANT_CARD },
+        },
+        {
+          type: "dynamic-tool",
+          toolName: "render_gen_ui",
+          toolCallId: "tc-gen-ui-2",
+          state: "output-available",
+          input: {},
+          output: { block: second },
+        },
+      ],
+    };
+
+    const { getByRole, getByText } = render(<ChatMessage message={message} />);
+
+    expect(getByRole("region", { name: /Restaurant results/i })).toBeTruthy();
+    expect(getByText("1 of 2")).toBeTruthy();
+    expect(getByText(FIXTURE_RESTAURANT_CARD.name)).toBeTruthy();
+    expect(getByText("Tartine Manufactory")).toBeTruthy();
   });
 });
 

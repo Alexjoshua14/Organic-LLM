@@ -1,0 +1,100 @@
+/*
+ * Shared code palette: the default look for fenced code (`components/shared/code-block.tsx`) and
+ * the code diff block. Distilled from the owner's Zed macOS Classic / Glass references into one
+ * light and one dark set. Dark follows the app's `.dark` class; the app never sets color-scheme,
+ * so light-dark() would resolve to light everywhere. Design record: docs/design/code-blocks.md.
+ *
+ * Put `organic-code` on a code surface's root. It defines the `--code-*` variables and colors
+ * Prism's class-based tokens (`token keyword`) for every descendant.
+ */
+.organic-code {
+  --code-background: #ffffff;
+  --code-foreground: #222222;
+  --code-muted: #f0f0f0;
+  --code-muted-foreground: #686868;
+  --code-border: #dedede;
+  --code-keyword: #0433ff;
+  --code-function: #0000a2;
+  --code-type: #6f42c1;
+  --code-string: #036a07;
+  --code-comment: #0075eb;
+  --code-comment-style: normal;
+  --code-operator: #333333;
+  --code-punctuation: #444444;
+  --code-guide: #dcdbda;
+  --code-add: #1a7f4b;
+  --code-del: #b3261e;
+  color-scheme: light;
+}
+.dark .organic-code {
+  color-scheme: dark;
+  --code-background: #0f1216;
+  --code-foreground: #d3d8df;
+  --code-muted: #181c22;
+  --code-muted-foreground: #9aa3b0;
+  --code-border: #262b33;
+  --code-keyword: #f0a24a;
+  --code-function: #fdd888;
+  --code-type: #59c2ff;
+  --code-string: #9fd36a;
+  --code-comment: #8b94a1;
+  --code-comment-style: italic;
+  --code-operator: #e8946a;
+  --code-punctuation: #b7bec9;
+  --code-guide: #262b33;
+  --code-add: #6fcf97;
+  --code-del: #f08a84;
+}
+
+/* Prism token classes (class-based output, no inline styles). */
+.organic-code .token.keyword,
+.organic-code .token.atrule,
+.organic-code .token.selector {
+  color: var(--code-keyword);
+}
+.organic-code .token.string,
+.organic-code .token.char,
+.organic-code .token.attr-value,
+.organic-code .token.template-string,
+.organic-code .token.inserted {
+  color: var(--code-string);
+}
+.organic-code .token.function,
+.organic-code .token.attr-name,
+.organic-code .token.method {
+  color: var(--code-function);
+}
+.organic-code .token.class-name,
+.organic-code .token.builtin,
+.organic-code .token.number,
+.organic-code .token.boolean,
+.organic-code .token.constant,
+.organic-code .token.symbol,
+.organic-code .token.tag,
+.organic-code .token.regex {
+  color: var(--code-type);
+}
+.organic-code .token.comment,
+.organic-code .token.prolog,
+.organic-code .token.doctype {
+  color: var(--code-comment);
+  font-style: var(--code-comment-style);
+}
+.organic-code .token.operator,
+.organic-code .token.entity,
+.organic-code .token.url {
+  color: var(--code-operator);
+}
+.organic-code .token.punctuation {
+  color: var(--code-punctuation);
+}
+.organic-code .token.deleted {
+  color: var(--code-del);
+}
+.organic-code .token.important,
+.organic-code .token.bold {
+  font-weight: 600;
+}
+.organic-code .token.italic {
+  font-style: italic;
+}

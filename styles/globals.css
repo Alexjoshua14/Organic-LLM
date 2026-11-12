@@ -4,6 +4,8 @@
 
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "./FocusFeedback.css";
+@import "./CodePalette.css";
 
 @source "../components/**/*.{js,ts,jsx,tsx,mdx}";
 @source "../app/**/*.{js,ts,jsx,tsx,mdx}";
@@ -499,6 +501,12 @@ body.font-theme-commissioner {
   scroll-snap-type: y mandatory;
   scroll-behavior: smooth;
   overscroll-behavior-y: contain;
+  /* The vertical scroll dots (GenUiGalleryNav) show position; a scrollbar is noise. */
+  scrollbar-width: none;
+}
+
+.gen-ui-gallery-scroll::-webkit-scrollbar {
+  display: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

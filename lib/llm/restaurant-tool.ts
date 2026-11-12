@@ -6,7 +6,7 @@ import { gatherRestaurant } from "@/lib/restaurant/gather-restaurant";
 
 const logger = createLogger("lib/llm/restaurant-tool.ts");
 
-export const GATHER_RESTAURANT_TOOL_NAME = "gather_restaurant";
+export { GATHER_RESTAURANT_TOOL_NAME } from "@/lib/restaurant/tool-name";
 
 const GatherRestaurantInputSchema = z.object({
   name: z.string().min(1).describe("Restaurant name"),

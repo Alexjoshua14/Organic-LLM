@@ -25,6 +25,8 @@ type BtwPanelProps = {
   onClose: () => void;
   /** Placement is the parent's call: the panel floats over the conversation, above the composer. */
   className?: string;
+  contextDescription?: string;
+  emptyMessage?: string;
 };
 
 /**
@@ -33,7 +35,15 @@ type BtwPanelProps = {
  * The question reads as a right-aligned glass bubble, as in the main chat; the answer is plain
  * prose, so the two never blend.
  */
-export function BtwPanel({ messages, status, error, onClose, className }: BtwPanelProps) {
+export function BtwPanel({
+  messages,
+  status,
+  error,
+  onClose,
+  className,
+  contextDescription = "Side question · sees a compact snapshot of this thread · not saved",
+  emptyMessage = "Ask anything on the side. The thread keeps its place; close this to return.",
+}: BtwPanelProps) {
   const reduceMotion = useReducedMotion();
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const waiting = status === "submitted";
@@ -80,7 +90,7 @@ export function BtwPanel({ messages, status, error, onClose, className }: BtwPan
           /btw
         </span>
         <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-          Side question · sees a compact snapshot of this thread · not saved
+          {contextDescription}
         </p>
         <button
           aria-label="Close side question"
@@ -105,9 +115,7 @@ export function BtwPanel({ messages, status, error, onClose, className }: BtwPan
         className="max-h-[min(55dvh,28rem)] space-y-stack-md overflow-y-auto px-3 py-3 text-sm"
       >
         {messages.length === 0 && !waiting ? (
-          <p className="text-muted-foreground">
-            Ask anything on the side. The thread keeps its place; close this to return.
-          </p>
+          <p className="text-muted-foreground">{emptyMessage}</p>
         ) : null}
         {messages.map((message) => {
           const text = messagePlainText(message);
