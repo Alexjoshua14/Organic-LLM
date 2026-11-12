@@ -36,11 +36,20 @@ a restyle only. The schema, the tool description and the agent contract are unch
 
 ## Highlighting
 
-`code-highlight.tsx` uses the Prism light build of `react-syntax-highlighter` with an explicit
-grammar list (bash, c, cpp, css, diff, go, java, javascript, json, jsx, markdown, markup, python,
-rust, sql, tsx, typescript, yaml) and class-based output (`token keyword`). The palette does the
-coloring, so theme switching is pure CSS. Add a language by importing its grammar and, if it has
-common aliases, extending `ALIASES` and `LABELS`.
+`code-highlight.tsx` uses the Prism light build of `react-syntax-highlighter` with class-based output
+(`token keyword`). The palette does the coloring, so theme switching is pure CSS.
+
+- **Bundled (18, always ready):** bash, c, cpp, css, diff, go, java, javascript, json, jsx, markdown,
+  markup (HTML/XML), python, rust, sql, tsx, typescript, yaml.
+- **On demand (34, one chunk each, 2 to 5 KB gzipped):** C#, Ruby, PHP, Swift, Kotlin, Scala, Dart,
+  Lua, Perl, R, Haskell, Elixir, PowerShell, Dockerfile, TOML, INI, GraphQL, SCSS, Less, Makefile,
+  Objective-C, Protobuf, HCL, Zig, Julia, Clojure, OCaml, Groovy, Nginx, HTTP, Solidity, Vim, LaTeX.
+  The block renders as plain text until the grammar arrives, then colors in place; a loaded grammar
+  stays registered for the session. A failed chunk leaves the block plain.
+
+Add a language: add its import to `LAZY_GRAMMARS` (or `GRAMMARS` if it is hot enough to bundle),
+a `LABELS` entry, `ALIASES` for common fence names, and `EXTENSIONS` for diff paths. A test loads
+every listed language, so a bad import fails CI.
 
 Cost is about 0.05 ms per line (measured on the server renderer: 1.5 ms for 20 lines, 5.6 ms for
 100, 23 ms for 400). A streaming reply re-renders its last block on every token, so blocks over 60

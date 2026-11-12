@@ -119,7 +119,7 @@ export const LAB_CODE_PRESETS: ReadonlyArray<CodePreset> = [
     id: "plain",
     name: "Plain",
     intent: "No language, or one we do not highlight. Same layout, no colors, still copyable.",
-    markdown: `A fence with no language:\n\n${fence("", "plain output\n  indented line\nlast line")}\n\nAnd one we do not know:\n\n${fence("zig", 'const std = @import("std");\npub fn main() void {}')}`,
+    markdown: `A fence with no language:\n\n${fence("", "plain output\n  indented line\nlast line")}\n\nAnd one we do not know:\n\n${fence("cobol", "IDENTIFICATION DIVISION.\nPROGRAM-ID. HELLO.")}`,
   },
   {
     id: "long-block",

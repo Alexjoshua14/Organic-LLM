@@ -5,9 +5,11 @@ import { render } from "../helpers/render";
 
 import { CodeBlock } from "@/components/shared/code-block";
 import {
+  HIGHLIGHT_LANGUAGES,
   HighlightedText,
   codeLanguageLabel,
   languageForPath,
+  preloadLanguage,
   resolveHighlightLanguage,
   splitSegments,
 } from "@/components/shared/code-highlight";
@@ -45,7 +47,8 @@ describe("language resolution", () => {
     expect(codeLanguageLabel(undefined)).toBe("Code");
     expect(codeLanguageLabel("text")).toBe("Code");
     expect(codeLanguageLabel("brainfuck")).toBe("Brainfuck");
-    expect(codeLanguageLabel("zig")).toBe("ZIG");
+    expect(codeLanguageLabel("xyz")).toBe("XYZ");
+    expect(codeLanguageLabel("zig")).toBe("Zig");
   });
 });
 
@@ -168,7 +171,9 @@ describe("line-level highlighting (code diff rows)", () => {
     expect(languageForPath("lib/memory/search.ts")).toBe("typescript");
     expect(languageForPath("app/page.TSX")).toBe("tsx");
     expect(languageForPath("scripts/deploy.sh")).toBe("bash");
-    expect(languageForPath("Makefile")).toBeUndefined();
+    expect(languageForPath("Makefile")).toBe("makefile");
+    expect(languageForPath("docker/Dockerfile")).toBe("docker");
+    expect(languageForPath("LICENSE")).toBeUndefined();
     expect(languageForPath(undefined)).toBeUndefined();
   });
 
@@ -207,10 +212,46 @@ describe("line-level highlighting (code diff rows)", () => {
   });
 
   test("an unknown language still renders and emphasises plain text", () => {
-    const view = render(<HighlightedText emphasis={[0, 3]} language="zig" text="abc def" />);
+    const view = render(<HighlightedText emphasis={[0, 3]} language="cobol" text="abc def" />);
 
     expect(view.container.querySelector(".token")).toBeNull();
     expect(view.container.querySelector("[data-emphasis]")?.textContent).toBe("abc");
     expect(view.container.textContent).toBe("abc def");
+  });
+});
+
+describe("lazy grammars", () => {
+  test("a long-tail language is plain at first, then colors in place once its grammar loads", async () => {
+    const view = block('puts "hello" # greet', "ruby");
+
+    expect(view.container.textContent).toContain('puts "hello" # greet');
+    expect(view.getByText("Ruby")).toBeTruthy();
+    await waitFor(() => expect(view.container.querySelector(".token.string")).not.toBeNull());
+    expect(view.container.textContent).toContain('puts "hello" # greet');
+  });
+
+  test("a loaded grammar highlights immediately on the next block", async () => {
+    const first = block("x = 1", "ruby");
+
+    await waitFor(() => expect(first.container.querySelector(".token.number")).not.toBeNull());
+    cleanup();
+    expect(block("y = 2", "ruby").container.querySelector(".token.number")).not.toBeNull();
+  });
+
+  test("every supported language loads, and highlighting keeps the source text exactly", async () => {
+    const sample = 'name = "value" # note\nif x == 1 { run(x) }';
+    const loaded = await Promise.all(
+      HIGHLIGHT_LANGUAGES.map((language) => preloadLanguage(language))
+    );
+
+    expect(loaded.every(Boolean)).toBe(true);
+    expect(await preloadLanguage("cobol")).toBe(false);
+
+    for (const language of HIGHLIGHT_LANGUAGES) {
+      const view = render(<HighlightedText language={language} text={sample} />);
+
+      expect({ language, text: view.container.textContent }).toEqual({ language, text: sample });
+      view.unmount();
+    }
   });
 });

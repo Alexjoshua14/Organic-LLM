@@ -2,7 +2,7 @@
 
 import type { CSSProperties } from "react";
 
-import { memo } from "react";
+import { memo, useEffect, useState } from "react";
 import SyntaxHighlighter from "react-syntax-highlighter/dist/esm/prism-light";
 import createElement from "react-syntax-highlighter/dist/esm/create-element";
 import bash from "react-syntax-highlighter/dist/esm/languages/prism/bash";
@@ -52,10 +52,113 @@ const GRAMMARS = {
   yaml,
 } as const;
 
-type HighlightLanguage = keyof typeof GRAMMARS;
+type StaticLanguage = keyof typeof GRAMMARS;
 
 for (const [name, grammar] of Object.entries(GRAMMARS)) {
   SyntaxHighlighter.registerLanguage(name, grammar);
+}
+
+/**
+ * The long tail loads on demand (one chunk each), so the chat route does not carry every grammar.
+ * Until a grammar arrives its block renders as plain text, then colors in place; once loaded it
+ * is registered for the rest of the session.
+ */
+const LAZY_GRAMMARS = {
+  csharp: () => import("react-syntax-highlighter/dist/esm/languages/prism/csharp"),
+  ruby: () => import("react-syntax-highlighter/dist/esm/languages/prism/ruby"),
+  php: () => import("react-syntax-highlighter/dist/esm/languages/prism/php"),
+  swift: () => import("react-syntax-highlighter/dist/esm/languages/prism/swift"),
+  kotlin: () => import("react-syntax-highlighter/dist/esm/languages/prism/kotlin"),
+  scala: () => import("react-syntax-highlighter/dist/esm/languages/prism/scala"),
+  dart: () => import("react-syntax-highlighter/dist/esm/languages/prism/dart"),
+  lua: () => import("react-syntax-highlighter/dist/esm/languages/prism/lua"),
+  perl: () => import("react-syntax-highlighter/dist/esm/languages/prism/perl"),
+  r: () => import("react-syntax-highlighter/dist/esm/languages/prism/r"),
+  haskell: () => import("react-syntax-highlighter/dist/esm/languages/prism/haskell"),
+  elixir: () => import("react-syntax-highlighter/dist/esm/languages/prism/elixir"),
+  powershell: () => import("react-syntax-highlighter/dist/esm/languages/prism/powershell"),
+  docker: () => import("react-syntax-highlighter/dist/esm/languages/prism/docker"),
+  toml: () => import("react-syntax-highlighter/dist/esm/languages/prism/toml"),
+  ini: () => import("react-syntax-highlighter/dist/esm/languages/prism/ini"),
+  graphql: () => import("react-syntax-highlighter/dist/esm/languages/prism/graphql"),
+  scss: () => import("react-syntax-highlighter/dist/esm/languages/prism/scss"),
+  less: () => import("react-syntax-highlighter/dist/esm/languages/prism/less"),
+  makefile: () => import("react-syntax-highlighter/dist/esm/languages/prism/makefile"),
+  objectivec: () => import("react-syntax-highlighter/dist/esm/languages/prism/objectivec"),
+  protobuf: () => import("react-syntax-highlighter/dist/esm/languages/prism/protobuf"),
+  hcl: () => import("react-syntax-highlighter/dist/esm/languages/prism/hcl"),
+  zig: () => import("react-syntax-highlighter/dist/esm/languages/prism/zig"),
+  julia: () => import("react-syntax-highlighter/dist/esm/languages/prism/julia"),
+  clojure: () => import("react-syntax-highlighter/dist/esm/languages/prism/clojure"),
+  ocaml: () => import("react-syntax-highlighter/dist/esm/languages/prism/ocaml"),
+  groovy: () => import("react-syntax-highlighter/dist/esm/languages/prism/groovy"),
+  nginx: () => import("react-syntax-highlighter/dist/esm/languages/prism/nginx"),
+  http: () => import("react-syntax-highlighter/dist/esm/languages/prism/http"),
+  solidity: () => import("react-syntax-highlighter/dist/esm/languages/prism/solidity"),
+  vim: () => import("react-syntax-highlighter/dist/esm/languages/prism/vim"),
+  latex: () => import("react-syntax-highlighter/dist/esm/languages/prism/latex"),
+} as const satisfies Record<string, () => Promise<{ default: unknown }>>;
+
+type LazyLanguage = keyof typeof LAZY_GRAMMARS;
+type HighlightLanguage = StaticLanguage | LazyLanguage;
+
+/** Every language this module can highlight, bundled or lazy. */
+export const HIGHLIGHT_LANGUAGES: ReadonlyArray<HighlightLanguage> = [
+  ...(Object.keys(GRAMMARS) as StaticLanguage[]),
+  ...(Object.keys(LAZY_GRAMMARS) as LazyLanguage[]),
+];
+
+const ready = new Set<string>(Object.keys(GRAMMARS));
+const loading = new Map<string, Promise<void>>();
+
+function loadGrammar(name: LazyLanguage): Promise<void> {
+  const pending = loading.get(name);
+
+  if (pending) return pending;
+
+  const load = LAZY_GRAMMARS[name]()
+    .then((module) => {
+      SyntaxHighlighter.registerLanguage(name, module.default);
+      ready.add(name);
+    })
+    // A failed chunk leaves the block plain; nothing retries in a loop.
+    .catch(() => {});
+
+  loading.set(name, load);
+
+  return load;
+}
+
+/** Loads a grammar ahead of use. Resolves true when the language is ready to highlight. */
+export async function preloadLanguage(language: string | undefined): Promise<boolean> {
+  const resolved = resolveHighlightLanguage(language);
+
+  if (!resolved) return false;
+  if (!ready.has(resolved)) await loadGrammar(resolved as LazyLanguage);
+
+  return ready.has(resolved);
+}
+
+/** The grammar to highlight with right now: undefined while a lazy one is still loading. */
+function useGrammar(language: string | undefined): HighlightLanguage | undefined {
+  const resolved = resolveHighlightLanguage(language);
+  const [, rerender] = useState(0);
+
+  useEffect(() => {
+    if (!resolved || ready.has(resolved)) return;
+
+    let cancelled = false;
+
+    void loadGrammar(resolved as LazyLanguage).then(() => {
+      if (!cancelled) rerender((count) => count + 1);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [resolved]);
+
+  return resolved && ready.has(resolved) ? resolved : undefined;
 }
 
 const ALIASES: Record<string, HighlightLanguage> = {
@@ -77,6 +180,34 @@ const ALIASES: Record<string, HighlightLanguage> = {
   golang: "go",
   "c++": "cpp",
   patch: "diff",
+  cs: "csharp",
+  "c#": "csharp",
+  dotnet: "csharp",
+  rb: "ruby",
+  kt: "kotlin",
+  kts: "kotlin",
+  pl: "perl",
+  ps1: "powershell",
+  pwsh: "powershell",
+  dockerfile: "docker",
+  hs: "haskell",
+  ex: "elixir",
+  exs: "elixir",
+  gql: "graphql",
+  tf: "hcl",
+  terraform: "hcl",
+  proto: "protobuf",
+  make: "makefile",
+  mk: "makefile",
+  objc: "objectivec",
+  "objective-c": "objectivec",
+  jl: "julia",
+  clj: "clojure",
+  ml: "ocaml",
+  gradle: "groovy",
+  sol: "solidity",
+  tex: "latex",
+  vimscript: "vim",
 };
 
 /** Display names for the header. Unknown languages fall back to the fence's own label. */
@@ -99,6 +230,39 @@ const LABELS: Record<string, string> = {
   tsx: "TSX",
   typescript: "TypeScript",
   yaml: "YAML",
+  csharp: "C#",
+  ruby: "Ruby",
+  php: "PHP",
+  swift: "Swift",
+  kotlin: "Kotlin",
+  scala: "Scala",
+  dart: "Dart",
+  lua: "Lua",
+  perl: "Perl",
+  r: "R",
+  haskell: "Haskell",
+  elixir: "Elixir",
+  powershell: "PowerShell",
+  docker: "Dockerfile",
+  toml: "TOML",
+  ini: "INI",
+  graphql: "GraphQL",
+  scss: "SCSS",
+  less: "Less",
+  makefile: "Makefile",
+  objectivec: "Objective-C",
+  protobuf: "Protobuf",
+  hcl: "HCL",
+  zig: "Zig",
+  julia: "Julia",
+  clojure: "Clojure",
+  ocaml: "OCaml",
+  groovy: "Groovy",
+  nginx: "Nginx",
+  http: "HTTP",
+  solidity: "Solidity",
+  vim: "Vim",
+  latex: "LaTeX",
 };
 
 /** Canonical grammar for a fence label (`ts`, `TypeScript`, `language-ts`), or undefined. */
@@ -111,7 +275,7 @@ export function resolveHighlightLanguage(
     .replace(/^language-/, "");
 
   if (!key) return undefined;
-  if (key in GRAMMARS) return key as HighlightLanguage;
+  if (key in GRAMMARS || key in LAZY_GRAMMARS) return key as HighlightLanguage;
 
   return ALIASES[key];
 }
@@ -158,7 +322,7 @@ export const CodeLines = memo(function CodeLines({
   language,
   showLineNumbers,
 }: CodeLinesProps) {
-  const grammar = resolveHighlightLanguage(language);
+  const grammar = useGrammar(language);
   const sourceLines = code.split("\n");
   const gutter = {
     "--number-width": `${String(sourceLines.length).length + 1}ch`,
@@ -230,7 +394,6 @@ const EXTENSIONS: Record<string, string> = {
   json: "json",
   jsonc: "json",
   css: "css",
-  scss: "css",
   html: "markup",
   htm: "markup",
   xml: "markup",
@@ -254,11 +417,58 @@ const EXTENSIONS: Record<string, string> = {
   hpp: "cpp",
   diff: "diff",
   patch: "diff",
+  cs: "csharp",
+  rb: "ruby",
+  php: "php",
+  swift: "swift",
+  kt: "kotlin",
+  kts: "kotlin",
+  scala: "scala",
+  dart: "dart",
+  lua: "lua",
+  pl: "perl",
+  r: "r",
+  hs: "haskell",
+  ex: "elixir",
+  exs: "elixir",
+  ps1: "powershell",
+  toml: "toml",
+  ini: "ini",
+  graphql: "graphql",
+  gql: "graphql",
+  scss: "scss",
+  less: "less",
+  mk: "makefile",
+  m: "objectivec",
+  mm: "objectivec",
+  proto: "protobuf",
+  tf: "hcl",
+  hcl: "hcl",
+  zig: "zig",
+  jl: "julia",
+  clj: "clojure",
+  ml: "ocaml",
+  groovy: "groovy",
+  gradle: "groovy",
+  sol: "solidity",
+  vim: "vim",
+  tex: "latex",
+};
+
+/** Extension-less files that still name a language. */
+const BASENAMES: Record<string, string> = {
+  dockerfile: "docker",
+  makefile: "makefile",
+  gnumakefile: "makefile",
 };
 
 /** Fence-style language for a file path (`lib/a.ts` → `typescript`), or undefined if unknown. */
 export function languageForPath(path: string | undefined): string | undefined {
   const base = path?.split(/[\\/]/).pop() ?? "";
+  const named = BASENAMES[base.toLowerCase()];
+
+  if (named) return named;
+
   const extension = base.includes(".") ? base.split(".").pop()?.toLowerCase() : undefined;
 
   return extension ? EXTENSIONS[extension] : undefined;
@@ -343,7 +553,7 @@ export const HighlightedText = memo(function HighlightedText({
   emphasis = null,
   emphasisClassName,
 }: HighlightedTextProps) {
-  const grammar = resolveHighlightLanguage(language);
+  const grammar = useGrammar(language);
 
   function render(segments: TokenSegment[]) {
     const [before, inside, after] = splitSegments(segments, emphasis);

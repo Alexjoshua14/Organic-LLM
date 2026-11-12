@@ -89,7 +89,7 @@ describe("Gen UI Lab Code page", () => {
     fireEvent.click(next);
     expect(within(section).getByText("Plain")).toBeTruthy();
     expect(section.querySelector(".token")).toBeNull();
-    expect(within(section).getByText("ZIG")).toBeTruthy();
+    expect(within(section).getByText("Cobol")).toBeTruthy();
 
     fireEvent.click(next);
     expect(within(section).getByText("Long block")).toBeTruthy();
