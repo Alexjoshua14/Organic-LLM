@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { type CSSProperties, useState } from "react";
 import {
   ArrowLeft,
   ArrowUpRight,
@@ -12,6 +12,7 @@ import {
   GitCompareArrows,
   Maximize2,
   MessageSquareText,
+  Palette,
   WrapText,
 } from "lucide-react";
 import Link from "next/link";
@@ -20,7 +21,7 @@ import styles from "./study.module.css";
 
 const SOURCE = [
   'import { z } from "zod";',
-  "",
+  "// Validate before the request.",
   "const schema = z.object({",
   "  email: z.string().email(),",
   "});",
@@ -74,23 +75,34 @@ const MODES = [
 ] as const;
 
 type Mode = (typeof MODES)[number]["id"];
+type CodeTheme = "auto" | "classic" | "glass" | "paper";
+
+function codeIndent(text: string): CSSProperties {
+  return { "--indent-columns": text.match(/^ */)?.[0].length ?? 0 } as CSSProperties;
+}
 
 // A small, fixed TypeScript sample; this study does not replace the production highlighter.
 function Syntax({ text }: { text: string }) {
   const tokens = text.split(
-    /("[^"\n]*"|\b(?:import|from|const|export|async|function|return|as)\b|\b(?:unknown|string)\b|\b\w+(?=\())/g
+    /(\/\/[^\n]*|"[^"\n]*"|\b(?:import|from|const|export|async|function|return|as)\b|\b(?:unknown|string)\b|\b\w+(?=\()|=>|[=!?]+|[{}()[\].,;:])/g
   );
 
   return tokens.map((token, index) => {
-    const kind = token.startsWith('"')
-      ? "string"
-      : /^(import|from|const|export|async|function|return|as)$/.test(token)
-        ? "keyword"
-        : /^(unknown|string)$/.test(token)
-          ? "type"
-          : /^\w+$/.test(token)
-            ? "function"
-            : undefined;
+    const kind = token.startsWith("//")
+      ? "comment"
+      : token.startsWith('"')
+        ? "string"
+        : /^(import|from|const|export|async|function|return|as)$/.test(token)
+          ? "keyword"
+          : /^(unknown|string)$/.test(token)
+            ? "type"
+            : /^\w+$/.test(token)
+              ? "function"
+              : /^(=>|[=!?]+)$/.test(token)
+                ? "operator"
+                : /^[{}()[\].,;:]$/.test(token)
+                  ? "punctuation"
+                  : undefined;
 
     return (
       <span key={index} data-token={kind}>
@@ -110,6 +122,7 @@ export function CodeStudies() {
   const [view, setView] = useState<"changes" | "result">("changes");
   const [context, setContext] = useState(false);
   const [selection, setSelection] = useState<number | null>(null);
+  const [theme, setTheme] = useState<CodeTheme>("auto");
   const showDiff = mode === "diff" && view === "changes";
   const activeNote = note === null ? null : NOTES[note];
 
@@ -166,6 +179,19 @@ export function CodeStudies() {
               {label}
             </button>
           ))}
+          <label className={styles.themePicker}>
+            <Palette size={14} aria-hidden />
+            <select
+              aria-label="Code theme"
+              value={theme}
+              onChange={(event) => setTheme(event.target.value as CodeTheme)}
+            >
+              <option value="auto">Adaptive</option>
+              <option value="classic">Classic dark</option>
+              <option value="glass">Dark glass</option>
+              <option value="paper">Classic light</option>
+            </select>
+          </label>
         </div>
 
         <main className={styles.stage} data-mode={mode}>
@@ -196,7 +222,7 @@ export function CodeStudies() {
           </div>
 
           <div className={styles.readingLayout} data-annotated={mode === "explain"}>
-            <div className={styles.codePanel}>
+            <div className={styles.codePanel} data-code-theme={theme}>
               <div className={styles.fileHeader}>
                 <button
                   className={styles.fileToggle}
@@ -205,14 +231,16 @@ export function CodeStudies() {
                   aria-expanded={open}
                   aria-controls="study-code"
                 >
-                  <ChevronDown size={13} className={open ? undefined : styles.closed} />
                   <span className={styles.fileIcon}>
                     <FileCode2 size={16} />
                   </span>
                   <span className={styles.fileIdentity}>
+                    <span>
+                      lib<span className={styles.pathSeparator}>/</span>
+                    </span>
                     <strong>subscribe.ts</strong>
-                    <span>lib</span>
                   </span>
+                  <ChevronDown size={12} className={open ? undefined : styles.closed} />
                 </button>
                 <div className={styles.actions}>
                   <button
@@ -318,7 +346,7 @@ export function CodeStudies() {
                               <span className={styles.sign} aria-label={line.kind}>
                                 {line.kind === "added" ? "+" : line.kind === "removed" ? "−" : ""}
                               </span>
-                              <code>
+                              <code style={codeIndent(line.text)}>
                                 {line.kind ? (
                                   <>
                                     {"  const { email } = "}
@@ -394,7 +422,7 @@ export function CodeStudies() {
                           >
                             {index + 1}
                           </button>
-                          <code>
+                          <code style={codeIndent(line)}>
                             <Syntax text={line} />
                           </code>
                           {mode === "explain" &&

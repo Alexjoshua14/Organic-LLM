@@ -149,20 +149,80 @@
   gap: 24px;
   align-items: start;
 }
+/* Syntax roles follow the owner's Zed macOS Classic references. */
 .codePanel {
+  --background: light-dark(#ffffff, #131313);
+  --foreground: light-dark(#222222, #dddddd);
+  --muted: light-dark(#f0f0f0, #272727);
+  --muted-foreground: light-dark(#686868, #9e9e9e);
+  --border: light-dark(#dedede, #303030);
+  --study-well: var(--background);
+  --study-keyword: light-dark(#0433ff, #d5a029);
+  --study-function: light-dark(#0000a2, #fdd888);
+  --study-type: light-dark(#6f42c1, #e18a5c);
+  --study-string: light-dark(#036a07, #82c86a);
+  --study-comment: light-dark(#0075eb, #9e9e9e);
+  --study-operator: light-dark(#333333, #dddddd);
+  --study-punctuation: light-dark(#444444, #caccce);
+  --study-guide: light-dark(#dcdbda, #303030);
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--study-well);
+  color: var(--foreground);
 }
+.codePanel[data-code-theme="classic"] {
+  color-scheme: dark;
+}
+.codePanel[data-code-theme="paper"] {
+  color-scheme: light;
+}
+/* The glass palette keeps an opaque reading surface so background prose cannot bleed through. */
+.codePanel[data-code-theme="glass"] {
+  color-scheme: dark;
+  --background: #080b10;
+  --foreground: #cdd3dc;
+  --muted: #171b22;
+  --muted-foreground: #9ca5b3;
+  --border: #252b34;
+  --study-keyword: #ff8f40;
+  --study-function: #ffb454;
+  --study-type: #59c2ff;
+  --study-string: #aad94c;
+  --study-comment: #8b94a1;
+  --study-comment-style: italic;
+  --study-operator: #f29668;
+  --study-punctuation: #b7bec9;
+  --study-guide: #252b34;
+  box-shadow: inset 0 1px 0 #ffffff08;
+}
+.themePicker {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-left: auto;
+  color: var(--muted-foreground);
+}
+.themePicker select {
+  max-width: 145px;
+  padding: 8px 4px;
+  border: 0;
+  border-radius: 5px;
+  background: var(--background);
+  color: var(--foreground);
+  font:
+    12px var(--font-satoshi, system-ui),
+    sans-serif;
+}
+/* The file path reads as one breadcrumb, with its name as the visual anchor. */
 .fileHeader {
-  min-height: 65px;
+  min-height: 50px;
   gap: 12px;
-  padding: 10px 14px;
+  padding: 8px 16px;
   border-bottom: 1px solid var(--border);
   flex-wrap: wrap;
-  background: color-mix(in oklab, var(--muted) 10%, var(--background));
+  background: color-mix(in oklab, var(--foreground) 2%, var(--background));
 }
 .fileToggle {
   gap: 10px;
@@ -176,29 +236,25 @@
   flex-shrink: 0;
 }
 .fileIcon {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 34px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--study-function);
-  background: var(--background);
+  display: flex;
+  color: var(--muted-foreground);
 }
 .fileIdentity {
-  display: grid;
-  gap: 4px;
-  text-align: left;
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  font: 12px var(--study-mono);
 }
 .fileIdentity strong {
-  font-family: var(--study-mono);
-  font-size: 12px;
   color: var(--foreground);
   font-weight: 500;
 }
 .fileIdentity > span {
-  font-size: 11px;
   color: var(--muted-foreground);
+}
+.pathSeparator {
+  margin-left: 7px;
+  opacity: 0.55;
 }
 .closed {
   transform: rotate(-90deg);
@@ -359,6 +415,13 @@
   white-space: pre;
   font: inherit;
   color: var(--foreground);
+  background-image: repeating-linear-gradient(
+    to right,
+    var(--study-guide) 0 1px,
+    transparent 1px 2ch
+  );
+  background-size: calc(var(--indent-columns, 0) * 1ch) 100%;
+  background-repeat: no-repeat;
 }
 .sourceLine > code:empty::before,
 .diffLine > code:empty::before {
@@ -395,9 +458,21 @@
 .codeBody [data-token="string"] {
   color: var(--study-string);
 }
-.codeBody [data-token="function"],
-.codeBody [data-token="type"] {
+.codeBody [data-token="function"] {
   color: var(--study-function);
+}
+.codeBody [data-token="type"] {
+  color: var(--study-type);
+}
+.codeBody [data-token="comment"] {
+  color: var(--study-comment);
+  font-style: var(--study-comment-style, normal);
+}
+.codeBody [data-token="operator"] {
+  color: var(--study-operator);
+}
+.codeBody [data-token="punctuation"] {
+  color: var(--study-punctuation);
 }
 .codeBody[data-wrap="true"] .sourceLine,
 .codeBody[data-wrap="true"] .diffLine {
@@ -406,6 +481,8 @@
 .codeBody[data-wrap="true"] code {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+  padding-inline-start: calc(var(--indent-columns, 0) * 1ch);
+  text-indent: calc(var(--indent-columns, 0) * -1ch);
 }
 .foldContext {
   grid-column: 1 / -1;
