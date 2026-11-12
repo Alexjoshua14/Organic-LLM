@@ -67,10 +67,7 @@ export function BlogProse({ content, className }: { content: string; className?:
 
               return (
                 <div data-syntax-highlighted>
-                  <CodeBlock
-                    className="border border-border/40 bg-card/30 p-4 font-mono text-sm leading-relaxed text-foreground/90 dark:bg-black/20"
-                    containerClassName={blogArticle.codeBlockContainer}
-                  >
+                  <CodeBlock containerClassName={blogArticle.codeBlockContainer}>
                     <code
                       className={cn(
                         "font-mono",
@@ -116,12 +113,7 @@ export function BlogProse({ content, className }: { content: string; className?:
             }
 
             return (
-              <CodeBlock
-                className="border border-border/40 bg-card/30 p-4 font-mono text-sm leading-relaxed text-foreground/90 dark:bg-black/20"
-                containerClassName={blogArticle.codeBlockContainer}
-              >
-                {children}
-              </CodeBlock>
+              <CodeBlock containerClassName={blogArticle.codeBlockContainer}>{children}</CodeBlock>
             );
           },
           h1: ({ children, ...hProps }) => (

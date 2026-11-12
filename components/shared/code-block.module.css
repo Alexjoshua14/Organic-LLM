@@ -1,0 +1,247 @@
+/*
+ * Default code block. Palettes distil the owner's Zed macOS Classic / Glass references into one
+ * light and one dark set; dark follows the app's `.dark` class (the app never sets color-scheme,
+ * so light-dark() would resolve to light everywhere). Design record: docs/design/code-blocks.md.
+ */
+.root {
+  --code-line: 20.8px;
+  --code-mono:
+    var(--font-mono, "Fira Code"), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --cb-background: #ffffff;
+  --cb-foreground: #222222;
+  --cb-muted: #f0f0f0;
+  --cb-muted-foreground: #686868;
+  --cb-border: #dedede;
+  --cb-keyword: #0433ff;
+  --cb-function: #0000a2;
+  --cb-type: #6f42c1;
+  --cb-string: #036a07;
+  --cb-comment: #0075eb;
+  --cb-comment-style: normal;
+  --cb-operator: #333333;
+  --cb-punctuation: #444444;
+  --cb-guide: #dcdbda;
+  --cb-add: #1a7f4b;
+  --cb-del: #b3261e;
+  position: relative;
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--cb-border);
+  border-radius: 10px;
+  background: var(--cb-background);
+  color: var(--cb-foreground);
+  color-scheme: light;
+}
+:global(.dark) .root {
+  color-scheme: dark;
+  --cb-background: #0f1216;
+  --cb-foreground: #d3d8df;
+  --cb-muted: #181c22;
+  --cb-muted-foreground: #9aa3b0;
+  --cb-border: #262b33;
+  --cb-keyword: #f0a24a;
+  --cb-function: #fdd888;
+  --cb-type: #59c2ff;
+  --cb-string: #9fd36a;
+  --cb-comment: #8b94a1;
+  --cb-comment-style: italic;
+  --cb-operator: #e8946a;
+  --cb-punctuation: #b7bec9;
+  --cb-guide: #262b33;
+  --cb-add: #6fcf97;
+  --cb-del: #f08a84;
+  box-shadow: inset 0 1px 0 #ffffff08;
+}
+.root *,
+.root *::before,
+.root *::after {
+  box-sizing: border-box;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 0 8px 0 14px;
+  border-bottom: 1px solid var(--cb-border);
+  background: color-mix(in oklab, var(--cb-foreground) 2%, var(--cb-background));
+}
+.identity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--cb-muted-foreground);
+  font: 12px var(--code-mono);
+}
+.identity svg {
+  flex-shrink: 0;
+}
+.language {
+  color: var(--cb-foreground);
+  font-weight: 500;
+}
+.meta {
+  opacity: 0.75;
+  white-space: nowrap;
+}
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
+}
+.action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 5px 7px;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: var(--cb-muted-foreground);
+  font:
+    11px / 1 var(--font-satoshi, system-ui),
+    sans-serif;
+  cursor: pointer;
+}
+.action:hover,
+.action[aria-pressed="true"] {
+  background: var(--cb-muted);
+  color: var(--cb-foreground);
+}
+.divider {
+  width: 1px;
+  height: 14px;
+  margin: 0 4px;
+  background: var(--cb-border);
+}
+/* The label swaps between Copy code / Copied / Copy failed; reserving its width keeps the icon
+   and text start fixed so the toolbar never shifts. */
+.copy {
+  min-inline-size: 9em;
+  flex-shrink: 0;
+  justify-content: flex-start;
+  white-space: nowrap;
+}
+
+.body {
+  overflow-x: auto;
+}
+.lines,
+.fallback {
+  padding: 14px 0;
+}
+.line {
+  display: grid;
+  grid-template-columns: var(--number-width, 0) minmax(0, 1fr);
+  min-width: max-content;
+  align-items: baseline;
+  padding-right: 16px;
+  font: 13px / var(--code-line) var(--code-mono);
+}
+.line:not(:has(.number)) {
+  grid-template-columns: minmax(0, 1fr);
+  padding-left: 16px;
+}
+.number {
+  padding-right: 12px;
+  color: var(--cb-muted-foreground);
+  font: 11px / var(--code-line) var(--code-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  opacity: 0.7;
+  user-select: none;
+}
+.line > code {
+  display: block;
+  color: var(--cb-foreground);
+  font: inherit;
+  white-space: pre;
+  background-image: repeating-linear-gradient(to right, var(--cb-guide) 0 1px, transparent 1px 2ch);
+  background-size: calc(var(--indent-columns, 0) * 1ch) 100%;
+  background-repeat: no-repeat;
+}
+.fallback {
+  margin: 0;
+  padding-inline: 16px;
+  font: 13px / var(--code-line) var(--code-mono);
+  white-space: pre;
+}
+.root[data-wrap="true"] .body {
+  overflow-x: hidden;
+}
+.root[data-wrap="true"] .line {
+  min-width: 0;
+}
+.root[data-wrap="true"] .line > code,
+.root[data-wrap="true"] .fallback {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding-inline-start: calc(var(--indent-columns, 0) * 1ch);
+  text-indent: calc(var(--indent-columns, 0) * -1ch);
+}
+
+/* Prism token classes (class-based output, no inline styles). */
+.body :global(.token.keyword),
+.body :global(.token.atrule),
+.body :global(.token.selector) {
+  color: var(--cb-keyword);
+}
+.body :global(.token.string),
+.body :global(.token.char),
+.body :global(.token.attr-value),
+.body :global(.token.template-string),
+.body :global(.token.inserted) {
+  color: var(--cb-string);
+}
+.body :global(.token.function),
+.body :global(.token.attr-name),
+.body :global(.token.method) {
+  color: var(--cb-function);
+}
+.body :global(.token.class-name),
+.body :global(.token.builtin),
+.body :global(.token.number),
+.body :global(.token.boolean),
+.body :global(.token.constant),
+.body :global(.token.symbol),
+.body :global(.token.tag),
+.body :global(.token.regex) {
+  color: var(--cb-type);
+}
+.body :global(.token.comment),
+.body :global(.token.prolog),
+.body :global(.token.doctype) {
+  color: var(--cb-comment);
+  font-style: var(--cb-comment-style);
+}
+.body :global(.token.operator),
+.body :global(.token.entity),
+.body :global(.token.url) {
+  color: var(--cb-operator);
+}
+.body :global(.token.punctuation) {
+  color: var(--cb-punctuation);
+}
+.body :global(.token.deleted) {
+  color: var(--cb-del);
+}
+.body :global(.token.important),
+.body :global(.token.bold) {
+  font-weight: 600;
+}
+.body :global(.token.italic) {
+  font-style: italic;
+}
+
+/* Mermaid and other non-code fences keep the plain wrapper, with no header chrome. */
+.plain {
+  min-width: 0;
+  max-width: 100%;
+}

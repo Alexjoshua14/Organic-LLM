@@ -1,85 +1,181 @@
 "use client";
 
-import { CheckIcon, CopyIcon } from "lucide-react";
-import { useCallback, useRef, useState, type ComponentPropsWithoutRef } from "react";
+import { Check, Copy, FileCode2, TriangleAlert, WrapText } from "lucide-react";
+import {
+  Children,
+  isValidElement,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ComponentPropsWithoutRef,
+  type ReactNode,
+} from "react";
 
-import { Button } from "@/components/third-party/ui/button";
+import styles from "./code-block.module.css";
+import { CodeLines, codeLanguageLabel, resolveHighlightLanguage } from "./code-highlight";
+
+import { fontMono } from "@/config/fonts";
 import { copyTextToClipboard } from "@/lib/clipboard/copy";
 import { cn } from "@/lib/utils";
 
 export type CodeBlockProps = ComponentPropsWithoutRef<"pre"> & {
-  /** When true, fenced code wraps instead of expanding width / scrolling horizontally. */
+  /** When true, fenced code starts wrapped instead of expanding width / scrolling horizontally. */
   wrap?: boolean;
   /** Applied to the outer wrapper (e.g. spacing in article body). */
   containerClassName?: string;
 };
 
+/** Blocks at or above this many lines get a line-number gutter; short snippets stay clean. */
+const LINE_NUMBER_THRESHOLD = 5;
+const COPY_FEEDBACK_MS = 2000;
 /**
- * Fenced code block: rounded container, optional horizontal scroll, copy button.
- * Used by Chat markdown and Rabbit Hole article HTML upgrades.
+ * Tokenizing costs roughly 0.05 ms per line (about 23 ms for 400 lines, measured), and the last
+ * block of a streaming reply re-renders on every token. Up to this many lines highlight
+ * immediately; longer blocks show plain text while they change and are colored once the text
+ * has been still for HIGHLIGHT_SETTLE_MS. A block that mounts already complete highlights at once.
+ */
+const HIGHLIGHT_EAGER_LINES = 60;
+const HIGHLIGHT_SETTLE_MS = 150;
+
+type ExtractedCode = { text: string; language: string | undefined };
+
+/**
+ * Reads the source and fence language from `<pre><code className="language-x">text</code></pre>`
+ * (react-markdown, blog and rabbit-hole all hand us that shape). Returns null when the child is
+ * anything else, e.g. already-tokenized spans, so the caller falls back to rendering it as is.
+ */
+function extractCode(children: ReactNode): ExtractedCode | null {
+  const only = Children.toArray(children);
+  const child = only.length === 1 ? only[0] : null;
+
+  if (!isValidElement<{ className?: unknown; children?: ReactNode }>(child)) return null;
+
+  const { className, children: inner } = child.props;
+  const parts = Children.toArray(inner);
+
+  if (!parts.every((part) => typeof part === "string" || typeof part === "number")) return null;
+
+  const language =
+    typeof className === "string"
+      ? className
+          .split(/\s+/)
+          .find((name) => name.startsWith("language-"))
+          ?.slice("language-".length)
+      : undefined;
+
+  return { text: parts.join("").replace(/\n$/, ""), language };
+}
+
+type CopyState = "idle" | "copied" | "failed";
+
+/**
+ * Default fenced code block: a quiet header (language, line count, wrap, copy) over
+ * syntax-highlighted lines. Used by chat markdown, gen-ui markdown, blog prose and the
+ * rabbit-hole article. Mermaid fences keep their diagram with no code chrome.
  */
 export function CodeBlock({
   wrap = false,
   containerClassName,
   children,
   className,
-  ...preProps
 }: CodeBlockProps) {
-  const preRef = useRef<HTMLPreElement>(null);
-  const [isCopied, setIsCopied] = useState(false);
+  const extracted = extractCode(children);
+  const [wrapped, setWrapped] = useState(wrap);
+  const [copyState, setCopyState] = useState<CopyState>("idle");
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rawCode = extracted?.text ?? "";
+  const [settledCode, setSettledCode] = useState(rawCode);
+
+  useEffect(() => {
+    if (settledCode === rawCode) return;
+    const settle = setTimeout(() => setSettledCode(rawCode), HIGHLIGHT_SETTLE_MS);
+
+    return () => clearTimeout(settle);
+  }, [rawCode, settledCode]);
+
+  useEffect(() => () => void (timer.current && clearTimeout(timer.current)), []);
 
   const handleCopy = useCallback(async () => {
-    const el = preRef.current;
-    const code = el?.querySelector("code")?.textContent ?? el?.textContent ?? "";
+    const text = extracted?.text ?? "";
 
-    if (!code) return;
-    const ok = await copyTextToClipboard(code);
+    if (!text) return;
 
-    if (ok) {
-      setIsCopied(true);
-      setTimeout(() => setIsCopied(false), 2000);
-    }
-  }, []);
+    const ok = await copyTextToClipboard(text);
+
+    setCopyState(ok ? "copied" : "failed");
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => setCopyState("idle"), COPY_FEEDBACK_MS);
+  }, [extracted?.text]);
+
+  if (extracted?.language === "mermaid") {
+    return <div className={cn(styles.plain, containerClassName)}>{children}</div>;
+  }
+
+  const lineCount = rawCode ? rawCode.split("\n").length : 0;
+  const label = codeLanguageLabel(extracted?.language);
+  const settling = lineCount > HIGHLIGHT_EAGER_LINES && settledCode !== rawCode;
+  const highlightLanguage = settling ? undefined : extracted?.language;
+  const highlighted = resolveHighlightLanguage(highlightLanguage) !== undefined;
 
   return (
     <div
-      className={cn(
-        "relative group/codeblock max-w-full min-w-0 rounded-lg transition-shadow duration-200 group-hover/codeblock:shadow-[0_0_20px_-4px_hsl(var(--border)),0_0_0_1px_hsl(var(--border)/0.5)]",
-        wrap ? "overflow-x-hidden" : "overflow-x-auto",
-        containerClassName
-      )}
+      className={cn(styles.root, fontMono.variable, "not-prose", className, containerClassName)}
+      data-wrap={wrapped}
+      data-highlighted={highlighted}
     >
-      <pre
-        ref={preRef}
-        className={cn(
-          "m-0 min-w-0 max-w-full",
-          wrap
-            ? "overflow-x-hidden whitespace-pre-wrap wrap-break-word pr-10 [&_code]:min-w-0 [&_code]:wrap-anywhere"
-            : "overflow-x-auto pr-10",
-          className
-        )}
-        {...preProps}
-      >
-        {children}
-      </pre>
-      <Button
-        aria-label={isCopied ? "Copied" : "Copy code"}
-        className={cn(
-          "absolute right-2 top-2 z-10 h-8 w-8 shrink-0 opacity-0 transition-opacity",
-          "group-hover/codeblock:opacity-100 focus:opacity-100",
-          "hover:bg-secondary/95! hover:from-secondary/95! hover:to-[#e8e6e1]! dark:hover:from-[#252625]! dark:hover:to-[#1e1f1e]!"
-        )}
-        size="icon"
-        type="button"
-        variant="secondaryInteractive"
-        onClick={handleCopy}
-      >
-        {isCopied ? (
-          <CheckIcon className="h-4 w-4 text-green-600" />
+      <div className={styles.header}>
+        <span className={styles.identity}>
+          <FileCode2 size={14} aria-hidden />
+          <span className={styles.language}>{label}</span>
+          {lineCount > 1 && <span className={styles.meta}>· {lineCount} lines</span>}
+        </span>
+        <div className={styles.actions}>
+          <button
+            aria-label="Wrap lines"
+            aria-pressed={wrapped}
+            className={cn(styles.action, "organic-focus")}
+            title="Wrap lines"
+            type="button"
+            onClick={() => setWrapped((value) => !value)}
+          >
+            <WrapText size={15} aria-hidden />
+          </button>
+          <span className={styles.divider} aria-hidden />
+          <button
+            className={cn(styles.action, styles.copy, "organic-focus")}
+            disabled={!extracted}
+            type="button"
+            onClick={handleCopy}
+          >
+            {copyState === "copied" ? (
+              <Check size={14} aria-hidden />
+            ) : copyState === "failed" ? (
+              <TriangleAlert size={14} aria-hidden />
+            ) : (
+              <Copy size={14} aria-hidden />
+            )}
+            <span aria-live="polite">
+              {copyState === "copied"
+                ? "Copied"
+                : copyState === "failed"
+                  ? "Copy failed"
+                  : "Copy code"}
+            </span>
+          </button>
+        </div>
+      </div>
+      <div className={styles.body}>
+        {extracted ? (
+          <CodeLines
+            code={rawCode}
+            language={highlightLanguage}
+            showLineNumbers={lineCount >= LINE_NUMBER_THRESHOLD}
+          />
         ) : (
-          <CopyIcon className="h-4 w-4" />
+          <pre className={styles.fallback}>{children}</pre>
         )}
-      </Button>
+      </div>
     </div>
   );
 }
