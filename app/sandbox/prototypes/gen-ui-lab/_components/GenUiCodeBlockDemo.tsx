@@ -99,27 +99,6 @@ export const LAB_CODE_PRESETS: ReadonlyArray<CodePreset> = [
     markdown: `These lines are wider than the chat column:\n\n${fence("ts", LONG_LINES)}`,
   },
   {
-    id: "languages",
-    name: "Languages",
-    intent: "The grammar list in use: Python, JSON, SQL, CSS and YAML under the same palette.",
-    markdown: [
-      fence(
-        "python",
-        'def greet(name: str) -> str:\n    """Say hello."""\n    return f"Hello, {name}!"'
-      ),
-      fence(
-        "json",
-        '{\n  "name": "organic",\n  "private": true,\n  "scripts": { "dev": "next dev" }\n}'
-      ),
-      fence(
-        "sql",
-        "SELECT id, email\nFROM users\nWHERE created_at > now() - interval '7 days'\nORDER BY created_at DESC;"
-      ),
-      fence("css", ".card {\n  border: 1px solid var(--border);\n  border-radius: 10px;\n}"),
-      fence("yaml", "name: ci\non: [push]\njobs:\n  test:\n    runs-on: ubuntu-latest"),
-    ].join("\n\n"),
-  },
-  {
     id: "plain",
     name: "Plain",
     intent: "No language, or one we do not highlight. Same layout, no colors, still copyable.",
@@ -130,12 +109,6 @@ export const LAB_CODE_PRESETS: ReadonlyArray<CodePreset> = [
     name: "Long block",
     intent: "Ninety lines, past the streaming threshold. Complete on mount, so it colors at once.",
     markdown: fence("ts", LONG_BLOCK),
-  },
-  {
-    id: "diagram",
-    name: "Diagram fence",
-    intent: "A mermaid fence is a diagram, not code: no code header, no Copy code.",
-    markdown: `The request path:\n\n${fence("mermaid", "flowchart LR\n  A[Chat] --> B[Route] --> C[Model]\n  B --> D[(Memory)]")}`,
   },
 ];
 
@@ -152,10 +125,6 @@ export function useGenUiCodeBlockDemo(active = true) {
   return {
     ...cycle,
     rotation,
-    /** Language controls belong to the Snippet slide: touching them brings it up. */
-    showSnippet: () => {
-      if (!onSnippet) cycle.select(0);
-    },
   };
 }
 
@@ -166,11 +135,13 @@ export function GenUiCodeBlockDemoToolbar({ demo }: { demo: CodeBlockDemoState }
     <GenUiArrangementToolbar
       cycle={demo}
       extra={
-        <GenUiLanguageControls
-          languages={LAB_LANGUAGES}
-          rotation={demo.rotation}
-          onChange={demo.showSnippet}
-        />
+        // The language only shows on the Snippet slide, so its controls live there. The row keeps
+        // its height on other slides so the arrows and the preview never move.
+        <div className="min-h-9">
+          {demo.index === 0 ? (
+            <GenUiLanguageControls languages={LAB_LANGUAGES} rotation={demo.rotation} />
+          ) : null}
+        </div>
       }
       groupLabel="Code presets"
       noun="preset"

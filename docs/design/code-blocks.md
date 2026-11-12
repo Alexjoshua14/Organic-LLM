@@ -71,9 +71,10 @@ Highlighting is regex work on the main thread, so its input is bounded (`HIGHLIG
 
 ## In the Gen UI Lab
 
-The lab's **Code** page (lab-only, like Diagram) steps through eight presets with the same prev/next
-toolbar the comparison uses: Snippet, Reference, Command, Long lines, Languages, Plain, Long block
-and Diagram fence. Each preset is a complete markdown message rendered by the real chat markdown
+The lab's **Code** page (lab-only, like Diagram) steps through six presets with the same prev/next
+toolbar the comparison uses: Snippet, Reference, Command, Long lines, Plain and Long block. One code
+block at a time; languages are switched from the dropdown in the Snippet slide, never listed
+together. Diagram fences have their own lab page. Each preset is a complete markdown message rendered by the real chat markdown
 renderer, so it exercises exactly what chat ships. The code diff block has its own eight fixtures.
 
 Both the Code page's Snippet slide and the first code diff page have a **language picker** and a

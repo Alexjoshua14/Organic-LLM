@@ -87,18 +87,20 @@ describe("Code page language picker", () => {
     expect(view.getAllByRole("menuitemradio").length).toBe(LANGUAGE_SAMPLES.length);
   });
 
-  test("choosing a language from another slide brings the Snippet slide up", () => {
-    const { view, page } = renderShell();
+  test("the language controls live on the Snippet slide only, and the row keeps its space", () => {
+    const { page } = renderShell();
     const section = page("code-block");
+    const controls = () => within(section).queryByRole("group", { name: "Language" });
+    const rowHeight = () => controls()?.parentElement ?? section.querySelector(".min-h-9");
 
+    expect(controls()).not.toBeNull();
     fireEvent.click(within(section).getByRole("button", { name: "Next preset" }));
     expect(within(section).getByText("Reference")).toBeTruthy();
-
-    openLanguageMenu(section);
-    fireEvent.click(view.getByRole("menuitemradio", { name: "Go" }));
-
-    expect(within(section).getByText("Snippet")).toBeTruthy();
-    expect(section.textContent).toContain("http.ListenAndServe");
+    expect(controls()).toBeNull();
+    // The reserved row stays in the toolbar, so the arrows and the preview do not move.
+    expect(rowHeight()).not.toBeNull();
+    fireEvent.click(within(section).getByRole("button", { name: "Previous preset" }));
+    expect(controls()).not.toBeNull();
   });
 
   test("Shuffle moves to another language at once, then every few seconds, never repeating", () => {

@@ -70,7 +70,7 @@ describe("Gen UI Lab Code page", () => {
     expect(within(section).getByRole("button", { name: "Copy code" })).toBeTruthy();
   });
 
-  test("prev/next step through the presets: gutter, shell, plain and long block", () => {
+  test("prev/next step through the presets: gutter, shell, wide lines, plain and long block", () => {
     const { section } = renderShell();
     const next = within(section).getByRole("button", { name: "Next preset" });
 
@@ -89,11 +89,7 @@ describe("Gen UI Lab Code page", () => {
     ]);
 
     fireEvent.click(next);
-    fireEvent.click(next);
-    expect(within(section).getByText("Languages")).toBeTruthy();
-    for (const label of ["Python", "JSON", "SQL", "CSS", "YAML"]) {
-      expect(blocks(section).some((block) => within(block).queryByText(label) !== null)).toBe(true);
-    }
+    expect(within(section).getByText("Long lines")).toBeTruthy();
 
     fireEvent.click(next);
     expect(within(section).getByText("Plain")).toBeTruthy();
@@ -108,11 +104,18 @@ describe("Gen UI Lab Code page", () => {
     expect(within(section).getByRole("button", { name: "Next preset" })).toBe(next);
   });
 
-  test("the last preset is the mermaid fence, which keeps a diagram and no code chrome", () => {
-    const last = LAB_CODE_PRESETS[LAB_CODE_PRESETS.length - 1]!;
+  test("one block at a time: languages are switched in the Snippet slide, not listed, and Diagram has its own page", () => {
+    expect(LAB_CODE_PRESETS.map((preset) => preset.id)).toEqual([
+      "snippet",
+      "reference",
+      "command",
+      "long-lines",
+      "plain",
+      "long-block",
+    ]);
+    const { section } = renderShell();
 
-    expect(last.id).toBe("diagram");
-    expect(last.markdown).toContain("```mermaid");
+    expect(blocks(section)).toHaveLength(1);
   });
 
   test("Generate with AI is disabled on the Code page and does not call the lab API", () => {

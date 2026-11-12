@@ -22,8 +22,6 @@ type GenUiLanguageControlsProps = {
   languages: ReadonlyArray<GenUiLanguageOption>;
   /** Pages with their own default content list it first; null selects it. */
   defaultLabel?: string;
-  /** Called after any change the reader makes, e.g. to jump to the slide that shows the language. */
-  onChange?: () => void;
 };
 
 /**
@@ -34,7 +32,6 @@ export function GenUiLanguageControls({
   rotation,
   languages,
   defaultLabel,
-  onChange,
 }: GenUiLanguageControlsProps) {
   const { language, auto, reducedMotion, select, toggleAuto } = rotation;
   const current = language
@@ -70,7 +67,6 @@ export function GenUiLanguageControls({
             value={language ?? ""}
             onValueChange={(value) => {
               select(value === "" ? null : value);
-              onChange?.();
             }}
           >
             {defaultLabel ? (
@@ -98,7 +94,6 @@ export function GenUiLanguageControls({
         className={`inline-flex min-h-9 items-center gap-1.5 rounded-md px-2 text-xs disabled:opacity-50 ${TOOLBAR_CONTROL}`}
         onClick={() => {
           toggleAuto();
-          onChange?.();
         }}
       >
         {shuffling ? (
