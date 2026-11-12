@@ -15,6 +15,8 @@ import { AUTO_CHAT_MODEL_ID } from "@/lib/schemas/chat-model-ids";
 export type LabView = "product" | "focus";
 export type LabBackdrop = "chat" | "chrome";
 export type LabSendOutcome = "complete" | "error";
+/** The live voice bar above the composer: off, or one of the states the real bar shows. */
+export type LabVoiceBarMode = "off" | "connecting" | "live" | "paused";
 /** `none` leaves `experience` undefined, which is what non-Arcadia surfaces pass today. */
 export type LabExperience = ChatExperience | "none";
 
@@ -25,6 +27,7 @@ export type ProductLabState = {
   showThread: boolean;
   backdrop: LabBackdrop;
   sendOutcome: LabSendOutcome;
+  voiceBar: LabVoiceBarMode;
   variant: "default" | "compact" | "stage-beta";
   submitVariant: "default" | "organic-glass";
   experience: LabExperience;
@@ -99,6 +102,7 @@ export const DEFAULT_PRODUCT_STATE: ProductLabState = {
   showThread: true,
   backdrop: "chat",
   sendOutcome: "complete",
+  voiceBar: "off",
   variant: "default",
   submitVariant: "default",
   experience: "arcadia",

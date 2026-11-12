@@ -3,13 +3,15 @@
 import type { ComponentProps } from "react";
 import type { ChatModel } from "@/lib/schemas/chat";
 import type { ChatEffortLevel } from "@/lib/schemas/chat-effort";
-import type { ProductLabState } from "../_lib/lab-state";
+import type { LabVoiceBarMode, ProductLabState } from "../_lib/lab-state";
 import type { SimulatedChat } from "../_lib/use-simulated-chat";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { LAB_THREAD } from "../_lib/lab-messages";
 import { LAB_COMPOSER_PREF_KEYS } from "../_lib/lab-state";
+
+import { LabVoiceBar } from "./lab-voice-bar";
 
 import { CoreInput } from "@/components/chat/core-input";
 import {
@@ -38,6 +40,8 @@ type ProductStageProps = {
   chat: SimulatedChat;
   /** Bump to unmount and remount the composer (re-reads prefs, replays mount effects). */
   remountKey: number;
+  /** The live bar's own End and Resume buttons move the lab's voice bar state. */
+  onVoiceBarChange: (next: LabVoiceBarMode) => void;
 };
 
 /**
@@ -48,7 +52,7 @@ const STAGE_FRAME_PAD_CLASS = "py-2 sm:py-4";
 const THREAD_STACK_CLASS = "flex w-full flex-col gap-4 px-1 pb-4 pt-1 sm:gap-6 sm:pb-6 sm:pt-2";
 
 /** The shipped `CoreInput` on a width-controlled stage, with the refs it writes read back out. */
-export function ProductStage({ state, chat, remountKey }: ProductStageProps) {
+export function ProductStage({ state, chat, remountKey, onVoiceBarChange }: ProductStageProps) {
   const modelRef = useRef<ChatModel>(DEFAULT_COMPOSER_MODEL);
   const effortRef = useRef<ChatEffortLevel>(DEFAULT_COMPOSER_EFFORT);
   const useWebSearchRef = useRef(false);
@@ -124,35 +128,37 @@ export function ProductStage({ state, chat, remountKey }: ProductStageProps) {
           style={{ maxWidth: state.stageWidthPx }}
         >
           {state.showThread ? <ThreadPreview /> : null}
-          <CoreInput
-            key={remountKey}
-            clearError={chat.clearError}
-            defaultEffort={DEFAULT_COMPOSER_EFFORT}
-            defaultModel={DEFAULT_COMPOSER_MODEL}
-            disabled={state.disabled}
-            effortLocalStorageKey={LAB_COMPOSER_PREF_KEYS.effort}
-            effortRef={effortRef}
-            enableMarkdownInputPreview={state.enableMarkdownInputPreview}
-            error={chat.error}
-            experience={state.experience === "none" ? undefined : state.experience}
-            featureHints={state.featureHints}
-            hideWebMemorySpeechToggles={state.hideWebMemorySpeechToggles}
-            memoryLocalStorageKey={LAB_COMPOSER_PREF_KEYS.memories}
-            modelLocalStorageKey={LAB_COMPOSER_PREF_KEYS.model}
-            modelRef={modelRef}
-            secondarySubmitPending={state.steerPending}
-            sendMessage={chat.sendMessage as CoreInputProps["sendMessage"]}
-            sentMessageShimmer={state.sentMessageShimmer}
-            showContextBudget={state.showContextBudget}
-            status={chat.status}
-            stop={chat.stop}
-            submitVariant={state.submitVariant}
-            useMemoriesRef={useMemoriesRef}
-            useSpeechFriendlyRef={state.speechChip ? useSpeechFriendlyRef : undefined}
-            useWebSearchRef={useWebSearchRef}
-            variant={state.variant}
-            onSecondarySubmit={state.steerButton ? chat.recordSteer : undefined}
-          />
+          <LabVoiceBar mode={state.voiceBar} onModeChange={onVoiceBarChange}>
+            <CoreInput
+              key={remountKey}
+              clearError={chat.clearError}
+              defaultEffort={DEFAULT_COMPOSER_EFFORT}
+              defaultModel={DEFAULT_COMPOSER_MODEL}
+              disabled={state.disabled}
+              effortLocalStorageKey={LAB_COMPOSER_PREF_KEYS.effort}
+              effortRef={effortRef}
+              enableMarkdownInputPreview={state.enableMarkdownInputPreview}
+              error={chat.error}
+              experience={state.experience === "none" ? undefined : state.experience}
+              featureHints={state.featureHints}
+              hideWebMemorySpeechToggles={state.hideWebMemorySpeechToggles}
+              memoryLocalStorageKey={LAB_COMPOSER_PREF_KEYS.memories}
+              modelLocalStorageKey={LAB_COMPOSER_PREF_KEYS.model}
+              modelRef={modelRef}
+              secondarySubmitPending={state.steerPending}
+              sendMessage={chat.sendMessage as CoreInputProps["sendMessage"]}
+              sentMessageShimmer={state.sentMessageShimmer}
+              showContextBudget={state.showContextBudget}
+              status={chat.status}
+              stop={chat.stop}
+              submitVariant={state.submitVariant}
+              useMemoriesRef={useMemoriesRef}
+              useSpeechFriendlyRef={state.speechChip ? useSpeechFriendlyRef : undefined}
+              useWebSearchRef={useWebSearchRef}
+              variant={state.variant}
+              onSecondarySubmit={state.steerButton ? chat.recordSteer : undefined}
+            />
+          </LabVoiceBar>
         </div>
       </div>
 

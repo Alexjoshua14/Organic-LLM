@@ -301,6 +301,32 @@ describe("CoreInput lab", () => {
     expect(getByRole("button", { name: "Show all" })).toBeTruthy();
   });
 
+  test("the live voice bar toggle renders the real bar in the composer's drawer slot", async () => {
+    const user = userEvent.setup();
+    const { findByRole, findByText, queryByRole, getByRole } = await renderLab();
+    const voiceBar = within(getByRole("radiogroup", { name: "Live voice bar" }));
+
+    expect(queryByRole("button", { name: "End voice session" })).toBeNull();
+
+    await user.click(voiceBar.getByRole("radio", { name: "Live" }));
+    expect(await findByRole("button", { name: "End voice session" })).toBeTruthy();
+
+    await user.click(voiceBar.getByRole("radio", { name: "Connecting" }));
+    expect(await findByText("Connecting voice session")).toBeTruthy();
+
+    // Paused shows the real Resume button, and pressing it goes live, as the real bar would.
+    // The drawer slot is aria-hidden unless connected (or Stage), so query hidden elements.
+    await user.click(voiceBar.getByRole("radio", { name: "Paused" }));
+    await user.click(await findByRole("button", { name: "Resume voice session", hidden: true }));
+    expect(await findByRole("button", { name: "End voice session" })).toBeTruthy();
+
+    // The bar's own End button turns the toggle back off.
+    await user.click(await findByRole("button", { name: "End voice session" }));
+    await waitFor(() =>
+      expect(voiceBar.getByRole("radio", { name: "Off" }).getAttribute("aria-checked")).toBe("true")
+    );
+  });
+
   test("interactive chips drive lab state while pinned cells hold theirs", async () => {
     search = "view=focus&control=tool-toggles";
     const user = userEvent.setup();

@@ -1,9 +1,14 @@
 /* Shared compact presentation for narrow CoreInput, side surfaces, and Stage. */
+
+/* The compact shell and its options panel share these corners (the panel is portaled, so :root). */
+:root {
+  --core-input-shell-radius: 16px;
+}
 .core-input-condensed [data-prompt-input-shell] {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  border-radius: 16px;
+  border-radius: var(--core-input-shell-radius);
 }
 .core-input-condensed
   [data-prompt-input-shell]:has(textarea:focus-visible):not(:has([aria-invalid="true"])) {
@@ -60,7 +65,7 @@
   /* Between rows: stack-md (12px), one step up from the former 8px. */
   gap: var(--spacing-stack-md);
   padding: var(--spacing-inset-lg);
-  border-radius: 14px;
+  border-radius: var(--core-input-shell-radius);
   color: var(--popover-foreground);
 }
 /* The model & effort selector on the left, context usage in line with it on the right. */

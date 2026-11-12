@@ -14,7 +14,7 @@ import { ComposerPreviewChip } from "./controls/preview-chip";
 import { ComposerToolToggleGroup } from "./controls/tool-toggle-group";
 import { ComposerOptionsIcon } from "./options-icon";
 
-import { glass } from "@/components/design-system/primitives";
+import { homeComposerGlassSurface } from "@/components/design-system/primitives";
 import { ComposerPersonaChip } from "@/components/personas/persona-chip";
 import { cn } from "@/lib/utils";
 
@@ -51,7 +51,7 @@ export function CoreInputOptions({
           side="top"
           sideOffset={8}
           collisionPadding={16}
-          className={cn(glass({ opaque: true }), "core-input-options-panel")}
+          className={cn(homeComposerGlassSurface, "core-input-options-panel")}
           onOpenAutoFocus={(event) => {
             // Opening settings should not immediately open a caption or a nested picker.
             event.preventDefault();
