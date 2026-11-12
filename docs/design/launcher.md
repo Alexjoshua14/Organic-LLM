@@ -52,7 +52,7 @@ height is reserved, so a late cue never moves the card.
 
 | Key | Does |
 |-----|------|
-| ⌘K / Ctrl+K | Toggle (works from inside the input) |
+| ⌘K / Ctrl+K | Toggle. Works from the chat composer and any text field, since that is where a switch starts; only a `contenteditable` editor keeps it |
 | Enter in the input | Route semantically, as on the homepage |
 | ↓ at the end of the input | Step into the cards |
 | ← → ↑ ↓, Home, End | Move between cards; ↑ from the first row returns to the input |
@@ -72,15 +72,18 @@ to the browser's tabs.
   canonical path. No thread content is ever handed to the page, so a reply that is still
   streaming reattaches through the server-authoritative resume path
   ([thread-session architecture §6](../thread-session-architecture.md)), and a finished
-  rabbit hole is simply loaded. This is covered by `tests/unit/launcher-ideas.test.ts`; the
-  resume path itself by `tests/integration/chat-stream-initial-load.test.tsx`.
+  rabbit hole is simply loaded. Two tests guard it: `openLauncherIdea` in
+  `tests/unit/launcher-ideas.test.ts` pins the click to the sidebar's sequence and shows no
+  content travels with it, and `tests/integration/chat-stream-initial-load.test.tsx` ("leaving
+  and returning to an active Chat / Arcadia thread") drives the real `Chat` away from a
+  streaming thread and back, asserting it reattaches and replays what was missed.
 - **Resume cues are in memory only.** They are decrypted summaries, and
   [§5](../thread-session-architecture.md) requires a documented policy before decrypted content
   is persisted on the client, so nothing here touches localStorage or IndexedDB. One key
   (user + scope) at a time, one line of at most 160 characters each, revalidated when older than
   60 seconds, never awaited by a card.
 - The thread list is revalidated on open at most every 30 seconds (it is rate limited).
-- Route prefetch runs for the visible cards.
+- No route prefetch: this Next version skips prefetching dynamic routes without a `loading.tsx`, so it would add server work for no gain. Navigation is still the server-authoritative load a sidebar click does.
 
 ## Approved timing
 

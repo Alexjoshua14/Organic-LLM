@@ -2,8 +2,6 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
-import { isEditableEventTarget } from "@/lib/dom/is-editable-event-target";
-
 /**
  * Open state and the ⌘K / Ctrl+K shortcut for the launcher. The surface itself lives in
  * `launcher-surface.tsx` and is mounted deeper in the tree, where the voice and sidebar
@@ -43,8 +41,9 @@ export function AionLauncherProvider({ children }: { children: React.ReactNode }
 
       if (!isK || !(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey) return;
 
-      // Typing in a field keeps its own ⌘K, but the launcher's own input must still close it.
-      if (!open && isEditableEventTarget(e.target)) return;
+      // ⌘K must work from the chat composer: that is where a switch starts. Only a rich-text
+      // editor (contenteditable) keeps it, for its own link shortcut.
+      if (!open && (e.target as HTMLElement | null)?.isContentEditable) return;
 
       e.preventDefault();
       toggle();

@@ -64,7 +64,7 @@ export const LauncherIdeaCard = forwardRef<HTMLButtonElement, LauncherIdeaCardPr
         className={cn(
           homeComposerGlassSurface,
           "group flex h-full min-h-[7.25rem] w-full cursor-pointer flex-col items-start gap-2 p-3 text-left outline-none",
-          "transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5",
+          "transition-[translate,box-shadow] duration-200 hover:-translate-y-0.5",
           "motion-reduce:transition-none motion-reduce:hover:translate-y-0",
           "focus-visible:ring-2 focus-visible:ring-foreground/40",
           "data-[likely]:ring-1 data-[likely]:ring-foreground/25"

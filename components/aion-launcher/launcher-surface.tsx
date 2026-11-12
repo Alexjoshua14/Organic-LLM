@@ -3,6 +3,7 @@
 import type { SessionSignal } from "@/lib/sidebar/session-signal";
 
 import {
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -70,6 +71,15 @@ function useIdeaLayout() {
  * once); its body, and every subscription in it, exists only while it is open.
  */
 export function AionLauncherSurface() {
+  // useSearchParams needs a boundary for prerendering, as in the sidebar's own list.
+  return (
+    <Suspense fallback={null}>
+      <LauncherDialog />
+    </Suspense>
+  );
+}
+
+function LauncherDialog() {
   const { open: requested, setOpen } = useAionLauncher();
   const { userId } = useClerkUserId();
   const pathname = usePathname();
@@ -191,15 +201,6 @@ function LauncherBody({ onClose }: { onClose: () => void }) {
 
     return map;
   }, [shown, activityById, voice]);
-
-  // A warm route makes the click feel like the sidebar's, minus the sidebar.
-  const shownHrefs = shown.map((idea) => idea.href).join("\n");
-
-  useEffect(() => {
-    for (const href of shownHrefs.split("\n")) {
-      if (href) router.prefetch(href);
-    }
-  }, [shownHrefs, router]);
 
   const openIdea = useCallback(
     (idea: LauncherIdea) => {
