@@ -22,6 +22,8 @@ const nextConfig = {
   // Server Function arguments may contain user/session identifiers or private content.
   logging: {
     serverFunctions: false,
+    // The loopback OAuth callback carries a one-time authorization code in its query.
+    incomingRequests: { ignore: [/\/api\/subscription-chat\/callback/] },
   },
   env: {
     NEXT_PUBLIC_APP_VERSION: appVersion,
