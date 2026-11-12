@@ -123,7 +123,12 @@ describe("inline subagent assignments", () => {
   });
 
   test("the strip reveals and focuses the row, then removes completed work without losing its result", () => {
-    const originalScroll = HTMLElement.prototype.scrollIntoView;
+    // jsdom has no scrollIntoView. Restore the own property exactly (or delete it): writing back
+    // `undefined` would shadow the Element.prototype stub other suites install.
+    const originalScroll = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      "scrollIntoView"
+    );
     HTMLElement.prototype.scrollIntoView = () => {};
     try {
       function Fixture({ current }: { current: ArcadiaSubagent }) {
@@ -154,7 +159,11 @@ describe("inline subagent assignments", () => {
         "/sandbox/arcadia/child"
       );
     } finally {
-      HTMLElement.prototype.scrollIntoView = originalScroll;
+      if (originalScroll) {
+        Object.defineProperty(HTMLElement.prototype, "scrollIntoView", originalScroll);
+      } else {
+        delete (HTMLElement.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+      }
     }
   });
 
