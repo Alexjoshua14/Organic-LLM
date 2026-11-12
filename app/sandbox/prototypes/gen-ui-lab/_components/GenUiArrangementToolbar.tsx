@@ -6,7 +6,7 @@ import type { GenUiArrangementCycle } from "../_hooks/use-gen-ui-arrangement-cyc
 import { ArrowLeft, ArrowRight, Pause, Play } from "lucide-react";
 
 /** Keyboard focus inverts the control (background + text), never a ring. */
-const TOOLBAR_CONTROL =
+export const TOOLBAR_CONTROL =
   "text-muted-foreground hover:bg-muted/40 hover:text-foreground focus-visible:bg-foreground focus-visible:text-background focus-visible:outline-none";
 
 type GenUiArrangementToolbarProps = {
@@ -15,6 +15,8 @@ type GenUiArrangementToolbarProps = {
   groupLabel: string;
   /** Singular noun used in control names: "arrangement" gives "Next arrangement". */
   noun?: string;
+  /** A second control row (e.g. a language picker) between the arrows and the intent line. */
+  extra?: ReactNode;
 };
 
 /**
@@ -25,6 +27,7 @@ export function GenUiArrangementToolbar({
   cycle,
   groupLabel,
   noun = "arrangement",
+  extra,
 }: GenUiArrangementToolbarProps) {
   const { index, count, arrangement, auto, reducedMotion, step, toggleAuto } = cycle;
   const Noun = noun.charAt(0).toUpperCase() + noun.slice(1);
@@ -87,6 +90,7 @@ export function GenUiArrangementToolbar({
           </button>
         </div>
       </div>
+      {extra}
       {/* Two lines are always reserved so a longer intent never moves the arrows or the preview. */}
       <p
         className="line-clamp-2 min-h-10 text-xs leading-relaxed text-muted-foreground"
@@ -104,7 +108,7 @@ export function GenUiArrangementPauseZone({
   cycle,
 }: {
   children: ReactNode;
-  cycle: GenUiArrangementCycle;
+  cycle: { setHovered: (value: boolean) => void; setFocused: (value: boolean) => void };
 }) {
   return (
     <div

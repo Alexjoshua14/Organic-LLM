@@ -62,6 +62,11 @@ export function useGenUiArrangementCycle<T extends GenUiArrangement>(
     auto,
     reducedMotion,
     step,
+    /** Jump to an arrangement by hand; like stepping, it turns Auto off. */
+    select: (next: number) => {
+      setAuto(false);
+      setIndex(((next % count) + count) % count);
+    },
     toggleAuto: () => setAuto((current) => !current),
     setHovered,
     setFocused,

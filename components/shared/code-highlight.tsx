@@ -529,6 +529,8 @@ const EXTENSIONS: Record<string, string> = {
   sol: "solidity",
   vim: "vim",
   tex: "latex",
+  http: "http",
+  nginx: "nginx",
 };
 
 /** Extension-less files that still name a language. */

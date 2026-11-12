@@ -12,6 +12,11 @@ import { useGenUiLabQuestion } from "../_hooks/use-gen-ui-lab-question";
 
 import { GenUiGalleryNav } from "./GenUiGalleryNav";
 import {
+  GenUiCodeDiffDemo,
+  GenUiCodeDiffDemoToolbar,
+  useGenUiCodeDiffDemo,
+} from "./GenUiCodeDiffDemo";
+import {
   GenUiCodeBlockDemo,
   GenUiCodeBlockDemoToolbar,
   LAB_CODE_ARCHETYPE,
@@ -93,6 +98,7 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
   const diagramDemo = useGenUiMermaidDiagramDemo(
     selectedType === LAB_DIAGRAM_ARCHETYPE && galleryActive
   );
+  const codeDiffDemo = useGenUiCodeDiffDemo(selectedType === "code-diff" && galleryActive);
   const codeDemo = useGenUiCodeBlockDemo(selectedType === LAB_CODE_ARCHETYPE && galleryActive);
   const canGenerate = isBlockType(selectedType);
   const [status, setStatus] = useState<ChatStatus>("ready");
@@ -476,6 +482,8 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
                       <GenUiCodeBlockDemoToolbar demo={codeDemo} />
                     ) : type === "decision-matrix" ? (
                       <GenUiDecisionDemoToolbar demo={decisionDemo} />
+                    ) : type === "code-diff" ? (
+                      <GenUiCodeDiffDemoToolbar rotation={codeDiffDemo} />
                     ) : undefined
                   }
                   registerRef={registerSection(type)}
@@ -489,6 +497,10 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
                       block={blocks[type] as DecisionMatrixBlock}
                       demo={decisionDemo}
                     />
+                  ) : type === "code-diff" ? (
+                    <GenUiCodeDiffDemo rotation={codeDiffDemo}>
+                      <GenUIRenderer data={{ block: blocks[type] }} messageId={`lab-${type}`} />
+                    </GenUiCodeDiffDemo>
                   ) : (
                     <GenUIRenderer data={{ block: blocks[type] }} messageId={`lab-${type}`} />
                   )}

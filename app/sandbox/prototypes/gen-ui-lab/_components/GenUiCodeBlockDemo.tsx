@@ -4,8 +4,11 @@ import {
   useGenUiArrangementCycle,
   type GenUiArrangement,
 } from "../_hooks/use-gen-ui-arrangement-cycle";
+import { useGenUiLanguageRotation } from "../_hooks/use-gen-ui-language-rotation";
 
 import { GenUiArrangementPauseZone, GenUiArrangementToolbar } from "./GenUiArrangementToolbar";
+import { GenUiLanguageControls } from "./GenUiLanguageControls";
+import { LAB_LANGUAGE_IDS, LAB_LANGUAGES, sampleFor, snippetMarkdown } from "./lab-languages";
 
 import { ChatMessageMarkdown } from "@/components/chat/chat-message-markdown";
 
@@ -60,6 +63,9 @@ const LONG_BLOCK = Array.from({ length: 90 }, (_, index) =>
     : `const value${index} = compute(${index}, "label-${index}"); // ${index * 3}`
 ).join("\n");
 
+/** The language the Snippet slide opens on. */
+const DEFAULT_LANGUAGE = "typescript";
+
 type CodePreset = GenUiArrangement & {
   /** A complete assistant message, exactly as the chat renders it. */
   markdown: string;
@@ -69,11 +75,9 @@ export const LAB_CODE_PRESETS: ReadonlyArray<CodePreset> = [
   {
     id: "snippet",
     name: "Snippet",
-    intent: "A few lines that punctuate the prose. No gutter; the header stays quiet.",
-    markdown: `Validate the input before it reaches the request:\n\n${fence(
-      "ts",
-      'const { email } = schema.parse(input);\nconst response = await subscribe(email);\nif (!response.ok) throw new Error("Subscribe failed");\nreturn response;'
-    )}\n\nInvalid input now throws before \`subscribe\` runs.`,
+    intent:
+      "One real change per language, fenced as a model would. Pick a language or shuffle; short samples get no gutter.",
+    markdown: snippetMarkdown(sampleFor(DEFAULT_LANGUAGE)),
   },
   {
     id: "reference",
@@ -136,27 +140,70 @@ export const LAB_CODE_PRESETS: ReadonlyArray<CodePreset> = [
 ];
 
 export function useGenUiCodeBlockDemo(active = true) {
-  return useGenUiArrangementCycle(LAB_CODE_PRESETS, active);
+  const cycle = useGenUiArrangementCycle(LAB_CODE_PRESETS, active);
+  const onSnippet = cycle.index === 0;
+  // The language only shows on the Snippet slide, so it rotates only while that slide is open.
+  const rotation = useGenUiLanguageRotation(
+    LAB_LANGUAGE_IDS,
+    DEFAULT_LANGUAGE,
+    active && onSnippet
+  );
+
+  return {
+    ...cycle,
+    rotation,
+    /** Language controls belong to the Snippet slide: touching them brings it up. */
+    showSnippet: () => {
+      if (!onSnippet) cycle.select(0);
+    },
+  };
 }
 
 type CodeBlockDemoState = ReturnType<typeof useGenUiCodeBlockDemo>;
 
 export function GenUiCodeBlockDemoToolbar({ demo }: { demo: CodeBlockDemoState }) {
-  return <GenUiArrangementToolbar cycle={demo} groupLabel="Code presets" noun="preset" />;
+  return (
+    <GenUiArrangementToolbar
+      cycle={demo}
+      extra={
+        <GenUiLanguageControls
+          languages={LAB_LANGUAGES}
+          rotation={demo.rotation}
+          onChange={demo.showSnippet}
+        />
+      }
+      groupLabel="Code presets"
+      noun="preset"
+    />
+  );
 }
 
 /** Real markdown through the real chat renderer, inside chat's own prose wrapper. */
 export function GenUiCodeBlockDemo({ demo }: { demo: CodeBlockDemoState }) {
   const preset = demo.arrangement;
+  const sample = sampleFor(demo.rotation.language ?? DEFAULT_LANGUAGE);
+  const onSnippet = demo.index === 0;
+  const markdown = onSnippet ? snippetMarkdown(sample) : preset.markdown;
 
   return (
-    <GenUiArrangementPauseZone cycle={demo}>
+    <GenUiArrangementPauseZone
+      cycle={{
+        setHovered: (value) => {
+          demo.setHovered(value);
+          demo.rotation.setHovered(value);
+        },
+        setFocused: (value) => {
+          demo.setFocused(value);
+          demo.rotation.setFocused(value);
+        },
+      }}
+    >
       <div className="ai-message prose dark:prose-invert max-w-full space-y-2 text-foreground">
-        {/* Keyed by preset so each step remounts, as a new message would. */}
+        {/* Keyed by preset and language so each step remounts, as a new message would. */}
         <ChatMessageMarkdown
-          key={preset.id}
-          content={preset.markdown}
-          id={`lab-code-${preset.id}`}
+          key={`${preset.id}-${onSnippet ? sample.id : ""}`}
+          content={markdown}
+          id={`lab-code-${preset.id}-${sample.id}`}
         />
       </div>
     </GenUiArrangementPauseZone>

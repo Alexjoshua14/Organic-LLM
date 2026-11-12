@@ -35,6 +35,11 @@ afterEach(() => {
   Element.prototype.scrollIntoView = originalScrollIntoView;
 });
 
+/** The code blocks on the page, not the toolbar: the picker also prints the language name. */
+function blocks(section: HTMLElement) {
+  return Array.from(section.querySelectorAll<HTMLElement>("[data-wrap]"));
+}
+
 function renderShell() {
   const view = render(<GenUiLabShell initialBlocks={buildDefaultBlockMap()} />);
   const section = view.container.querySelector<HTMLElement>(
@@ -60,7 +65,7 @@ describe("Gen UI Lab Code page", () => {
 
     expect(within(toolbar).getByText("Snippet")).toBeTruthy();
     expect(within(section).getByLabelText(`Preset 1 of ${LAB_CODE_PRESETS.length}`)).toBeTruthy();
-    expect(within(section).getByText("TypeScript")).toBeTruthy();
+    expect(within(blocks(section)[0]!).getByText("TypeScript")).toBeTruthy();
     expect(section.querySelector(".token.keyword")).not.toBeNull();
     expect(within(section).getByRole("button", { name: "Copy code" })).toBeTruthy();
   });
@@ -69,27 +74,31 @@ describe("Gen UI Lab Code page", () => {
     const { section } = renderShell();
     const next = within(section).getByRole("button", { name: "Next preset" });
 
-    // Snippet: four lines, no gutter. Reference: 25 lines, numbered.
-    expect(within(section).queryByText("4")).toBeNull();
+    // Snippet: the TypeScript sample, seven lines. Reference: 25 lines, numbered.
+    expect(within(blocks(section)[0]!).getByText("TypeScript")).toBeTruthy();
+    expect(within(blocks(section)[0]!).getByText("· 7 lines")).toBeTruthy();
     fireEvent.click(next);
     expect(within(section).getByText("Reference")).toBeTruthy();
     expect(within(section).getByText("25")).toBeTruthy();
 
     fireEvent.click(next);
     expect(within(section).getByText("Command")).toBeTruthy();
-    expect(within(section).getAllByText("Shell").length).toBe(2);
+    expect(blocks(section).map((block) => within(block).queryByText("Shell") !== null)).toEqual([
+      true,
+      true,
+    ]);
 
     fireEvent.click(next);
     fireEvent.click(next);
     expect(within(section).getByText("Languages")).toBeTruthy();
     for (const label of ["Python", "JSON", "SQL", "CSS", "YAML"]) {
-      expect(within(section).getByText(label)).toBeTruthy();
+      expect(blocks(section).some((block) => within(block).queryByText(label) !== null)).toBe(true);
     }
 
     fireEvent.click(next);
     expect(within(section).getByText("Plain")).toBeTruthy();
     expect(section.querySelector(".token")).toBeNull();
-    expect(within(section).getByText("Cobol")).toBeTruthy();
+    expect(blocks(section).some((block) => within(block).queryByText("Cobol") !== null)).toBe(true);
 
     fireEvent.click(next);
     expect(within(section).getByText("Long block")).toBeTruthy();

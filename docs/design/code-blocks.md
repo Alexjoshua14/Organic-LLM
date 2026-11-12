@@ -41,7 +41,7 @@ a restyle only. The schema, the tool description and the agent contract are unch
 
 - **Bundled (18, always ready):** bash, c, cpp, css, diff, go, java, javascript, json, jsx, markdown,
   markup (HTML/XML), python, rust, sql, tsx, typescript, yaml.
-- **On demand (34, one chunk each, 2 to 5 KB gzipped):** C#, Ruby, PHP, Swift, Kotlin, Scala, Dart,
+- **On demand (33, one chunk each, 2 to 5 KB gzipped):** C#, Ruby, PHP, Swift, Kotlin, Scala, Dart,
   Lua, Perl, R, Haskell, Elixir, PowerShell, Dockerfile, TOML, INI, GraphQL, SCSS, Less, Makefile,
   Objective-C, Protobuf, HCL, Zig, Julia, Clojure, OCaml, Groovy, Nginx, HTTP, Solidity, Vim, LaTeX.
   The block renders as plain text until the grammar arrives, then colors in place; a loaded grammar
@@ -56,12 +56,31 @@ Cost is about 0.05 ms per line (measured on the server renderer: 1.5 ms for 20 l
 lines stay plain while they change and are colored 150 ms after the text settles. A block that
 mounts complete is colored at once. Re-measure before raising `HIGHLIGHT_EAGER_LINES`.
 
+## Limits and safety
+
+Highlighting is regex work on the main thread, so its input is bounded (`HIGHLIGHT_LIMITS`):
+
+- A block over 100,000 characters or 2,500 lines renders as one plain text node, still copyable,
+  with a note in the header. Nothing is tokenized and no per-line DOM is built.
+- A diff line over 5,000 characters is not tokenized, but keeps its changed-span emphasis.
+- Languages, labels and file extensions are looked up with own-property checks, so a fence or path
+  named `constructor` or `__proto__` cannot reach inherited properties. Non-string values are
+  ignored. An unknown fence label is cut to 24 safe characters before it reaches the header.
+- If a grammar throws, the block falls back to the same text, uncolored.
+- Code is only ever rendered as React text, never as markup.
+
 ## In the Gen UI Lab
 
 The lab's **Code** page (lab-only, like Diagram) steps through eight presets with the same prev/next
 toolbar the comparison uses: Snippet, Reference, Command, Long lines, Languages, Plain, Long block
 and Diagram fence. Each preset is a complete markdown message rendered by the real chat markdown
 renderer, so it exercises exactly what chat ships. The code diff block has its own eight fixtures.
+
+Both the Code page's Snippet slide and the first code diff page have a **language picker** and a
+**Shuffle** toggle. `_fixtures/language-samples.ts` holds one real change per supported language,
+used as the diff the model would send and as the fenced snippet. Shuffle visits every language once
+per round in random order and never repeats one back to back; it pauses on hover, focus, a hidden
+tab and reduced motion, and picking by hand stops it.
 
 ## Not yet
 
