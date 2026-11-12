@@ -135,7 +135,9 @@
   text-wrap: balance;
 }
 .context > p {
-  margin: 0 0 28px;
+  /* Keep one- and two-line captions on the same rhythm; longer text can still grow. */
+  min-block-size: 2lh;
+  margin: 0 0 var(--spacing-stack-lg, 16px);
   max-width: 64ch;
   color: var(--muted-foreground);
   font-size: 14px;
