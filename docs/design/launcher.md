@@ -95,9 +95,13 @@ to the browser's tabs.
 
 Reduced motion: the surface and cards cross-fade, with no rise.
 
+## Decided
+
+- ⌘K pressed again closes the launcher (owner, 2026-11-12). It does not cycle to the previous
+  idea.
+
 ## Not here yet
 
-- ⌘K again does not cycle to the previous idea; it still toggles.
 - Strata pages and rabbit-hole sessions that are not threads appear through the semantic input,
   not as cards.
 - Persisting cues or thread payloads on-device (IndexedDB) needs a proposal first; see COA-586.
