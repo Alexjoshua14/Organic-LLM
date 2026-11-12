@@ -101,7 +101,7 @@ export function DiagramTakeoverShell() {
         </div>
         <button
           aria-label="Close diagram"
-          className="grid size-8 place-content-center rounded-md border border-border/50 text-muted-foreground hover:bg-background-tertiary/60 hover:text-foreground"
+          className="grid size-8 place-content-center rounded-md pointer-coarse:size-11 border border-border/50 text-muted-foreground hover:bg-background-tertiary/60 hover:text-foreground"
           type="button"
           onClick={handleClose}
         >
@@ -129,13 +129,13 @@ export function DiagramTakeoverShell() {
         <div
           ref={endGhostRef}
           aria-hidden
-          className="pointer-events-none absolute inset-4 opacity-0"
+          className="pointer-events-none absolute inset-2 opacity-0 sm:inset-4"
         />
 
         <div
           ref={elementRef}
           className={cn(
-            "absolute inset-4 overflow-auto rounded-lg",
+            "absolute inset-2 overflow-auto rounded-lg sm:inset-4",
             "bg-background-tertiary/20 ring-1 ring-inset ring-border/40"
           )}
         >

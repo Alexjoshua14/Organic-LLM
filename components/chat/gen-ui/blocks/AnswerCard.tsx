@@ -24,12 +24,12 @@ export function AnswerCard({ block, partial }: AnswerCardProps) {
   return (
     <div
       className={cn(
-        "text-base leading-snug text-foreground sm:leading-normal",
+        "text-base leading-snug text-foreground break-words sm:leading-normal",
         spacing.card.section
       )}
     >
       {typeof block.title === "string" && block.title ? (
-        <h3 className="text-lg font-semibold leading-snug">
+        <h3 className="text-balance text-lg font-semibold leading-snug">
           <GenUIMarkdown inline>{block.title}</GenUIMarkdown>
         </h3>
       ) : null}
@@ -37,7 +37,7 @@ export function AnswerCard({ block, partial }: AnswerCardProps) {
       {partial && !block.tldr ? (
         <div className="h-5 w-4/5 animate-pulse rounded bg-muted/40" />
       ) : (
-        <p className="font-medium">
+        <p className="text-pretty font-medium">
           <GenUIMarkdown inline>{block.tldr}</GenUIMarkdown>
         </p>
       )}
@@ -87,7 +87,7 @@ export function AnswerCard({ block, partial }: AnswerCardProps) {
                     href={src.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-accent underline-offset-2 hover:underline"
+                    className="text-accent underline-offset-2 hover:underline max-sm:underline max-sm:decoration-accent/40 pointer-coarse:inline-block pointer-coarse:py-1.5"
                   >
                     {src.label}
                   </a>

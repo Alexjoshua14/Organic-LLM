@@ -3,6 +3,7 @@
 import { Copy, Download, Maximize2 } from "lucide-react";
 
 import { mermaidControlButtonClass, mermaidControlsClass } from "@/lib/mermaid/presentation";
+import { cn } from "@/lib/utils";
 
 type MermaidDiagramControlsProps = {
   onExpand: () => void;
@@ -27,7 +28,7 @@ export function MermaidDiagramControls({
       </button>
       <button
         aria-label="Copy Mermaid source"
-        className={mermaidControlButtonClass}
+        className={cn(mermaidControlButtonClass, "max-sm:hidden")}
         type="button"
         onClick={onCopySource}
       >
@@ -35,7 +36,7 @@ export function MermaidDiagramControls({
       </button>
       <button
         aria-label="Download SVG"
-        className={mermaidControlButtonClass}
+        className={cn(mermaidControlButtonClass, "max-sm:hidden")}
         type="button"
         onClick={onDownloadSvg}
       >

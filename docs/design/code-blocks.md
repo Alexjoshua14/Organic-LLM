@@ -118,6 +118,29 @@ a phone has no hover); the stage keeps 32px clear of it. On touch devices the la
 that is how you operate the component in focus. The jsdom tests guard the class contract; layout
 itself needs a look on a real phone or a narrow window.
 
+## On a phone (the blocks themselves)
+
+Checked in a browser at 390px (iPhone 12 Pro) against the lab, 2026-11-12.
+
+- **Wrap by default** at 40rem and below (`use-code-wrap.ts`, `CODE_NARROW_QUERY`). A phone shows
+  about 25 columns, so a hanging indent beats sideways scrolling. `data-wrap="auto"` lets CSS wrap
+  from the first paint (no flash on server-rendered blog and rabbit-hole pages); once the reader
+  presses Wrap lines their choice holds at every width. The CSS repeats the wrapped rules under the
+  same media query, because a query cannot sit inside a selector: keep the two in step.
+- **Type and padding step down:** 12.5px code on a 20px line, gutters 5px, cell padding 10px.
+- **One-row header:** language and line count give way (ellipsis) before the controls do. Copy is
+  icon-only (its label stays for assistive tech, the check icon is the confirmation). Controls are
+  36px, 44px on a touch device.
+- **Diff:** the file section is a `minmax(0, 1fr)` grid, so a wide table scrolls in its well and
+  never widens the card (it used to push the copy button off-screen).
+- **Diagram:** an inline diagram shrinks to its well down to 75% of natural size (labels stay
+  ~10px or more), then scrolls from its left edge; the old centred-flex scroller clipped the left
+  edge out of reach. Expand is always visible (no hover on touch), and copy and download hide.
+  The node menu stays inside the viewport. The expanded view keeps natural size and pans.
+- **Comparison:** the plot is a fixed 600-unit drawing, so its labels are larger in narrow
+  containers; legend, criterion chips and the select are 44px on touch.
+- **Lab:** the preset's intent line and the language count are hidden on a phone.
+
 ## Not yet
 
 - The diff block has no Changes / Result toggle: its files are partial hunks, so a "result" view

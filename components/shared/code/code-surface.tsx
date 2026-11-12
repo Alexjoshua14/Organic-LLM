@@ -10,6 +10,8 @@ import { cn } from "@/lib/utils";
 type CodeSurfaceProps = {
   /** Lines wrap instead of scrolling sideways. */
   wrap?: boolean;
+  /** Wrap on a narrow screen until the reader chooses (see useCodeWrap). Ignored when `wrap`. */
+  autoWrap?: boolean;
   className?: string;
   children: ReactNode;
 } & Record<`data-${string}`, string | boolean | undefined>;
@@ -19,12 +21,18 @@ type CodeSurfaceProps = {
  * the surface itself (the root layout is untouched), border, radius and background. `not-prose`
  * keeps Tailwind Typography out of it.
  */
-export function CodeSurface({ wrap = false, className, children, ...data }: CodeSurfaceProps) {
+export function CodeSurface({
+  wrap = false,
+  autoWrap = false,
+  className,
+  children,
+  ...data
+}: CodeSurfaceProps) {
   return (
     <div
       {...data}
       className={cn(styles.surface, "organic-code not-prose", fontMono.variable, className)}
-      data-wrap={wrap}
+      data-wrap={wrap ? "true" : autoWrap ? "auto" : "false"}
     >
       {children}
     </div>

@@ -11,6 +11,7 @@ import { DiffFileIndex } from "../diff/DiffFileIndex";
 import { DiffStatStrip } from "../diff/DiffStatStrip";
 import styles from "../diff/Diff.module.css";
 
+import { useCodeWrap } from "@/components/shared/code/use-code-wrap";
 import { fontMono } from "@/config/fonts";
 import { resolveCodeDiffFiles, type ResolvedFile } from "@/lib/diff/resolve-file";
 import { cn } from "@/lib/utils";
@@ -41,7 +42,7 @@ export function CodeDiff({ block, partial }: CodeDiffProps) {
   const baseId = useId();
   // Until the reader chooses, a file's openness follows the data (a streaming or updated diff).
   const [chosen, setChosen] = useState<Readonly<Record<string, boolean>>>({});
-  const [wrap, setWrap] = useState(false);
+  const { wrapped, surface, toggle: toggleWrap } = useCodeWrap();
   const [focusKey, setFocusKey] = useState<string | null>(null);
   const toggles = useRef(new Map<string, HTMLElement | null>());
 
@@ -73,7 +74,7 @@ export function CodeDiff({ block, partial }: CodeDiffProps) {
     <div
       className={cn(styles.root, "organic-code", fontMono.variable)}
       data-partial={partial ? "true" : undefined}
-      data-wrap={wrap ? "true" : undefined}
+      data-wrap={wrapped ? "true" : undefined}
     >
       {title || summary ? (
         <header className={styles.header}>
@@ -87,7 +88,7 @@ export function CodeDiff({ block, partial }: CodeDiffProps) {
         fileCount={files.length}
         moreFiles={block.moreFiles}
         totals={totals}
-        wrap={wrap}
+        wrap={wrapped}
         onToggleAll={
           bodied.length >= 2
             ? () =>
@@ -96,7 +97,7 @@ export function CodeDiff({ block, partial }: CodeDiffProps) {
                 )
             : undefined
         }
-        onToggleWrap={() => setWrap((value) => !value)}
+        onToggleWrap={toggleWrap}
       />
 
       {files.length >= INDEX_MIN_FILES ? (
@@ -128,7 +129,7 @@ export function CodeDiff({ block, partial }: CodeDiffProps) {
                 }}
                 onToggle={() => setChosen((current) => ({ ...current, [file.key]: !open }))}
               />
-              {open && hasBody(file) ? <DiffFileBody file={file} id={bodyId} wrap={wrap} /> : null}
+              {open && hasBody(file) ? <DiffFileBody file={file} id={bodyId} {...surface} /> : null}
             </section>
           );
         })}

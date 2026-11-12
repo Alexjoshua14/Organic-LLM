@@ -16,6 +16,8 @@
 
   container-type: inline-size;
   display: grid;
+  /* minmax(0, 1fr), not auto: a wide code table must scroll in its well, never widen the card. */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--spacing-stack-md);
   min-width: 0;
   color: var(--foreground);
@@ -212,11 +214,13 @@ button.indexItem:focus-visible .pathBase {
 
 .files {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--spacing-stack-md);
 }
 
 .file {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--spacing-stack-xs);
   min-width: 0;
 }

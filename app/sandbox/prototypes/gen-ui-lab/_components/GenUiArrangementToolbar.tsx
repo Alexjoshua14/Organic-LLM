@@ -91,9 +91,10 @@ export function GenUiArrangementToolbar({
         </div>
       </div>
       {extra}
-      {/* Two lines are always reserved so a longer intent never moves the arrows or the preview. */}
+      {/* Two lines are always reserved so a longer intent never moves the arrows or the preview.
+          A phone drops the line (it stays as the tooltip): the page is the component. */}
       <p
-        className="line-clamp-2 min-h-10 text-xs leading-relaxed text-muted-foreground"
+        className="line-clamp-2 min-h-10 text-xs max-sm:hidden leading-relaxed text-muted-foreground"
         title={arrangement.intent}
       >
         {arrangement.intent}

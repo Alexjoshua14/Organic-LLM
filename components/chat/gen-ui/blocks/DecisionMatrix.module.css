@@ -616,6 +616,40 @@
   }
 }
 
+/*
+ * Phone. The plot is a fixed 600-unit-wide drawing, so at ~270px it scales to under half size and
+ * its 10-unit labels land near 4px. Larger label units bring them back to a readable size.
+ */
+@container (max-width: 420px) {
+  .gridline text,
+  .axis text {
+    font-size: 19px;
+  }
+
+  .swatch {
+    width: 18px;
+    height: 18px;
+    flex-basis: 18px;
+    font-size: 10px;
+  }
+
+  .criteria button > span {
+    font-size: 10px;
+  }
+}
+
+/* Touch: a 32px chip is a miss-tap away from its neighbour. */
+@media (pointer: coarse) {
+  .legend button,
+  .criteria button {
+    min-height: 44px;
+  }
+
+  .selectField select {
+    min-height: 44px;
+  }
+}
+
 @container (max-width: 360px) {
   .headToHeadPickers,
   .headToHeadMeta,

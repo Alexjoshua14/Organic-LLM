@@ -19,6 +19,7 @@ import {
 } from "./code/code-actions";
 import { CodeScroll, CodeSurface } from "./code/code-surface";
 import { CodePlain } from "./code/code-table";
+import { useCodeWrap } from "./code/use-code-wrap";
 import {
   CodeLines,
   codeLanguageLabel,
@@ -88,7 +89,7 @@ export function CodeBlock({
   className,
 }: CodeBlockProps) {
   const extracted = extractCode(children);
-  const [wrapped, setWrapped] = useState(wrap);
+  const { wrapped, surface, toggle: toggleWrap } = useCodeWrap(wrap);
   const rawCode = extracted?.text ?? "";
   const [settledCode, setSettledCode] = useState(rawCode);
 
@@ -114,7 +115,7 @@ export function CodeBlock({
     <CodeSurface
       className={cn(className, containerClassName)}
       data-highlighted={highlighted}
-      wrap={wrapped}
+      {...surface}
     >
       <div className={styles.header}>
         <span className={styles.identity}>
@@ -129,7 +130,7 @@ export function CodeBlock({
         </span>
         <div className={styles.headerActions}>
           <CodeActions>
-            <CodeWrapButton pressed={wrapped} onToggle={() => setWrapped((value) => !value)} />
+            <CodeWrapButton pressed={wrapped} onToggle={toggleWrap} />
             <CodeActionDivider />
             <CodeCopyButton ariaLabel="Copy code" disabled={!extracted} text={rawCode} />
           </CodeActions>

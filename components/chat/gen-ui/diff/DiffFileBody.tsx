@@ -18,6 +18,8 @@ type DiffFileBodyProps = {
   file: ResolvedFile;
   /** Lines wrap instead of scrolling sideways. */
   wrap?: boolean;
+  /** Wrap on a narrow screen until the reader chooses (see useCodeWrap). */
+  autoWrap?: boolean;
   /** Id of the region, so the file header can point at it. */
   id: string;
 };
@@ -30,7 +32,7 @@ const PLAIN_TEXT_CHARS = 10_000;
  * inside it, never the card), then any notices and comments that have no line to sit under.
  * Only mounted while the file is open, so a collapsed file costs one header.
  */
-export function DiffFileBody({ file, id, wrap = false }: DiffFileBodyProps) {
+export function DiffFileBody({ file, id, wrap = false, autoWrap = false }: DiffFileBodyProps) {
   const view = useMemo(() => buildFileView(file), [file]);
   const language = useMemo(() => languageForPath(file.path), [file.path]);
   const [unfolded, setUnfolded] = useState<ReadonlySet<string>>(() => new Set());
@@ -90,7 +92,7 @@ export function DiffFileBody({ file, id, wrap = false }: DiffFileBodyProps) {
       ) : null}
 
       {hasRows ? (
-        <CodeSurface wrap={wrap}>
+        <CodeSurface autoWrap={autoWrap} wrap={wrap}>
           <CodeScroll digits={view.digits} label={`Diff of ${displayText(file.path)}`}>
             <CodeTable caption={`Changed lines in ${displayText(file.path)}`}>
               {view.rows.map((row) => {

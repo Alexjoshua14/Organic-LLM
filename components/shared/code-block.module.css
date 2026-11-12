@@ -9,7 +9,7 @@
   align-items: center;
   gap: 4px 10px;
   min-height: 40px;
-  padding: 0 8px 0 14px;
+  padding: 2px 8px 2px 14px;
   border-bottom: 1px solid var(--code-border);
   background: color-mix(in oklab, var(--code-foreground) 2%, var(--code-background));
 }
@@ -40,4 +40,27 @@
 .plain {
   min-width: 0;
   max-width: 100%;
+}
+
+/* Phone: one row. The identity gives way (ellipsis) before the controls do. */
+@media (max-width: 40rem) {
+  .header {
+    flex-wrap: nowrap;
+    gap: 6px;
+    padding: 0 4px 0 12px;
+  }
+  .identity {
+    flex: 1 1 auto;
+    overflow: hidden;
+  }
+  .language,
+  .meta {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .headerActions {
+    flex-shrink: 0;
+  }
 }

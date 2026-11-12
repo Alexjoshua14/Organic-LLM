@@ -14,6 +14,7 @@ import { useDiagramTakeoverOptional } from "@/lib/mermaid/diagram-takeover-conte
 import { buildNodeNeighborhood, extractNodeLabel } from "@/lib/mermaid/node-graph";
 import {
   applyMermaidGlassStyles,
+  mermaidControlsGutterClass,
   mermaidRevealClass,
   mermaidWellClass,
   mermaidWellInnerClass,
@@ -205,7 +206,7 @@ export function MermaidDiagram({
         svg.setAttribute("role", "img");
         svg.setAttribute("aria-label", title ?? "Diagram");
         try {
-          applyMermaidGlassStyles(svg as SVGSVGElement);
+          applyMermaidGlassStyles(svg as SVGSVGElement, { fit: variant === "inline" });
           applyMindmapLayering(svg as SVGSVGElement);
           wireNodeInteractions(svg as SVGSVGElement, diagramCode);
         } catch {
@@ -245,7 +246,7 @@ export function MermaidDiagram({
     return () => {
       cancelled = true;
     };
-  }, [renderSource, instanceId, title, wireNodeInteractions]);
+  }, [renderSource, instanceId, title, variant, wireNodeInteractions]);
 
   const handleExpand = useCallback(() => {
     const rect = wellRef.current?.getBoundingClientRect();
@@ -333,6 +334,7 @@ export function MermaidDiagram({
         <div
           className={cn(
             variant === "canvas" ? "mermaid-canvas-inner" : mermaidWellInnerClass,
+            showControls && mermaidControlsGutterClass,
             revealed && mermaidRevealClass,
             !revealed && "opacity-0"
           )}
@@ -345,7 +347,7 @@ export function MermaidDiagram({
                 : undefined
             }
             className={cn(
-              "mermaid flex min-w-0 justify-center",
+              "mermaid block w-full min-w-0",
               (expandOnDoubleClick || interactive) &&
                 "cursor-zoom-in select-none outline-none focus-visible:ring-2 focus-visible:ring-ring"
             )}

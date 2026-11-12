@@ -75,7 +75,9 @@ export function CodeCopyButton({
         ) : (
           <Copy size={14} aria-hidden />
         )}
-        <span>{state === "copied" ? "Copied" : state === "failed" ? "Copy failed" : label}</span>
+        <span className={styles.copyLabel}>
+          {state === "copied" ? "Copied" : state === "failed" ? "Copy failed" : label}
+        </span>
       </button>
       <span aria-live="polite" className={styles.srOnly} role="status">
         {state === "copied" ? announce.copied : state === "failed" ? announce.failed : ""}

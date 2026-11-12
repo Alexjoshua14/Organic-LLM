@@ -205,6 +205,89 @@
   white-space: nowrap;
 }
 
+/* The copy label is spoken but not shown on a phone, where the icon is the control. */
+.copyLabel {
+  min-width: 0;
+}
+
+/*
+ * Phones. Wrapping is the default here (data-wrap="auto", set until the reader chooses): the
+ * same wrapped rules as data-wrap="true", repeated because a media query cannot sit inside a
+ * selector. The query matches CODE_NARROW_QUERY in use-code-wrap.ts. Type, gutters and padding
+ * come down a step so a 25-column screen carries more of each line, and header controls stay
+ * touchable.
+ */
+@media (max-width: 40rem) {
+  .surface {
+    --code-line: 20px;
+    border-radius: 8px;
+  }
+  .surface[data-wrap="auto"] .scroll {
+    overflow-x: hidden;
+  }
+  .surface[data-wrap="auto"] .table {
+    width: 100%;
+  }
+  .surface[data-wrap="auto"] .codeCell > code {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    padding-inline-start: calc(var(--indent-columns, 0) * 1ch);
+    text-indent: calc(var(--indent-columns, 0) * -1ch);
+  }
+  .surface[data-wrap="auto"] .plain {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .table {
+    font-size: 12.5px;
+  }
+  .table tbody::before,
+  .table tbody::after {
+    height: 10px;
+  }
+  .num {
+    padding: 0 5px;
+    font-size: 0.625rem;
+  }
+  .codeCell {
+    padding: 0 10px;
+  }
+  .num + .codeCell,
+  .sign + .codeCell {
+    padding-inline-start: 6px;
+  }
+  .plain {
+    padding: 10px 12px;
+    font-size: 12.5px;
+  }
+
+  .action {
+    min-width: 36px;
+    min-height: 36px;
+  }
+  .copy {
+    position: relative;
+    min-inline-size: 36px;
+    justify-content: center;
+  }
+  .copyLabel {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+}
+
+@media (pointer: coarse) {
+  .action {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
 /* Notes inside the table, e.g. "No newline at end of file". */
 .line[data-kind="meta"] code {
   color: var(--code-muted-foreground);

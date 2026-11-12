@@ -103,7 +103,9 @@ export function GenUiLanguageControls({
         )}{" "}
         Shuffle
       </button>
-      <span className="text-xs text-muted-foreground">{languages.length} languages</span>
+      <span className="text-xs text-muted-foreground max-sm:hidden">
+        {languages.length} languages
+      </span>
     </div>
   );
 }
