@@ -98,13 +98,14 @@ function DiagramHarness({ active = true }: { active?: boolean }) {
 }
 
 describe("Gen UI Lab Diagram page", () => {
-  test("Diagram is a gallery page, a sidebar entry and a dot after every block type", () => {
+  test("Diagram is a gallery page, a sidebar entry and a dot after the block types", () => {
     const { view, section } = renderShell();
     const archetypes = view.getByRole("navigation", { name: "Gen UI archetypes" });
     const pages = view.container.querySelectorAll("[data-archetype]");
 
-    expect(pages.length).toBe(Object.keys(GEN_UI_REGISTRY).length + 1);
-    expect(pages[pages.length - 1]).toBe(section);
+    // Lab-only pages follow the block types: Diagram, then Code.
+    expect(pages.length).toBe(Object.keys(GEN_UI_REGISTRY).length + 2);
+    expect(pages[pages.length - 2]).toBe(section);
     expect(within(archetypes).getByRole("button", { name: /Diagram/ })).toBeTruthy();
     expect(view.getByRole("button", { name: "Diagram" })).toBeTruthy();
   });

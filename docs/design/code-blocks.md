@@ -47,6 +47,13 @@ Cost is about 0.05 ms per line (measured on the server renderer: 1.5 ms for 20 l
 lines stay plain while they change and are colored 150 ms after the text settles. A block that
 mounts complete is colored at once. Re-measure before raising `HIGHLIGHT_EAGER_LINES`.
 
+## In the Gen UI Lab
+
+The lab's **Code** page (lab-only, like Diagram) steps through eight presets with the same prev/next
+toolbar the comparison uses: Snippet, Reference, Command, Long lines, Languages, Plain, Long block
+and Diagram fence. Each preset is a complete markdown message rendered by the real chat markdown
+renderer, so it exercises exactly what chat ships. The code diff block has its own eight fixtures.
+
 ## Not yet
 
 - The diff block has no Changes / Result toggle: its files are partial hunks, so a "result" view

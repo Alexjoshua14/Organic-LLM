@@ -12,6 +12,13 @@ import { useGenUiLabQuestion } from "../_hooks/use-gen-ui-lab-question";
 
 import { GenUiGalleryNav } from "./GenUiGalleryNav";
 import {
+  GenUiCodeBlockDemo,
+  GenUiCodeBlockDemoToolbar,
+  LAB_CODE_ARCHETYPE,
+  LAB_CODE_LABEL,
+  useGenUiCodeBlockDemo,
+} from "./GenUiCodeBlockDemo";
+import {
   GenUiDecisionDemo,
   GenUiDecisionDemoToolbar,
   useGenUiDecisionDemo,
@@ -58,12 +65,15 @@ type GenUiLabShellProps = {
 
 /**
  * A gallery page: every Gen UI block type, plus lab-only pages that are not blocks (the Mermaid
- * diagram). Only block types reach the lab API, which knows nothing else.
+ * diagram, fenced code). Only block types reach the lab API, which knows nothing else.
  */
-export type GenUiLabArchetype = GenUIBlockType | typeof LAB_DIAGRAM_ARCHETYPE;
+export type GenUiLabArchetype =
+  | GenUIBlockType
+  | typeof LAB_DIAGRAM_ARCHETYPE
+  | typeof LAB_CODE_ARCHETYPE;
 
 function isBlockType(archetype: GenUiLabArchetype): archetype is GenUIBlockType {
-  return archetype !== LAB_DIAGRAM_ARCHETYPE;
+  return archetype !== LAB_DIAGRAM_ARCHETYPE && archetype !== LAB_CODE_ARCHETYPE;
 }
 
 export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
@@ -83,6 +93,7 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
   const diagramDemo = useGenUiMermaidDiagramDemo(
     selectedType === LAB_DIAGRAM_ARCHETYPE && galleryActive
   );
+  const codeDemo = useGenUiCodeBlockDemo(selectedType === LAB_CODE_ARCHETYPE && galleryActive);
   const canGenerate = isBlockType(selectedType);
   const [status, setStatus] = useState<ChatStatus>("ready");
   const [aionMessage, setAionMessage] = useState<string | null>(null);
@@ -120,16 +131,18 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
     );
     // Lab-only, after every block type: it is a chat tool output, not a Gen UI block.
     const diagram = { type: LAB_DIAGRAM_ARCHETYPE, label: LAB_DIAGRAM_LABEL };
+    const code = { type: LAB_CODE_ARCHETYPE, label: LAB_CODE_LABEL };
 
     const restaurantIndex = entries.findIndex((e) => e.type === "restaurant-card");
 
-    if (restaurantIndex <= 0) return [...entries, diagram];
+    if (restaurantIndex <= 0) return [...entries, diagram, code];
 
     return [
       entries[restaurantIndex]!,
       ...entries.slice(0, restaurantIndex),
       ...entries.slice(restaurantIndex + 1),
       diagram,
+      code,
     ];
   }, []);
 
@@ -238,7 +251,8 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
   }, []);
 
   const handleGenerateSelected = useCallback(async () => {
-    // Diagrams come from the chat's `make_mermaid_diagram` tool, which the lab API cannot call.
+    // Diagrams come from the chat's `make_mermaid_diagram` tool and code is plain markdown; the lab
+    // API can generate neither.
     if (!isBlockType(selectedType)) return;
 
     const label = GEN_UI_REGISTRY[selectedType].label;
@@ -376,7 +390,7 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
                 title={
                   canGenerate
                     ? undefined
-                    : "Diagrams come from the chat diagram tool; the lab only generates Gen UI blocks"
+                    : "Diagram and Code are not Gen UI blocks; the lab only generates blocks"
                 }
                 onClick={() => void handleGenerateSelected()}
               >
@@ -458,6 +472,8 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
                   header={
                     type === LAB_DIAGRAM_ARCHETYPE ? (
                       <GenUiMermaidDiagramDemoToolbar demo={diagramDemo} />
+                    ) : type === LAB_CODE_ARCHETYPE ? (
+                      <GenUiCodeBlockDemoToolbar demo={codeDemo} />
                     ) : type === "decision-matrix" ? (
                       <GenUiDecisionDemoToolbar demo={decisionDemo} />
                     ) : undefined
@@ -466,6 +482,8 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
                 >
                   {type === LAB_DIAGRAM_ARCHETYPE ? (
                     <GenUiMermaidDiagramDemo demo={diagramDemo} />
+                  ) : type === LAB_CODE_ARCHETYPE ? (
+                    <GenUiCodeBlockDemo demo={codeDemo} />
                   ) : type === "decision-matrix" ? (
                     <GenUiDecisionDemo
                       block={blocks[type] as DecisionMatrixBlock}

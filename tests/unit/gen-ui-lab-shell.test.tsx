@@ -46,9 +46,9 @@ describe("Gen UI Lab shell", () => {
 
     expect(view.queryByRole("button", { name: "Focus" })).toBeNull();
     expect(view.queryByRole("group", { name: "Preview mode" })).toBeNull();
-    // Every Gen UI block type, plus the lab-only Diagram page.
+    // Every Gen UI block type, plus the lab-only Diagram and Code pages.
     expect(view.container.querySelectorAll("[data-archetype]").length).toBe(
-      Object.keys(GEN_UI_REGISTRY).length + 1
+      Object.keys(GEN_UI_REGISTRY).length + 2
     );
   });
 
