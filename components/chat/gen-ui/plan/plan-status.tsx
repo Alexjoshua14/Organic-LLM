@@ -36,8 +36,14 @@ export function PlanStatusWord({
   );
 }
 
-/** Decorative: the adjacent <PlanStatusWord> is the accessible name. */
+/**
+ * Decorative: the adjacent <PlanStatusWord> is the accessible name. Every glyph is always drawn
+ * and only its opacity follows the status, so a status change cross-fades (Plan.module.css)
+ * instead of swapping shapes.
+ */
 export function PlanStatusMark({ status }: { status: PlanStepStatus }) {
+  const shown = (when: boolean) => (when ? 1 : 0);
+
   return (
     <svg
       aria-hidden
@@ -51,25 +57,29 @@ export function PlanStatusMark({ status }: { status: PlanStepStatus }) {
       <circle
         cx="8"
         cy="8"
-        fill={status === "done" ? "currentColor" : "none"}
+        fill="currentColor"
+        fillOpacity={shown(status === "done")}
         r="6.25"
         stroke="currentColor"
         strokeWidth="1.5"
       />
-      {status === "done" ? (
-        <path
-          d="M5.2 8.2 7.1 10.1 10.9 6"
-          fill="none"
-          stroke="var(--background)"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="1.6"
-        />
-      ) : null}
-      {status === "now" ? <circle cx="8" cy="8" fill="currentColor" r="2.75" /> : null}
-      {status === "blocked" ? (
-        <path d="M5 8h6" stroke="currentColor" strokeLinecap="round" strokeWidth="1.7" />
-      ) : null}
+      <path
+        d="M5.2 8.2 7.1 10.1 10.9 6"
+        fill="none"
+        opacity={shown(status === "done")}
+        stroke="var(--background)"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.6"
+      />
+      <circle cx="8" cy="8" fill="currentColor" opacity={shown(status === "now")} r="2.75" />
+      <path
+        d="M5 8h6"
+        opacity={shown(status === "blocked")}
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.7"
+      />
     </svg>
   );
 }

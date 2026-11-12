@@ -161,14 +161,14 @@ export function describeNeeds(view: PlanStepView): string | null {
 
 /**
  * Whether opening a step shows anything its collapsed row does not. A row without detail is not a
- * control — there is nothing to reveal, so it never pretends to be expandable.
+ * control — there is nothing to reveal, so it never pretends to be expandable. A blocked step's
+ * note is its reason, which the row always shows, so it does not count as detail.
  */
 export function stepHasDetail(view: PlanStepView): boolean {
   const { step } = view;
 
   return (
-    step.status === "blocked" ||
-    Boolean(step.note) ||
+    (Boolean(step.note) && step.status !== "blocked") ||
     Boolean(step.time && step.estimate) ||
     view.substeps.total > 0 ||
     view.dependsOn.length > 0 ||

@@ -17,15 +17,51 @@
   --plan-gutter: calc(
     var(--plan-pad-x) + var(--plan-mark) + var(--plan-number) + 2 * var(--plan-gap)
   );
+  /* Text under a row's label tucks up into the row's bottom padding, leaving a 2px gap. */
+  --plan-tuck: calc(-1 * var(--plan-pad-y) + 2px);
   --plan-hover: color-mix(in oklab, var(--muted) 55%, transparent);
   --plan-open: color-mix(in oklab, var(--muted) 70%, transparent);
   --plan-focus: color-mix(in oklab, var(--foreground) 10%, transparent);
+
+  /*
+   * Type roles — the only sizes in the card. Every text run picks one role; a lead-in and the
+   * value it introduces always share a role, so they share a size, line-height and baseline.
+   * Step numbers are the one deliberate step down beside a label (meta beside body), as in a list.
+   *   body  13px / 20px  step labels, notes, sub-steps, relationship lead-ins + links
+   *   meta  12px / 18px  numbers, rail, summary, collapsed meta, reason line, facts
+   *   tag   10px         the uppercase status word beside a label (Tailwind `text-2xs`)
+   */
+  --plan-text-body: 0.8125rem;
+  --plan-text-meta: 0.75rem;
+  --plan-line-meta: 1.125rem;
+  --plan-text-tag: 0.625rem;
+
+  /*
+   * Motion. The disclosure band from docs/design/motion-and-text-timing.md (recipient picker:
+   * 220ms enter / 160ms exit) — exits faster than entrances — on the ease-out-quint curve the
+   * Gen UI Lab already uses (`GALLERY_NAV_EASE`). Hover stays at the 120ms feedback beat the rows
+   * always had. Nothing loops; under prefers-reduced-motion every change lands instantly.
+   */
+  --plan-enter: 220ms;
+  --plan-exit: 160ms;
+  --plan-feedback: 120ms;
+  --plan-ease: cubic-bezier(0.23, 1, 0.32, 1);
 
   container-type: inline-size;
   min-width: 0;
   color: var(--foreground);
   font-size: 0.875rem; /* 14px */
   line-height: 1.5;
+}
+
+/*
+ * globals.css gives every <p> `text-base leading-snug` (16px) and every <li> `leading-snug`.
+ * Inside the card, paragraphs and items take their size from the role their container set.
+ * This sits before every other rule at single-class specificity, so any class below still wins.
+ */
+.root :where(p, li) {
+  font-size: inherit;
+  line-height: inherit;
 }
 
 @media (pointer: coarse) {
@@ -101,8 +137,8 @@
 .summary {
   margin: 0;
   color: var(--muted-foreground);
-  font-size: 0.75rem; /* 12px */
-  line-height: 1.5;
+  font-size: var(--plan-text-meta);
+  line-height: var(--plan-line-meta);
   font-variant-numeric: tabular-nums;
 }
 
@@ -135,6 +171,15 @@
 .statusWord {
   color: var(--plan-tone-text);
   font-weight: 600;
+}
+
+/* Tag role: the status word beside a step's name, in a row or in a relationship link. */
+.rowLabel .statusWord,
+.link .statusWord {
+  font-size: var(--plan-text-tag);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 /* ── List on a spine ────────────────────────────────────── */
@@ -220,7 +265,7 @@ button.rowHead {
 
 .rowNumber {
   color: var(--muted-foreground);
-  font-size: 0.75rem;
+  font-size: var(--plan-text-meta);
   line-height: var(--plan-line);
   font-variant-numeric: tabular-nums;
 }
@@ -238,25 +283,25 @@ button.rowHead {
 .rowLabel {
   flex: 999 1 10ch;
   min-width: 0;
-  font-size: 0.8125rem; /* 13px */
+  font-size: var(--plan-text-body);
   line-height: var(--plan-line);
   overflow-wrap: anywhere;
 }
 
 .rowLabel .statusWord {
   margin-left: 2px;
-  font-size: 0.625rem; /* 10px tag, uppercase so it reads as a state, not as part of the label */
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  white-space: nowrap;
 }
 
 .row[data-status="done"] .rowLabel {
   color: var(--muted-foreground);
 }
 
-.row[data-status="now"] .rowLabel,
+/* Opening a row changes colour, never weight: a bolder label is wider and could rewrap the row. */
 .row[data-open="true"] .rowLabel {
+  color: var(--foreground);
+}
+
+.row[data-status="now"] .rowLabel {
   font-weight: 600;
 }
 
@@ -279,7 +324,7 @@ div.rowHead:hover .rowLabel {
 .rail {
   flex: 1 0 auto;
   color: var(--muted-foreground);
-  font-size: 0.75rem;
+  font-size: var(--plan-text-meta);
   line-height: var(--plan-line);
   font-variant-numeric: tabular-nums;
   text-align: right;
@@ -290,14 +335,18 @@ div.rowHead:hover .rowLabel {
   color: var(--foreground);
 }
 
-.rowMeta {
+/* The collapsed row's extra facts; folds away while the detail that restates them opens. */
+.metaFold {
   grid-column: 3;
+}
+
+.rowMeta {
   display: flex;
   flex-wrap: wrap;
   column-gap: 6px;
   color: var(--muted-foreground);
-  font-size: 0.6875rem; /* 11px */
-  line-height: 1.5;
+  font-size: var(--plan-text-meta);
+  line-height: var(--plan-line-meta);
   font-variant-numeric: tabular-nums;
 }
 
@@ -307,30 +356,80 @@ div.rowHead:hover .rowLabel {
   margin-right: 6px;
 }
 
-/* A blocked row's reason, always visible, aligned under its label. */
-.reason {
-  margin: calc(-1 * var(--plan-pad-y) + 2px) 0 0;
-  padding: 0 var(--plan-pad-x) var(--plan-pad-y) var(--plan-gutter);
-  color: var(--plan-tone-text);
-  font-size: 0.75rem;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
+/* ── Lead-in + text: "Why blocked  Awaiting sign-off", "Estimate  20 min" ── */
+
+/* The lead-in and its text are one run in one role: the line sets size and line-height, the two
+   halves differ only in weight and colour, so they always share a baseline and wrap as prose. */
+.leadLabel {
+  color: var(--plan-lead-tone, var(--muted-foreground));
+  font-weight: 600;
 }
 
-.reasonMissing {
+.leadText {
+  color: var(--foreground);
+  font-weight: 400;
+}
+
+.leadMissing {
   color: var(--muted-foreground);
   font-style: italic;
 }
 
+/* A blocked row's reason, always visible, aligned under its label — the same line whether the
+   row is open or not, so opening a blocked row never swaps it out. */
+.reasonFold {
+  display: grid;
+  grid-template-rows: 1fr; /* a fold that is always open; it only animates when it first appears */
+  margin-top: var(--plan-tuck);
+}
+
+.reason {
+  --plan-lead-tone: var(--plan-tone-text);
+
+  margin: 0;
+  padding: 0 var(--plan-pad-x) var(--plan-pad-y) var(--plan-gutter);
+  font-size: var(--plan-text-meta);
+  line-height: var(--plan-line-meta);
+  overflow-wrap: anywhere;
+}
+
+/* ── Folds: height + opacity without measuring (grid rows 0fr ↔ 1fr) ── */
+
+.fold {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  visibility: hidden; /* off the tab order, find-in-page and the a11y tree once folded */
+}
+
+.fold[data-shown="true"] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  visibility: visible;
+}
+
+.foldClip {
+  min-height: 0;
+  overflow: hidden;
+}
+
 /* ── Open step detail (in place, under its label) ───────── */
+
+.detailFold[data-shown="true"] {
+  margin-top: var(--plan-tuck);
+}
+
+/* Under a blocked reason the reason line already ends the row's padding; keep detail rhythm. */
+.reasonFold + .detailFold[data-shown="true"] {
+  margin-top: calc(var(--spacing-stack-sm) - var(--plan-pad-y));
+}
 
 .detail {
   display: grid;
   gap: var(--spacing-stack-sm);
-  margin-top: calc(-1 * var(--plan-pad-y) + 2px);
   padding: 0 var(--plan-pad-x) var(--spacing-stack-md) var(--plan-gutter);
-  font-size: 0.8125rem;
-  line-height: 1.5;
+  font-size: var(--plan-text-body);
+  line-height: var(--plan-line);
 }
 
 /* Sub-steps beside relationships when the card is wide; stacked when not. */
@@ -345,6 +444,8 @@ div.rowHead:hover .rowLabel {
   flex-wrap: wrap;
   gap: 0 var(--spacing-inline-md);
   margin: 0;
+  font-size: var(--plan-text-meta);
+  line-height: var(--plan-line-meta);
 }
 
 .facts > div {
@@ -353,34 +454,26 @@ div.rowHead:hover .rowLabel {
   gap: var(--spacing-stack-xs);
 }
 
-.facts dt {
-  color: var(--muted-foreground);
-  font-size: 0.75rem;
-}
-
 .facts dd {
   margin: 0;
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
 
-.note,
-.why {
+.note {
   margin: 0;
+  font-size: var(--plan-text-body);
+  line-height: var(--plan-line);
   overflow-wrap: anywhere;
 }
 
-.whyLabel {
-  color: var(--plan-tone-text);
-  font-size: 0.75rem;
-  font-weight: 600;
-}
-
+/* "Depends on", "Needed by", "Sub-steps · 1 of 3": a lead-in on the body line it introduces, so
+   it takes the body role like the links and sub-steps it heads. */
 .relationLabel {
   margin: 0;
   color: var(--muted-foreground);
-  font-size: 0.75rem;
-  font-weight: 500;
+  font-size: var(--plan-text-body);
+  font-weight: 600;
   line-height: var(--plan-line);
   font-variant-numeric: tabular-nums;
 }
@@ -480,7 +573,7 @@ div.rowHead:hover .rowLabel {
 
 .linkNumber {
   color: var(--muted-foreground);
-  font-size: 0.75rem;
+  font-size: var(--plan-text-meta);
   font-variant-numeric: tabular-nums;
 }
 
@@ -493,13 +586,9 @@ div.rowHead:hover .rowLabel {
   overflow-wrap: anywhere;
 }
 
-.link .statusWord {
-  font-size: 0.6875rem;
-}
-
 .linkNote {
   color: var(--muted-foreground);
-  font-size: 0.75rem;
+  font-size: var(--plan-text-meta);
 }
 
 .link:hover .linkLabel {
@@ -523,7 +612,7 @@ div.rowHead:hover .rowLabel {
 
 .dangling code {
   color: var(--foreground);
-  font-size: 0.75rem;
+  font-size: var(--plan-text-meta);
 }
 
 /* ── Condensed (gallery slot) ───────────────────────────── */
@@ -554,7 +643,7 @@ div.rowHead:hover .rowLabel {
   align-items: flex-start;
   gap: 6px;
   margin: 0;
-  font-size: 0.75rem;
+  font-size: var(--plan-text-meta);
   line-height: 1.25rem;
 }
 
@@ -573,7 +662,7 @@ div.rowHead:hover .rowLabel {
   overflow-wrap: anywhere;
 }
 
-/* ── Focus without rings; motion ────────────────────────── */
+/* ── Focus without rings ────────────────────────────────── */
 
 /* Focus is carried by tint + underline (above). Forced-colours modes drop backgrounds, so they get
    a system outline back. */
@@ -588,9 +677,95 @@ div.rowHead:hover .rowLabel {
   }
 }
 
+/* ── Motion ─────────────────────────────────────────────── */
+
+/*
+ * Every transition and animation lives in this block, so reduced motion is instant by default.
+ * Only height, opacity and colour move; nothing translates, scales or loops, and the index never
+ * reflows except by the height a fold gives or takes.
+ */
+@keyframes plan-settle {
+  from {
+    opacity: 0.35;
+  }
+}
+
+@keyframes plan-reason-in {
+  from {
+    grid-template-rows: 0fr;
+    margin-top: 0;
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: no-preference) {
-  .row,
+  /* Open tint: the old row lets go at exit speed while the new one settles in at entrance speed,
+     in step with the folds, so the highlight reads as moving from row to row. */
+  .row {
+    transition: background-color var(--plan-exit) var(--plan-ease);
+  }
+
+  .row[data-open="true"] {
+    transition-duration: var(--plan-enter);
+  }
+
+  .row[data-interactive="true"]:not([data-open="true"]):hover,
   .link {
-    transition: background-color 120ms ease-out;
+    transition: background-color var(--plan-feedback) ease-out;
+  }
+
+  .row::before,
+  .row::after,
+  .segment {
+    transition: background-color var(--plan-enter) var(--plan-ease);
+  }
+
+  .mark,
+  .statusWord,
+  .rowLabel,
+  .rail {
+    transition: color var(--plan-enter) var(--plan-ease);
+  }
+
+  /* A status change cross-fades the mark's glyphs (fill, check, dot, bar) rather than swapping. */
+  .mark > * {
+    transition:
+      opacity var(--plan-enter) var(--plan-ease),
+      fill-opacity var(--plan-enter) var(--plan-ease);
+  }
+
+  /* Folding: space and content go together. Closing runs at exit speed and only hides the
+     content (visibility) once it has folded; opening shows it at once and unfolds at entrance
+     speed. */
+  .fold {
+    transition:
+      grid-template-rows var(--plan-exit) var(--plan-ease),
+      margin-top var(--plan-exit) var(--plan-ease),
+      opacity var(--plan-exit) var(--plan-ease),
+      visibility 0s linear var(--plan-exit);
+  }
+
+  .fold[data-shown="true"] {
+    transition:
+      grid-template-rows var(--plan-enter) var(--plan-ease),
+      margin-top var(--plan-enter) var(--plan-ease),
+      opacity var(--plan-enter) var(--plan-ease),
+      visibility 0s;
+  }
+
+  /* Data changes after first paint (never on it): a step that turns blocked unfolds its reason,
+     a status word that appears settles in, and a new summary line settles over the old one. */
+  /* Longhands, so the module's keyframe-name hashing never has to parse a var() shorthand. */
+  .row[data-changed="true"] .reasonFold {
+    animation-name: plan-reason-in;
+    animation-duration: var(--plan-enter);
+    animation-timing-function: var(--plan-ease);
+  }
+
+  .row[data-changed="true"] .rowLabel .statusWord,
+  .summary[data-changed="true"] {
+    animation-name: plan-settle;
+    animation-duration: var(--plan-enter);
+    animation-timing-function: var(--plan-ease);
   }
 }

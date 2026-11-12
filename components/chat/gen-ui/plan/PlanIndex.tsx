@@ -1,11 +1,12 @@
+import type { PlanStepStatus } from "@/lib/schemas/gen-ui";
+
 import { useEffect, useId, useRef } from "react";
 
 import { PlanFocus } from "./PlanFocus";
+import { PlanReason } from "./PlanReason";
 import { describeNeeds, stepHasDetail, type PlanModel, type PlanStepView } from "./plan-model";
 import { PLAN_STATUS_NEEDS_WORD, PlanStatusMark, PlanStatusWord } from "./plan-status";
 import styles from "./Plan.module.css";
-
-import { GenUIMarkdown } from "@/components/chat/gen-ui/GenUIMarkdown";
 
 type PlanIndexProps = {
   plan: PlanModel;
@@ -82,16 +83,41 @@ function RowLine({ view }: { view: PlanStepView }) {
 }
 
 /**
+ * Rows whose status changed after first paint. Sticky, so a later unrelated render never strips
+ * the attribute mid-animation; CSS animations run once when they first apply, not on every render.
+ * First paint and rows that stream in fresh are never marked, so nothing animates on arrival.
+ */
+function useChangedRows(plan: PlanModel): ReadonlySet<string> {
+  const committed = useRef(new Map<string, PlanStepStatus>());
+  const changed = useRef(new Set<string>());
+
+  for (const { key, step } of plan.steps) {
+    const before = committed.current.get(key);
+
+    if (before !== undefined && before !== step.status) changed.current.add(key);
+  }
+
+  useEffect(() => {
+    committed.current = new Map(plan.steps.map(({ key, step }) => [key, step.status]));
+  });
+
+  return changed.current;
+}
+
+/**
  * The plan as one ordered list on a spine: every step is a single line (mark, number, label, a
- * status word only where it changes what to do, the time on a right rail). The open step expands
- * in place; a blocked step's reason is always visible. Rows with detail are native buttons.
+ * status word only where it changes what to do, the time on a right rail). A blocked step's
+ * reason is always visible under its row. Rows with detail are native buttons; their detail stays
+ * mounted and folds open in place (Plan.module.css), and while folded it is inert and hidden from
+ * assistive tech.
  */
 export function PlanIndex({ plan, open, morphIds, onToggle, onJump }: PlanIndexProps) {
   const uid = useId();
   const rowRefs = useRef(new Map<number, HTMLButtonElement>());
   const pendingFocus = useRef<number | null>(null);
+  const changedRows = useChangedRows(plan);
 
-  // A jump unmounts the detail that held the link; hand focus to the row that opened instead.
+  // A jump folds away the detail that held the link; hand focus to the row that opened instead.
   useEffect(() => {
     const target = pendingFocus.current;
 
@@ -114,13 +140,22 @@ export function PlanIndex({ plan, open, morphIds, onToggle, onJump }: PlanIndexP
         const isOpen = interactive && view.index === open;
         const buttonId = `${uid}-row-${view.index}`;
         const detailId = `${uid}-detail-${view.index}`;
-        const meta = isOpen ? [] : metaFor(view);
+        const meta = metaFor(view);
+        // The open detail restates these facts, so the line folds away as the detail unfolds.
         const metaLine =
           meta.length > 0 ? (
-            <span className={styles.rowMeta}>
-              {meta.map((item) => (
-                <span key={item}>{item}</span>
-              ))}
+            <span
+              aria-hidden={isOpen || undefined}
+              className={`${styles.fold} ${styles.metaFold}`}
+              data-shown={!isOpen}
+            >
+              <span className={styles.foldClip}>
+                <span className={styles.rowMeta}>
+                  {meta.map((item) => (
+                    <span key={item}>{item}</span>
+                  ))}
+                </span>
+              </span>
             </span>
           ) : null;
 
@@ -128,6 +163,7 @@ export function PlanIndex({ plan, open, morphIds, onToggle, onJump }: PlanIndexP
           <li
             key={view.key}
             className={styles.row}
+            data-changed={changedRows.has(view.key) || undefined}
             data-interactive={interactive}
             data-open={isOpen}
             data-status={step.status}
@@ -139,7 +175,7 @@ export function PlanIndex({ plan, open, morphIds, onToggle, onJump }: PlanIndexP
                   if (node) rowRefs.current.set(view.index, node);
                   else rowRefs.current.delete(view.index);
                 }}
-                aria-controls={isOpen ? detailId : undefined}
+                aria-controls={detailId}
                 aria-current={step.status === "now" ? "step" : undefined}
                 aria-expanded={isOpen}
                 className={styles.rowHead}
@@ -159,24 +195,24 @@ export function PlanIndex({ plan, open, morphIds, onToggle, onJump }: PlanIndexP
                 {metaLine}
               </div>
             )}
-            {step.status === "blocked" && !isOpen ? (
-              <p className={styles.reason}>
-                <span className={styles.srOnly}>Why blocked: </span>
-                {step.note ? (
-                  <GenUIMarkdown inline>{step.note}</GenUIMarkdown>
-                ) : (
-                  <span className={styles.reasonMissing}>No reason given.</span>
-                )}
-              </p>
-            ) : null}
-            {isOpen ? (
-              <PlanFocus
-                id={detailId}
-                labelledBy={buttonId}
-                plan={plan}
-                view={view}
-                onSelect={jump}
-              />
+            {step.status === "blocked" ? <PlanReason note={step.note} /> : null}
+            {interactive ? (
+              <div
+                aria-hidden={!isOpen || undefined}
+                className={`${styles.fold} ${styles.detailFold}`}
+                data-shown={isOpen}
+                inert={!isOpen}
+              >
+                <div className={styles.foldClip}>
+                  <PlanFocus
+                    id={detailId}
+                    labelledBy={buttonId}
+                    plan={plan}
+                    view={view}
+                    onSelect={jump}
+                  />
+                </div>
+              </div>
             ) : null}
           </li>
         );

@@ -7,7 +7,10 @@ type PlanFactsProps = {
   estimate?: string;
 };
 
-/** Exact, labelled facts on one line. Renders nothing when the step supplied none. */
+/**
+ * Exact, labelled facts on one line. Renders nothing when the step supplied none. Each label and
+ * value is a lead-in pair in one type role, like the blocked reason.
+ */
 export function PlanFacts({ time, estimate }: PlanFactsProps) {
   if (!time && !estimate) return null;
 
@@ -15,14 +18,14 @@ export function PlanFacts({ time, estimate }: PlanFactsProps) {
     <dl className={styles.facts}>
       {time ? (
         <div>
-          <dt>Time</dt>
-          <dd>{time}</dd>
+          <dt className={styles.leadLabel}>Time</dt>
+          <dd className={styles.leadText}>{time}</dd>
         </div>
       ) : null}
       {estimate ? (
         <div>
-          <dt>Estimate</dt>
-          <dd>{estimate}</dd>
+          <dt className={styles.leadLabel}>Estimate</dt>
+          <dd className={styles.leadText}>{estimate}</dd>
         </div>
       ) : null}
     </dl>

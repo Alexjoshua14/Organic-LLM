@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { cleanup, fireEvent, within } from "@testing-library/react";
 
 import { render } from "../helpers/render";
@@ -11,8 +13,7 @@ import {
   pickLeadIndex,
   pickOpenIndex,
   stepHasDetail,
-} from "@/components/chat/gen-ui/plan/plan-model";
-import { FIXTURE_PLAN_TIMELINE } from "@/lib/schemas/gen-ui/fixtures";
+} from "@/components/chat/gen-ui/plan/plan-model";import { FIXTURE_PLAN_TIMELINE } from "@/lib/schemas/gen-ui/fixtures";
 import type { PlanTimelineBlock, PlanTimelineStep } from "@/lib/schemas/gen-ui";
 
 afterEach(cleanup);
@@ -79,7 +80,8 @@ describe("plan model", () => {
       ])
     );
 
-    expect(model.steps.map(stepHasDetail)).toEqual([true, false, true, true, true]);
+    // A blocked step's reason is always on its row, so being blocked reveals nothing more.
+    expect(model.steps.map(stepHasDetail)).toEqual([true, false, true, false, true]);
     expect(stepHasDetail(derivePlan(plan([step("solo", "now")])).steps[0]!)).toBe(false);
   });
 
@@ -225,25 +227,40 @@ describe("PlanTimeline full", () => {
     });
   });
 
-  test("a blocked step's reason is always visible — under its row, or in its detail when open", () => {
-    const view = render(<PlanTimeline block={fixture} />);
+  test("a blocked step's reason is one stable line under its row, open or not", () => {
+    const view = render(
+      <PlanTimeline
+        block={plan([
+          step("a", "now"),
+          step("b", "blocked", { label: "Audio", note: "Awaiting sign-off", dependsOn: ["a"] }),
+        ])}
+      />
+    );
+    const reason = view.getByText("Awaiting sign-off");
+    const line = reason.parentElement!;
 
-    expect(within(indexOf(view)).getAllByText("Awaiting TTS UX sign-off")).toHaveLength(1);
-    expect(view.queryByText("Why blocked")).toBeNull();
-
-    fireEvent.click(rowButton(view, /Audio Phase 2/));
-    expect(within(openRegion(view)!).getByText("Why blocked")).toBeTruthy();
-    expect(within(openRegion(view)!).getByText("Awaiting TTS UX sign-off")).toBeTruthy();
-    expect(view.getAllByText("Awaiting TTS UX sign-off")).toHaveLength(1);
+    expect(line.textContent).toBe("Why blocked Awaiting sign-off");
+    expect(line.closest('[role="region"]')).toBeNull();
+    // Opening the row unfolds its detail below the reason; the reason itself is never swapped.
+    fireEvent.click(rowButton(view, /Audio/));
+    expect(openRegion(view)?.textContent).not.toContain("Awaiting sign-off");
+    expect(view.getByText("Awaiting sign-off")).toBe(reason);
   });
 
-  test("a blocked step with no note says no reason was given", () => {
+  test("a blocked step whose only detail is its reason is a plain row that still says why", () => {
+    const fixtureView = render(<PlanTimeline block={fixture} />);
+    const audio = rowsOf(fixtureView)[3]!;
+
+    expect(within(audio).queryByRole("button")).toBeNull();
+    expect(within(audio).getByText("Why blocked")).toBeTruthy();
+    expect(within(audio).getByText("Awaiting TTS UX sign-off")).toBeTruthy();
+    cleanup();
+
     const view = render(<PlanTimeline block={plan([step("a", "blocked")])} />);
 
     expect(view.getByText("Why blocked")).toBeTruthy();
     expect(view.getByText("No reason given.")).toBeTruthy();
-    fireEvent.click(rowButton(view, /Label a/));
-    expect(view.getByText("No reason given.")).toBeTruthy();
+    expect(view.container.querySelector("button")).toBeNull();
   });
 
   test("one step open at a time; the open row closes on a second press; only view state changes", () => {
@@ -320,7 +337,13 @@ describe("PlanTimeline full", () => {
 
   test("with no current step the open step is what needs attention", () => {
     const withBlocked = render(
-      <PlanTimeline block={plan([step("a", "done"), step("b", "next"), step("c", "blocked")])} />
+      <PlanTimeline
+        block={plan([
+          step("a", "done"),
+          step("b", "next"),
+          step("c", "blocked", { dependsOn: ["b"] }),
+        ])}
+      />
     );
 
     expect(withBlocked.getByText(/none marked now/)).toBeTruthy();
@@ -437,5 +460,197 @@ describe("PlanTimeline morph contract", () => {
     expect(view.container.querySelector('[data-morph-id="step-b"]')?.textContent).toBe(
       "Blocked: Waiting on legal"
     );
+  });
+});
+
+/* ── Typography and motion contracts (Plan.module.css) ─────────────────────── */
+
+const PLAN_CSS = readFileSync(
+  join(process.cwd(), "components/chat/gen-ui/plan/Plan.module.css"),
+  "utf8"
+).replace(/\/\*[\s\S]*?\*\//g, "");
+
+/** Top-level blocks of a stylesheet (rules and at-rules) as prelude + raw body. */
+function cssBlocks(source: string) {
+  const blocks: { prelude: string; body: string }[] = [];
+  let depth = 0;
+  let preludeStart = 0;
+  let bodyStart = 0;
+  let prelude = "";
+
+  for (let i = 0; i < source.length; i += 1) {
+    const char = source[i];
+
+    if (char === "{") {
+      if (depth === 0) {
+        prelude = source.slice(preludeStart, i).trim();
+        bodyStart = i + 1;
+      }
+      depth += 1;
+    } else if (char === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        blocks.push({ prelude, body: source.slice(bodyStart, i) });
+        preludeStart = i + 1;
+      }
+    }
+  }
+
+  return blocks;
+}
+
+/** Declarations of every top-level rule whose selector list names `.local` on its own. */
+function declarationsOf(local: string): string {
+  return cssBlocks(PLAN_CSS)
+    .filter(({ prelude }) => prelude.split(",").some((selector) => selector.trim() === `.${local}`))
+    .map(({ body }) => body)
+    .join(";");
+}
+
+function declares(local: string, property: string): boolean {
+  return new RegExp(`(^|[;{\\s])${property}\\s*:`).test(declarationsOf(local));
+}
+
+/** Source of a Plan component (the test runner stubs CSS-module class names to nothing). */
+function planSource(file: string): string {
+  return readFileSync(join(process.cwd(), "components/chat/gen-ui", file), "utf8");
+}
+
+const PLAN_SOURCES = [
+  "blocks/PlanTimeline.tsx",
+  "plan/PlanFacts.tsx",
+  "plan/PlanFocus.tsx",
+  "plan/PlanIndex.tsx",
+  "plan/PlanLinks.tsx",
+  "plan/PlanReason.tsx",
+  "plan/PlanSubsteps.tsx",
+  "plan/PlanSummary.tsx",
+  "plan/plan-status.tsx",
+];
+
+describe("PlanTimeline typography", () => {
+  test("'Why blocked' and its reason are one line in one type role", () => {
+    const view = render(<PlanTimeline block={fixture} />);
+    const label = view.getByText("Why blocked");
+    const reason = view.getByText("Awaiting TTS UX sign-off");
+
+    // One <p>, two inline halves that wrap together as prose.
+    expect(label.parentElement).toBe(reason.parentElement);
+    expect(label.parentElement?.tagName).toBe("P");
+    expect([label.tagName, reason.tagName]).toEqual(["SPAN", "SPAN"]);
+
+    const source = planSource("plan/PlanReason.tsx");
+
+    expect(source).toMatch(/<p className=\{styles\.reason\}>/);
+    expect(source).toMatch(/className=\{styles\.leadLabel\}>Why blocked</);
+    expect(source).toMatch(/className=\{styles\.leadText\}/);
+    // The line owns size and leading; the two halves set neither, so they cannot drift apart.
+    expect(declares("reason", "font-size")).toBe(true);
+    expect(declares("reason", "line-height")).toBe(true);
+    for (const half of ["leadLabel", "leadText", "leadMissing"]) {
+      expect(declares(half, "font-size")).toBe(false);
+      expect(declares(half, "line-height")).toBe(false);
+    }
+  });
+
+  test("labelled facts use the same lead-in pair as the reason", () => {
+    const view = render(
+      <PlanTimeline block={plan([step("a", "now", { time: "6 PM", estimate: "20 min" })])} />
+    );
+    const term = within(openRegion(view)!).getByText("Estimate");
+
+    expect(term.tagName).toBe("DT");
+    expect(term.nextElementSibling?.textContent).toBe("20 min");
+
+    const source = planSource("plan/PlanFacts.tsx");
+
+    expect(source.match(/<dt className=\{styles\.leadLabel\}>/g)).toHaveLength(2);
+    expect(source.match(/<dd className=\{styles\.leadText\}>/g)).toHaveLength(2);
+    expect(declares("facts", "font-size")).toBe(true);
+    expect(declares("facts", "line-height")).toBe(true);
+  });
+
+  test("every paragraph in the card sets its own size and leading (globals.css styles bare <p>)", () => {
+    const paragraphs = PLAN_SOURCES.flatMap((file) =>
+      [...planSource(file).matchAll(/<p\b[^>]*>/g)].map((match) => ({ file, tag: match[0] }))
+    );
+
+    expect(paragraphs.length).toBeGreaterThan(4);
+    for (const { file, tag } of paragraphs) {
+      const local = /className=\{styles\.(\w+)\}/.exec(tag)?.[1];
+
+      expect({ file, tag, local: local ?? null }).toEqual({ file, tag, local: expect.any(String) });
+      expect({ local, size: declares(local!, "font-size") }).toEqual({ local, size: true });
+      expect({ local, leading: declares(local!, "line-height") }).toEqual({ local, leading: true });
+    }
+    // And the card resets bare <p>/<li> at element specificity, so no class loses to the global.
+    expect(PLAN_CSS).toMatch(/\.root\s*:where\(p,\s*li\)\s*{[^}]*font-size:\s*inherit/);
+  });
+});
+
+describe("PlanTimeline motion", () => {
+  test("a step's detail stays mounted and folds: inert and hidden from AT while closed", () => {
+    const view = render(<PlanTimeline block={fixture} />);
+    const gallery = rowButton(view, /Sandbox gallery/);
+    const wiring = rowButton(view, /Arcadia tool wiring/);
+    const foldOf = (button: HTMLElement) =>
+      document.getElementById(button.getAttribute("aria-controls")!)!.closest("[data-shown]")!;
+
+    expect(gallery.getAttribute("aria-expanded")).toBe("true");
+    expect(foldOf(gallery).getAttribute("data-shown")).toBe("true");
+    expect(foldOf(gallery).hasAttribute("inert")).toBe(false);
+    expect(foldOf(gallery).hasAttribute("aria-hidden")).toBe(false);
+    expect(wiring.getAttribute("aria-expanded")).toBe("false");
+    expect(foldOf(wiring).getAttribute("data-shown")).toBe("false");
+    expect(foldOf(wiring).hasAttribute("inert")).toBe(true);
+    expect(foldOf(wiring).getAttribute("aria-hidden")).toBe("true");
+
+    // Swapping is synchronous — no timers — so reduced motion (no CSS transition) is instant.
+    fireEvent.click(wiring);
+    expect(wiring.getAttribute("aria-expanded")).toBe("true");
+    expect(foldOf(wiring).hasAttribute("inert")).toBe(false);
+    expect(foldOf(gallery).hasAttribute("inert")).toBe(true);
+    expect(foldOf(gallery).getAttribute("aria-hidden")).toBe("true");
+    expect(view.queryAllByRole("region")).toHaveLength(1);
+    // The collapsed row's summary line folds the opposite way and is never read twice.
+    const galleryMeta = within(rowsOf(view)[1]!).getByText("1 of 2 sub-steps done");
+
+    expect(galleryMeta.closest("[data-shown]")?.getAttribute("data-shown")).toBe("true");
+    expect(within(rowsOf(view)[2]!).queryByText("Needs 02")?.closest("[aria-hidden]")).toBeTruthy();
+  });
+
+  test("status and summary changes are marked for a one-off settle, never on first paint", () => {
+    const steps = (third: PlanTimelineStep["status"]) =>
+      plan([step("a", "done"), step("b", "now", { note: "x" }), step("c", third, { note: "Wait" })]);
+    const view = render(<PlanTimeline block={steps("next")} />);
+
+    expect(view.container.querySelectorAll("[data-changed]")).toHaveLength(0);
+    view.rerender(<PlanTimeline block={steps("blocked")} />);
+    const third = rowsOf(view)[2]!;
+
+    expect(third.getAttribute("data-changed")).toBe("true");
+    expect(within(third).getByText("Why blocked")).toBeTruthy();
+    expect(rowsOf(view)[1]!.hasAttribute("data-changed")).toBe(false);
+    expect(view.getByText("1 of 3 steps done · 1 now · 1 blocked").getAttribute("data-changed")).toBe(
+      "true"
+    );
+  });
+
+  test("every transition and animation sits behind prefers-reduced-motion: no-preference", () => {
+    const blocks = cssBlocks(PLAN_CSS);
+    const motion = blocks.filter(({ prelude }) =>
+      /prefers-reduced-motion:\s*no-preference/.test(prelude)
+    );
+    const rest = blocks
+      .filter((block) => !motion.includes(block))
+      .map(({ body }) => body)
+      .join("\n");
+
+    expect(motion).toHaveLength(1);
+    expect(rest).not.toMatch(/(^|[;{\s])(transition|animation)[a-z-]*\s*:/);
+    // The fold animates height and opacity on the shared ease; nothing loops.
+    expect(motion[0]!.body).toMatch(/grid-template-rows var\(--plan-enter\) var\(--plan-ease\)/);
+    expect(PLAN_CSS).not.toMatch(/infinite/);
+    expect(PLAN_CSS).toMatch(/--plan-ease:\s*cubic-bezier\(0\.23, 1, 0\.32, 1\)/);
   });
 });

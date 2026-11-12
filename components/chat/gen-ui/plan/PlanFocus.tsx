@@ -20,9 +20,9 @@ type PlanFocusProps = {
 };
 
 /**
- * The open step's detail, in place under its row: why it is blocked (or its note), the estimate
- * when the time rail is already taken, its checklist, and what it depends on / what needs it.
- * Nothing the collapsed row already shows is repeated here.
+ * A step's detail, in place under its row: its note, the estimate when the time rail is already
+ * taken, its checklist, and what it depends on / what needs it. Nothing the collapsed row already
+ * shows is repeated here. PlanIndex keeps it mounted and folds it open or shut.
  */
 export function PlanFocus({ id, labelledBy, plan, view, onSelect }: PlanFocusProps) {
   const uid = useId();
@@ -35,16 +35,8 @@ export function PlanFocus({ id, labelledBy, plan, view, onSelect }: PlanFocusPro
       {/* The row's rail shows the time, or the estimate when there is no time. */}
       <PlanFacts estimate={step.time ? step.estimate : undefined} />
 
-      {step.status === "blocked" ? (
-        <p className={styles.why}>
-          <span className={styles.whyLabel}>Why blocked</span>{" "}
-          {step.note ? (
-            <GenUIMarkdown inline>{step.note}</GenUIMarkdown>
-          ) : (
-            <span className={styles.reasonMissing}>No reason given.</span>
-          )}
-        </p>
-      ) : step.note ? (
+      {/* A blocked step's note is its reason, which sits above this detail (PlanReason). */}
+      {step.note && step.status !== "blocked" ? (
         <p className={styles.note}>
           <GenUIMarkdown inline>{step.note}</GenUIMarkdown>
         </p>

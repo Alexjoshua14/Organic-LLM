@@ -5,6 +5,7 @@ import type { PlanTimelineBlock } from "@/lib/schemas/gen-ui";
 import { useMemo, useState } from "react";
 
 import { PlanIndex } from "../plan/PlanIndex";
+import { PlanSummary } from "../plan/PlanSummary";
 import { PlanTally } from "../plan/PlanTally";
 import { describeTally, derivePlan, pickOpenIndex, type PlanModel } from "../plan/plan-model";
 import { PlanStatusMark, PlanStatusWord } from "../plan/plan-status";
@@ -29,7 +30,7 @@ function CondensedPlan({ block, plan }: { block: PlanTimelineBlock; plan: PlanMo
           {block.title}
         </p>
         <PlanTally morphId="plan-progress" statuses={block.steps.map((step) => step.status)} />
-        <p className={styles.summary}>{describeTally(plan.tally)}</p>
+        <PlanSummary text={describeTally(plan.tally)} />
         {lead ? (
           <p
             className={styles.condensedLead}
@@ -79,7 +80,7 @@ function FullPlan({
             morphId={morphIds ? "plan-progress" : undefined}
             statuses={block.steps.map((step) => step.status)}
           />
-          <p className={styles.summary}>{describeTally(plan.tally)}</p>
+          <PlanSummary text={describeTally(plan.tally)} />
         </div>
       </header>
 
