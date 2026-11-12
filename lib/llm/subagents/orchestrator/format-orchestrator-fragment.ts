@@ -92,7 +92,7 @@ export function formatOrchestratorFragment(args: {
       maxDispatchesPerTurn,
       args.autonomousStop
     )}`,
-    "- After dispatching, tell the user briefly who is doing what. Do not do delegated work inline.",
+    "- After dispatching, don't recap who is doing what: the user sees each assignment and its status. Add at most one sentence about anything they need beyond that. Do not do delegated work inline.",
     "Roster:",
     ...roster,
     "",
