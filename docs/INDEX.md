@@ -53,7 +53,7 @@ Canon for the product: what we're building, who owns which kind of truth, how ag
 - [Sidebar session signals](./design/sidebar-session-signals.md) — experience glyphs, working / new signals, gaze hierarchy
   - [Code blocks](./design/code-blocks.md) — default fenced-code block, palettes, highlighting
   - [Focus feedback](./design/focus-feedback.md) — Lumen-based keyboard focus and shared control defaults
-- [⌘K launcher](./design/launcher.md) — idea switcher: homepage input, recent-idea cards, in-memory cues
+  - [⌘K launcher](./design/launcher.md) — idea switcher: homepage input, recent-idea cards, in-memory cues
   - [Spacing](./design/spacing.md) — stack/gap/inset tokens, card density
   - [Switches & quick settings](./design/switches-and-quick-settings.md) — shared glass switches and compact caption popovers
   - [Context usage](./design/context-usage.md) — composer charts, source colors, percentage ramp, hover labels
