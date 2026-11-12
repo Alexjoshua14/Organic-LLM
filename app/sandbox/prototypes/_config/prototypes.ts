@@ -32,6 +32,18 @@ export type PrototypeEntry = {
 
 export const prototypes: PrototypeEntry[] = [
   {
+    slug: "loading-pages",
+    title: "Loading pages",
+    description: "Full-screen startup and chat loading previews, held open for review.",
+    about: {
+      what: "The production startup surface with liquid chrome and a large working Organic Agent, alongside the existing chat-route loading state.",
+      authorThoughts:
+        "The loader should show off liquid chrome and the Organic Agent, front and center, decently large, in its working state.",
+      howToUse:
+        "Switch between App startup and Chat. Review at phone and desktop sizes in light and dark themes; system Reduce Motion is honored. These previews stay visible without adding any delay to real loading.",
+    },
+  },
+  {
     slug: "session-glyphs",
     title: "Session glyphs",
     description:

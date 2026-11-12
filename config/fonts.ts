@@ -1,24 +1,30 @@
 import { Fira_Code as FontMono, Inter, Commissioner } from "next/font/google";
 import localFont from "next/font/local";
 
+// Root font variables must not eagerly preload every family and weight.
+// CSS still loads the faces used by visible text, with swap fallbacks.
 export const fontMono = FontMono({
   subsets: ["latin"],
+  preload: false,
   variable: "--font-mono",
 });
 
 export const fontInter = Inter({
   subsets: ["latin"],
+  preload: false,
   variable: "--font-inter",
 });
 
 export const fontCommissioner = Commissioner({
   subsets: ["latin"],
+  preload: false,
   weight: "variable",
   axes: ["FLAR", "VOLM", "slnt"],
   variable: "--font-commissioner",
 });
 
 export const fontSatoshi = localFont({
+  preload: false,
   src: [
     {
       path: "../public/fonts/Satoshi-Light.woff2",
