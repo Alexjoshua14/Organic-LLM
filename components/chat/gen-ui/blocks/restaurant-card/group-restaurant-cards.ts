@@ -1,7 +1,7 @@
 import type { RestaurantCardBlock } from "@/lib/schemas/gen-ui/restaurant-card";
 
 import { RENDER_GEN_UI_TOOL_NAME } from "@/lib/llm/gen-ui-tool";
-import { GATHER_RESTAURANT_TOOL_NAME } from "@/lib/llm/restaurant-tool";
+import { GATHER_RESTAURANT_TOOL_NAME } from "@/lib/restaurant/tool-name";
 import { extractGenUIBlockFromToolOutput, safeParseGenUIBlock } from "@/lib/schemas/gen-ui";
 
 /**
