@@ -11,6 +11,8 @@ import { DiffLineRow } from "./DiffLineRow";
 import styles from "./Diff.module.css";
 
 import { languageForPath } from "@/components/shared/code-highlight";
+import { CodeCopyButton, CodeShowAllButton } from "@/components/shared/code/code-actions";
+import { CodeReader, useCodeReader } from "@/components/shared/code/code-reader";
 import { CodeScroll, CodeSurface } from "@/components/shared/code/code-surface";
 import { CodeTable } from "@/components/shared/code/code-table";
 
@@ -24,6 +26,12 @@ type DiffFileBodyProps = {
   id: string;
 };
 
+/**
+ * On a phone the inline diff is a glance: past this many rows it is capped (the same number as in
+ * code/code.module.css) and the file opens in the reader. Counted from the rows, never the viewport.
+ */
+const GLANCE_ROWS = 14;
+
 /** Text that was not a diff is shown, not guessed at. */
 const PLAIN_TEXT_CHARS = 10_000;
 
@@ -36,8 +44,10 @@ export function DiffFileBody({ file, id, wrap = false, autoWrap = false }: DiffF
   const view = useMemo(() => buildFileView(file), [file]);
   const language = useMemo(() => languageForPath(file.path), [file.path]);
   const [unfolded, setUnfolded] = useState<ReadonlySet<string>>(() => new Set());
+  const reader = useCodeReader();
   const parsed = file.parsed;
   const hasRows = view.rows.length > 0;
+  const capped = view.rows.length > GLANCE_ROWS;
   const columns = 2 + (view.showOld ? 1 : 0) + (view.showNew ? 1 : 0);
 
   function toggleFold(key: string) {
@@ -50,6 +60,60 @@ export function DiffFileBody({ file, id, wrap = false, autoWrap = false }: DiffF
       return next;
     });
   }
+
+  const table = (
+    <CodeTable caption={`Changed lines in ${displayText(file.path)}`}>
+      {view.rows.map((row) => {
+        if (row.type === "hunk") {
+          return <DiffHunkHead key={row.key} columns={columns} row={row} />;
+        }
+
+        if (row.type === "gap") {
+          return <DiffGap key={row.key} columns={columns} row={row} />;
+        }
+
+        if (row.type === "fold") {
+          const open = unfolded.has(row.key);
+
+          return (
+            <Fragment key={row.key}>
+              <DiffFoldToggle
+                columns={columns}
+                count={row.lines.length}
+                expanded={open}
+                onToggle={() => toggleFold(row.key)}
+              />
+              {open
+                ? row.lines.map((line) => (
+                    <DiffLineRow
+                      key={line.id}
+                      annotations={[]}
+                      columns={columns}
+                      language={language}
+                      line={line}
+                      showNew={view.showNew}
+                      showOld={view.showOld}
+                    />
+                  ))
+                : null}
+            </Fragment>
+          );
+        }
+
+        return (
+          <DiffLineRow
+            key={row.key}
+            annotations={row.annotations}
+            columns={columns}
+            language={language}
+            line={row.line}
+            showNew={view.showNew}
+            showOld={view.showOld}
+          />
+        );
+      })}
+    </CodeTable>
+  );
 
   const plain = parsed && !parsed.recognized ? (parsed.plainText ?? "") : null;
   const plainShown =
@@ -92,61 +156,45 @@ export function DiffFileBody({ file, id, wrap = false, autoWrap = false }: DiffF
       ) : null}
 
       {hasRows ? (
-        <CodeSurface autoWrap={autoWrap} wrap={wrap}>
-          <CodeScroll digits={view.digits} label={`Diff of ${displayText(file.path)}`}>
-            <CodeTable caption={`Changed lines in ${displayText(file.path)}`}>
-              {view.rows.map((row) => {
-                if (row.type === "hunk") {
-                  return <DiffHunkHead key={row.key} columns={columns} row={row} />;
-                }
-
-                if (row.type === "gap") {
-                  return <DiffGap key={row.key} columns={columns} row={row} />;
-                }
-
-                if (row.type === "fold") {
-                  const open = unfolded.has(row.key);
-
-                  return (
-                    <Fragment key={row.key}>
-                      <DiffFoldToggle
-                        columns={columns}
-                        count={row.lines.length}
-                        expanded={open}
-                        onToggle={() => toggleFold(row.key)}
-                      />
-                      {open
-                        ? row.lines.map((line) => (
-                            <DiffLineRow
-                              key={line.id}
-                              annotations={[]}
-                              columns={columns}
-                              language={language}
-                              line={line}
-                              showNew={view.showNew}
-                              showOld={view.showOld}
-                            />
-                          ))
-                        : null}
-                    </Fragment>
-                  );
-                }
-
-                return (
-                  <DiffLineRow
-                    key={row.key}
-                    annotations={row.annotations}
-                    columns={columns}
-                    language={language}
-                    line={row.line}
-                    showNew={view.showNew}
-                    showOld={view.showOld}
+        <>
+          <CodeSurface
+            autoWrap={autoWrap}
+            data-capped={capped || undefined}
+            data-glance="true"
+            wrap={wrap}
+          >
+            <CodeScroll digits={view.digits} label={`Diff of ${displayText(file.path)}`}>
+              {table}
+            </CodeScroll>
+            {capped ? (
+              <CodeShowAllButton onClick={reader.show}>Open the full diff</CodeShowAllButton>
+            ) : null}
+          </CodeSurface>
+          {capped ? (
+            <CodeReader
+              copy={
+                file.diffText ? (
+                  <CodeCopyButton
+                    showLabel
+                    announce={{ copied: "Diff copied", failed: "Could not copy the diff" }}
+                    ariaLabel={`Copy diff of ${displayText(file.path)}`}
+                    label="Copy diff"
+                    text={file.diffText}
                   />
-                );
-              })}
-            </CodeTable>
-          </CodeScroll>
-        </CodeSurface>
+                ) : null
+              }
+              digits={view.digits}
+              label={`Diff of ${displayText(file.path)}`}
+              meta={file.countsKnown ? `+${file.added} −${file.removed}` : undefined}
+              open={reader.open}
+              opener={reader.opener}
+              title={displayText(file.path)}
+              onOpenChange={reader.setOpen}
+            >
+              <div className={styles.readerScope}>{table}</div>
+            </CodeReader>
+          ) : null}
+        </>
       ) : null}
 
       {view.hiddenLines > 0 ? (

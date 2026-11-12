@@ -1,8 +1,8 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { MouseEvent, ReactNode } from "react";
 
-import { Check, Copy, TriangleAlert, WrapText } from "lucide-react";
+import { Check, ChevronDown, Copy, Maximize2, TriangleAlert, WrapText } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import styles from "./code.module.css";
@@ -24,6 +24,8 @@ type CodeCopyButtonProps = {
   /** What assistive tech hears when the copy finishes. */
   announce?: { copied: string; failed: string };
   disabled?: boolean;
+  /** Keep the text label on a phone, where the icon alone is the default (a roomy toolbar). */
+  showLabel?: boolean;
 };
 
 const DEFAULT_ANNOUNCE = { copied: "Code copied", failed: "Could not copy the code" };
@@ -38,6 +40,7 @@ export function CodeCopyButton({
   ariaLabel,
   announce = DEFAULT_ANNOUNCE,
   disabled = false,
+  showLabel = false,
 }: CodeCopyButtonProps) {
   const [state, setState] = useState<CopyState>("idle");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -64,6 +67,7 @@ export function CodeCopyButton({
       <button
         aria-label={state === "idle" ? ariaLabel : undefined}
         className={cn(styles.action, styles.copy, "organic-focus")}
+        data-labelled={showLabel ? "" : undefined}
         disabled={disabled}
         type="button"
         onClick={() => void copy()}
@@ -91,14 +95,23 @@ type CodeWrapButtonProps = {
   onToggle: () => void;
   /** An icon button in a code header, or a text button in a toolbar. */
   variant?: "icon" | "text";
+  /** Leave it out of an inline phone header: the reader owns wrapping there. */
+  wideOnly?: boolean;
+  className?: string;
 };
 
-export function CodeWrapButton({ pressed, onToggle, variant = "icon" }: CodeWrapButtonProps) {
+export function CodeWrapButton({
+  pressed,
+  onToggle,
+  variant = "icon",
+  wideOnly = false,
+  className,
+}: CodeWrapButtonProps) {
   return (
     <button
       aria-label={variant === "icon" ? "Wrap lines" : undefined}
       aria-pressed={pressed}
-      className={cn(styles.action, "organic-focus")}
+      className={cn(styles.action, wideOnly && styles.wideOnly, "organic-focus", className)}
       title="Wrap lines"
       type="button"
       onClick={onToggle}
@@ -109,11 +122,53 @@ export function CodeWrapButton({ pressed, onToggle, variant = "icon" }: CodeWrap
   );
 }
 
+/** Opens the reader. Phones only: a wide screen already shows the whole block. */
+export function CodeExpandButton({
+  onClick,
+  label,
+}: {
+  onClick: (event: MouseEvent<HTMLButtonElement>) => void;
+  label: string;
+}) {
+  return (
+    <button
+      aria-label={label}
+      className={cn(styles.action, styles.phoneOnly, "organic-focus")}
+      title={label}
+      type="button"
+      onClick={onClick}
+    >
+      <Maximize2 size={14} aria-hidden />
+    </button>
+  );
+}
+
+/** The foot of a capped glance: how much is hidden, and the way to read it. Phones only. */
+export function CodeShowAllButton({
+  onClick,
+  children,
+}: {
+  onClick: (event: MouseEvent<HTMLButtonElement>) => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      className={cn(styles.action, styles.more, styles.phoneOnly, "organic-focus")}
+      type="button"
+      onClick={onClick}
+    >
+      {children}
+      <ChevronDown size={14} aria-hidden />
+    </button>
+  );
+}
+
 /** The row of header actions, right-aligned by its parent. */
 export function CodeActions({ children }: { children: ReactNode }) {
   return <div className={styles.actions}>{children}</div>;
 }
 
-export function CodeActionDivider() {
-  return <span aria-hidden className={styles.divider} />;
+/** `wideOnly`: drop it on a phone, where it would sit beside only one control. */
+export function CodeActionDivider({ wideOnly = false }: { wideOnly?: boolean }) {
+  return <span aria-hidden className={cn(styles.divider, wideOnly && styles.wideOnly)} />;
 }

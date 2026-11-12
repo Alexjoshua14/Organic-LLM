@@ -53,6 +53,10 @@
     flex: 1 1 auto;
     overflow: hidden;
   }
+  /* The file icon is decoration; the language name says it. */
+  .identity svg {
+    display: none;
+  }
   .language,
   .meta {
     min-width: 0;

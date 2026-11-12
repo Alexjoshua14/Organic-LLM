@@ -15,8 +15,11 @@ import {
   CodeActionDivider,
   CodeActions,
   CodeCopyButton,
+  CodeExpandButton,
+  CodeShowAllButton,
   CodeWrapButton,
 } from "./code/code-actions";
+import { CodeReader, useCodeReader } from "./code/code-reader";
 import { CodeScroll, CodeSurface } from "./code/code-surface";
 import { CodePlain } from "./code/code-table";
 import { useCodeWrap } from "./code/use-code-wrap";
@@ -46,6 +49,12 @@ const LINE_NUMBER_THRESHOLD = 5;
  * has been still for HIGHLIGHT_SETTLE_MS. A block that mounts already complete highlights at once.
  */
 const HIGHLIGHT_EAGER_LINES = 60;
+/**
+ * On a phone the inline block is a glance: past this many lines it is capped (see the phone block
+ * in code/code.module.css, which carries the same number) and the rest is read in the reader.
+ * Decided from the content, never the viewport, so it renders the same on the server.
+ */
+const GLANCE_LINES = 14;
 const HIGHLIGHT_SETTLE_MS = 150;
 
 type ExtractedCode = { text: string; language: string | undefined };
@@ -92,6 +101,7 @@ export function CodeBlock({
   const { wrapped, surface, toggle: toggleWrap } = useCodeWrap(wrap);
   const rawCode = extracted?.text ?? "";
   const [settledCode, setSettledCode] = useState(rawCode);
+  const reader = useCodeReader();
 
   useEffect(() => {
     if (settledCode === rawCode) return;
@@ -110,44 +120,79 @@ export function CodeBlock({
   const settling = lineCount > HIGHLIGHT_EAGER_LINES && settledCode !== rawCode;
   const highlightLanguage = settling ? undefined : extracted?.language;
   const highlighted = !large && resolveHighlightLanguage(highlightLanguage) !== undefined;
+  const lineWord = lineCount === 1 ? "line" : "lines";
+  // Short snippets stay a glance with nothing to open; the reader starts where line numbers do.
+  const readable = extracted !== null && lineCount >= LINE_NUMBER_THRESHOLD;
+  const capped = readable && lineCount > GLANCE_LINES;
 
   return (
-    <CodeSurface
-      className={cn(className, containerClassName)}
-      data-highlighted={highlighted}
-      {...surface}
-    >
-      <div className={styles.header}>
-        <span className={styles.identity}>
-          <FileCode2 size={14} aria-hidden />
-          <span className={styles.language}>{label}</span>
-          {lineCount > 1 && (
-            <span className={styles.meta}>
-              · {lineCount.toLocaleString("en-US")} lines
-              {large ? " · plain text, block too large to color" : ""}
-            </span>
-          )}
-        </span>
-        <div className={styles.headerActions}>
-          <CodeActions>
-            <CodeWrapButton pressed={wrapped} onToggle={toggleWrap} />
-            <CodeActionDivider />
-            <CodeCopyButton ariaLabel="Copy code" disabled={!extracted} text={rawCode} />
-          </CodeActions>
+    <>
+      <CodeSurface
+        className={cn(className, containerClassName)}
+        data-capped={capped || undefined}
+        data-glance="true"
+        data-highlighted={highlighted}
+        {...surface}
+      >
+        <div className={styles.header}>
+          <span className={styles.identity}>
+            <FileCode2 size={14} aria-hidden />
+            <span className={styles.language}>{label}</span>
+            {lineCount > 1 && (
+              <span className={styles.meta}>
+                · {lineCount.toLocaleString("en-US")} lines
+                {large ? " · plain text, block too large to color" : ""}
+              </span>
+            )}
+          </span>
+          <div className={styles.headerActions}>
+            <CodeActions>
+              <CodeWrapButton wideOnly pressed={wrapped} onToggle={toggleWrap} />
+              {readable ? (
+                <CodeExpandButton
+                  label={`Open ${label} code in the reader`}
+                  onClick={reader.show}
+                />
+              ) : null}
+              <CodeActionDivider wideOnly={!readable} />
+              <CodeCopyButton ariaLabel="Copy code" disabled={!extracted} text={rawCode} />
+            </CodeActions>
+          </div>
         </div>
-      </div>
-      <CodeScroll digits={String(lineCount).length} focusable={!wrapped} label={`${label} code`}>
-        {extracted ? (
-          <CodeLines
-            code={rawCode}
-            language={highlightLanguage}
-            showLineNumbers={lineCount >= LINE_NUMBER_THRESHOLD}
-          />
-        ) : (
-          <CodePlain>{children}</CodePlain>
-        )}
-      </CodeScroll>
-    </CodeSurface>
+        <CodeScroll digits={String(lineCount).length} focusable={!wrapped} label={`${label} code`}>
+          {extracted ? (
+            <CodeLines
+              code={rawCode}
+              language={highlightLanguage}
+              showLineNumbers={lineCount >= LINE_NUMBER_THRESHOLD}
+            />
+          ) : (
+            <CodePlain>{children}</CodePlain>
+          )}
+        </CodeScroll>
+        {capped ? (
+          <CodeShowAllButton onClick={reader.show}>
+            Show all {lineCount.toLocaleString("en-US")} {lineWord}
+          </CodeShowAllButton>
+        ) : null}
+      </CodeSurface>
+      {readable ? (
+        <CodeReader
+          copy={
+            <CodeCopyButton showLabel ariaLabel="Copy code" disabled={!extracted} text={rawCode} />
+          }
+          digits={String(lineCount).length}
+          label={`${label} code`}
+          meta={`${lineCount.toLocaleString("en-US")} ${lineWord}`}
+          open={reader.open}
+          opener={reader.opener}
+          title={label}
+          onOpenChange={reader.setOpen}
+        >
+          <CodeLines code={rawCode} language={highlightLanguage} showLineNumbers />
+        </CodeReader>
+      ) : null}
+    </>
   );
 }
 

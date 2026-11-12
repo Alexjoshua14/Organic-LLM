@@ -25,6 +25,18 @@
   line-height: 1.5;
 }
 
+/* The diff reader renders in a portal, outside .root: it carries the same tokens, nothing else. */
+.readerScope {
+  --diff-pad-x: var(--spacing-inset-sm);
+  --diff-pad-y: var(--spacing-stack-sm);
+  --diff-line: 1.25rem;
+  --diff-hover: color-mix(in oklab, var(--muted) 55%, transparent);
+  --diff-add-tone: color-mix(in oklab, var(--accent) 62%, var(--foreground));
+  --diff-del-tone: color-mix(in oklab, var(--destructive) 68%, var(--foreground));
+
+  display: contents;
+}
+
 @media (pointer: coarse) {
   .root {
     --diff-pad-y: var(--spacing-stack-md);
@@ -519,5 +531,27 @@ button.toggle:focus-visible .pathBase {
 
   .chevron {
     transition: transform 120ms ease-out;
+  }
+}
+
+/*
+ * Phone: the same facts, quieter. The status word is spoken but not drawn (the mark, the tint and
+ * the counts already say it), and a hunk head is a slim divider rather than a bar.
+ */
+@media (max-width: 40rem) {
+  .statusWord {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .hunkHead > td {
+    padding-block: 2px;
+    background: transparent;
+    border-block: 1px solid color-mix(in oklab, var(--code-border) 65%, transparent);
+    font-size: 0.6875rem;
   }
 }

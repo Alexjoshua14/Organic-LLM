@@ -5,7 +5,8 @@
  */
 
 .surface {
-  --code-line: 20.8px;
+  --code-size: 13px;
+  --code-line: calc(var(--code-size) * 1.6);
   --code-mono:
     var(--font-mono, "Fira Code"), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   position: relative;
@@ -51,7 +52,7 @@
   min-width: 100%;
   border-collapse: collapse;
   color: var(--code-foreground);
-  font: 13px / var(--code-line) var(--code-mono);
+  font: var(--code-size) / var(--code-line) var(--code-mono);
   tab-size: 4;
 }
 .surface[data-wrap="true"] .table {
@@ -71,7 +72,7 @@
   min-width: calc(var(--code-digits, 2) * 1ch + 1rem);
   padding: 0 8px;
   color: color-mix(in oklab, var(--code-muted-foreground) 75%, transparent);
-  font-size: 0.6875rem;
+  font-size: 0.846em;
   font-variant-numeric: tabular-nums;
   text-align: right;
   white-space: nowrap;
@@ -151,7 +152,7 @@
 .plain {
   margin: 0;
   padding: 14px 16px;
-  font: 13px / var(--code-line) var(--code-mono);
+  font: var(--code-size) / var(--code-line) var(--code-mono);
   white-space: pre;
 }
 .surface[data-wrap="true"] .plain {
@@ -210,16 +211,24 @@
   min-width: 0;
 }
 
+/* Phone-only controls (Expand, Show all) are absent elsewhere; the phone block turns them on. */
+.phoneOnly {
+  display: none;
+}
+
 /*
  * Phones. Wrapping is the default here (data-wrap="auto", set until the reader chooses): the
  * same wrapped rules as data-wrap="true", repeated because a media query cannot sit inside a
- * selector. The query matches CODE_NARROW_QUERY in use-code-wrap.ts. Type, gutters and padding
- * come down a step so a 25-column screen carries more of each line, and header controls stay
- * touchable.
+ * selector. The query matches CODE_NARROW_QUERY in use-code-wrap.ts.
+ *
+ * The inline block is a glance, not a miniature editor: no line-number gutter (data-glance), a
+ * height cap with a fade (data-capped), and an Expand control that opens the reader, where line
+ * numbers, sideways reading, wrapping and text size live. Everything here is CSS so a server-
+ * rendered block never flashes before hydration; JS only decides which blocks are long.
  */
 @media (max-width: 40rem) {
   .surface {
-    --code-line: 20px;
+    --code-size: 12.5px;
     border-radius: 8px;
   }
   .surface[data-wrap="auto"] .scroll {
@@ -239,19 +248,15 @@
     overflow-wrap: anywhere;
   }
 
-  .table {
-    font-size: 12.5px;
-  }
   .table tbody::before,
   .table tbody::after {
     height: 10px;
   }
   .num {
     padding: 0 5px;
-    font-size: 0.625rem;
   }
   .codeCell {
-    padding: 0 10px;
+    padding: 0 12px;
   }
   .num + .codeCell,
   .sign + .codeCell {
@@ -259,19 +264,49 @@
   }
   .plain {
     padding: 10px 12px;
+  }
+
+  /* The glance: the code gets the whole width. */
+  .surface[data-glance] .num {
+    display: none;
+  }
+  .surface[data-glance] .sign + .codeCell {
+    padding-inline-start: 4px;
+  }
+
+  /* About 14 lines, then a fade into "Show all". Wrapped lines count as the lines they fill. */
+  .surface[data-capped] .scroll {
+    max-height: calc(var(--code-line) * 14 + 20px);
+    overflow-y: hidden;
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 3.25rem), transparent);
+  }
+
+  .phoneOnly {
+    display: flex;
+  }
+  .more {
+    width: 100%;
+    min-height: 44px;
+    border-top: 1px solid var(--code-border);
+    border-radius: 0;
+    color: var(--code-foreground);
     font-size: 12.5px;
+    font-weight: 500;
   }
 
   .action {
     min-width: 36px;
     min-height: 36px;
   }
-  .copy {
+  .wideOnly {
+    display: none;
+  }
+  .copy:not([data-labelled]) {
     position: relative;
     min-inline-size: 36px;
     justify-content: center;
   }
-  .copyLabel {
+  .copy:not([data-labelled]) .copyLabel {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -286,6 +321,41 @@
     min-width: 44px;
     min-height: 44px;
   }
+}
+
+/*
+ * The reader's well (CodeReader): the same table in a full-screen sheet. The sheet sets
+ * --reader-size from the text-size control; the surface fills it and its scroll region is the
+ * only thing that scrolls. Declared after the phone block so the roomy gutters win over it.
+ */
+.surface[data-reader] {
+  --code-size: var(--reader-size, 13px);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+}
+.surface[data-reader] .scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.surface[data-reader] .num {
+  padding: 0 8px;
+}
+.surface[data-reader] .codeCell {
+  padding: 0 16px;
+}
+.surface[data-reader] .num + .codeCell,
+.surface[data-reader] .sign + .codeCell {
+  padding-inline-start: 8px;
+}
+.surface[data-reader] .table tbody::before,
+.surface[data-reader] .table tbody::after {
+  height: 14px;
 }
 
 /* Notes inside the table, e.g. "No newline at end of file". */

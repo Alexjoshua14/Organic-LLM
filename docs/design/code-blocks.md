@@ -129,12 +129,33 @@ Checked in a browser at 390px (iPhone 12 Pro) against the lab, 2026-11-12.
   from the first paint (no flash on server-rendered blog and rabbit-hole pages); once the reader
   presses Wrap lines their choice holds at every width. The CSS repeats the wrapped rules under the
   same media query, because a query cannot sit inside a selector: keep the two in step.
-- **Type and padding step down:** 12.5px code on a 20px line, gutters 5px, cell padding 10px.
-- **One-row header:** language and line count give way (ellipsis) before the controls do. Copy is
-  icon-only (its label stays for assistive tech, the check icon is the confirmation). Controls are
-  36px, 44px on a touch device.
+- **A glance, then a reader.** The inline block on a phone is for recognising code, not studying
+  it. It drops the line-number gutter, shows about 14 lines (a height cap with a fade) and ends in
+  **Show all N lines**; blocks of five lines or more also get an Expand icon in the header. Both
+  open the reader. A short snippet has nothing to open. The cap and the gutter are CSS under the
+  40rem query (`data-glance`, `data-capped`), so a server-rendered block never flashes; JS only
+  decides which blocks are long, from their content (`GLANCE_LINES` in `code-block.tsx` and the
+  `14` in `code.module.css` are the same number: keep them in step).
+- **The reader** (`code/code-reader.tsx`, shared by the block and the diff) is a full-screen
+  Radix dialog portalled to the body: line numbers, sideways scrolling by default with a Wrap
+  toggle, and a six-step text size (11 to 18px, default 13, remembered in `localStorage`). Close is
+  labelled at the top; Wrap, text size and Copy sit at the bottom within thumb reach. Escape and
+  the back gesture close it (a history entry with its own `codeReader` key, so it never collides
+  with the diagram takeover), and focus returns to the control that opened it. It renders the live
+  text, so a streaming block keeps growing inside an open reader.
+- **Wrap in the glance:** the glance still wraps by default (`data-wrap="auto"`, see above), so
+  nothing needs a sideways gesture inside a page that scrolls vertically. The inline Wrap toggle is
+  hidden on a phone because the reader owns it.
+- **Type scales from `--code-size`** (13px, 12.5px on a phone, the reader's choice there); line
+  height is 1.6 of it and the gutters are in `em`, so a larger reader size keeps everything aligned.
+- **One-row header:** language and line count give way (ellipsis) before the controls do; the file
+  icon is dropped. Copy is icon-only inline (its label stays for assistive tech, the check icon is
+  the confirmation) and labelled in the reader. Controls are 36px, 44px on a touch device.
 - **Diff:** the file section is a `minmax(0, 1fr)` grid, so a wide table scrolls in its well and
-  never widens the card (it used to push the copy button off-screen).
+  never widens the card (it used to push the copy button off-screen). A file longer than 14 rows
+  gets the same glance (no old/new number columns, capped, **Open the full diff**) and opens in the
+  same reader with its numbers, hunk heads and comments. On a phone the status word is spoken but
+  not drawn (the mark, tint and counts already say it) and hunk heads are slim dividers.
 - **Diagram:** an inline diagram shrinks to its well down to 75% of natural size (labels stay
   ~10px or more), then scrolls from its left edge; the old centred-flex scroller clipped the left
   edge out of reach. Expand is always visible (no hover on touch), and copy and download hide.
