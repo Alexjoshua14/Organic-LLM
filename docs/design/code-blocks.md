@@ -113,8 +113,10 @@ and the dot rail, nothing else: the control column (title, archetype list, rende
 Generate with AI, Reset fixtures, /btw) is hidden, and so is the narrow-only preview picker it
 replaced. The rail is a quiet pill of bare dots at the right edge with 28px tap targets (no labels:
 a phone has no hover); the stage keeps 32px clear of it. On touch devices the lab's own controls
-(preset arrows, Auto, language picker, Shuffle) grow to 44px, and gallery snapping relaxes to
-`proximity` so a page taller than the screen scrolls freely. A section's own toolbar stays, since
+(preset arrows, Auto, language picker, Shuffle) grow to 44px. Gallery snapping stays `mandatory`
+with `scroll-snap-stop: always` on touch too, so one quick swipe moves exactly one section (an
+earlier `proximity` override let flicks settle between pages); a page taller than the screen still
+scrolls freely inside itself. A section's own toolbar stays, since
 that is how you operate the component in focus. The jsdom tests guard the class contract; layout
 itself needs a look on a real phone or a narrow window.
 

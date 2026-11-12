@@ -194,11 +194,12 @@ describe("Gen UI Lab on a phone", () => {
     );
   });
 
-  test("touch scrolling is free inside a tall page: snapping relaxes to proximity", async () => {
+  test("snapping stays mandatory on touch, so one quick swipe moves one section", async () => {
     const css = await Bun.file("styles/globals.css").text();
+    const rule = css.match(/\.gen-ui-gallery-scroll\s*\{[^}]*\}/)?.[0] ?? "";
 
-    expect(css).toMatch(
-      /@media \(pointer: coarse\)\s*\{\s*\.gen-ui-gallery-scroll\s*\{\s*scroll-snap-type: y proximity;/
-    );
+    expect(rule).toContain("scroll-snap-type: y mandatory");
+    // No touch override: proximity let a flick settle between pages instead of advancing.
+    expect(css).not.toMatch(/@media \(pointer: coarse\)\s*\{\s*\.gen-ui-gallery-scroll/);
   });
 });
