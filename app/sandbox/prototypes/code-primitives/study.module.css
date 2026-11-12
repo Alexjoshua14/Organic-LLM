@@ -1,0 +1,440 @@
+.scroll {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  color: var(--foreground);
+}
+.page {
+  --study-well: color-mix(in oklab, var(--muted) 25%, var(--background));
+  --study-add: light-dark(oklch(0.45 0.12 160), oklch(0.72 0.12 160));
+  --study-del: light-dark(oklch(0.49 0.15 25), oklch(0.72 0.15 25));
+  --study-string: light-dark(oklch(0.43 0.1 160), oklch(0.78 0.1 160));
+  --study-keyword: light-dark(oklch(0.47 0.13 300), oklch(0.78 0.1 300));
+  --study-function: light-dark(oklch(0.44 0.12 250), oklch(0.79 0.1 250));
+  max-width: 900px;
+  margin: auto;
+  padding: 42px 32px 60px;
+}
+.page[data-expanded="true"] {
+  max-width: 1200px;
+}
+.pageHeader,
+.back,
+.fileHeader,
+.fileToggle,
+.actions,
+.actions button,
+.modes,
+.modes button,
+.counts,
+.footer,
+.references,
+.references a {
+  display: flex;
+  align-items: center;
+}
+.pageHeader {
+  justify-content: space-between;
+  gap: 16px;
+}
+.back {
+  gap: 8px;
+  color: var(--muted-foreground);
+  font-size: 13px;
+  text-decoration: none;
+}
+.back:hover {
+  color: var(--foreground);
+}
+.studyTag {
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+.intro {
+  margin-top: 48px;
+}
+.intro h1 {
+  margin: 0;
+  font-size: clamp(28px, 4vw, 38px);
+  font-weight: 500;
+  letter-spacing: -0.045em;
+}
+.intro p {
+  margin: 9px 0 0;
+  color: var(--muted-foreground);
+  font-size: 15px;
+}
+.modes {
+  gap: 6px;
+  margin: 30px 0;
+  flex-wrap: wrap;
+}
+.modes button {
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 13px;
+  cursor: pointer;
+}
+.modes button[aria-pressed="true"] {
+  color: var(--foreground);
+  background: var(--muted);
+  border-color: var(--border);
+}
+.stage {
+  min-width: 0;
+  min-height: 550px;
+  padding: 32px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--background);
+}
+.responseLabel {
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+.context h2 {
+  font-size: 19px;
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  margin: 12px 0 7px;
+}
+.context > p {
+  margin: 0 0 24px;
+  max-width: 65ch;
+  color: var(--muted-foreground);
+  font-size: 14px;
+  line-height: 1.7;
+}
+.codePanel {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--study-well);
+}
+.fileHeader {
+  min-height: 48px;
+  gap: 12px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.fileToggle {
+  gap: 8px;
+  min-width: 0;
+  background: none;
+  border: 0;
+  padding: 5px 0;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+.fileToggle svg {
+  flex-shrink: 0;
+}
+.closed {
+  transform: rotate(-90deg);
+}
+.path {
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+.path strong {
+  color: var(--foreground);
+  font-weight: 500;
+}
+.counts {
+  gap: 8px;
+  font:
+    12px var(--font-mono),
+    monospace;
+}
+.counts span:first-child {
+  color: var(--study-add);
+}
+.counts span:last-child {
+  color: var(--study-del);
+}
+.language {
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+.actions {
+  margin-left: auto;
+  gap: 3px;
+}
+.actions button {
+  justify-content: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 5px 7px;
+  background: none;
+  border: 0;
+  border-radius: 5px;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  cursor: pointer;
+}
+.actions button:hover,
+.actions button[aria-pressed="true"] {
+  color: var(--foreground);
+  background: var(--muted);
+}
+.hunk {
+  display: flex;
+  gap: 16px;
+  padding: 9px 16px;
+  background: color-mix(in oklab, var(--muted) 55%, transparent);
+  color: var(--muted-foreground);
+  font:
+    11px var(--font-mono),
+    monospace;
+}
+.hunkLabel {
+  margin-left: auto;
+  font-family: var(--font-satoshi), sans-serif;
+}
+.lines {
+  overflow-x: auto;
+  padding: 14px 0;
+}
+.sourceLine,
+.diffLine {
+  display: grid;
+  min-width: max-content;
+  align-items: baseline;
+  padding-right: 18px;
+  font:
+    13px/1.85 var(--font-mono),
+    ui-monospace,
+    monospace;
+}
+.sourceLine {
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+}
+.diffLine {
+  grid-template-columns: 30px 30px 24px minmax(0, 1fr);
+}
+.number {
+  color: var(--muted-foreground);
+  opacity: 0.6;
+  text-align: right;
+  padding-right: 12px;
+  font-size: 11px;
+  user-select: none;
+}
+.sign {
+  text-align: center;
+  user-select: none;
+}
+.sourceLine > code,
+.diffLine > code {
+  white-space: pre;
+  font: inherit;
+  color: var(--foreground);
+}
+.sourceLine > code:empty::before,
+.diffLine > code:empty::before {
+  content: "\200b";
+}
+.diffLine[data-kind="added"] {
+  background: color-mix(in oklab, var(--study-add) 10%, transparent);
+}
+.diffLine[data-kind="removed"] {
+  background: color-mix(in oklab, var(--study-del) 10%, transparent);
+}
+.diffLine[data-kind="added"] .sign {
+  color: var(--study-add);
+}
+.diffLine[data-kind="removed"] .sign {
+  color: var(--study-del);
+}
+.diffLine mark {
+  color: inherit;
+  padding: 2px 0;
+  border-radius: 3px;
+}
+.diffLine[data-kind="added"] mark {
+  background: color-mix(in oklab, var(--study-add) 24%, transparent);
+}
+.diffLine[data-kind="removed"] mark {
+  background: color-mix(in oklab, var(--study-del) 24%, transparent);
+}
+.codeBody [data-token="keyword"] {
+  color: var(--study-keyword);
+}
+.codeBody [data-token="string"] {
+  color: var(--study-string);
+}
+.codeBody [data-token="function"],
+.codeBody [data-token="type"] {
+  color: var(--study-function);
+}
+.codeBody[data-wrap="true"] .sourceLine,
+.codeBody[data-wrap="true"] .diffLine {
+  min-width: 0;
+}
+.codeBody[data-wrap="true"] code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.reviewNote {
+  display: flex;
+  gap: 12px;
+  padding: 16px 20px;
+  margin: 0 12px 12px;
+  border-radius: 7px;
+  background: var(--background);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.noteDot {
+  width: 5px;
+  height: 5px;
+  flex-shrink: 0;
+  margin-top: 8px;
+  border-radius: 50%;
+  background: var(--study-function);
+}
+.reviewNote strong {
+  font-weight: 500;
+}
+.reviewNote p {
+  margin: 3px 0 0;
+  color: var(--muted-foreground);
+}
+.reviewNote code {
+  font-size: 11px;
+}
+.footer {
+  justify-content: space-between;
+  padding: 9px 16px;
+  border-top: 1px solid var(--border);
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+.sourceLine[data-focus="dimmed"] {
+  opacity: 0.65;
+}
+.sourceLine[data-focus="active"] {
+  background: color-mix(in oklab, var(--study-function) 10%, transparent);
+  box-shadow: inset 2px 0 var(--study-function);
+}
+.lineLabel {
+  font:
+    10px var(--font-satoshi),
+    sans-serif;
+  color: var(--study-function);
+  margin-left: 20px;
+}
+.explanation {
+  margin-top: 20px;
+}
+.stepList {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.stepList button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  cursor: pointer;
+}
+.stepList button[aria-pressed="true"] {
+  background: var(--muted);
+  color: var(--foreground);
+}
+.stepList button span {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  font-size: 10px;
+}
+.explanation > p {
+  margin: 12px 9px 0;
+  color: var(--muted-foreground);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.references {
+  margin-top: 20px;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+.references a {
+  gap: 4px;
+  color: inherit;
+  text-decoration: none;
+}
+.references a:hover {
+  color: var(--foreground);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .sourceLine {
+    transition:
+      opacity 160ms ease-out,
+      background-color 160ms ease-out;
+  }
+}
+@media (max-width: 600px) {
+  .page {
+    padding: 30px 16px;
+  }
+  .intro {
+    margin-top: 30px;
+  }
+  .stage {
+    padding: 20px 12px;
+  }
+  .studyTag,
+  .language,
+  .hunkLabel {
+    display: none;
+  }
+  .fileHeader {
+    gap: 6px;
+  }
+  .actions {
+    flex-wrap: wrap;
+  }
+  .path {
+    font-size: 11px;
+  }
+  .lineLabel {
+    display: none;
+  }
+  .diffLine {
+    grid-template-columns: 24px 24px 20px minmax(0, 1fr);
+  }
+  .number {
+    padding-right: 7px;
+  }
+}
+@media (pointer: coarse) {
+  .actions button,
+  .stepList button,
+  .modes button,
+  .fileToggle {
+    min-height: 44px;
+  }
+  .actions button {
+    min-width: 44px;
+  }
+}
