@@ -415,7 +415,9 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
           side question dock lives in this column, so it centres on the preview, not the page.
         */}
         <section className="relative flex min-h-0 min-w-0 flex-col @min-[56rem]:px-12">
-          {decisionSelected ? (
+          {/* Focus view only. In the gallery the toolbar lives in its own section (see `header`),
+              because mounting it out here resized the scroller mid-scroll and broke snapping. */}
+          {decisionSelected && !galleryActive ? (
             <div className="mx-auto w-full max-w-2xl shrink-0">
               <GenUiDecisionDemoToolbar demo={decisionDemo} />
             </div>
@@ -445,6 +447,11 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
                   key={type}
                   active={selectedType === type}
                   archetype={type}
+                  header={
+                    type === "decision-matrix" ? (
+                      <GenUiDecisionDemoToolbar demo={decisionDemo} />
+                    ) : undefined
+                  }
                   registerRef={registerSection(type)}
                 >
                   {type === "decision-matrix" ? (

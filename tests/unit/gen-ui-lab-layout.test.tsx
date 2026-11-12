@@ -9,6 +9,7 @@ import {
   useGenUiDecisionDemo,
 } from "@/app/sandbox/prototypes/gen-ui-lab/_components/GenUiDecisionDemo";
 import { GenUiGalleryNav } from "@/app/sandbox/prototypes/gen-ui-lab/_components/GenUiGalleryNav";
+import { GenUiGallerySection } from "@/app/sandbox/prototypes/gen-ui-lab/_components/GenUiGallerySection";
 
 let restoreMedia: () => void;
 
@@ -51,5 +52,38 @@ describe("Gen UI Lab layout", () => {
     expect(intent?.className).toContain("min-h-10");
     expect(next.className).toContain("focus-visible:bg-foreground");
     expect(next.className).not.toMatch(/ring/);
+  });
+
+  test("a gallery section's header scrolls with its page, above the centred content", () => {
+    const view = render(
+      <GenUiGallerySection
+        active
+        archetype="decision-matrix"
+        header={<p>section controls</p>}
+        registerRef={() => {}}
+      >
+        <p>component</p>
+      </GenUiGallerySection>
+    );
+    const page = view.container.querySelector("article");
+    const header = view.getByText("section controls");
+    const body = view.getByText("component");
+
+    // The header is a sibling that precedes the centred body inside the same page, so a taller
+    // component cannot re-centre it and it cannot outlive the page it belongs to.
+    expect(page?.contains(header)).toBe(true);
+    expect(page?.contains(body)).toBe(true);
+    expect(header.parentElement?.nextElementSibling?.contains(body)).toBe(true);
+    expect(header.parentElement?.className).toContain("shrink-0");
+  });
+
+  test("a gallery section without a header renders only the centred body", () => {
+    const view = render(
+      <GenUiGallerySection active archetype="plan-timeline" registerRef={() => {}}>
+        <p>component</p>
+      </GenUiGallerySection>
+    );
+
+    expect(view.container.querySelector("article")?.children).toHaveLength(1);
   });
 });
