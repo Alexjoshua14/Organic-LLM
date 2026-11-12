@@ -30,6 +30,11 @@ import { ErgonTaskResult } from "@/components/ergon/ErgonTaskResult";
 import { GenUIStreamingPart } from "@/components/chat/gen-ui/GenUIStreamingPart";
 import { ResearchToolResult } from "@/components/chat/gen-ui/ResearchToolResult";
 import { GenUIToolResult } from "@/components/chat/gen-ui/GenUIToolResult";
+import { RestaurantCarousel } from "@/components/chat/gen-ui/blocks/restaurant-card/RestaurantCarousel";
+import {
+  planRestaurantCardRendering,
+  tokensForRestaurantGrouping,
+} from "@/components/chat/gen-ui/blocks/restaurant-card/group-restaurant-cards";
 import { KanbanInFlight } from "@/components/chat/kanban/KanbanInFlight";
 import { KanbanToolResult } from "@/components/chat/kanban/KanbanToolResult";
 import { MiseLoadingShell } from "@/components/chat/mise/MiseLoadingShell";
@@ -145,6 +150,12 @@ const AIMessage: FC<ChatMessageProps> = ({
 
   const webSearchFold = foldWebSearchResults(collectWebSearchSnapshotsFromParts(message.parts));
   const trails = groupActivityTrails(message.parts);
+  const restaurantPlan = planRestaurantCardRendering(
+    tokensForRestaurantGrouping(message.parts, {
+      trailStartIndices: new Set(trails.trailsByStartIndex.keys()),
+      foldedIndices: trails.foldedIndices,
+    })
+  );
   const lastTrail = [...trails.trailsByStartIndex.values()].at(-1);
 
   const isTrailLive = (trail: ActivityTrail): boolean =>
@@ -571,6 +582,18 @@ const AIMessage: FC<ChatMessageProps> = ({
 
           if (trail) return renderTrail(trail);
           if (trails.foldedIndices.has(i)) return null;
+
+          const carousel = restaurantPlan.carouselsByStartIndex.get(i);
+
+          if (carousel) {
+            return (
+              <RestaurantCarousel
+                key={`${message.id}-${i}-restaurant-carousel`}
+                blocks={carousel.blocks}
+              />
+            );
+          }
+          if (restaurantPlan.carouselPartIndices.has(i)) return null;
 
           return renderPart(part, i);
         })}
