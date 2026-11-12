@@ -1,6 +1,8 @@
 import { DiffCounts, DiffStatBar } from "./DiffCounts";
 import styles from "./Diff.module.css";
 
+import { CodeWrapButton } from "@/components/shared/code/code-actions";
+
 type DiffStatStripProps = {
   fileCount: number;
   /** Changed files the author left out of the block. */
@@ -45,9 +47,7 @@ export function DiffStatStrip({
             {allOpen ? "Collapse all" : "Expand all"}
           </button>
         ) : null}
-        <button aria-pressed={wrap} className={styles.btn} type="button" onClick={onToggleWrap}>
-          Wrap lines
-        </button>
+        <CodeWrapButton pressed={wrap} variant="text" onToggle={onToggleWrap} />
       </span>
     </div>
   );

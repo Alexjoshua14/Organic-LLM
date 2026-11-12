@@ -1,5 +1,4 @@
 export { DiffAnnotationNote, describeAnnotationTarget } from "./DiffAnnotation";
-export { DiffCopyButton } from "./DiffCopyButton";
 export { DiffCounts, DiffStatBar } from "./DiffCounts";
 export { DiffFileBody } from "./DiffFileBody";
 export { DiffFileHeader, DiffPath } from "./DiffFileHeader";

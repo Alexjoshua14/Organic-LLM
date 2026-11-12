@@ -21,6 +21,23 @@ blog prose and the rabbit-hole article all use it. It owns its appearance; calle
 - **Mermaid:** a `language-mermaid` fence keeps its diagram and gets no code chrome.
 - **Unknown or missing language:** plain lines, same layout, no tokens.
 
+## One code family
+
+The code block and the code diff block are built from the same primitives in
+`components/shared/code/`; there are no parallel copies.
+
+- `CodeSurface`: the framed well (palette, Fira Code on the surface itself, border, radius, wrap).
+- `CodeScroll`: the named, keyboard-focusable scroll region (focus is `organic-focus`, never a ring).
+- `CodeTable`, `CodeRow`, `CodeMetaRow`, `CodePlain`: the line table. A row has optional old/new
+  gutters, an optional named +/− cell, and a `<code>` carrying the tokens and indentation guides.
+  Diff rows add the markers and tints through `data-kind`; hunk heads, folds and comments stay
+  diff-owned and render inside the same table body.
+- `CodeCopyButton`, `CodeWrapButton`: the header actions. Copy reserves its width so Copy / Copied
+  / Copy failed never shift the toolbar, and announces through a status region.
+
+Syntax tokens come from `code-highlight.tsx` for both: `CodeLines` for a block, `HighlightedText`
+for a diff line.
+
 ## Shared palette
 
 `styles/CodePalette.css` holds the one light and one dark palette and the Prism token colors, under

@@ -128,7 +128,7 @@ export function CodeDiff({ block, partial }: CodeDiffProps) {
                 }}
                 onToggle={() => setChosen((current) => ({ ...current, [file.key]: !open }))}
               />
-              {open && hasBody(file) ? <DiffFileBody file={file} id={bodyId} /> : null}
+              {open && hasBody(file) ? <DiffFileBody file={file} id={bodyId} wrap={wrap} /> : null}
             </section>
           );
         })}

@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 
 import { Component, memo, useEffect, useState } from "react";
 import SyntaxHighlighter from "react-syntax-highlighter/dist/esm/prism-light";
@@ -24,7 +24,7 @@ import tsx from "react-syntax-highlighter/dist/esm/languages/prism/tsx";
 import typescript from "react-syntax-highlighter/dist/esm/languages/prism/typescript";
 import yaml from "react-syntax-highlighter/dist/esm/languages/prism/yaml";
 
-import styles from "./code-block.module.css";
+import { CodePlain, CodeRow, CodeTable } from "./code/code-table";
 
 /**
  * Highlighting uses the Prism *light* build with a short, explicit grammar list so the chat
@@ -351,10 +351,6 @@ type HastNode = {
   value?: string;
 };
 
-function indentColumns(line: string): CSSProperties {
-  return { "--indent-columns": line.match(/^ */)?.[0].length ?? 0 } as CSSProperties;
-}
-
 export type CodeLinesProps = {
   /** Source text without its trailing newline. */
   code: string;
@@ -363,7 +359,7 @@ export type CodeLinesProps = {
 };
 
 /**
- * One grid row per source line: optional gutter number plus a `<code>` carrying the tokens.
+ * One table row per source line: optional gutter number plus a `<code>` carrying the tokens.
  * Memoized on its three inputs so a settled block does not re-tokenize when a later markdown
  * block streams in.
  */
@@ -376,42 +372,32 @@ export const CodeLines = memo(function CodeLines({
   const grammar = useGrammar(oversized ? undefined : language);
 
   // Too large to tokenize or lay out line by line: one text node, no gutter, no tokens.
-  if (oversized) return <pre className={styles.fallback}>{code}</pre>;
+  if (oversized) return <CodePlain>{code}</CodePlain>;
 
   const sourceLines = code.split("\n");
-  const gutter = {
-    "--number-width": `${String(sourceLines.length).length + 1}ch`,
-  } as CSSProperties;
 
   function renderLines(rows: HastNode[] | null) {
     return (
-      <div className={styles.lines} style={gutter}>
+      <CodeTable>
         {sourceLines.map((line, index) => {
           const row = rows?.[index];
 
           return (
-            <div key={index} className={styles.line} style={indentColumns(line)}>
-              {showLineNumbers && (
-                <span className={styles.number} aria-hidden>
-                  {index + 1}
-                </span>
-              )}
-              <code>
-                {row?.children && line
-                  ? row.children.map((node, nodeIndex) =>
-                      createElement({
-                        node: node as never,
-                        stylesheet: {},
-                        useInlineStyles: false,
-                        key: nodeIndex,
-                      })
-                    )
-                  : line || "​"}
-              </code>
-            </div>
+            <CodeRow key={index} newNo={index + 1} showNew={showLineNumbers} text={line}>
+              {row?.children && line
+                ? row.children.map((node, nodeIndex) =>
+                    createElement({
+                      node: node as never,
+                      stylesheet: {},
+                      useInlineStyles: false,
+                      key: nodeIndex,
+                    })
+                  )
+                : line}
+            </CodeRow>
           );
         })}
-      </div>
+      </CodeTable>
     );
   }
 

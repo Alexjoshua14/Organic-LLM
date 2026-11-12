@@ -1,18 +1,24 @@
 "use client";
 
-import { Check, Copy, FileCode2, TriangleAlert, WrapText } from "lucide-react";
+import { FileCode2 } from "lucide-react";
 import {
   Children,
   isValidElement,
-  useCallback,
   useEffect,
-  useRef,
   useState,
   type ComponentPropsWithoutRef,
   type ReactNode,
 } from "react";
 
 import styles from "./code-block.module.css";
+import {
+  CodeActionDivider,
+  CodeActions,
+  CodeCopyButton,
+  CodeWrapButton,
+} from "./code/code-actions";
+import { CodeScroll, CodeSurface } from "./code/code-surface";
+import { CodePlain } from "./code/code-table";
 import {
   CodeLines,
   codeLanguageLabel,
@@ -21,8 +27,6 @@ import {
   resolveHighlightLanguage,
 } from "./code-highlight";
 
-import { fontMono } from "@/config/fonts";
-import { copyTextToClipboard } from "@/lib/clipboard/copy";
 import { cn } from "@/lib/utils";
 
 export type CodeBlockProps = ComponentPropsWithoutRef<"pre"> & {
@@ -34,7 +38,6 @@ export type CodeBlockProps = ComponentPropsWithoutRef<"pre"> & {
 
 /** Blocks at or above this many lines get a line-number gutter; short snippets stay clean. */
 const LINE_NUMBER_THRESHOLD = 5;
-const COPY_FEEDBACK_MS = 2000;
 /**
  * Tokenizing costs roughly 0.05 ms per line (about 23 ms for 400 lines, measured), and the last
  * block of a streaming reply re-renders on every token. Up to this many lines highlight
@@ -73,8 +76,6 @@ function extractCode(children: ReactNode): ExtractedCode | null {
   return { text: parts.join("").replace(/\n$/, ""), language };
 }
 
-type CopyState = "idle" | "copied" | "failed";
-
 /**
  * Default fenced code block: a quiet header (language, line count, wrap, copy) over
  * syntax-highlighted lines. Used by chat markdown, gen-ui markdown, blog prose and the
@@ -88,8 +89,6 @@ export function CodeBlock({
 }: CodeBlockProps) {
   const extracted = extractCode(children);
   const [wrapped, setWrapped] = useState(wrap);
-  const [copyState, setCopyState] = useState<CopyState>("idle");
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rawCode = extracted?.text ?? "";
   const [settledCode, setSettledCode] = useState(rawCode);
 
@@ -99,20 +98,6 @@ export function CodeBlock({
 
     return () => clearTimeout(settle);
   }, [rawCode, settledCode]);
-
-  useEffect(() => () => void (timer.current && clearTimeout(timer.current)), []);
-
-  const handleCopy = useCallback(async () => {
-    const text = extracted?.text ?? "";
-
-    if (!text) return;
-
-    const ok = await copyTextToClipboard(text);
-
-    setCopyState(ok ? "copied" : "failed");
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => setCopyState("idle"), COPY_FEEDBACK_MS);
-  }, [extracted?.text]);
 
   if (extracted?.language === "mermaid") {
     return <div className={cn(styles.plain, containerClassName)}>{children}</div>;
@@ -126,16 +111,10 @@ export function CodeBlock({
   const highlighted = !large && resolveHighlightLanguage(highlightLanguage) !== undefined;
 
   return (
-    <div
-      className={cn(
-        styles.root,
-        "organic-code not-prose",
-        fontMono.variable,
-        className,
-        containerClassName
-      )}
-      data-wrap={wrapped}
+    <CodeSurface
+      className={cn(className, containerClassName)}
       data-highlighted={highlighted}
+      wrap={wrapped}
     >
       <div className={styles.header}>
         <span className={styles.identity}>
@@ -148,42 +127,15 @@ export function CodeBlock({
             </span>
           )}
         </span>
-        <div className={styles.actions}>
-          <button
-            aria-label="Wrap lines"
-            aria-pressed={wrapped}
-            className={cn(styles.action, "organic-focus")}
-            title="Wrap lines"
-            type="button"
-            onClick={() => setWrapped((value) => !value)}
-          >
-            <WrapText size={15} aria-hidden />
-          </button>
-          <span className={styles.divider} aria-hidden />
-          <button
-            className={cn(styles.action, styles.copy, "organic-focus")}
-            disabled={!extracted}
-            type="button"
-            onClick={handleCopy}
-          >
-            {copyState === "copied" ? (
-              <Check size={14} aria-hidden />
-            ) : copyState === "failed" ? (
-              <TriangleAlert size={14} aria-hidden />
-            ) : (
-              <Copy size={14} aria-hidden />
-            )}
-            <span aria-live="polite">
-              {copyState === "copied"
-                ? "Copied"
-                : copyState === "failed"
-                  ? "Copy failed"
-                  : "Copy code"}
-            </span>
-          </button>
+        <div className={styles.headerActions}>
+          <CodeActions>
+            <CodeWrapButton pressed={wrapped} onToggle={() => setWrapped((value) => !value)} />
+            <CodeActionDivider />
+            <CodeCopyButton ariaLabel="Copy code" disabled={!extracted} text={rawCode} />
+          </CodeActions>
         </div>
       </div>
-      <div className={styles.body}>
+      <CodeScroll digits={String(lineCount).length} focusable={!wrapped} label={`${label} code`}>
         {extracted ? (
           <CodeLines
             code={rawCode}
@@ -191,10 +143,10 @@ export function CodeBlock({
             showLineNumbers={lineCount >= LINE_NUMBER_THRESHOLD}
           />
         ) : (
-          <pre className={styles.fallback}>{children}</pre>
+          <CodePlain>{children}</CodePlain>
         )}
-      </div>
-    </div>
+      </CodeScroll>
+    </CodeSurface>
   );
 }
 

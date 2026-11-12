@@ -11,17 +11,8 @@
   --diff-pad-y: var(--spacing-stack-sm);
   --diff-line: 1.25rem; /* one code line */
   --diff-hover: color-mix(in oklab, var(--muted) 55%, transparent);
-  --diff-focus: color-mix(in oklab, var(--foreground) 10%, transparent);
-  --diff-well: var(--code-background);
-  --diff-code-line: 1.3rem; /* 13px at 1.6, the code block's leading */
   --diff-add-tone: color-mix(in oklab, var(--accent) 62%, var(--foreground));
   --diff-del-tone: color-mix(in oklab, var(--destructive) 68%, var(--foreground));
-  --diff-add-row: color-mix(in oklab, var(--accent) 13%, transparent);
-  --diff-add-gutter: color-mix(in oklab, var(--accent) 24%, transparent);
-  --diff-add-emph: color-mix(in oklab, var(--accent) 36%, transparent);
-  --diff-del-row: color-mix(in oklab, var(--destructive) 12%, transparent);
-  --diff-del-gutter: color-mix(in oklab, var(--destructive) 22%, transparent);
-  --diff-del-emph: color-mix(in oklab, var(--destructive) 34%, transparent);
 
   container-type: inline-size;
   display: grid;
@@ -280,7 +271,7 @@ button.toggle:focus-visible .pathBase {
   text-underline-offset: 3px;
 }
 
-.file:has(.scroll:focus-visible) .pathBase {
+.file:has([role="region"]:focus-visible) .pathBase {
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 3px;
@@ -367,118 +358,7 @@ button.toggle:focus-visible .pathBase {
 
 /* ── Code well ──────────────────────────────────────────── */
 
-.scroll {
-  max-width: 100%;
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  border: 1px solid var(--code-border);
-  border-radius: 10px;
-  background: var(--diff-well);
-}
-
-.scroll:focus-visible {
-  outline: none;
-  background: var(--diff-focus);
-}
-
-.table {
-  width: max-content;
-  min-width: 100%;
-  border-collapse: collapse;
-  font-family:
-    var(--font-mono, "Fira Code"), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.8125rem;
-  line-height: var(--diff-code-line);
-  color: var(--code-foreground);
-  tab-size: 4;
-}
-
-.root[data-wrap="true"] .table {
-  width: 100%;
-}
-
-.line > td {
-  vertical-align: top;
-}
-
-.num {
-  min-width: calc(var(--diff-digits, 2) * 1ch + 1rem);
-  padding: 0 var(--spacing-inset-sm);
-  color: color-mix(in oklab, var(--code-muted-foreground) 75%, transparent);
-  font-size: 0.6875rem;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-  white-space: nowrap;
-  user-select: none;
-}
-
-.sign {
-  width: 1.25rem;
-  padding: 0 2px;
-  font-weight: 600;
-  text-align: center;
-  user-select: none;
-}
-
-.code {
-  width: 100%;
-  padding: 0 var(--spacing-inset-md) 0 var(--spacing-inset-sm);
-  white-space: pre;
-}
-
-.code:empty::before {
-  content: "\200b";
-}
-
-.root[data-wrap="true"] .code {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-.line[data-kind="add"] {
-  background: var(--diff-add-row);
-}
-
-.line[data-kind="add"] .num {
-  background: var(--diff-add-gutter);
-}
-
-.line[data-kind="add"] .sign {
-  background: var(--diff-add-gutter);
-  color: var(--diff-add-tone);
-}
-
-.line[data-kind="del"] {
-  background: var(--diff-del-row);
-}
-
-.line[data-kind="del"] .num {
-  background: var(--diff-del-gutter);
-}
-
-.line[data-kind="del"] .sign {
-  background: var(--diff-del-gutter);
-  color: var(--diff-del-tone);
-}
-
 /* Changed span inside a line: tint and weight, so it holds up without colour. */
-.emph {
-  border-radius: 2px;
-  font-weight: 700;
-}
-
-.line[data-kind="add"] .emph {
-  background: var(--diff-add-emph);
-}
-
-.line[data-kind="del"] .emph {
-  background: var(--diff-del-emph);
-}
-
-.noEol {
-  color: var(--muted-foreground);
-  font-style: italic;
-}
 
 /* Rows that span the table: kept at the left edge and the well's width while the code scrolls. */
 .sticky {
@@ -620,16 +500,9 @@ button.toggle:focus-visible .pathBase {
 @media (forced-colors: active) {
   .btn:focus-visible,
   button.toggle:focus-visible,
-  button.indexItem:focus-visible,
-  .scroll:focus-visible {
+  button.indexItem:focus-visible {
     outline: 2px solid CanvasText;
     outline-offset: 1px;
-  }
-
-  .line[data-kind="add"] .sign,
-  .line[data-kind="del"] .sign {
-    forced-color-adjust: none;
-    color: CanvasText;
   }
 }
 

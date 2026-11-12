@@ -2,7 +2,7 @@
 
 import type { ResolvedFile } from "@/lib/diff/resolve-file";
 
-import { Fragment, useMemo, useState, type CSSProperties } from "react";
+import { Fragment, useMemo, useState } from "react";
 
 import { buildFileView, displayText, revealHiddenChars } from "./diff-model";
 import { describeAnnotationTarget, DiffAnnotationNote } from "./DiffAnnotation";
@@ -11,9 +11,13 @@ import { DiffLineRow } from "./DiffLineRow";
 import styles from "./Diff.module.css";
 
 import { languageForPath } from "@/components/shared/code-highlight";
+import { CodeScroll, CodeSurface } from "@/components/shared/code/code-surface";
+import { CodeTable } from "@/components/shared/code/code-table";
 
 type DiffFileBodyProps = {
   file: ResolvedFile;
+  /** Lines wrap instead of scrolling sideways. */
+  wrap?: boolean;
   /** Id of the region, so the file header can point at it. */
   id: string;
 };
@@ -26,7 +30,7 @@ const PLAIN_TEXT_CHARS = 10_000;
  * inside it, never the card), then any notices and comments that have no line to sit under.
  * Only mounted while the file is open, so a collapsed file costs one header.
  */
-export function DiffFileBody({ file, id }: DiffFileBodyProps) {
+export function DiffFileBody({ file, id, wrap = false }: DiffFileBodyProps) {
   const view = useMemo(() => buildFileView(file), [file]);
   const language = useMemo(() => languageForPath(file.path), [file.path]);
   const [unfolded, setUnfolded] = useState<ReadonlySet<string>>(() => new Set());
@@ -86,18 +90,9 @@ export function DiffFileBody({ file, id }: DiffFileBodyProps) {
       ) : null}
 
       {hasRows ? (
-        <div
-          aria-label={`Diff of ${displayText(file.path)}`}
-          className={styles.scroll}
-          role="region"
-          style={{ "--diff-digits": view.digits } as CSSProperties}
-          // A scrollable region must be keyboard-focusable, or keyboard users cannot scroll it.
-          // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
-          tabIndex={0}
-        >
-          <table className={styles.table}>
-            <caption className={styles.srOnly}>Changed lines in {displayText(file.path)}</caption>
-            <tbody>
+        <CodeSurface wrap={wrap}>
+          <CodeScroll digits={view.digits} label={`Diff of ${displayText(file.path)}`}>
+            <CodeTable caption={`Changed lines in ${displayText(file.path)}`}>
               {view.rows.map((row) => {
                 if (row.type === "hunk") {
                   return <DiffHunkHead key={row.key} columns={columns} row={row} />;
@@ -147,9 +142,9 @@ export function DiffFileBody({ file, id }: DiffFileBodyProps) {
                   />
                 );
               })}
-            </tbody>
-          </table>
-        </div>
+            </CodeTable>
+          </CodeScroll>
+        </CodeSurface>
       ) : null}
 
       {view.hiddenLines > 0 ? (

@@ -16,9 +16,10 @@ import {
   splitSegments,
 } from "@/components/shared/code-highlight";
 
-const copyText = mock(async (_text: string) => true);
-
-mock.module("@/lib/clipboard/copy", () => ({ copyTextToClipboard: copyText }));
+// Stub the browser clipboard, not our copy helper: mock.module is process-wide and would leak into
+// every later test file that copies (the code diff tests copy through the same helper).
+const copyText = mock(async (_text: string) => {});
+const originalClipboard = Object.getOwnPropertyDescriptor(globalThis.navigator, "clipboard");
 
 const SOURCE = ["const a = 7;", "function f(x: string) {", '  return "s";', "}"].join("\n");
 
@@ -30,8 +31,19 @@ function block(code: string, language?: string, props: Record<string, unknown> =
   );
 }
 
-beforeEach(() => copyText.mockClear());
-afterEach(() => cleanup());
+beforeEach(() => {
+  copyText.mockClear();
+  Object.defineProperty(globalThis.navigator, "clipboard", {
+    configurable: true,
+    value: { writeText: copyText },
+  });
+});
+afterEach(() => {
+  cleanup();
+  if (originalClipboard)
+    Object.defineProperty(globalThis.navigator, "clipboard", originalClipboard);
+  else Reflect.deleteProperty(globalThis.navigator, "clipboard");
+});
 
 describe("language resolution", () => {
   test("resolves aliases and fence labels to a registered grammar", () => {
@@ -120,7 +132,9 @@ describe("CodeBlock", () => {
   });
 
   test("a failed copy says so", async () => {
-    copyText.mockImplementationOnce(async () => false);
+    copyText.mockImplementationOnce(async () => {
+      throw new Error("clipboard refused");
+    });
     const view = block(SOURCE, "ts");
 
     fireEvent.click(view.getByRole("button", { name: "Copy code" }));

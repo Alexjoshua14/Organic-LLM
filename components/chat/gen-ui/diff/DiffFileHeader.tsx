@@ -1,10 +1,11 @@
 import type { ResolvedFile } from "@/lib/diff/resolve-file";
 
 import { displayText } from "./diff-model";
-import { DiffCopyButton } from "./DiffCopyButton";
 import { DiffCounts } from "./DiffCounts";
 import { DiffStatusMark, DiffStatusWord } from "./diff-status";
 import styles from "./Diff.module.css";
+
+import { CodeCopyButton } from "@/components/shared/code/code-actions";
 
 /** A path with its directory dimmed and its file name strong. Text only, never a link. */
 export function DiffPath({ path }: { path: string }) {
@@ -94,7 +95,12 @@ export function DiffFileHeader({
           )}
         </h4>
         {file.diffText ? (
-          <DiffCopyButton path={displayText(file.path)} text={file.diffText} />
+          <CodeCopyButton
+            announce={{ copied: "Diff copied", failed: "Could not copy the diff" }}
+            ariaLabel={`Copy diff of ${displayText(file.path)}`}
+            label="Copy diff"
+            text={file.diffText}
+          />
         ) : null}
       </div>
 
