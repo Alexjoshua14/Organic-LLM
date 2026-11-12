@@ -29,8 +29,8 @@ const SIDEBAR_THREAD_COLUMNS =
 /**
  * One page of the sidebar list for an owner, newest first, keyset-paged on
  * `(updated_at, id)`. Unpinned rows only; the first page (no cursor) also returns every
- * pinned thread, fetched in parallel. Feature filtering happens here so hidden threads
- * never leave the database.
+ * pinned thread, fetched in parallel. Feature and parent filtering happen here so
+ * subagent children never enter the sidebar or consume page/pinned limits.
  *
  * Needs `threads (owner_id, updated_at desc, id desc)` to stay an index range scan;
  * see docs/migrations/threads_sidebar_list_index.sql.
@@ -50,6 +50,7 @@ export async function getSidebarThreadsPage(options: {
     .select(SIDEBAR_THREAD_COLUMNS)
     .eq("owner_id", ownerId)
     .not("archived", "is", true)
+    .is("parent_thread_id", null)
     .eq("rabbit_hole_sessions.rabbit_hole_path_segments.position", 0)
     .not("pinned", "is", true)
     .filter("feature", feature.op, feature.value);
@@ -68,6 +69,7 @@ export async function getSidebarThreadsPage(options: {
         .select(SIDEBAR_THREAD_COLUMNS)
         .eq("owner_id", ownerId)
         .not("archived", "is", true)
+        .is("parent_thread_id", null)
         .eq("rabbit_hole_sessions.rabbit_hole_path_segments.position", 0)
         .eq("pinned", true)
         .filter("feature", feature.op, feature.value)

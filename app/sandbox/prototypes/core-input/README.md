@@ -47,7 +47,7 @@ Small refactors made so the lab renders production presentation with controlled 
 - `core-input/layout-breakpoints.ts` — footer thresholds hoisted out of `core-input.tsx` and
   exported.
 - `submit/submit-button.tsx` — `organicGlassSubmitClassName`; `submit/submit-glyph.tsx` —
-  `resolveOrganicSubmitState`.
+  `resolveSubmitGlyphState`.
 - `context-budget-indicator.tsx` — `ContextBudgetIndicatorView`, `ContextDonut`, and
   `ContextBudgetPopover` exported; the indicator is now hook + view.
 - `footer/core-input-footer.tsx` + `footer/footer-placement.ts` — the footer row and its

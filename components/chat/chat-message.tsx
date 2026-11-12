@@ -192,6 +192,10 @@ const AIMessage: FC<ChatMessageProps> = ({
           const toolName = getToolOrDynamicToolName(part);
           const toolCallId = part.toolCallId;
 
+          // A dry run is the orchestrator sizing a brief, not an event; showing it read as a
+          // second dispatch beside the real assignment row.
+          if (isDryRunDispatch(toolName, part)) return null;
+
           if (toolName.startsWith("research_")) {
             if (part.state === "input-streaming" || part.state === "input-available") {
               return (
@@ -1005,3 +1009,12 @@ export const ChatAIAction: FC<ChatAIActionProps> = ({ aiActionPayload }) => {
     </div>
   );
 };
+
+function isDryRunDispatch(toolName: string, part: UIMessage["parts"][number]): boolean {
+  if (toolName !== "dispatch_subagent" || !("output" in part)) return false;
+  const output = part.output;
+
+  return (
+    output != null && typeof output === "object" && "dryRun" in output && output.dryRun === true
+  );
+}

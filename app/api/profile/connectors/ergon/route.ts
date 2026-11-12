@@ -1,14 +1,31 @@
 import { NextResponse } from "next/server";
 
 import { requireLlmChatActor } from "@/lib/api/chat-llm-gate";
-import { deleteErgonConnectionRecord } from "@/lib/connectors/ergon-connection-store";
+import {
+  deleteErgonConnectionRecord,
+  ErgonConnectionStoreError,
+} from "@/lib/connectors/ergon-connection-store";
 import { isErgonOAuthReady } from "@/lib/connectors/ergon-oauth";
-import { saveUserConnectorsProfile } from "@/lib/connectors/user-connectors-store";
 import { ergonPublicStatusForUser } from "@/lib/llm/ergon-config";
+import { createLogger } from "@/lib/logger";
 import {
   ErgonConnectionPublicSchema,
   toPublicErgonConnection,
 } from "@/lib/schemas/ergon-connection";
+
+const logger = createLogger("api/profile/connectors/ergon");
+
+function unavailable(operation: string, error: unknown) {
+  // Log only the short store code; store errors never include token material.
+  logger.error(operation, "Ergon connection store unavailable", {
+    code: error instanceof ErgonConnectionStoreError ? (error.code ?? error.operation) : null,
+  });
+
+  return NextResponse.json(
+    { error: "Your Ergon connection is temporarily unavailable. Try again shortly." },
+    { status: 503 }
+  );
+}
 
 /**
  * GET /api/profile/connectors/ergon
@@ -20,13 +37,17 @@ export async function GET() {
 
   if (authGate.error != null) return authGate.error;
 
-  const { sbUserId, clerkUserId } = authGate.data!;
-  const status = await ergonPublicStatusForUser(sbUserId);
-  const data = ErgonConnectionPublicSchema.parse(status);
+  const { sbUserId } = authGate.data!;
+  let status;
 
-  await saveUserConnectorsProfile(clerkUserId, {
-    ergonConnection: data.connected ? data : null,
-  });
+  try {
+    status = await ergonPublicStatusForUser(sbUserId);
+  } catch (error) {
+    // Never report "not connected" when we simply could not read the connection.
+    return unavailable("GET", error);
+  }
+
+  const data = ErgonConnectionPublicSchema.parse(status);
 
   return NextResponse.json({ data });
 }
@@ -34,14 +55,14 @@ export async function GET() {
 /**
  * PUT /api/profile/connectors/ergon
  *
- * Paste-PAT connect is not the product path. Use MCP OAuth
- * (`GET /api/profile/connectors/ergon/oauth/start`).
+ * Pasting a token is not supported. Each user connects their own Ergon account with MCP
+ * OAuth (`GET /api/profile/connectors/ergon/oauth/start`).
  */
 export async function PUT() {
   return NextResponse.json(
     {
       error:
-        "Connect Ergon with MCP OAuth from Settings → Connectors (Connect with Ergon). Paste-token connect is not supported.",
+        "Connect Ergon with MCP OAuth from Settings → Connectors (Connect with Ergon). Pasting a token is not supported.",
       oauthReady: isErgonOAuthReady(),
     },
     { status: 405 }
@@ -58,12 +79,16 @@ export async function DELETE() {
 
   if (authGate.error != null) return authGate.error;
 
-  const { sbUserId, clerkUserId } = authGate.data!;
+  const { sbUserId } = authGate.data!;
 
-  await deleteErgonConnectionRecord(sbUserId);
-  await saveUserConnectorsProfile(clerkUserId, { ergonConnection: null });
+  try {
+    await deleteErgonConnectionRecord(sbUserId);
+  } catch (error) {
+    // The row may still exist, so do not report a disconnect that did not happen.
+    return unavailable("DELETE", error);
+  }
 
   return NextResponse.json({
-    data: toPublicErgonConnection(null, null, { oauthReady: isErgonOAuthReady() }),
+    data: toPublicErgonConnection(null, { oauthReady: isErgonOAuthReady() }),
   });
 }

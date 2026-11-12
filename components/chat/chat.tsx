@@ -84,7 +84,10 @@ import { isEditableEventTarget } from "@/lib/dom/is-editable-event-target";
 import { useBackgroundThreadMessages } from "@/hooks/use-background-thread-messages";
 import { useMorphFlip } from "@/hooks/use-morph-flip";
 import { COMPOSER_SHIFT_MIN_PX, COMPOSER_SHIFT_SPRING } from "@/lib/chat/composer-shift-spring";
-import { useMultitaskComposerSlot } from "@/app/sandbox/arcadia/_components/multitask-composer-slot";
+import {
+  useMultitaskComposerSlot,
+  useMultitaskConversationHidden,
+} from "@/app/sandbox/arcadia/_components/multitask-composer-slot";
 import { useArcadiaMultitaskOptional } from "@/app/sandbox/arcadia/_components/multitask-provider";
 const logger = createLogger("components/chat/chat");
 
@@ -156,6 +159,7 @@ export const Chat: React.FC<ChatProps> = ({
   const confineInMultitaskDashboard = arcadiaMultitask?.layoutMode === "dashboard";
   // Condensed multiagent row sits above CoreInput; CoreInput itself keeps its place.
   const composerSlot = useMultitaskComposerSlot();
+  const conversationHidden = useMultitaskConversationHidden();
   const composerAnchorRef = useRef<HTMLDivElement | null>(null);
   const reduceMotion = useReducedMotion();
 
@@ -737,7 +741,7 @@ export const Chat: React.FC<ChatProps> = ({
           className={[
             "w-full",
             "min-w-0",
-            "h-full",
+            conversationHidden ? "h-auto" : "h-full",
             confineInMultitaskDashboard ? "max-h-none" : "sm:max-h-[calc(100dvh-2rem)]",
             "flex",
             "flex-col",
@@ -745,12 +749,14 @@ export const Chat: React.FC<ChatProps> = ({
           ].join(" ")}
         >
           <Conversation
+            aria-hidden={conversationHidden || undefined}
+            inert={conversationHidden || undefined}
             className={[
               "flex-1",
               "min-h-0",
               "w-full",
               "relative",
-              "flex",
+              conversationHidden ? "hidden" : "flex",
               "flex-col",
               "items-center",
               "overflow-x-hidden",
@@ -792,7 +798,12 @@ export const Chat: React.FC<ChatProps> = ({
             )}
             <ConversationScrollButton className="bottom-14" />
           </Conversation>
-          <div className="shrink-0 px-4 sm:px-7 pb-1 md:pb-4 w-full -mt-10 flex flex-col gap-2">
+          <div
+            className={[
+              "shrink-0 px-4 sm:px-7 pb-1 md:pb-4 w-full flex flex-col gap-2",
+              conversationHidden ? "" : "-mt-10",
+            ].join(" ")}
+          >
             <div className="relative mx-auto flex w-full max-w-4xl flex-col gap-2">
               {persona === "remy" && (
                 <Sheet>

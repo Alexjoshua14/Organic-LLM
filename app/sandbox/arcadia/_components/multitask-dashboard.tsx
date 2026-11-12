@@ -22,6 +22,7 @@ import { SendTargetPicker } from "./send-target-picker";
 import { SubagentCard } from "./subagent-card";
 import { SubagentDetail } from "./subagent-detail";
 import { SubagentSwipeRow } from "./subagent-swipe-row";
+import { useVisibleSubagents } from "./use-visible-subagents";
 import { useMultitaskCondensed } from "./use-multitask-condensed";
 
 import { glass } from "@/components/design-system/primitives";
@@ -56,8 +57,8 @@ type MultitaskDashboardProps = {
  *
  * Condensed (&lt; {@link MULTITASK_DASHBOARD_WIDE_MIN_PX}): chat keeps the full page so CoreInput
  * stays where it is in plain Arcadia, and subagents ride a swipe row just above the composer.
- * With chat hidden, the full board takes the page. Wide: chat beside board with fixed shares,
- * Ctrl+Q/W panel slides, scroll eye-line pin.
+ * With chat hidden, the board fills the space above the same composer. Wide: chat beside board
+ * with fixed shares, Ctrl+Q/W panel slides, scroll eye-line pin.
  */
 export function MultitaskDashboard({ children, enabled = true }: MultitaskDashboardProps) {
   const router = useRouter();
@@ -95,6 +96,13 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
   const measureUnlockTimer = useRef<number | null>(null);
 
   const speakDisabled = !voice;
+  const visibleAgents = useVisibleSubagents(agents, [
+    viewingSubagentId,
+    selectedId,
+    liveSpeakAgentId,
+    closingSpeakAgentId,
+    sendTarget.kind === "subagent" ? sendTarget.agentId : null,
+  ]);
   const runningCount = agents.filter(isArcadiaSubagentRunning).length;
   const voicePhase = voice?.phase ?? "idle";
   const voiceConnecting = Boolean(voice?.connecting);
@@ -207,6 +215,7 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
       };
 
   const bothOpen = chatOpen && shellOpen;
+  const mobileAgentsActive = enabled && condensed && !chatOpen;
   // Condensed with chat open: the board becomes the swipe row above CoreInput.
   const swipeRowActive = enabled && condensed && bothOpen;
   const speakPhaseFor = (agentId: string) =>
@@ -248,7 +257,7 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
   const targetedAgentId = sendTarget.kind === "subagent" ? sendTarget.agentId : null;
   const swipeRow = swipeRowActive ? (
     <SubagentSwipeRow
-      agents={agents}
+      agents={visibleAgents}
       collapsible
       speakDisabled={speakDisabled}
       speakPhaseFor={speakPhaseFor}
@@ -286,7 +295,8 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
     <div
       ref={chatMeasureRef}
       className={cn(
-        "relative min-h-0 h-full [&_[data-arcadia-chat-root]]:h-full",
+        "relative min-h-0",
+        !mobileAgentsActive && "h-full [&_[data-arcadia-chat-root]]:h-full",
         !enabled && "w-full"
       )}
       data-multitask-scroll-anchor="orchestrator-thread"
@@ -296,7 +306,9 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
           : undefined
       }
     >
-      <MultitaskComposerSlotProvider slot={swipeRow}>{children}</MultitaskComposerSlotProvider>
+      <MultitaskComposerSlotProvider slot={swipeRow} conversationHidden={mobileAgentsActive}>
+        {children}
+      </MultitaskComposerSlotProvider>
     </div>
   );
 
@@ -426,14 +438,17 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
         style={enabled ? wideGridStyle : undefined}
       >
         <section
-          aria-hidden={enabled && !chatOpen ? true : undefined}
-          aria-label={enabled ? "Orchestrator chat" : undefined}
+          aria-hidden={enabled && !chatOpen && !mobileAgentsActive ? true : undefined}
+          aria-label={
+            enabled ? (mobileAgentsActive ? "Message composer" : "Orchestrator chat") : undefined
+          }
           className={cn(
             enabled
               ? cn(
-                  "flex min-h-0 flex-1 flex-col overflow-hidden",
+                  "flex min-h-0 flex-col overflow-hidden",
+                  mobileAgentsActive ? "order-last shrink-0" : "flex-1",
                   "lg:min-w-0",
-                  !chatOpen && "hidden"
+                  !chatOpen && !mobileAgentsActive && "hidden"
                 )
               : "h-full min-h-0"
           )}
@@ -445,7 +460,10 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
           */}
           <div
             ref={chatViewportRef}
-            className={cn(enabled ? "relative min-h-0 flex-1 overflow-hidden" : "h-full min-h-0")}
+            className={cn(
+              enabled ? "relative min-h-0 overflow-hidden" : "h-full min-h-0",
+              enabled && !mobileAgentsActive && "flex-1"
+            )}
           >
             {chatSlot}
           </div>
@@ -481,7 +499,7 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
                         : undefined
                     }
                   >
-                    {agents.map((agent) => {
+                    {visibleAgents.map((agent) => {
                       const speakPhase = resolveSpeakBarPhase({
                         agentId: agent.id,
                         liveAgentId: liveSpeakAgentId,

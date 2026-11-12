@@ -41,9 +41,9 @@ Body fields:
 
 Model: `TOPIC_EXPLORE_ASSIST_MODEL` in `lib/sandbox/topic-explore-llm.ts`.
 
-### Steer assist
+### Tune
 
-**Steer assist** (⌘/Ctrl+Enter or footer button) calls `POST /api/sandbox/topic-explore/steer` with the current composer text. Output is shown as **Steer notes (for assist)** and passed into assist-reply as constraints — not sent as a chat message.
+**Tune** (⌘/Ctrl+Enter, the footer button, or the tab above the compact composer; formerly "Steer assist") calls `POST /api/sandbox/topic-explore/steer` with the current composer text. Output is shown as **Steer notes (for assist)** and passed into assist-reply as constraints — not sent as a chat message.
 
 ### Thought profile
 

@@ -21,7 +21,7 @@ class RecordingClient {
         Promise.resolve(result).then(resolve, reject),
     };
 
-    for (const method of ["select", "eq", "not", "or", "filter", "order", "limit"]) {
+    for (const method of ["select", "eq", "is", "not", "or", "filter", "order", "limit"]) {
       builder[method] = (...args: unknown[]) => {
         calls.push([method, ...args]);
 
@@ -57,6 +57,24 @@ describe("getSidebarThreadsPage", () => {
   });
 
   afterEach(() => clientSpy.mockRestore());
+
+  for (const scope of ["main", "all"] as const) {
+    for (const cursor of [null, { updatedAt: "2026-10-01T00:00:00Z", id: "a" }]) {
+      test(`${scope}, ${cursor ? "later" : "first"} page: excludes child threads before limiting`, async () => {
+        await getSidebarThreadsPage({ ownerId: "owner", scope, cursor, limit: 50 });
+
+        // First pages include a separate pinned query; children must be excluded there too.
+        expect(client.queries).toHaveLength(cursor ? 1 : 2);
+
+        for (const query of client.queries) {
+          expect(query).toContainEqual(["is", "parent_thread_id", null]);
+          expect(query.findIndex(([method]) => method === "is")).toBeLessThan(
+            query.findIndex(([method]) => method === "limit")
+          );
+        }
+      });
+    }
+  }
 
   test("first page: unpinned page and pinned list, both owner- and scope-filtered", async () => {
     client.results = [
