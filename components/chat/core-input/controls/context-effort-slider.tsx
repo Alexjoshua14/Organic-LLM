@@ -53,7 +53,7 @@ export function ComposerContextEffortSlider() {
         "motion-safe:transition-shadow motion-safe:duration-200 hover:ring-border",
         "has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring",
         "forced-colors:ring-0 forced-colors:outline-1 select-none",
-        useCondensedLayout ? "w-18" : "w-24 sm:w-28"
+        useCondensedLayout ? "w-28" : "w-24 sm:w-28"
       )}
     >
       <div className="relative h-5 shrink-0">

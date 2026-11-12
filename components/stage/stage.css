@@ -494,7 +494,7 @@
 .stage-core-input[data-voice-active="true"] {
   padding-top: 32px;
 }
-.stage-core-input .core-input-stage-beta {
+.stage-core-input .core-input-condensed {
   position: relative;
   z-index: 40;
 }

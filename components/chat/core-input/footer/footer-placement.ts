@@ -7,7 +7,13 @@
  * whole matrix, and its diff shows exactly what a placement change moved.
  */
 
-export type FooterPlacement = "inline" | "menu" | "hidden";
+/**
+ * - `inline`: on the toolbar.
+ * - `menu`: in the overflow menu.
+ * - `tab`: in the pull tab above the compact composer (`steer-tab.tsx`). Only steer uses it.
+ * - `hidden`: not rendered.
+ */
+export type FooterPlacement = "inline" | "menu" | "tab" | "hidden";
 
 /**
  * Every footer control, in toolbar order. The toolbar has three regions:
@@ -15,6 +21,8 @@ export type FooterPlacement = "inline" | "menu" | "hidden";
  * - **leading** (left): persona, tool toggles, speech, preview, model + effort, context effort
  * - **trailing** (right of the tools row): add files, thread clipboard, mic, overflow menu
  * - **submit cluster** (far right, outside the measured tools row): steer, send
+ *
+ * Steer leaves the toolbar on a condensed composer and lives in the tab above it (`"tab"`).
  */
 export type FooterControlId =
   | "persona"
@@ -53,6 +61,8 @@ export type FooterSurface = {
   hasSteer: boolean;
   /** Context effort is on for this surface (Arcadia + memory on + beta setting). */
   showContextEffort: boolean;
+  /** Stage sends text and references only; other surfaces accept files. Defaults to true. */
+  hasAttachments?: boolean;
 };
 
 /**
@@ -62,7 +72,6 @@ export type FooterSurface = {
 export function resolveFooterPlacement(surface: FooterSurface): FooterPlacementMap {
   const {
     condensed,
-    compact,
     personaEnabled,
     hideWebMemorySpeechToggles,
     hasSpeechFriendly,
@@ -70,39 +79,34 @@ export function resolveFooterPlacement(surface: FooterSurface): FooterPlacementM
     previewingMarkdown,
     hasSteer,
     showContextEffort,
+    hasAttachments = true,
   } = surface;
 
   // The condensed layout keeps the tools a user reaches for on most turns on the toolbar and
-  // moves the occasional ones (speech, preview, steer) into the overflow menu.
+  // moves the occasional ones (speech, preview) into the overflow menu.
   const secondary = (available: boolean): FooterPlacement =>
     !available ? "hidden" : condensed ? "menu" : "inline";
 
   return {
     persona: personaEnabled ? "inline" : "hidden",
 
-    // Quirk: only the compact *variant* drops search and memory. A narrow default composer
-    // keeps them inline. Compact surfaces have no way to reach them at all; they are not in
-    // the overflow menu either.
-    toolToggles: !hideWebMemorySpeechToggles && !compact ? "inline" : "hidden",
+    // Compact layouts expose these same controls in the shared options panel.
+    toolToggles: !hideWebMemorySpeechToggles ? "inline" : "hidden",
 
-    // Quirk: `hideWebMemorySpeechToggles` hides the inline speech chip but not the menu item,
-    // so a condensed composer that passes both (Introspection) still offers speech in the menu.
-    speech: hasSpeechFriendly
-      ? condensed
-        ? "menu"
-        : hideWebMemorySpeechToggles
-          ? "hidden"
-          : "inline"
-      : "hidden",
+    // Read-aloud style is off the condensed layout for now (not used lately); the setting and
+    // the desktop chip are unchanged.
+    speech: hasSpeechFriendly && !condensed && !hideWebMemorySpeechToggles ? "inline" : "hidden",
 
     preview: secondary(hasMarkdownPreview),
     modelEffort: "inline",
     contextEffort: showContextEffort ? "inline" : "hidden",
-    addFiles: "inline",
+    addFiles: hasAttachments ? "inline" : "hidden",
     threadClipboard: "inline",
     // Dictation writes into the textarea, which is swapped out while previewing markdown.
     mic: hasMarkdownPreview && previewingMarkdown ? "hidden" : "inline",
-    steer: secondary(hasSteer),
+    // Steer sits beside send on the desktop footer; a condensed composer has no room for it
+    // there, so it gets its own tab above the composer instead of a menu item.
+    steer: !hasSteer ? "hidden" : condensed ? "tab" : "inline",
   };
 }
 

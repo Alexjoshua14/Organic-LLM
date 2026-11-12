@@ -78,8 +78,8 @@ export const KEYBOARD_SHORTCUTS: KeyboardShortcutDefinition[] = [
   {
     id: "steer-assist",
     keys: ["⌘", "Enter"],
-    label: "Steer assist (Noesis)",
-    hint: "When steer is available in composer",
+    label: "Tune (Noesis)",
+    hint: "When Tune is available in the composer",
     scope: "chat",
     enabled: true,
   },
