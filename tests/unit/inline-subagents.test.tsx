@@ -10,7 +10,9 @@ import {
   ActiveSubagentStrip,
   InlineSubagentActivity,
   revealSubagentActivity,
+  subagentPreviewLine,
 } from "@/components/chat/subagent-activity";
+import { resolveOrganicToolVisualIdentity } from "@/components/chat/organic-tool-call-presence";
 import {
   inlineSubagentDispatch,
   liveAgentForDispatch,
@@ -239,4 +241,64 @@ describe("subagents inside the conversation", () => {
       }
     }
   );
+});
+
+describe("no duplicate or misleading dispatch cards", () => {
+  test("a dry run renders nothing; a real dispatch still renders where no row replaces it", () => {
+    const dryRun = {
+      ...part,
+      toolCallId: "call-dry",
+      output: { ...output, dryRun: true },
+    } as UIMessage["parts"][number];
+    const app = render(
+      <Conversation>
+        <ChatThread
+          chatId="unrelated"
+          messages={[{ id: "m", role: "assistant", parts: [dryRun, part] }]}
+          showActions={false}
+        />
+      </Conversation>
+    );
+
+    expect(
+      app.container.querySelectorAll('[data-organic-tool-presence="dispatch_subagent"]')
+    ).toHaveLength(1);
+  });
+
+  test("refused and sized dispatches are never titled Dispatched", () => {
+    const refused = resolveOrganicToolVisualIdentity(
+      "dispatch_subagent",
+      { brief: "x" },
+      { success: false, agentId: agent.id, name: "Reed", error: "Reed is busy." }
+    );
+    const sized = resolveOrganicToolVisualIdentity(
+      "dispatch_subagent",
+      { brief: "x" },
+      { ...output, dryRun: true }
+    );
+
+    expect(refused.completedTitle).toBe("Couldn't dispatch to Reed");
+    expect(refused.subtitle).toBe("Reed is busy.");
+    expect(sized.completedTitle).toBe("Sized a brief for Reed");
+  });
+
+  test("the row previews a markdown result as one plain line", () => {
+    const result = "# Implementation plan: COA-590 child\n\n**Parent:** COA-590 (explore)";
+
+    expect(subagentPreviewLine(result)).toBe("Implementation plan: COA-590 child");
+    expect(subagentPreviewLine("---\n\n**Status:** draft")).toBe("Status: draft");
+
+    const app = render(
+      <InlineSubagentActivity
+        id="row"
+        dispatch={dispatch}
+        agent={{ ...agent, status: "done", progress: result }}
+      />
+    );
+    const summary = app.container.querySelector("summary")!;
+
+    expect(summary.textContent).toContain("Implementation plan: COA-590 child");
+    expect(summary.textContent).not.toContain("#");
+    expect(summary.textContent).not.toContain("**");
+  });
 });

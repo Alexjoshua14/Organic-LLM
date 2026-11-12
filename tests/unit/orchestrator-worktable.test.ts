@@ -22,6 +22,7 @@ import {
   removeBundleItems,
   replaceBundleItem,
 } from "@/lib/llm/subagents/worktable/operations";
+import { ORCHESTRATOR_MAX_AUTONOMOUS_DISPATCHES } from "@/lib/llm/subagents/orchestrator/constants";
 import { createWorktableSession, type WorktableStore } from "@/lib/llm/subagents/worktable/session";
 import { emptyWorktable } from "@/lib/llm/subagents/worktable/types";
 import { models } from "@/lib/schemas/chat-models";
@@ -73,6 +74,7 @@ function harness(
     autonomous?: boolean;
     autonomousRemaining?: number;
     worktable?: "memory" | "none";
+    initialWorktable?: Partial<Worktable>;
     userConnectors?: UserConnectorsProfile | null;
     loadUserConnectors?: () => Promise<UserConnectorsProfile | null>;
   } = {}
@@ -81,7 +83,7 @@ function harness(
     [ORCH, [userMessage("u1", "Build the CSV export. It must stream — files can be 2 GB.")]],
   ]);
   const children: SubagentThreadRow[] = [];
-  const memory = memoryStore();
+  const memory = memoryStore(options.initialWorktable);
   const deps = {
     listChildren: mock(async () => children.map((c) => ({ ...c }))),
     loadMessages: mock(async (threadId: string, limit: number) =>
@@ -519,8 +521,11 @@ describe("dispatch_subagent", () => {
     expect(deps.ensureChild).toHaveBeenCalledTimes(2);
   });
 
-  test("automatic turns stop after one dispatch across turns until the user speaks", async () => {
-    const { memory, run, nextTurn } = harness({ autonomous: true });
+  test("automatic turns stop at the dispatch cap across turns until the user speaks", async () => {
+    const { memory, run, nextTurn } = harness({
+      autonomous: true,
+      initialWorktable: { autonomousDispatches: ORCHESTRATOR_MAX_AUTONOMOUS_DISPATCHES - 1 },
+    });
 
     expect(
       (await run("dispatch_subagent", { agent: "coder", brief: "Implement the requested result." }))
@@ -530,11 +535,22 @@ describe("dispatch_subagent", () => {
     expect((await run("dispatch_subagent", { agent: "planner", brief: "One more" })).success).toBe(
       false
     );
-    expect(memory.current().autonomousDispatches).toBe(1);
+    expect(memory.current().autonomousDispatches).toBe(ORCHESTRATOR_MAX_AUTONOMOUS_DISPATCHES);
+  });
+
+  test("a spent turn allowance (spend ceiling) blocks dispatch even with worktable room", async () => {
+    const { memory, run, deps } = harness({ autonomous: true, autonomousRemaining: 0 });
+
+    expect(
+      (await run("dispatch_subagent", { agent: "coder", brief: "Implement the requested result." }))
+        .success
+    ).toBe(false);
+    expect(deps.enqueueWorker).not.toHaveBeenCalled();
+    expect(memory.current().autonomousDispatches).toBe(0);
   });
 
   test("without a worktable, automatic turns spend the allowance counted from history", async () => {
-    const { deps, run } = harness({ autonomous: true, autonomousRemaining: 2, worktable: "none" });
+    const { deps, run } = harness({ autonomous: true, autonomousRemaining: 1, worktable: "none" });
 
     expect(
       (await run("dispatch_subagent", { agent: "coder", brief: "Draft the architecture." })).success

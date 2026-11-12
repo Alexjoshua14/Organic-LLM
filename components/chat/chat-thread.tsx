@@ -205,9 +205,11 @@ export const ChatThread: FC<ChatThreadProps> = ({
                       showModelBadge={!modelSummary.shouldUseThreadBadge}
                     />
                   )}
-                  {heard ? <PersonaHeardMark label={heard.label} pulseKey={heard.pulseKey} /> : null}
+                  {heard ? (
+                    <PersonaHeardMark label={heard.label} pulseKey={heard.pulseKey} />
+                  ) : null}
                   {messageDispatches.length > 0 && (
-                    <div className="space-y-stack-sm px-4" aria-label="Delegated work">
+                    <div className="space-y-stack-xs px-4" aria-label="Delegated work">
                       {messageDispatches.map((dispatch) => (
                         <InlineSubagentActivity
                           key={dispatch.toolCallId}
@@ -227,7 +229,7 @@ export const ChatThread: FC<ChatThreadProps> = ({
             })
           )}
           {unplacedAgents.length > 0 && (
-            <div className="space-y-stack-sm px-4" aria-label="Subagent activity">
+            <div className="space-y-stack-xs px-4" aria-label="Subagent activity">
               {unplacedAgents.map((agent) => (
                 <InlineSubagentActivity
                   key={agent.id}

@@ -239,8 +239,16 @@ export async function runQueuedChatTurn(args: {
         sbUserId,
       });
 
-      for (const fragment of multitask?.systemFragments ?? []) {
-        systemPromptForRequest = `${systemPromptForRequest}\n\n${fragment}`;
+      // The orchestrator's board, worktable, and routing change every turn: send them after the
+      // conversation (see withTurnContext) so the system prompt stays cacheable. A subagent's
+      // fragments are its fixed identity and stay in the system prompt.
+      const turnContext =
+        multitask?.role === "orchestrator" ? multitask.systemFragments : ([] as string[]);
+
+      if (multitask && multitask.role !== "orchestrator") {
+        for (const fragment of multitask.systemFragments) {
+          systemPromptForRequest = `${systemPromptForRequest}\n\n${fragment}`;
+        }
       }
 
       const messages = await convertToModelMessages(
@@ -297,7 +305,7 @@ export async function runQueuedChatTurn(args: {
       );
 
       const inputTokenEstimate = estimateLlmInputTokens({
-        systemPrompt: systemPromptWithLength,
+        systemPrompt: [systemPromptWithLength, ...turnContext].join("\n\n"),
         toolInstructions,
         messages: validatedMessages,
       });
@@ -326,7 +334,7 @@ export async function runQueuedChatTurn(args: {
         draftMessage: userMessage,
         validatedMessages,
         contextSystemPrompt: afterContext,
-        finalSystemPrompt: systemPromptWithLength,
+        finalSystemPrompt: [systemPromptWithLength, ...turnContext].join("\n\n"),
         toolInstructions,
         activeToolNames: toolNames,
         tokenBreakdown,
@@ -359,6 +367,7 @@ export async function runQueuedChatTurn(args: {
         effort: payload.effort,
         messages,
         systemPromptWithLength,
+        turnContext,
         tools,
         hasTools,
         maxSteps,
