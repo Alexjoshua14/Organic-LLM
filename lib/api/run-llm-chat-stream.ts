@@ -22,6 +22,7 @@ import { serializeError } from "@/lib/llm/log-error";
 import { addLatestMessagesToMemoryForUser } from "@/lib/memory/operations";
 import { buildChatReasoningProviderOptions, type ChatEffortLevel } from "@/lib/schemas/chat-effort";
 import { gatewayAttribution } from "@/lib/usage/gateway-attribution";
+import { GATEWAY_PROMPT_CACHING, promptCacheSessionHeaders } from "@/lib/llm/prompt-cache";
 import { prepareChatCompletionStep } from "@/lib/api/chat-step-completion";
 import { createLlmBudgetHooks, isPlanBudgetStopError } from "@/lib/plans/llm-budget-hooks";
 import { ChatAIActionEnum, type ChatUIMessage } from "@/types/ai";
@@ -167,6 +168,8 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
     model: selectedModel.id,
     messages,
     instructions: systemPromptWithLength,
+    // Keeps a thread on the provider that holds its prompt cache (COA-554).
+    headers: promptCacheSessionHeaders({ userId: sbUserId, chatId }),
     experimental_transform: smoothStream({
       delayInMs: 20, // optional: defaults to 10ms
       chunking: CHAT_STREAM_CHUNKING,
@@ -250,6 +253,8 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
       } satisfies OpenAIResponsesProviderOptions,
       gateway: {
         zeroDataRetention: isZeroDataRetention,
+        // Anthropic caches only with markers; the Gateway adds them (COA-554).
+        ...GATEWAY_PROMPT_CACHING,
         ...gatewayAttribution({ userId: sbUserId, operation: "chat" }),
       } satisfies GatewayProviderOptions,
       ...(effortProviderOptions.anthropic ? { anthropic: effortProviderOptions.anthropic } : {}),
