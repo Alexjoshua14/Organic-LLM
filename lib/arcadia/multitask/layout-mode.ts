@@ -77,12 +77,19 @@ export function resolveArcadiaMultitaskLayoutMode(
 }
 
 /**
- * Refuse toggles while this thread still has a live LLM stream.
+ * Refuse *leaving* Multiagent while this thread still has a live LLM stream: that turn may be
+ * dispatching to workers, and the flag would cut it off. *Entering* is always allowed: the
+ * server reads the flag once, when it prepares a turn, so a stream already in flight is a plain
+ * reply and the next message is the first to delegate.
  * `activeStreamId` mirrors `threads.active_stream_id` (or a client stream counter).
  */
 export function canToggleArcadiaMultitaskView(args: {
   activeStreamId: string | null | undefined;
+  /** The value the toggle would set. */
+  nextEnabled: boolean;
 }): boolean {
+  if (args.nextEnabled) return true;
+
   const id = args.activeStreamId?.trim();
 
   return !id;
