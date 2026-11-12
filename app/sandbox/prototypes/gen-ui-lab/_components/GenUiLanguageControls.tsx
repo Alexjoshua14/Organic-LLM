@@ -3,6 +3,7 @@
 import type { GenUiLanguageRotation } from "../_hooks/use-gen-ui-language-rotation";
 
 import { ChevronDown, Pause, Play } from "lucide-react";
+import { useMemo } from "react";
 
 import { TOOLBAR_CONTROL } from "./GenUiArrangementToolbar";
 
@@ -38,10 +39,14 @@ export function GenUiLanguageControls({
     ? (languages.find((option) => option.id === language)?.label ?? language)
     : (defaultLabel ?? "Choose");
   const shuffling = auto && !reducedMotion;
+  const widest = useMemo(
+    () => [...new Set([defaultLabel ?? "Choose", ...languages.map((option) => option.label)])],
+    [defaultLabel, languages]
+  );
 
   return (
     <div
-      className="flex flex-wrap items-center gap-x-inline-sm gap-y-stack-xs"
+      className="flex flex-wrap items-center gap-x-inline-lg gap-y-stack-xs"
       role="group"
       aria-label="Language"
     >
@@ -53,7 +58,19 @@ export function GenUiLanguageControls({
             className={`inline-flex min-h-9 items-center gap-2 rounded-md border border-border/60 px-inset-md text-sm pointer-coarse:min-h-11 ${TOOLBAR_CONTROL}`}
           >
             <span className="text-muted-foreground">Language</span>
-            <span className="font-medium text-foreground">{current}</span>
+            {/* Every name sits in one grid cell, all but the current one invisible, so the trigger is
+                as wide as the longest name and picking another language never moves what follows. */}
+            <span className="grid text-left font-medium text-foreground">
+              {widest.map((label) => (
+                <span
+                  key={label}
+                  aria-hidden
+                  className="invisible col-start-1 row-start-1 after:content-[attr(data-label)]"
+                  data-label={label}
+                />
+              ))}
+              <span className="col-start-1 row-start-1">{current}</span>
+            </span>
             <ChevronDown aria-hidden className="size-3.5" />
           </button>
         </DropdownMenuTrigger>
