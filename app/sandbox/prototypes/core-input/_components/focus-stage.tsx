@@ -414,7 +414,7 @@ function labFooterPlacement(value: CoreInputControlsValue) {
 /** Steer against the panel draft, recorded on the simulated chat. */
 function labSteer({ state, chat }: CardContext): SteerAction {
   return {
-    label: "Steer assist",
+    label: "Tune",
     pending: false,
     available: state.draftText.trim().length > 0,
     run: () => chat.recordSteer(state.draftText),

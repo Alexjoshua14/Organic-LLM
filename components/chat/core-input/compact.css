@@ -118,38 +118,73 @@
   font-size: 11px;
 }
 /*
- * Pull tab above the compact composer (steer lives here). It is one step lower on the z-axis:
- * in flow directly above the shell, with a negative bottom margin equal to its bottom padding
- * so the shell (the lumen wrapper, z-10) overlaps the tab's lower edge and the two read as
- * one object with no gap. The tab keeps z-index 0, below the shell and below the voice drawer
- * slot (z-30). Material is the default (non-opaque) `glass()`, a lighter tint than the shell's
- * opaque glass, plus a faint dark wash and an inset shadow so it reads as recessed. Its outer
- * shadow is wider and fainter than the shell's `shadow-xs`. Spacing uses the design tokens;
- * the top padding is at least the voice drawer's 8px tuck, so the drawer never covers the
- * button.
+ * The strip above the compact composer: the live voice bar's drawer on the left (it grows to
+ * fill the row) and the steer tab on the right. The row is as tall as the bar and is pulled
+ * down by the bar's tuck (both set inline from `voice-live-bar-timing.ts`), so the composer
+ * shell covers the lower edge of both cells, which then read as one step lower than the
+ * composer. Only its cells take pointer events; the empty drawer never blocks the page.
  */
-.core-input-tab {
-  --core-input-tab-overlap: var(--spacing-stack-md);
+.core-input-strip {
   position: relative;
+  /* Below the composer shell (z-10): the strip sits behind it, not on top. */
   z-index: 0;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
   gap: var(--spacing-inline-sm);
-  box-sizing: border-box;
-  width: 80%;
-  margin-inline: auto;
-  margin-bottom: calc(-1 * var(--core-input-tab-overlap));
-  padding: var(--spacing-stack-sm) var(--spacing-inset-sm)
-    calc(var(--spacing-stack-xs) + var(--core-input-tab-overlap));
+  padding-inline: var(--spacing-inset-sm);
+  pointer-events: none;
+}
+/*
+ * The steer tab, the strip's right-hand cell. It uses the live bar's own fallback material
+ * (`glassPreview`, floating) and corner (12px, rounded top only), and its content is centred in
+ * the full strip height like the bar's, so the two read as one strip. Interactive controls keep
+ * a 44px hit area by extending upward past the visible tab (the composer covers the lower edge).
+ */
+.core-input-tab {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-inline-sm);
+  margin-left: auto;
+  padding-inline: var(--spacing-inset-md);
   /* The shell covers the bottom edge, so the tab has no border of its own there. */
   border-bottom-width: 0;
   border-radius: 12px 12px 0 0;
-  background-image: linear-gradient(to bottom, rgb(0 0 0 / 0.05), rgb(0 0 0 / 0.02));
   color: var(--muted-foreground);
-  box-shadow:
-    inset 0 1px 2px rgb(0 0 0 / 0.06),
-    0 -1px 6px -2px rgb(0 0 0 / 0.08);
+}
+.core-input-tab button {
+  position: relative;
+  min-height: 0;
+  height: 24px;
+  padding-inline: var(--spacing-stack-xs);
+  color: inherit;
+  transition: color 160ms ease-out;
+}
+.core-input-tab button:not(:disabled):hover,
+.core-input-tab button:not(:disabled):focus-visible {
+  color: var(--foreground);
+  background: transparent;
+}
+.core-input-tab button::after {
+  content: "";
+  position: absolute;
+  inset: -14px -6px -6px;
+}
+/* The dial's pointer rests left of centre and swings right when the button is hovered or focused. */
+.core-input-tune-needle {
+  transform-box: view-box;
+  transform-origin: 12px 12px;
+  transform: rotate(-40deg);
+  transition: transform 260ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.core-input-tab button:not(:disabled):hover .core-input-tune-needle,
+.core-input-tab button:not(:disabled):focus-visible .core-input-tune-needle {
+  transform: rotate(40deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .core-input-tune-needle {
+    transition: none;
+  }
 }
 @media (max-width: 480px) {
   .core-input-compact-row {
@@ -167,8 +202,7 @@
 }
 @media (pointer: coarse) {
   .core-input-compact-row button,
-  .core-input-options-panel button,
-  .core-input-tab button {
+  .core-input-options-panel button {
     min-height: 44px;
     min-width: 44px;
   }

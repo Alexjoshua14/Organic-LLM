@@ -871,6 +871,49 @@ describe("CoreInput steer tab", () => {
     );
   }
 
+  test("the live voice bar and the steer tab share one strip above the composer", async () => {
+    const { LabVoiceBar } = await import(
+      "@/app/sandbox/prototypes/core-input/_components/lab-voice-bar"
+    );
+    const rect = withShellWidth(375);
+
+    try {
+      const app = render(
+        <LabVoiceBar mode="live" onModeChange={() => {}}>
+          <Providers>
+            <CoreInput
+              modelRef={{ current: DEFAULT_COMPOSER_MODEL }}
+              useWebSearchRef={{ current: false }}
+              useMemoriesRef={{ current: false }}
+              useSpeechFriendlyRef={{ current: false }}
+              defaultWebSearch={false}
+              defaultMemories={false}
+              sendMessage={async () => {}}
+              stop={async () => {}}
+              status="ready"
+              featureHints={false}
+              showContextBudget={false}
+              onSecondarySubmit={() => {}}
+            />
+          </Providers>
+        </LabVoiceBar>
+      );
+      const strip = app.container.querySelector(".core-input-strip")!;
+      const shell = app.container.querySelector("[data-prompt-input-shell]")!;
+
+      // One row holds the real bar (in the drawer slot) and the tab, both before the composer.
+      expect(strip).toBeTruthy();
+      await waitFor(() => expect(strip.querySelector("[data-voice-live-bar]")).toBeTruthy());
+      expect(
+        within(strip as HTMLElement).getByRole("group", { name: "Draft actions" })
+      ).toBeTruthy();
+      expect(strip.compareDocumentPosition(shell) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(strip.contains(shell)).toBe(false);
+    } finally {
+      rect.mockRestore();
+    }
+  });
+
   test.each(["default", "compact", "stage-beta"] as const)(
     "%s puts steer in a tab above the composer, not in the settings panel",
     async (variant) => {
@@ -881,7 +924,7 @@ describe("CoreInput steer tab", () => {
         const app = renderComposer(variant, onSecondarySubmit);
         const tab = app.getByRole("group", { name: "Draft actions" });
         const shell = app.container.querySelector("[data-prompt-input-shell]")!;
-        const steer = within(tab).getByRole("button", { name: "Steer assist" });
+        const steer = within(tab).getByRole("button", { name: "Tune" });
 
         // The tab comes directly before the shell in document order and is outside the form.
         expect(tab.compareDocumentPosition(shell) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -905,10 +948,10 @@ describe("CoreInput steer tab", () => {
         fireEvent.click(options);
         const panel = await app.findByRole("dialog", { name: "Composer settings" });
 
-        expect(within(panel).queryByRole("button", { name: "Steer assist" })).toBeNull();
+        expect(within(panel).queryByRole("button", { name: "Tune" })).toBeNull();
         // Nothing in the compact row carries steer either.
         expect(
-          app.container.querySelector(".core-input-compact-row [aria-label='Steer assist']")
+          app.container.querySelector(".core-input-compact-row [aria-label='Tune']")
         ).toBeNull();
       } finally {
         rect.mockRestore();
@@ -923,7 +966,7 @@ describe("CoreInput steer tab", () => {
       const app = renderComposer("default");
 
       expect(app.queryByRole("group", { name: "Draft actions" })).toBeNull();
-      expect(app.queryByRole("button", { name: "Steer assist" })).toBeNull();
+      expect(app.queryByRole("button", { name: "Tune" })).toBeNull();
     } finally {
       rect.mockRestore();
     }
@@ -937,7 +980,7 @@ describe("CoreInput steer tab", () => {
 
       expect(app.container.querySelector(".core-input-compact-row")).toBeNull();
       expect(app.queryByRole("group", { name: "Draft actions" })).toBeNull();
-      const steer = app.getByRole("button", { name: "Steer assist" });
+      const steer = app.getByRole("button", { name: "Tune" });
 
       expect(steer.closest("[data-core-input-tab]")).toBeNull();
       expect(steer.hasAttribute("disabled")).toBe(true);

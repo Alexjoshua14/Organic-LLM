@@ -55,7 +55,7 @@ import {
 import { CoreInputFooter } from "./footer/core-input-footer";
 import { resolveFooterPlacement } from "./footer/footer-placement";
 import { CoreInputOptions } from "./core-input-options";
-import { CoreInputSteerTab } from "./steer-tab";
+import { CoreInputSteerTab, CoreInputStrip } from "./steer-tab";
 import { ComposerAddFilesButton } from "./controls/add-files-button";
 import { ComposerMicButton } from "./controls/mic-button";
 import "./compact.css";
@@ -296,7 +296,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   defaultWebSearch = DEFAULT_COMPOSER_WEB_SEARCH,
   composerInject,
   onSecondarySubmit,
-  secondarySubmitLabel = "Steer assist",
+  secondarySubmitLabel = "Tune",
   secondarySubmitDisabled = false,
   secondarySubmitPending = false,
   variant = "default",
@@ -1343,6 +1343,9 @@ export const CoreInput: React.FC<CoreInputProps> = ({
 
   // Keep the prompt shell mounted when Memory changes so the draft, open settings, and
   // shell-width observer survive toggling a setting in the compact options panel.
+  // Compact steer: a tab in the strip above the shell, beside the live voice bar's drawer.
+  const tabSteer = useCondensedLayout && footerPlacement.steer === "tab" ? steer : null;
+
   const shell = (
     <HomeComposerLumenShell
       className="core-input-memory-lumen"
@@ -1364,7 +1367,6 @@ export const CoreInput: React.FC<CoreInputProps> = ({
         onKeyDownCapture={fastForwardMorph}
         onPointerDownCapture={fastForwardMorph}
       >
-        <CoreInputVoiceDrawerSlot includePending={variant === "stage-beta"} />
         {queueEnabled ? (
           <MessageSendQueueStrip
             budget={messageQueue.budget}
@@ -1372,15 +1374,18 @@ export const CoreInput: React.FC<CoreInputProps> = ({
             items={messageQueue.items}
           />
         ) : null}
-        {/* Compact steer: a tab directly above the shell, which overlaps its bottom edge. */}
-        {useCondensedLayout && footerPlacement.steer === "tab" && steer ? (
-          <CoreInputSteerTab
-            featureHintShowWhen={steerHintShowWhen}
-            locked={Boolean(disabled) || showSentShimmer}
-            showFeatureHint={featureHints}
-            steer={steer}
-          />
-        ) : null}
+        {tabSteer ? (
+          <CoreInputStrip includePending={variant === "stage-beta"}>
+            <CoreInputSteerTab
+              featureHintShowWhen={steerHintShowWhen}
+              locked={Boolean(disabled) || showSentShimmer}
+              showFeatureHint={featureHints}
+              steer={tabSteer}
+            />
+          </CoreInputStrip>
+        ) : (
+          <CoreInputVoiceDrawerSlot includePending={variant === "stage-beta"} />
+        )}
         <div className="relative">
           {shell}
           {morphing ? <span aria-hidden className="core-input-morph-sheen" /> : null}
