@@ -21,6 +21,7 @@ import { mockModulePreservingReal } from "../helpers/module-mock";
 import { createResumableRedisFixture } from "../helpers/resumable-redis";
 
 import * as chatStore from "@/lib/chat/chat-store";
+import * as threadStreamState from "@/lib/chat/thread-stream-state";
 import * as chatData from "@/data/supabase/chat";
 import * as chatGate from "@/lib/api/chat-llm-gate";
 import * as mainContext from "@/lib/api/chat-turn-context";
@@ -59,17 +60,9 @@ const user: UIMessage = {
   parts: [{ type: "text", text: "Reconnect diagnostic" }],
 };
 const authMock = mock(async () => ({ userId: "clerk-test" as string | null }));
-const readChatMock = mock(
-  async (): Promise<Awaited<ReturnType<typeof chatStore.readChat>>> => ({
-    data: {
-      thread: {
-        id: THREAD_ID,
-        created_at: "2026-10-09T00:00:00.000Z",
-        updated_at: "2026-10-09T00:00:00.000Z",
-        active_stream_id: activeStreamId,
-      },
-      messages: [user],
-    },
+const readStreamStateMock = mock(
+  async (): Promise<Awaited<ReturnType<typeof threadStreamState.readThreadStreamState>>> => ({
+    data: { activeStreamId },
     error: null,
   })
 );
@@ -90,7 +83,7 @@ beforeEach(() => {
   process.env.REDIS_URL = "redis://test.invalid:" + (6300 + ++sequence);
   authMock.mockClear();
   authMock.mockResolvedValue({ userId: "clerk-test" });
-  readChatMock.mockClear();
+  readStreamStateMock.mockClear();
   saveChatMock.mockClear();
   updateChatMessageMock.mockClear();
   restore = [
@@ -105,8 +98,10 @@ beforeEach(() => {
     mockModulePreservingReal("redis", redis, {
       createClient: fixture.createClient as unknown as typeof redis.createClient,
     }),
+    mockModulePreservingReal("@/lib/chat/thread-stream-state", threadStreamState, {
+      readThreadStreamState: readStreamStateMock,
+    }),
     mockModulePreservingReal("@/lib/chat/chat-store", chatStore, {
-      readChat: readChatMock,
       saveChat: saveChatMock,
       updateChatMessage: updateChatMessageMock,
     }),
@@ -649,8 +644,8 @@ describe("server-backed chat stream resumption", () => {
     activeStreamId = "private-stream-test";
     authMock.mockResolvedValueOnce({ userId: null });
     expect((await resumeRequest()).status).toBe(401);
-    expect(readChatMock).not.toHaveBeenCalled();
-    readChatMock.mockResolvedValueOnce({ data: null, error: new Error("Denied") });
+    expect(readStreamStateMock).not.toHaveBeenCalled();
+    readStreamStateMock.mockResolvedValueOnce({ data: null, error: new Error("Denied") });
     expect((await resumeRequest()).status).toBe(500);
     expect(fixture.clients).toHaveLength(0);
   });
