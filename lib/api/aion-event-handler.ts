@@ -186,6 +186,7 @@ export function createAionEventHandler(deps: AionEventDeps) {
     try {
       const result = await deps.generateText({
         model: modelId,
+        abortSignal: req.signal,
         instructions: system,
         prompt: "Respond to the current event. Reply with exactly [silent] if no reply is needed.",
         maxOutputTokens,

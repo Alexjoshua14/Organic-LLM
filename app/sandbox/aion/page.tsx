@@ -5,6 +5,13 @@ import { unstable_rethrow } from "next/navigation";
 import { AionShell } from "./_components/aion-shell";
 import { AionPresenceProvider } from "./_components/aion-presence-provider";
 
+import {
+  ArcadiaPersistentHost,
+  ArcadiaThreadMeta,
+} from "@/app/sandbox/arcadia/_components/multitask-host";
+import { hasSubagentThreadRows } from "@/data/supabase/subagent-threads";
+import { readCoreInputInitialSettings } from "@/lib/core-input/server-settings";
+import { coreInputScopes } from "@/lib/core-input/scopes";
 import Page from "@/components/layout/page";
 import { resolveFeatureThread } from "@/lib/chat/resolve-feature-thread";
 import { loadChat, createChat } from "@/lib/chat/chat-store";
@@ -66,11 +73,26 @@ export default async function AionPage() {
     return <div>Chat creation failed</div>;
   }
 
+  const [initialComposerSettings, hasSubagents] = await Promise.all([
+    readCoreInputInitialSettings(coreInputScopes.thread("aion", chatData.thread.id)),
+    chatData.thread.owner_id
+      ? hasSubagentThreadRows(chatData.thread.id, chatData.thread.owner_id)
+      : Promise.resolve(false),
+  ]);
+
   return (
     <ArchetypeProvider>
       <AionPresenceProvider initialThreadId={chatData.thread.id}>
-        <Page className="overflow-x-auto md:pt-0 pt-10 md:px-0 px-4">
-          <AionShell chatData={chatData} />
+        <Page className="overflow-hidden pt-0 px-0">
+          <ArcadiaPersistentHost>
+            <ArcadiaThreadMeta
+              threadId={chatData.thread.id}
+              orchestratorThreadId={chatData.thread.id}
+              initialMultitaskView={chatData.thread.arcadia_multitask_view === true}
+              initialHasSubagentThreads={hasSubagents ?? undefined}
+            />
+            <AionShell chatData={chatData} initialComposerSettings={initialComposerSettings} />
+          </ArcadiaPersistentHost>
         </Page>
       </AionPresenceProvider>
     </ArchetypeProvider>
