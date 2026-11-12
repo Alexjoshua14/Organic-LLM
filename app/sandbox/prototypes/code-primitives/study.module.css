@@ -229,7 +229,10 @@
   margin: 0 4px;
   background: var(--border);
 }
-.copy {
+.actions .copy {
+  min-inline-size: 9em;
+  flex-shrink: 0;
+  justify-content: flex-start;
   white-space: nowrap;
 }
 .codeToolbar {
