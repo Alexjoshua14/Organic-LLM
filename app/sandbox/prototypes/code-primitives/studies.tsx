@@ -1,6 +1,6 @@
 "use client";
 
-import { type CSSProperties, useState } from "react";
+import { type CSSProperties, Fragment, useState } from "react";
 import {
   ArrowLeft,
   ArrowUpRight,
@@ -12,12 +12,20 @@ import {
   GitCompareArrows,
   Maximize2,
   MessageSquareText,
-  Palette,
   WrapText,
 } from "lucide-react";
 import Link from "next/link";
 
 import styles from "./study.module.css";
+
+import { glass } from "@/components/design-system/primitives";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/third-party/ui/dropdown-menu";
 
 const SOURCE = [
   'import { z } from "zod";',
@@ -76,6 +84,84 @@ const MODES = [
 
 type Mode = (typeof MODES)[number]["id"];
 type CodeTheme = "auto" | "classic" | "glass" | "paper";
+
+const CODE_THEMES: { id: CodeTheme; name: string; description: string }[] = [
+  { id: "auto", name: "Adaptive", description: "Follows your app appearance" },
+  { id: "classic", name: "Classic dark", description: "Graphite, amber and green" },
+  { id: "glass", name: "Dark glass", description: "Deep ink, citrus and cyan" },
+  { id: "paper", name: "Classic light", description: "Paper, blue and violet" },
+];
+
+function ThemeSwatch({ theme, miniature = false }: { theme: CodeTheme; miniature?: boolean }) {
+  return (
+    <span
+      className={miniature ? styles.themeMiniature : styles.themeSwatch}
+      data-preview-theme={theme}
+      aria-hidden
+    >
+      <i />
+      <i />
+      <i />
+    </span>
+  );
+}
+
+function CodeThemePicker({
+  theme,
+  onChange,
+}: {
+  theme: CodeTheme;
+  onChange: (theme: CodeTheme) => void;
+}) {
+  return (
+    <div className={styles.themePicker}>
+      <DropdownMenu modal={false}>
+        <DropdownMenuTrigger asChild>
+          <button
+            className={`${styles.themeTrigger} organic-focus`}
+            type="button"
+            aria-label={`Code theme: ${CODE_THEMES.find((item) => item.id === theme)!.name}`}
+          >
+            <ThemeSwatch theme={theme} />
+            <span>{CODE_THEMES.find((item) => item.id === theme)!.name}</span>
+            <ChevronDown size={12} aria-hidden />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="end"
+          sideOffset={8}
+          collisionPadding={12}
+          className={`${glass({ opaque: true })} ${styles.themeMenu}`}
+        >
+          <div className={styles.themeMenuHeading}>
+            <span>Code appearance</span>
+            <span>4 themes</span>
+          </div>
+          <DropdownMenuRadioGroup
+            value={theme}
+            onValueChange={(value) => onChange(value as CodeTheme)}
+          >
+            {CODE_THEMES.map((item) => (
+              <DropdownMenuRadioItem
+                key={item.id}
+                value={item.id}
+                className={`${styles.themeOption} organic-focus`}
+                textValue={item.name}
+              >
+                <ThemeSwatch theme={item.id} miniature />
+                <span className={styles.themeOptionText}>
+                  <span>{item.name}</span>
+                  <span>{item.description}</span>
+                </span>
+                <Check className={styles.themeCheck} size={14} aria-hidden />
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
 
 function codeIndent(text: string): CSSProperties {
   return { "--indent-columns": text.match(/^ */)?.[0].length ?? 0 } as CSSProperties;
@@ -156,7 +242,7 @@ export function CodeStudies() {
 
   return (
     <div className={styles.scroll}>
-      <div className={styles.page} data-expanded={expanded}>
+      <div className={`${styles.page} organic-focus-scope`} data-expanded={expanded}>
         <header className={styles.pageHeader}>
           <Link href="/sandbox/prototypes/gen-ui-lab" className={styles.back}>
             <ArrowLeft size={14} /> Gen UI Lab
@@ -179,19 +265,7 @@ export function CodeStudies() {
               {label}
             </button>
           ))}
-          <label className={styles.themePicker}>
-            <Palette size={14} aria-hidden />
-            <select
-              aria-label="Code theme"
-              value={theme}
-              onChange={(event) => setTheme(event.target.value as CodeTheme)}
-            >
-              <option value="auto">Adaptive</option>
-              <option value="classic">Classic dark</option>
-              <option value="glass">Dark glass</option>
-              <option value="paper">Classic light</option>
-            </select>
-          </label>
+          <CodeThemePicker theme={theme} onChange={setTheme} />
         </div>
 
         <main className={styles.stage} data-mode={mode}>
@@ -332,39 +406,37 @@ export function CodeStudies() {
                       <div className={styles.lines}>
                         {DIFF.filter((_, index) => context || index < 4 || index === 8).map(
                           (line, index) => (
-                            <div
-                              key={`${line.old}-${line.next}`}
-                              className={styles.diffLine}
-                              data-kind={line.kind}
-                            >
-                              <span className={styles.number} aria-hidden>
-                                {line.old}
-                              </span>
-                              <span className={styles.number} aria-hidden>
-                                {line.next}
-                              </span>
-                              <span className={styles.sign} aria-label={line.kind}>
-                                {line.kind === "added" ? "+" : line.kind === "removed" ? "−" : ""}
-                              </span>
-                              <code style={codeIndent(line.text)}>
-                                {line.kind ? (
-                                  <>
-                                    {"  const { email } = "}
-                                    <mark>
-                                      <Syntax
-                                        text={
-                                          line.kind === "added"
-                                            ? "schema.parse(input)"
-                                            : "input as { email: string }"
-                                        }
-                                      />
-                                    </mark>
-                                    ;
-                                  </>
-                                ) : (
-                                  <Syntax text={line.text} />
-                                )}
-                              </code>
+                            <Fragment key={`${line.old}-${line.next}`}>
+                              <div className={styles.diffLine} data-kind={line.kind}>
+                                <span className={styles.number} aria-hidden>
+                                  {line.old}
+                                </span>
+                                <span className={styles.number} aria-hidden>
+                                  {line.next}
+                                </span>
+                                <span className={styles.sign} aria-label={line.kind}>
+                                  {line.kind === "added" ? "+" : line.kind === "removed" ? "−" : ""}
+                                </span>
+                                <code style={codeIndent(line.text)}>
+                                  {line.kind ? (
+                                    <>
+                                      {"  const { email } = "}
+                                      <mark>
+                                        <Syntax
+                                          text={
+                                            line.kind === "added"
+                                              ? "schema.parse(input)"
+                                              : "input as { email: string }"
+                                          }
+                                        />
+                                      </mark>
+                                      ;
+                                    </>
+                                  ) : (
+                                    <Syntax text={line.text} />
+                                  )}
+                                </code>
+                              </div>
                               {!context && index === 3 && (
                                 <button
                                   type="button"
@@ -372,10 +444,11 @@ export function CodeStudies() {
                                   onClick={() => setContext(true)}
                                 >
                                   <ChevronDown size={12} />
-                                  Show 4 unchanged lines<span>10—13</span>
+                                  <span>Show 4 unchanged lines</span>
+                                  <span className={styles.foldRange}>10–13</span>
                                 </button>
                               )}
-                            </div>
+                            </Fragment>
                           )
                         )}
                       </div>

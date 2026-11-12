@@ -57,6 +57,9 @@ run; `-t "name"` filters by test name.
 
 ## Style
 
+- Keyboard focus follows [Focus feedback](docs/design/focus-feedback.md): use Lumen or clear
+  surface/text feedback instead of default focus rings. Never remove focus visibility.
+
 - Match the surrounding file — its naming, comment density, and idioms — over any general
   convention. Read a neighbour before adding a pattern.
 - Timing and animation constants live next to the effect, not inline in components. Docs record
