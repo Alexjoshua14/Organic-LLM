@@ -20,7 +20,6 @@ import { hasOverflowItems } from "./footer-placement";
 
 import { CORE_INPUT_SETTINGS_REVEAL_MS } from "@/lib/core-input/morph-timing";
 import { cn } from "@/lib/utils";
-import { ThreadClipboardPicker } from "@/components/chat/thread-reference/thread-clipboard-picker";
 import { FeatureHint } from "@/components/onboarding/feature-hint";
 import { ComposerPersonaChip } from "@/components/personas/persona-chip";
 import {
@@ -49,7 +48,7 @@ export type CoreInputFooterProps = {
    * must stay inside `PromptInput`.
    */
   toolsRef?: RefObject<HTMLDivElement | null>;
-  /** Required when `placement.steer` is not `"hidden"`. */
+  /** Required when `placement.steer` is `"inline"`. */
   steer?: SteerAction | null;
   /** Composer disabled or showing the sent shimmer; see `ComposerSteerButton`. */
   locked?: boolean;
@@ -82,7 +81,7 @@ function hinted(show: boolean, id: FeatureHintId, node: ReactNode, showWhen?: bo
  *
  * - leading: persona, search + memory, speech, preview, model + effort, context effort
  * - trailing: add files, thread clipboard, mic, overflow menu
- * - submit: steer, send
+ * - submit: steer (desktop only; compact composers use the tab above), send
  *
  * Leading and trailing share the tools row (`toolsRef`); the submit cluster sits beside it.
  *
@@ -106,7 +105,7 @@ export function CoreInputFooter({
   const inline = (id: keyof FooterPlacementMap) => placement[id] === "inline";
 
   return (
-    <PromptInputFooter className="cursor-default overflow-visible">
+    <PromptInputFooter className="cursor-default flex-wrap gap-y-2 overflow-visible">
       <div ref={toolsRef} className="min-w-0 flex-1 overflow-visible">
         <PromptInputTools className="flex min-w-0 w-full items-center justify-between gap-1 overflow-visible">
           {/* Leading: settings for the next turn. `gap-3` separates control groups; the
@@ -114,7 +113,7 @@ export function CoreInputFooter({
           <div
             aria-hidden={settingsReady ? undefined : true}
             className={cn(
-              "flex min-w-0 items-center gap-3 overflow-visible",
+              "flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 overflow-visible",
               "transition-[opacity,visibility] ease-out motion-reduce:transition-none",
               settingsReady ? "visible opacity-100" : "invisible opacity-0"
             )}
@@ -134,18 +133,18 @@ export function CoreInputFooter({
 
           {/* Trailing: things added to the draft, then the overflow menu. */}
           <div className="flex shrink-0 items-center gap-1">
-            {inline("addFiles") ? <ComposerAddFilesButton /> : null}
-            {inline("threadClipboard") && onThreadReference ? (
-              <ThreadClipboardPicker onSelect={onThreadReference} />
+            {inline("addFiles") || (inline("threadClipboard") && onThreadReference) ? (
+              <ComposerAddFilesButton
+                files={inline("addFiles")}
+                onThreadReference={inline("threadClipboard") ? onThreadReference : undefined}
+              />
             ) : null}
             {inline("mic") ? (
               <ComposerMicButton textareaRef={textareaRef} onTranscriptionChange={onDictation} />
             ) : null}
             {/* Mounted only while it has items, so its open state resets when the footer
                 widens past the condensed breakpoint mid-open. */}
-            {hasOverflowItems(placement) ? (
-              <ComposerOverflowMenu placement={placement} steer={steer} />
-            ) : null}
+            {hasOverflowItems(placement) ? <ComposerOverflowMenu placement={placement} /> : null}
           </div>
         </PromptInputTools>
       </div>

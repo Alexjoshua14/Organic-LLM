@@ -1,10 +1,9 @@
 "use client";
 
 import type { FooterPlacementMap } from "../footer/footer-placement";
-import type { SteerAction } from "../footer/steer-action";
 
 import { useState } from "react";
-import { Eye, Loader2, Pencil, SlidersHorizontal, Volume2 } from "lucide-react";
+import { Eye, Pencil, SlidersHorizontal, Volume2 } from "lucide-react";
 
 import { useCoreInputControls } from "../core-input-context";
 import { hasOverflowItems } from "../footer/footer-placement";
@@ -14,7 +13,6 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -23,14 +21,12 @@ import {
 type ComposerOverflowMenuProps = {
   /** Items render for every control placed in `"menu"`; see `footer/footer-placement.ts`. */
   placement: FooterPlacementMap;
-  /** Required when `placement.steer` is `"menu"`. */
-  steer?: SteerAction | null;
   className?: string;
 };
 
 /**
  * The footer's "more options" menu. It holds whatever `resolveFooterPlacement` sends here,
- * which today is speech, markdown preview, and steer on a condensed footer.
+ * which today is speech and markdown preview on a condensed footer.
  *
  * Toggle state comes from `CoreInputControlsContext`, the same source as the inline chips, so
  * a control reads and writes identically wherever it is placed.
@@ -38,7 +34,7 @@ type ComposerOverflowMenuProps = {
  * To add an item: give the control a `"menu"` placement, then add a block below guarded by
  * `placement.<id> === "menu"`, and include it in `engaged` if it is a toggle.
  */
-export function ComposerOverflowMenu({ placement, steer, className }: ComposerOverflowMenuProps) {
+export function ComposerOverflowMenu({ placement, className }: ComposerOverflowMenuProps) {
   const { useSpeechFriendly, setUseSpeechFriendly, inputMarkdownMode, setInputMarkdownMode } =
     useCoreInputControls();
   const [open, setOpen] = useState(false);
@@ -47,7 +43,6 @@ export function ComposerOverflowMenu({ placement, steer, className }: ComposerOv
 
   const showSpeech = placement.speech === "menu";
   const showPreview = placement.preview === "menu";
-  const showSteer = placement.steer === "menu" && steer != null;
   const previewing = inputMarkdownMode === "preview";
 
   // The trigger lights up like an active chip while any toggle inside it is on, so a setting
@@ -96,21 +91,6 @@ export function ComposerOverflowMenu({ placement, steer, className }: ComposerOv
             {previewing ? <Pencil className="size-4" /> : <Eye className="size-4" />}
             {previewing ? "Back to editing" : "Markdown preview"}
           </DropdownMenuCheckboxItem>
-        ) : null}
-        {showSteer ? (
-          <DropdownMenuItem
-            disabled={!steer.available}
-            onSelect={(event) => {
-              // Keep Radix from closing before the guard runs; close explicitly on success.
-              event.preventDefault();
-              if (!steer.available) return;
-              setOpen(false);
-              steer.run();
-            }}
-          >
-            {steer.pending ? <Loader2 aria-hidden className="size-4 animate-spin" /> : null}
-            {steer.label}
-          </DropdownMenuItem>
         ) : null}
       </DropdownMenuContent>
     </DropdownMenu>

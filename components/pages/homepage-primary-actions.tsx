@@ -26,6 +26,11 @@ const actionsTransition = { ...ACTIONS_SPRING, layout: { ...ACTIONS_SPRING } };
 
 type HomepagePrimaryActionsProps = {
   variant?: "default" | "fullViewSecondary";
+  /**
+   * `launcher` is the ⌘K surface: the primary row plus Settings, without the gateway and status
+   * rows, so the switcher stays one glance tall.
+   */
+  scope?: "home" | "launcher";
   className?: string;
 };
 
@@ -39,6 +44,7 @@ function ActionRow({ children, className }: { children: ReactNode; className?: s
 
 export function HomepagePrimaryActions({
   variant = "default",
+  scope = "home",
   className,
 }: HomepagePrimaryActionsProps) {
   const router = useRouter();
@@ -124,21 +130,30 @@ export function HomepagePrimaryActions({
               Strata
             </HomeComposerActionButton>
           )}
+        {scope === "launcher" &&
+          wrap(
+            "settings",
+            <GatewaySmokeLink ariaLabel="Settings" href="/settings" label="Settings" />
+          )}
       </ActionRow>
 
-      <ActionRow>
-        {wrap("sandbox", <SandboxGatewayButton />)}
-        {wrap("showcase", <ShowcaseGatewayButton />)}
-        {wrap("blog", <BlogLink />)}
-      </ActionRow>
+      {scope === "home" ? (
+        <>
+          <ActionRow>
+            {wrap("sandbox", <SandboxGatewayButton />)}
+            {wrap("showcase", <ShowcaseGatewayButton />)}
+            {wrap("blog", <BlogLink />)}
+          </ActionRow>
 
-      <ActionRow>
-        {wrap("status", <StatusGatewayButton />)}
-        {wrap(
-          "settings",
-          <GatewaySmokeLink ariaLabel="Settings" href="/settings" label="Settings" />
-        )}
-      </ActionRow>
+          <ActionRow>
+            {wrap("status", <StatusGatewayButton />)}
+            {wrap(
+              "settings",
+              <GatewaySmokeLink ariaLabel="Settings" href="/settings" label="Settings" />
+            )}
+          </ActionRow>
+        </>
+      ) : null}
     </motion.div>
   );
 }

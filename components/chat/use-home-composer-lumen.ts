@@ -15,11 +15,11 @@ export function useHomeComposerLumenHostRef() {
   return useRef<HTMLSpanElement>(null);
 }
 
-export function useHomeComposerLumen(hostRef: RefObject<HTMLSpanElement | null>) {
+export function useHomeComposerLumen(hostRef: RefObject<HTMLSpanElement | null>, enabled = true) {
   useLayoutEffect(() => {
     const host = hostRef.current;
 
-    if (!host) return;
+    if (!host || !enabled) return;
 
     const sync = () => {
       const shell = host.querySelector<HTMLElement>("[data-prompt-input-shell]");
@@ -54,5 +54,5 @@ export function useHomeComposerLumen(hostRef: RefObject<HTMLSpanElement | null>)
     observer.observe(shell);
 
     return () => observer.disconnect();
-  }, [hostRef]);
+  }, [hostRef, enabled]);
 }

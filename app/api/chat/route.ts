@@ -62,7 +62,8 @@ import { buildPersonaInstructions } from "@/lib/personas/unified/prompt";
 import { decidePersonaResponse } from "@/lib/personas/unified/response-gate";
 import { receiptLabel, type PersonaSession } from "@/lib/personas/unified/session";
 import { getPersonaStore, type PersonaStore } from "@/lib/personas/unified/store";
-import { loadUserConnectorsProfile } from "@/lib/connectors/user-connectors-store";
+import { loadUserConnectorsForTurn } from "@/lib/connectors/durable-ergon-status";
+import { startErgonConnectionSnapshot } from "@/lib/llm/ergon-config";
 import { getPlanBudgetForUser } from "@/lib/plans/plan-budget";
 
 // The stream still ends with the orchestrator's reply. The higher ceiling is for Arcadia subagent
@@ -204,6 +205,15 @@ export async function POST(req: Request) {
         logger.error("POST", `Failed to save user message: ${e.name}`);
       });
 
+    // Both reads start now so they overlap model and persona setup instead of following it. The
+    // Ergon connection is read once and shared by the tool gate and the worktable status.
+    // Neither promise rejects: failures are logged and the turn runs without that data.
+    const ergonConnectionPromise = startErgonConnectionSnapshot(sbUserId);
+    const userConnectorsPromise =
+      experience === "arcadia" || experience === "rabbit_hole"
+        ? loadUserConnectorsForTurn(sbUserId, ergonConnectionPromise)
+        : null;
+
     const stream = createUIMessageStream<ChatUIMessage>({
       execute: async ({ writer }) => {
         // Transient status also works for persona turns that will be held without a reply.
@@ -332,10 +342,7 @@ export async function POST(req: Request) {
           clerkUserId,
           route: "/api/chat",
         });
-        const userConnectors =
-          experience === "arcadia" || experience === "rabbit_hole"
-            ? await loadUserConnectorsProfile(clerkUserId).catch(() => null)
-            : null;
+        const userConnectors = userConnectorsPromise ? await userConnectorsPromise : null;
 
         if (experience === "arcadia" && !personaSession) {
           multitask = await prepareArcadiaMultitaskTurn({
@@ -564,6 +571,7 @@ export async function POST(req: Request) {
         };
 
         const compiledTools = await compileChatTools({
+          ergonConnection: ergonConnectionPromise,
           useSearch: shellAgent?.tools.webSearch ?? parseResult.data.webSearch ?? false,
           useResearch: shellAgent?.tools.research ?? false,
           useChronos: shellAgent?.tools.chronos ?? false,

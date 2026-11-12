@@ -970,7 +970,9 @@ export async function setThreadArcadiaMultitaskView(
     };
   }
 
-  if (current.data.activeStreamId) {
+  // Entering is safe mid-stream (the flag is read once per turn, at preparation); leaving is
+  // not, because the streaming turn may be dispatching to workers.
+  if (!enabled && current.data.activeStreamId) {
     return {
       ok: false,
       error: new Error("Thread still has an active stream"),
