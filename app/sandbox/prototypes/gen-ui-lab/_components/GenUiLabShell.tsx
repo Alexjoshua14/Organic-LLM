@@ -4,7 +4,7 @@ import type { ChatStatus } from "ai";
 import type { ComponentProps } from "react";
 import type { DecisionMatrixBlock, GenUIBlock } from "@/lib/schemas/gen-ui";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, RotateCcw } from "lucide-react";
 
 import { useGenUiGalleryScroll } from "../_hooks/use-gen-ui-gallery-scroll";
@@ -36,11 +36,7 @@ import {
 } from "@/components/third-party/ui/select";
 import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
 import { GEN_UI_BLOCK_TYPES, type GenUIBlockType } from "@/lib/schemas/gen-ui/shared";
-import {
-  buildDefaultBlockMap,
-  type GenUiLabApiResponse,
-  type GenUiLabViewMode,
-} from "@/lib/sandbox/gen-ui-lab";
+import { buildDefaultBlockMap, type GenUiLabApiResponse } from "@/lib/sandbox/gen-ui-lab";
 import { cn } from "@/lib/utils";
 
 type CoreInputProps = ComponentProps<typeof CoreInput>;
@@ -56,11 +52,15 @@ type GenUiLabShellProps = {
 export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
   const [blocks, setBlocks] = useState(initialBlocks);
   const [selectedType, setSelectedType] = useState<GenUIBlockType>("restaurant-card");
-  const [viewMode, setViewMode] = useState<GenUiLabViewMode>("gallery");
-  // A rendering state (partial, invalid, streaming) takes over the panel until an archetype is picked.
+  // A rendering state (partial, invalid, streaming) takes the stage from the gallery until an
+  // archetype is picked.
   const [stateView, setStateView] = useState<GenUiLabStateId | null>(null);
-  const galleryActive = viewMode === "gallery" && stateView == null;
-  const decisionSelected = selectedType === "decision-matrix" && stateView == null;
+  // Bumped when a response should bring an archetype into view; `n` makes repeats distinct.
+  const [scrollRequest, setScrollRequest] = useState<{ type: GenUIBlockType; n: number } | null>(
+    null
+  );
+  const galleryActive = stateView == null;
+  const decisionSelected = selectedType === "decision-matrix" && galleryActive;
   const decisionDemo = useGenUiDecisionDemo(decisionSelected);
   const [status, setStatus] = useState<ChatStatus>("ready");
   const [aionMessage, setAionMessage] = useState<string | null>(null);
@@ -71,10 +71,11 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
   const useMemoriesRef = useRef(false);
 
   const applyApiResponse = useCallback((response: GenUiLabApiResponse) => {
+    // The server may still send a `viewMode`; the gallery is the only mode, so it is ignored.
     if (response.selection) {
       setSelectedType(response.selection.blockType);
-      setViewMode(response.selection.viewMode);
       setStateView(null);
+      setScrollRequest((prev) => ({ type: response.selection!.blockType, n: (prev?.n ?? 0) + 1 }));
     }
 
     if (response.generated) {
@@ -83,8 +84,8 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
         [response.generated!.blockType]: response.generated!.block,
       }));
       setSelectedType(response.generated.blockType);
-      setViewMode("focus");
       setStateView(null);
+      setScrollRequest((prev) => ({ type: response.generated!.blockType, n: (prev?.n ?? 0) + 1 }));
     }
   }, []);
 
@@ -117,13 +118,19 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
       onSelectType: setSelectedType,
     });
 
+  // Runs after the gallery is (re)mounted, so a response that arrived while a rendering state was
+  // showing still lands on its archetype.
+  useEffect(() => {
+    if (scrollRequest) scrollToType(scrollRequest.type);
+  }, [scrollRequest, scrollToType]);
+
   const requestAion = useCallback(
     async (prompt: string, intent: "auto" | "generate" | "select", signal?: AbortSignal) => {
       const res = await fetch("/api/sandbox/gen-ui-lab", {
         method: "POST",
         signal,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, selectedBlockType: selectedType, viewMode, intent }),
+        body: JSON.stringify({ prompt, selectedBlockType: selectedType, intent }),
       });
 
       if (!res.ok) {
@@ -134,7 +141,7 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
 
       return (await res.json()) as GenUiLabApiResponse;
     },
-    [selectedType, viewMode]
+    [selectedType]
   );
 
   const runAion = useCallback(
@@ -183,16 +190,14 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
       setSelectedType(blockType);
 
       if (stateView != null) {
-        // The gallery scroller is unmounted while a state shows, so focus the archetype instead.
+        // The gallery scroller is unmounted while a state shows. Remounting it scrolls to the
+        // selected archetype (see `useGenUiGalleryScroll`).
         setStateView(null);
-        setViewMode("focus");
-      } else if (viewMode === "gallery") {
-        scrollToType(blockType);
       } else {
-        setViewMode("focus");
+        scrollToType(blockType);
       }
     },
-    [scrollToType, stateView, viewMode]
+    [scrollToType, stateView]
   );
 
   const handleResetFixtures = useCallback(() => {
@@ -212,23 +217,6 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
   }, [runAion, selectedType]);
 
   const isProcessing = status === "submitted" || status === "streaming";
-
-  const viewToggleButton = (label: string, pressed: boolean, onClick: () => void) => (
-    <button
-      type="button"
-      aria-pressed={pressed}
-      className={cn(
-        LAB_CONTROL,
-        "min-h-8 rounded-full px-inset-md text-xs font-medium",
-        pressed
-          ? "bg-primary text-primary-foreground"
-          : "text-muted-foreground hover:text-foreground"
-      )}
-      onClick={onClick}
-    >
-      {label}
-    </button>
-  );
 
   const listButtonClass = (active: boolean) =>
     cn(
@@ -258,28 +246,13 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
             <header className="space-y-stack-xs">
               <h1 className="text-xl font-semibold tracking-tight text-foreground">Gen UI Lab</h1>
               <p className="hidden text-sm text-muted-foreground @min-[56rem]:block">
-                Snap-scroll the gallery, focus one archetype, or ask Aion to generate content.
+                Snap-scroll the gallery, or ask Aion to generate content.
               </p>
             </header>
           </div>
 
           {/* Narrow: one wrapping row of controls. Wide: dissolves into the column. */}
           <div className="flex min-w-0 flex-wrap items-center gap-inline-sm @min-[56rem]:contents">
-            <div
-              className="inline-flex w-fit items-center gap-0.5 rounded-full border border-border p-0.5"
-              role="group"
-              aria-label="Preview mode"
-            >
-              {viewToggleButton("Gallery", galleryActive, () => {
-                setStateView(null);
-                setViewMode("gallery");
-              })}
-              {viewToggleButton("Focus", viewMode === "focus" && stateView == null, () => {
-                setStateView(null);
-                setViewMode("focus");
-              })}
-            </div>
-
             <div className="flex min-w-[12rem] flex-1 items-center gap-inline-sm text-xs text-muted-foreground @min-[56rem]:hidden">
               <span>Preview</span>
               <Select
@@ -415,13 +388,8 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
           side question dock lives in this column, so it centres on the preview, not the page.
         */}
         <section className="relative flex min-h-0 min-w-0 flex-col @min-[56rem]:px-12">
-          {/* Focus view only. In the gallery the toolbar lives in its own section (see `header`),
-              because mounting it out here resized the scroller mid-scroll and broke snapping. */}
-          {decisionSelected && !galleryActive ? (
-            <div className="mx-auto w-full max-w-2xl shrink-0">
-              <GenUiDecisionDemoToolbar demo={decisionDemo} />
-            </div>
-          ) : null}
+          {/* The decision toolbar lives in its own gallery section (see `header`): mounting it out
+              here resized the scroller mid-scroll and broke snapping. */}
           {galleryActive ? (
             <GenUiGalleryNav
               activeIndex={selectedIndex}
@@ -464,23 +432,11 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
                   )}
                 </GenUiGallerySection>
               ))
-            ) : (
+            ) : stateView ? (
               <article className="mx-auto flex min-h-full w-full max-w-2xl flex-col justify-center">
-                {stateView ? (
-                  <GenUiLabStatePanel state={stateView} />
-                ) : selectedType === "decision-matrix" ? (
-                  <GenUiDecisionDemo
-                    block={blocks[selectedType] as DecisionMatrixBlock}
-                    demo={decisionDemo}
-                  />
-                ) : (
-                  <GenUIRenderer
-                    data={{ block: blocks[selectedType] }}
-                    messageId={`lab-focus-${selectedType}`}
-                  />
-                )}
+                <GenUiLabStatePanel state={stateView} />
               </article>
-            )}
+            ) : null}
           </div>
 
           {question.isOpen ? (
