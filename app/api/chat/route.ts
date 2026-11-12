@@ -458,8 +458,16 @@ export async function POST(req: Request) {
           experience,
           customSystemPromptOverride,
         });
-        for (const fragment of multitask?.systemFragments ?? []) {
-          systemPromptForRequest = `${systemPromptForRequest}\n\n${fragment}`;
+        // The orchestrator's board, worktable, and routing change every turn: send them after the
+        // conversation (see withTurnContext) so the system prompt stays cacheable. A subagent's
+        // fragments are its fixed identity and stay in the system prompt.
+        const turnContext =
+          multitask?.role === "orchestrator" ? multitask.systemFragments : ([] as string[]);
+
+        if (multitask && multitask.role !== "orchestrator") {
+          for (const fragment of multitask.systemFragments) {
+            systemPromptForRequest = `${systemPromptForRequest}\n\n${fragment}`;
+          }
         }
 
         logger.log(
@@ -641,7 +649,7 @@ export async function POST(req: Request) {
         );
 
         const inputTokenEstimate = estimateLlmInputTokens({
-          systemPrompt: systemPromptWithLength,
+          systemPrompt: [systemPromptWithLength, ...turnContext].join("\n\n"),
           toolInstructions,
           messages: validatedMessages,
         });
@@ -682,7 +690,7 @@ export async function POST(req: Request) {
           draftMessage: message,
           validatedMessages,
           contextSystemPrompt: afterContext,
-          finalSystemPrompt: systemPromptWithLength,
+          finalSystemPrompt: [systemPromptWithLength, ...turnContext].join("\n\n"),
           toolInstructions,
           activeToolNames: toolNames,
           tokenBreakdown,
@@ -714,6 +722,7 @@ export async function POST(req: Request) {
           effort: requestedEffort,
           messages,
           systemPromptWithLength,
+          turnContext,
           tools,
           hasTools,
           maxSteps,

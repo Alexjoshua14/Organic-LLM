@@ -23,16 +23,19 @@ import {
 function autonomyLine(
   autonomous: boolean,
   autonomousRemaining: number | null,
-  maxDispatchesPerTurn: number
+  maxDispatchesPerTurn: number,
+  autonomousStop?: "spend"
 ): string {
   if (!autonomous) {
-    return `You may direct subagents within the user's requested scope and the cost policy below. At most ${maxDispatchesPerTurn} dispatches per turn; automatic heartbeat turns may dispatch at most ${ORCHESTRATOR_MAX_AUTONOMOUS_DISPATCHES} time(s) between user messages.`;
+    return `You may direct subagents within the user's requested scope and the cost policy below. At most ${maxDispatchesPerTurn} dispatches per turn. Heartbeat turns can keep a multi-round task the user asked for going on their own, up to ${ORCHESTRATOR_MAX_AUTONOMOUS_DISPATCHES} dispatches or a spend ceiling before the user speaks again.`;
   }
   if (!autonomousRemaining) {
-    return "This is an automatic turn after a subagent update, and the automatic dispatch allowance is spent until the user speaks again. Tell the user what you would send next.";
+    return autonomousStop === "spend"
+      ? "This is an automatic turn after a subagent update, and automatic turns have reached their spend ceiling until the user speaks again. Relay the update, say where the task stands, and tell the user what you would send next."
+      : "This is an automatic turn after a subagent update, and the automatic dispatch allowance is spent until the user speaks again. Tell the user what you would send next.";
   }
 
-  return `This is an automatic turn after a subagent update. Relay the result and finish here when possible. Dispatch only a necessary next step of work the user already asked for that cannot be completed with your existing context and tools. You may dispatch ${autonomousRemaining} more time(s) before the user speaks again. Do not start review or judging cycles on your own.`;
+  return `This is an automatic turn after a subagent update. Relay the result briefly. If the user asked for multi-round or ongoing work (rounds, a back-and-forth between subagents, a loop) and it is not finished, continue it now: dispatch the next step, passing on what the subagents need from each other, and track which round you are on. Otherwise finish here, and do not start work the user did not ask for. You may dispatch ${autonomousRemaining} more time(s) before the user speaks again.`;
 }
 
 /**
@@ -44,6 +47,8 @@ export function formatOrchestratorFragment(args: {
   autonomous: boolean;
   /** Automatic dispatches left before the user speaks again; null on user turns. */
   autonomousRemaining: number | null;
+  /** Why automatic dispatch stopped early, when it was the spend ceiling rather than the count. */
+  autonomousStop?: "spend";
   budget?: SubagentBudgetSnapshot | SubagentPlanBudgetInput | null;
   maxDispatchesPerTurn?: number;
   /** Private Settings → Connectors profile. Adds Reed / Lyra / Archer routing when populated. */
@@ -81,7 +86,12 @@ export function formatOrchestratorFragment(args: {
     "- Attach what the subagent needs: the user's exact words where they matter (user_message), other subagents' results (subagent_output), relevant memories (memory), and your own notes.",
     "- Select bundle items and offset/limit excerpts deliberately. Use a dryRun to inspect the complete input budget before dispatch. Continue preserves history/cache; use fresh for independent tasks or historyMessageIds for exact prior messages. Preserve required constraints and evidence. A marked preview can be expanded with read_context_item in the recipient's own assignment.",
     "- Keep reusable context on your worktable. Build a bundle once — for example a reviewer's rubric plus a live_subagent_output slot for the coder's latest work — then send it again, updating single items instead of rebuilding.",
-    `- ${autonomyLine(args.autonomous, args.autonomousRemaining, maxDispatchesPerTurn)}`,
+    `- ${autonomyLine(
+      args.autonomous,
+      args.autonomousRemaining,
+      maxDispatchesPerTurn,
+      args.autonomousStop
+    )}`,
     "- After dispatching, tell the user briefly who is doing what. Do not do delegated work inline.",
     "Roster:",
     ...roster,
