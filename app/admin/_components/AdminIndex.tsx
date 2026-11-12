@@ -63,7 +63,6 @@ export function AdminIndex() {
                   index={i}
                   layout="phone"
                   slug={page.slug}
-                  wide={span2}
                 />
               </li>
             );

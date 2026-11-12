@@ -15,8 +15,6 @@ type AdminCardProps = {
   layout: "desktop" | "phone";
   /** The one large card per layout. */
   feature?: boolean;
-  /** Phone only: a full-width row instead of a half-width tile. */
-  wide?: boolean;
   /** Position in the grid: staggers the entrance. */
   index: number;
   className?: string;
@@ -28,7 +26,7 @@ type AdminCardProps = {
  * crosses from the server; the card looks the rest up, so no component or function has to be
  * serialized.
  */
-export function AdminCard({ slug, layout, feature, wide, index, className }: AdminCardProps) {
+export function AdminCard({ slug, layout, feature, index, className }: AdminCardProps) {
   const page = ADMIN_PAGES.find((p) => p.slug === slug);
 
   if (!page) return null;
@@ -50,7 +48,6 @@ export function AdminCard({ slug, layout, feature, wide, index, className }: Adm
         styles.rise,
         "organic-focus",
         layout === "phone" ? styles.cardPhone : feature ? styles.cardFeature : styles.cardDesktop,
-        layout === "phone" && wide && styles.cardPhoneWide,
         className
       )}
       onPointerMove={onPointerMove}

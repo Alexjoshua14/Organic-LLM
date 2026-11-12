@@ -160,8 +160,10 @@ export function AdminArt({ slug }: { slug: string }) {
   if (!Drawing) return null;
 
   return (
-    <svg aria-hidden className={styles.art} focusable="false" viewBox="0 0 160 100">
-      <Drawing />
-    </svg>
+    <span aria-hidden className={styles.artZone}>
+      <svg className={styles.art} focusable="false" viewBox="0 0 160 100">
+        <Drawing />
+      </svg>
+    </span>
   );
 }
