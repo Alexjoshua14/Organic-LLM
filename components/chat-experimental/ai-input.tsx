@@ -46,6 +46,13 @@ export type AIInputProps = {
   onPlanComplete?: (plan: HomepagePlanIntent, userPrompt: string) => void;
   /** Cmd/Ctrl+Enter capture — if omitted, uses Strata save + navigate */
   onStrataShortcut?: (text: string) => void | Promise<void>;
+  /** Replaces the default prompt, e.g. when the input is hosted by the ⌘K launcher. */
+  placeholder?: string;
+  /**
+   * Fires just before this input navigates somewhere (a routed prompt, Let's Chat, the Strata
+   * shortcut), so a host such as the ⌘K launcher can close itself.
+   */
+  onNavigate?: () => void;
 };
 
 export const AIInput: React.FC<AIInputProps> = ({
@@ -60,6 +67,8 @@ export const AIInput: React.FC<AIInputProps> = ({
   disableLayoutAnimation = false,
   onPlanComplete,
   onStrataShortcut: onStrataShortcutProp,
+  placeholder,
+  onNavigate,
 }) => {
   const router = useRouter();
   const isAdmin = useIsAdmin();
@@ -84,13 +93,14 @@ export const AIInput: React.FC<AIInputProps> = ({
       mark(PERF_PHASES.chatCreated);
       refreshSidebarChats();
       mark(PERF_PHASES.navPush);
+      onNavigate?.();
       router.push(`/chat/${id}`);
     } catch (error) {
       logger.error("handleLetsChat", `Error creating chat: ${error}`);
     } finally {
       setCreating(false);
     }
-  }, [creating, refreshSidebarChats, router]);
+  }, [creating, onNavigate, refreshSidebarChats, router]);
 
   const aion = useAion({
     onFinish: ({ message }) => {
@@ -115,6 +125,7 @@ export const AIInput: React.FC<AIInputProps> = ({
           case "rabbit-hole":
             break;
           case "settings":
+            onNavigate?.();
             router.push("/settings");
             break;
         }
@@ -138,12 +149,13 @@ export const AIInput: React.FC<AIInputProps> = ({
         if (typeof window !== "undefined") {
           window.sessionStorage.setItem(`strata:homepage-capture:${pageId}`, text);
         }
+        onNavigate?.();
         router.push(`/sandbox/prototypes/strata/${pageId}?highlight=raw`);
       } catch (error) {
         logger.error("handleStrataShortcut", `Strata capture failed: ${error}`);
       }
     },
-    [onStrataShortcutProp, router]
+    [onNavigate, onStrataShortcutProp, router]
   );
 
   const handlePlanSubmit = useCallback(
@@ -237,12 +249,14 @@ export const AIInput: React.FC<AIInputProps> = ({
               ? homepageHrefWithOptionalDraft(routeRes.data.href, kind, trimmed)
               : appendDraftQueryParam(routeRes.data.href, trimmed);
 
+          onNavigate?.();
           router.push(href);
 
           return;
         }
 
         refreshSidebarChats();
+        onNavigate?.();
         router.push(appendDraftQueryParam(`/chat/${routeRes.data.chatId}`, trimmed));
       } catch (error) {
         logger.error("handleSubmit", `Error routing homepage prompt ${error}`);
@@ -250,7 +264,7 @@ export const AIInput: React.FC<AIInputProps> = ({
         setRouting(false);
       }
     },
-    [aion.status, handlePlanSubmit, planMode, refreshSidebarChats, router, routing]
+    [aion.status, handlePlanSubmit, onNavigate, planMode, refreshSidebarChats, router, routing]
   );
 
   const isProcessing = routing || aion.status === "streaming" || aion.status === "submitted";
@@ -276,6 +290,7 @@ export const AIInput: React.FC<AIInputProps> = ({
         forceReadyInput={planMode}
         fullView={fullView}
         isLoading={isProcessing}
+        placeholder={placeholder}
         previewIntent={previewIntent}
         status={planMode ? aion.status : routing ? "submitted" : aion.status}
         submitStatus={routing ? "submitted" : aion.status}

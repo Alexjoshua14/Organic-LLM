@@ -41,8 +41,8 @@ export const KEYBOARD_SHORTCUTS: KeyboardShortcutDefinition[] = [
   {
     id: "aion-launcher",
     keys: ["⌘", "K"],
-    label: "Open command launcher",
-    hint: "Jump to chats and actions",
+    label: "Switch ideas",
+    hint: "Jump to a recent thread, or ask for anything",
     scope: "global",
     enabled: true,
   },

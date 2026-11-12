@@ -49,7 +49,11 @@ export interface AiInputFormProps
   submitStatus?: ChatStatus;
   /** Keep textarea visible during loading (e.g. plan-mode fetch). */
   forceReadyInput?: boolean;
+  /** Overrides the default homepage prompt. */
+  placeholder?: string;
 }
+
+const DEFAULT_PLACEHOLDER = "What do you want to explore?";
 
 /** Max length to display in the "preserved" state to avoid layout/performance issues; full text is still sent. */
 const DISPLAY_MAX_LENGTH = 2000;
@@ -71,6 +75,7 @@ const AiInputFormContent: React.FC<AiInputFormProps> = ({
   clearAfterSubmit = true,
   submitStatus,
   forceReadyInput = false,
+  placeholder = DEFAULT_PLACEHOLDER,
   ...props
 }) => {
   const { textInput } = usePromptInputController();
@@ -182,7 +187,7 @@ const AiInputFormContent: React.FC<AiInputFormProps> = ({
                   disabled={isLoading}
                   maxRows={maxRows}
                   minRows={minRows}
-                  placeholder="What do you want to explore?"
+                  placeholder={placeholder}
                   onChange={(ev) => onTextChange?.(ev.currentTarget.value)}
                   onKeyDown={textAreaKeyDown}
                 />
