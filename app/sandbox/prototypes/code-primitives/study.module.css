@@ -286,13 +286,16 @@
   flex-shrink: 0;
   gap: 2px;
 }
-[data-preview-theme="classic"] {
+.themeSwatch[data-preview-theme="classic"],
+.themeMiniature[data-preview-theme="classic"] {
   color-scheme: dark;
 }
-[data-preview-theme="paper"] {
+.themeSwatch[data-preview-theme="paper"],
+.themeMiniature[data-preview-theme="paper"] {
   color-scheme: light;
 }
-[data-preview-theme="glass"] {
+.themeSwatch[data-preview-theme="glass"],
+.themeMiniature[data-preview-theme="glass"] {
   --preview-bg: #080b10;
   --preview-a: #ff8f40;
   --preview-b: #59c2ff;
