@@ -4,7 +4,7 @@ import type { ChatStatus } from "ai";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { ContextBudgetEstimate } from "@/lib/chat/context-budget";
 import type { CoreInputControlsValue } from "@/components/chat/core-input/core-input-context";
-import type { OrganicSubmitState } from "@/components/chat/core-input/submit/submit-glyph";
+import type { SubmitGlyphState } from "@/components/chat/core-input/submit/submit-glyph";
 import type { SteerAction } from "@/components/chat/core-input/footer/steer-action";
 import type { ChatEffortLevel } from "@/lib/schemas/chat-effort";
 import type { FocusLabState, LabPatch } from "../_lib/lab-state";
@@ -38,10 +38,7 @@ import {
   organicGlassSubmitClassName,
   PromptInputSubmit,
 } from "@/components/chat/core-input/submit/submit-button";
-import {
-  OrganicSubmitGlyph,
-  resolveOrganicSubmitState,
-} from "@/components/chat/core-input/submit/submit-glyph";
+import { SubmitGlyph } from "@/components/chat/core-input/submit/submit-glyph";
 import { HomeComposerLumenShell } from "@/components/chat/home-composer-lumen-shell";
 import { glass } from "@/components/design-system/primitives";
 import {
@@ -162,7 +159,7 @@ export function parseFocusControl(raw: string | null): FocusControlId | "all" {
 }
 
 const DEFAULT_SUBMIT_STATUSES: readonly ChatStatus[] = ["ready", "submitted", "streaming", "error"];
-const GLYPH_STATES: readonly OrganicSubmitState[] = ["idle", "ready", "sent", "awaiting", "error"];
+const GLYPH_STATES: readonly SubmitGlyphState[] = ["arrow", "working", "stop", "error"];
 
 const noop = () => undefined;
 
@@ -709,7 +706,6 @@ function ContextBudgetCard({ state, value, budget }: CardContext) {
 
 function SubmitCard(ctx: CardContext) {
   const { chat, state } = ctx;
-  const hasText = state.draftText.trim().length > 0;
 
   return (
     <>
@@ -728,9 +724,7 @@ function SubmitCard(ctx: CardContext) {
                 className={organicGlassSubmitClassName}
                 status={chat.status}
                 stop={() => void chat.stop()}
-              >
-                <OrganicSubmitGlyph state={resolveOrganicSubmitState(chat.status, hasText)} />
-              </PromptInputSubmit>
+              />
             </div>
           </ComposerSurface>
         </StateCell>
@@ -746,17 +740,13 @@ function SubmitCard(ctx: CardContext) {
           </div>
         </ComposerSurface>
       </StateCell>
-      <StateCell label="Organic glass · every glyph state">
+      <StateCell label="Every glyph state · pinned">
         <ComposerSurface>
           <div className="flex flex-wrap items-end gap-5">
             {GLYPH_STATES.map((glyph) => (
               <Labeled key={glyph} label={glyph}>
-                <PromptInputSubmit
-                  className={organicGlassSubmitClassName}
-                  status="ready"
-                  stop={noop}
-                >
-                  <OrganicSubmitGlyph state={glyph} />
+                <PromptInputSubmit status="ready" stop={noop}>
+                  <SubmitGlyph state={glyph} />
                 </PromptInputSubmit>
               </Labeled>
             ))}
@@ -765,7 +755,8 @@ function SubmitCard(ctx: CardContext) {
       </StateCell>
       <p className="text-2xs leading-relaxed text-muted-foreground">
         Live cells share the lab status: press a send to run submitted → streaming → ready, or pin a
-        status from the panel. Draft text in the panel switches the glyph between idle and ready.
+        status from the panel. While a send runs, hover, focus or press the button to see the stop
+        square.
       </p>
     </>
   );

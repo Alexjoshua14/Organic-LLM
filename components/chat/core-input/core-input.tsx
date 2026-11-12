@@ -27,7 +27,6 @@ import {
 import { flushSync } from "react-dom";
 import { useChat } from "@ai-sdk/react";
 import { useReducedMotion } from "framer-motion";
-import { ArrowUp, Loader2 } from "lucide-react";
 
 import "@/styles/CoreInputMorph.css";
 
@@ -61,7 +60,7 @@ import { ComposerAddFilesButton } from "./controls/add-files-button";
 import { ComposerMicButton } from "./controls/mic-button";
 import "./compact.css";
 import { organicGlassSubmitClassName, PromptInputSubmit } from "./submit/submit-button";
-import { OrganicSubmitGlyph, resolveOrganicSubmitState } from "./submit/submit-glyph";
+import { SubmitGlyph } from "./submit/submit-glyph";
 import { useCoreInputLayout } from "./use-core-input-layout";
 
 import { PersonaSpark } from "@/components/personas/persona-spark";
@@ -1022,11 +1021,6 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     : pendingSend !== null && pendingSend.threadId === chatId && status === "ready"
       ? "submitted"
       : status;
-  const organicSubmitState = resolveOrganicSubmitState(
-    composerStatus,
-    text.trim().length > 0 || threadReferences.length > 0
-  );
-
   const showSentShimmer =
     !queueEnabled &&
     sentMessageShimmer === true &&
@@ -1205,7 +1199,6 @@ export const CoreInput: React.FC<CoreInputProps> = ({
           cn(glass({ chip: true }), "core-input-compact-submit size-9 rounded-full")
       )}
       variant={personaActive ? "ghost" : undefined}
-      motionFeedback={!useCondensedLayout}
       // Multi-mode: always submit (never stop). Default: keep stop available while streaming.
       disabled={
         variant === "stage-beta"
@@ -1221,11 +1214,13 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       stop={variant === "stage-beta" || queueEnabled ? undefined : stop}
     >
       {variant === "stage-beta" ? (
-        composerStatus === "submitted" || composerStatus === "streaming" ? (
-          <Loader2 aria-hidden className="size-4 animate-spin" />
-        ) : (
-          <ArrowUp aria-hidden className="size-[18px]" strokeWidth={1.8} />
-        )
+        // Stage never stops a send, so it shows only the arrow and the working ring.
+        <SubmitGlyph
+          size={18}
+          state={
+            composerStatus === "submitted" || composerStatus === "streaming" ? "working" : "arrow"
+          }
+        />
       ) : personaActive ? (
         // The persona's visual is where its reply comes from: idle, deciding, then speaking.
         <PersonaSpark
@@ -1239,8 +1234,6 @@ export const CoreInput: React.FC<CoreInputProps> = ({
                 : "speaking"
           }
         />
-      ) : submitVariant === "organic-glass" ? (
-        <OrganicSubmitGlyph state={organicSubmitState} />
       ) : undefined}
     </PromptInputSubmit>
   );
