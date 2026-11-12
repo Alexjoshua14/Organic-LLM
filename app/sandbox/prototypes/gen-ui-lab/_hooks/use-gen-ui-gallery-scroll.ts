@@ -1,34 +1,33 @@
 "use client";
 
-import type { GenUIBlockType } from "@/lib/schemas/gen-ui/shared";
-
 import { useCallback, useEffect, useRef } from "react";
 
-type UseGenUiGalleryScrollOptions = {
+type UseGenUiGalleryScrollOptions<T extends string> = {
   enabled: boolean;
-  sectionTypes: GenUIBlockType[];
-  selectedType: GenUIBlockType;
-  onSelectType: (type: GenUIBlockType) => void;
+  sectionTypes: T[];
+  selectedType: T;
+  onSelectType: (type: T) => void;
 };
 
 /**
  * Reforge-style gallery paging: full-height snap sections + active index sync.
  * Uses native scroll-snap (not wheel hijacking) for nested panel safety.
+ * `T` is the gallery's archetype id: Gen UI block types plus any lab-only pages.
  */
-export function useGenUiGalleryScroll({
+export function useGenUiGalleryScroll<T extends string>({
   enabled,
   sectionTypes,
   selectedType,
   onSelectType,
-}: UseGenUiGalleryScrollOptions) {
+}: UseGenUiGalleryScrollOptions<T>) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const sectionRefs = useRef<Partial<Record<GenUIBlockType, HTMLElement | null>>>({});
-  const ratiosRef = useRef<Partial<Record<GenUIBlockType, number>>>({});
+  const sectionRefs = useRef<Partial<Record<T, HTMLElement | null>>>({});
+  const ratiosRef = useRef<Partial<Record<T, number>>>({});
   const selectedTypeRef = useRef(selectedType);
 
   selectedTypeRef.current = selectedType;
 
-  const scrollToType = useCallback((type: GenUIBlockType, behavior: ScrollBehavior = "smooth") => {
+  const scrollToType = useCallback((type: T, behavior: ScrollBehavior = "smooth") => {
     const node = sectionRefs.current[type];
 
     if (!node) return;
@@ -50,14 +49,14 @@ export function useGenUiGalleryScroll({
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
-          const type = entry.target.getAttribute("data-archetype") as GenUIBlockType | null;
+          const type = entry.target.getAttribute("data-archetype") as T | null;
 
           if (!type) continue;
 
           ratiosRef.current[type] = entry.intersectionRatio;
         }
 
-        let bestType: GenUIBlockType | null = null;
+        let bestType: T | null = null;
         let bestRatio = 0;
 
         for (const type of sectionTypes) {
@@ -86,7 +85,7 @@ export function useGenUiGalleryScroll({
     return () => observer.disconnect();
   }, [enabled, onSelectType, sectionTypes]);
 
-  const registerSection = useCallback((type: GenUIBlockType) => {
+  const registerSection = useCallback((type: T) => {
     return (node: HTMLElement | null) => {
       sectionRefs.current[type] = node;
     };

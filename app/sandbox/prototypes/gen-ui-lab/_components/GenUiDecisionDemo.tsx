@@ -2,9 +2,12 @@
 
 import type { DecisionMatrixBlock } from "@/lib/schemas/gen-ui";
 
-import { useEffect, useState } from "react";
-import { useReducedMotion } from "framer-motion";
-import { ArrowLeft, ArrowRight, Pause, Play } from "lucide-react";
+import {
+  GEN_UI_ARRANGEMENT_INTERVAL_MS,
+  useGenUiArrangementCycle,
+} from "../_hooks/use-gen-ui-arrangement-cycle";
+
+import { GenUiArrangementPauseZone, GenUiArrangementToolbar } from "./GenUiArrangementToolbar";
 
 import {
   DecisionMatrix,
@@ -12,7 +15,7 @@ import {
 } from "@/components/chat/gen-ui/blocks/DecisionMatrix";
 
 /** Give each arrangement enough reading time; interaction restarts a full reading window. */
-export const DECISION_DEMO_INTERVAL_MS = 8_000;
+export const DECISION_DEMO_INTERVAL_MS = GEN_UI_ARRANGEMENT_INTERVAL_MS;
 
 const ARRANGEMENTS: ReadonlyArray<{ id: DecisionArrangement; name: string; intent: string }> = [
   {
@@ -43,123 +46,14 @@ const ARRANGEMENTS: ReadonlyArray<{ id: DecisionArrangement; name: string; inten
 ];
 
 export function useGenUiDecisionDemo(active = true) {
-  const [index, setIndex] = useState(0);
-  const [auto, setAuto] = useState(false);
-  const [hovered, setHovered] = useState(false);
-  const [focused, setFocused] = useState(false);
-  const [visible, setVisible] = useState(true);
-  const reducedMotion = useReducedMotion() === true;
-  const arrangement = ARRANGEMENTS[index]!;
-
-  useEffect(() => {
-    const update = () => setVisible(!document.hidden);
-
-    update();
-    document.addEventListener("visibilitychange", update);
-
-    return () => document.removeEventListener("visibilitychange", update);
-  }, []);
-
-  useEffect(() => {
-    if (!active || !auto || hovered || focused || !visible || reducedMotion) return;
-    const timer = window.setInterval(
-      () => setIndex((current) => (current + 1) % ARRANGEMENTS.length),
-      DECISION_DEMO_INTERVAL_MS
-    );
-
-    return () => window.clearInterval(timer);
-  }, [active, auto, hovered, focused, visible, reducedMotion]);
-
-  const step = (direction: number) => {
-    setAuto(false);
-    setIndex((current) => (current + direction + ARRANGEMENTS.length) % ARRANGEMENTS.length);
-  };
-
-  return {
-    index,
-    arrangement,
-    auto,
-    reducedMotion,
-    step,
-    toggleAuto: () => setAuto((current) => !current),
-    setHovered,
-    setFocused,
-  };
+  return useGenUiArrangementCycle(ARRANGEMENTS, active);
 }
 
 type DecisionDemoState = ReturnType<typeof useGenUiDecisionDemo>;
 
 /** Stays outside the scrolling, centered preview so arrangements cannot move its controls. */
 export function GenUiDecisionDemoToolbar({ demo }: { demo: DecisionDemoState }) {
-  const { index, arrangement, auto, reducedMotion, step, toggleAuto } = demo;
-
-  return (
-    <div className="shrink-0 space-y-stack-xs border-b border-border/40 pb-stack-md">
-      <div
-        className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-inline-sm"
-        role="group"
-        aria-label="Comparison demo arrangements"
-      >
-        <p
-          className="min-w-0 truncate text-sm font-medium text-foreground"
-          aria-live="polite"
-          title={arrangement.name}
-        >
-          {arrangement.name}
-        </p>
-        <div className="flex shrink-0 items-center gap-1">
-          <span
-            className="w-9 text-right text-xs tabular-nums text-muted-foreground"
-            aria-label={`Arrangement ${index + 1} of ${ARRANGEMENTS.length}`}
-          >
-            {index + 1} / {ARRANGEMENTS.length}
-          </span>
-          <button
-            type="button"
-            aria-label="Previous arrangement"
-            className="inline-flex size-9 items-center justify-center rounded-md text-muted-foreground hover:bg-muted/40 hover:text-foreground focus-visible:bg-foreground focus-visible:text-background focus-visible:outline-none"
-            onClick={() => step(-1)}
-          >
-            <ArrowLeft aria-hidden className="size-4" />
-          </button>
-          <button
-            type="button"
-            aria-label="Next arrangement"
-            className="inline-flex size-9 items-center justify-center rounded-md text-muted-foreground hover:bg-muted/40 hover:text-foreground focus-visible:bg-foreground focus-visible:text-background focus-visible:outline-none"
-            onClick={() => step(1)}
-          >
-            <ArrowRight aria-hidden className="size-4" />
-          </button>
-          <button
-            type="button"
-            aria-pressed={auto && !reducedMotion}
-            disabled={reducedMotion}
-            title={
-              reducedMotion
-                ? "Automatic cycling is off with reduced motion"
-                : "Cycle arrangements; pauses while you interact"
-            }
-            className="inline-flex min-h-9 items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground hover:bg-muted/40 hover:text-foreground focus-visible:bg-foreground focus-visible:text-background focus-visible:outline-none disabled:opacity-50"
-            onClick={toggleAuto}
-          >
-            {auto && !reducedMotion ? (
-              <Pause aria-hidden className="size-3.5" />
-            ) : (
-              <Play aria-hidden className="size-3.5" />
-            )}{" "}
-            Auto
-          </button>
-        </div>
-      </div>
-      {/* Two lines are always reserved so a longer intent never moves the arrows or the preview. */}
-      <p
-        className="line-clamp-2 min-h-10 text-xs leading-relaxed text-muted-foreground"
-        title={arrangement.intent}
-      >
-        {arrangement.intent}
-      </p>
-    </div>
-  );
+  return <GenUiArrangementToolbar cycle={demo} groupLabel="Comparison demo arrangements" />;
 }
 
 export function GenUiDecisionDemo({
@@ -170,17 +64,8 @@ export function GenUiDecisionDemo({
   demo: DecisionDemoState;
 }) {
   return (
-    <div
-      className="min-w-0 w-full"
-      onPointerEnter={() => demo.setHovered(true)}
-      onPointerLeave={() => demo.setHovered(false)}
-      onFocusCapture={() => demo.setFocused(true)}
-      onBlurCapture={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null))
-          demo.setFocused(false);
-      }}
-    >
+    <GenUiArrangementPauseZone cycle={demo}>
       <DecisionMatrix block={block} arrangement={demo.arrangement.id} />
-    </div>
+    </GenUiArrangementPauseZone>
   );
 }

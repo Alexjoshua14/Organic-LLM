@@ -18,6 +18,13 @@ import {
 } from "./GenUiDecisionDemo";
 import { GenUiGallerySection } from "./GenUiGallerySection";
 import { GEN_UI_LAB_STATES, GenUiLabStatePanel, type GenUiLabStateId } from "./GenUiLabStates";
+import {
+  GenUiMermaidDiagramDemo,
+  GenUiMermaidDiagramDemoToolbar,
+  LAB_DIAGRAM_ARCHETYPE,
+  LAB_DIAGRAM_LABEL,
+  useGenUiMermaidDiagramDemo,
+} from "./GenUiMermaidDiagramDemo";
 
 import { GenUIRenderer } from "@/components/chat/gen-ui/GenUIRenderer";
 import { GEN_UI_REGISTRY } from "@/components/chat/gen-ui/registry";
@@ -49,19 +56,34 @@ type GenUiLabShellProps = {
   initialBlocks: Record<GenUIBlockType, GenUIBlock>;
 };
 
+/**
+ * A gallery page: every Gen UI block type, plus lab-only pages that are not blocks (the Mermaid
+ * diagram). Only block types reach the lab API, which knows nothing else.
+ */
+export type GenUiLabArchetype = GenUIBlockType | typeof LAB_DIAGRAM_ARCHETYPE;
+
+function isBlockType(archetype: GenUiLabArchetype): archetype is GenUIBlockType {
+  return archetype !== LAB_DIAGRAM_ARCHETYPE;
+}
+
 export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
   const [blocks, setBlocks] = useState(initialBlocks);
-  const [selectedType, setSelectedType] = useState<GenUIBlockType>("restaurant-card");
+  const [selectedType, setSelectedType] = useState<GenUiLabArchetype>("restaurant-card");
   // A rendering state (partial, invalid, streaming) takes the stage from the gallery until an
   // archetype is picked.
   const [stateView, setStateView] = useState<GenUiLabStateId | null>(null);
   // Bumped when a response should bring an archetype into view; `n` makes repeats distinct.
-  const [scrollRequest, setScrollRequest] = useState<{ type: GenUIBlockType; n: number } | null>(
-    null
-  );
+  const [scrollRequest, setScrollRequest] = useState<{
+    type: GenUiLabArchetype;
+    n: number;
+  } | null>(null);
   const galleryActive = stateView == null;
   const decisionSelected = selectedType === "decision-matrix" && galleryActive;
   const decisionDemo = useGenUiDecisionDemo(decisionSelected);
+  const diagramDemo = useGenUiMermaidDiagramDemo(
+    selectedType === LAB_DIAGRAM_ARCHETYPE && galleryActive
+  );
+  const canGenerate = isBlockType(selectedType);
   const [status, setStatus] = useState<ChatStatus>("ready");
   const [aionMessage, setAionMessage] = useState<string | null>(null);
   const [error, setError] = useState<Error | null>(null);
@@ -90,22 +112,25 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
   }, []);
 
   const archetypeList = useMemo(() => {
-    const entries = GEN_UI_BLOCK_TYPES.map((type) => ({
-      type,
-      label: GEN_UI_REGISTRY[type].label,
-    }));
+    const entries: Array<{ type: GenUiLabArchetype; label: string }> = GEN_UI_BLOCK_TYPES.map(
+      (type) => ({
+        type,
+        label: GEN_UI_REGISTRY[type].label,
+      })
+    );
+    // Lab-only, after every block type: it is a chat tool output, not a Gen UI block.
+    const diagram = { type: LAB_DIAGRAM_ARCHETYPE, label: LAB_DIAGRAM_LABEL };
 
     const restaurantIndex = entries.findIndex((e) => e.type === "restaurant-card");
 
-    if (restaurantIndex <= 0) return entries;
+    if (restaurantIndex <= 0) return [...entries, diagram];
 
-    const [restaurant, ...rest] = [
+    return [
       entries[restaurantIndex]!,
       ...entries.slice(0, restaurantIndex),
       ...entries.slice(restaurantIndex + 1),
+      diagram,
     ];
-
-    return [restaurant, ...rest];
   }, []);
 
   const sectionTypes = useMemo(() => archetypeList.map((e) => e.type), [archetypeList]);
@@ -130,7 +155,12 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
         method: "POST",
         signal,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, selectedBlockType: selectedType, intent }),
+        // The route only knows block types; on a lab-only page it gets no selection at all.
+        body: JSON.stringify({
+          prompt,
+          selectedBlockType: isBlockType(selectedType) ? selectedType : undefined,
+          intent,
+        }),
       });
 
       if (!res.ok) {
@@ -186,7 +216,7 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
   );
 
   const handleSelectType = useCallback(
-    (blockType: GenUIBlockType) => {
+    (blockType: GenUiLabArchetype) => {
       setSelectedType(blockType);
 
       if (stateView != null) {
@@ -208,6 +238,9 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
   }, []);
 
   const handleGenerateSelected = useCallback(async () => {
+    // Diagrams come from the chat's `make_mermaid_diagram` tool, which the lab API cannot call.
+    if (!isBlockType(selectedType)) return;
+
     const label = GEN_UI_REGISTRY[selectedType].label;
 
     await runAion(
@@ -261,7 +294,7 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
                   const renderingState = GEN_UI_LAB_STATES.find((state) => state.id === value);
 
                   if (renderingState) setStateView(renderingState.id);
-                  else handleSelectType(value as GenUIBlockType);
+                  else handleSelectType(value as GenUiLabArchetype);
                 }}
               >
                 <SelectTrigger
@@ -337,7 +370,14 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
                   LAB_CONTROL,
                   "inline-flex min-h-9 items-center justify-center gap-2 rounded-xl border border-border/70 px-inset-md text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
                 )}
-                disabled={isProcessing}
+                // Kept in place (not hidden) so the column does not shift while scrolling past
+                // the Diagram page.
+                disabled={isProcessing || !canGenerate}
+                title={
+                  canGenerate
+                    ? undefined
+                    : "Diagrams come from the chat diagram tool; the lab only generates Gen UI blocks"
+                }
                 onClick={() => void handleGenerateSelected()}
               >
                 {isProcessing ? <Loader2 className="size-4 animate-spin" /> : null}
@@ -416,13 +456,17 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
                   active={selectedType === type}
                   archetype={type}
                   header={
-                    type === "decision-matrix" ? (
+                    type === LAB_DIAGRAM_ARCHETYPE ? (
+                      <GenUiMermaidDiagramDemoToolbar demo={diagramDemo} />
+                    ) : type === "decision-matrix" ? (
                       <GenUiDecisionDemoToolbar demo={decisionDemo} />
                     ) : undefined
                   }
                   registerRef={registerSection(type)}
                 >
-                  {type === "decision-matrix" ? (
+                  {type === LAB_DIAGRAM_ARCHETYPE ? (
+                    <GenUiMermaidDiagramDemo demo={diagramDemo} />
+                  ) : type === "decision-matrix" ? (
                     <GenUiDecisionDemo
                       block={blocks[type] as DecisionMatrixBlock}
                       demo={decisionDemo}
