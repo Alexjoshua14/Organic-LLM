@@ -17,7 +17,10 @@ export function AdminNav() {
 
   return (
     <>
-      <nav aria-label="Admin" className="hidden items-center gap-1 text-xs md:flex">
+      <nav
+        aria-label="Admin"
+        className="-mx-2 hidden items-center gap-1 overflow-x-auto pb-2 text-xs md:flex"
+      >
         {ADMIN_PAGES.map((page) => {
           const active = current?.slug === page.slug;
 
@@ -27,7 +30,7 @@ export function AdminNav() {
               aria-current={active ? "page" : undefined}
               href={page.href}
               className={cn(
-                "organic-focus rounded-md px-2.5 py-1.5 transition-colors",
+                "organic-focus shrink-0 whitespace-nowrap rounded-md px-2.5 py-1.5 transition-colors",
                 active
                   ? "bg-foreground/8 text-foreground"
                   : "text-muted-foreground hover:text-foreground"
@@ -37,16 +40,16 @@ export function AdminNav() {
             </Link>
           );
         })}
-        <span aria-hidden className="mx-1 h-4 w-px bg-border" />
+        <span aria-hidden className="mx-1 h-4 w-px shrink-0 bg-border" />
         <Link
-          className="organic-focus rounded-md px-2.5 py-1.5 text-muted-foreground transition-colors hover:text-foreground"
+          className="organic-focus shrink-0 whitespace-nowrap rounded-md px-2.5 py-1.5 text-muted-foreground transition-colors hover:text-foreground"
           href="/"
         >
           Back to app
         </Link>
       </nav>
 
-      <nav aria-label="Admin" className="flex items-center gap-1 md:hidden">
+      <nav aria-label="Admin" className="-mt-1 flex items-center gap-1 md:hidden">
         {current ? (
           <Link
             className="organic-focus -ml-2 flex min-h-11 items-center gap-1 rounded-md pr-2 pl-1 text-sm text-muted-foreground"

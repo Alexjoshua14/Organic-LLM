@@ -1,0 +1,311 @@
+/*
+ * /admin landing. Glass cards on a faint Lumen glow; a spotlight follows the pointer across a card
+ * (CSS variables set by AdminCard, no re-render); each page has an abstract line illustration, not
+ * data. Motion is functional and brief (docs/design/README.md): cards rise 8px over 240ms with a
+ * 40ms stagger, hover lifts 2px over 160ms, and none of it runs under prefers-reduced-motion.
+ */
+
+.page {
+  --admin-ease: cubic-bezier(0.23, 1, 0.32, 1);
+  --admin-rise: 240ms;
+  --admin-stagger: 40ms;
+  --admin-hover: 160ms;
+
+  position: relative;
+  isolation: isolate;
+}
+
+/* Warm light from the top-left, like the homepage composer's rim, kept very quiet. */
+.page::before {
+  content: "";
+  position: absolute;
+  inset: -6rem -2rem auto -2rem;
+  height: 28rem;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(40rem 18rem at 12% 0%, rgb(var(--lumen) / 0.13), transparent 70%),
+    radial-gradient(34rem 16rem at 88% 8%, rgb(var(--lumen-deep) / 0.07), transparent 70%);
+}
+
+.grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-auto-flow: row dense;
+}
+
+.gridDesktop {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: minmax(10.5rem, auto);
+}
+
+@media (min-width: 64rem) {
+  .gridDesktop {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 1rem;
+    grid-auto-rows: minmax(11rem, auto);
+  }
+}
+
+.gridPhone {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.625rem;
+  grid-auto-rows: minmax(9rem, auto);
+}
+
+/* ---------- card ---------- */
+
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  isolation: isolate;
+  min-width: 0;
+  border: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
+  border-radius: 1.25rem;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--foreground) 5%, transparent),
+      color-mix(in oklab, var(--foreground) 1.5%, transparent)
+    );
+  backdrop-filter: blur(16px) saturate(1.1);
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklab, var(--background) 60%, transparent),
+    0 10px 28px -18px color-mix(in oklab, var(--foreground) 35%, transparent);
+  transition:
+    transform var(--admin-hover) var(--admin-ease),
+    border-color var(--admin-hover) var(--admin-ease),
+    box-shadow var(--admin-hover) var(--admin-ease);
+}
+
+.card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(
+    20rem circle at var(--mx, 50%) var(--my, 0%),
+    rgb(var(--lumen) / 0.17),
+    transparent 65%
+  );
+  transition: opacity var(--admin-hover) var(--admin-ease);
+}
+
+.card:hover,
+.card:focus-visible {
+  border-color: rgb(var(--lumen) / 0.5);
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklab, var(--background) 60%, transparent),
+    0 16px 36px -18px rgb(var(--lumen-deep) / 0.45);
+}
+
+.card:hover::before,
+.card:focus-visible::before {
+  opacity: 1;
+}
+
+.card:focus-visible .title {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.cardDesktop {
+  padding: 1.375rem;
+}
+
+.cardFeature {
+  padding: 1.75rem;
+}
+
+.cardPhone {
+  padding: 0.875rem 0.875rem 0.75rem;
+  border-radius: 1rem;
+}
+
+.cardPhone:active {
+  transform: scale(0.985);
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .card:hover {
+    transform: translateY(-2px);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .rise {
+    animation: rise var(--admin-rise) var(--admin-ease) both;
+    animation-delay: calc(var(--i, 0) * var(--admin-stagger));
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.tag {
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.arrow {
+  width: 1rem;
+  height: 1rem;
+  color: var(--muted-foreground);
+  transition:
+    transform var(--admin-hover) var(--admin-ease),
+    color var(--admin-hover) var(--admin-ease);
+}
+
+.card:hover .arrow,
+.card:focus-visible .arrow {
+  color: rgb(var(--lumen-deep));
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .card:hover .arrow {
+    transform: translate(2px, -2px);
+  }
+}
+
+.body {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: auto;
+}
+
+.title {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.cardFeature .title {
+  font-size: 1.5rem;
+  letter-spacing: -0.02em;
+}
+
+.cardPhone .title {
+  font-size: 0.9375rem;
+}
+
+.blurb {
+  max-width: 21rem;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: var(--muted-foreground);
+  text-wrap: pretty;
+}
+
+.cardFeature .blurb {
+  max-width: 24rem;
+  font-size: 0.9375rem;
+}
+
+.cardPhone .blurb {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 0.75rem;
+}
+
+/* ---------- illustration ---------- */
+
+.art {
+  position: absolute;
+  right: 0.75rem;
+  bottom: 0.625rem;
+  width: 11rem;
+  height: auto;
+  color: color-mix(in oklab, var(--foreground) 32%, transparent);
+  pointer-events: none;
+  transition: transform 300ms var(--admin-ease), color var(--admin-hover) var(--admin-ease);
+}
+
+.cardFeature .art {
+  right: 1.25rem;
+  bottom: 1rem;
+  width: min(22rem, 52%);
+}
+
+.cardPhone .art {
+  top: 0.5rem;
+  bottom: auto;
+  right: 0.5rem;
+  width: 4.5rem;
+}
+
+.cardPhoneWide .art {
+  top: 50%;
+  right: 0.875rem;
+  width: 6.5rem;
+  translate: 0 -50%;
+}
+
+.card:hover .art,
+.card:focus-visible .art {
+  color: color-mix(in oklab, var(--foreground) 48%, transparent);
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .card:hover .art {
+    transform: translateY(-3px) scale(1.03);
+  }
+}
+
+.stroke {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.lumen {
+  fill: none;
+  stroke: rgb(var(--lumen-deep));
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.lumenFill {
+  fill: rgb(var(--lumen-deep));
+  stroke: none;
+}
+
+@media (forced-colors: active) {
+  .card {
+    border-color: CanvasText;
+  }
+
+  .lumen {
+    stroke: Highlight;
+  }
+
+  .lumenFill {
+    fill: Highlight;
+  }
+}
