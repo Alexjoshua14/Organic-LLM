@@ -12,7 +12,8 @@
   --diff-line: 1.25rem; /* one code line */
   --diff-hover: color-mix(in oklab, var(--muted) 55%, transparent);
   --diff-focus: color-mix(in oklab, var(--foreground) 10%, transparent);
-  --diff-well: color-mix(in oklab, var(--muted) 30%, transparent);
+  --diff-well: var(--code-background);
+  --diff-code-line: 1.3rem; /* 13px at 1.6, the code block's leading */
   --diff-add-tone: color-mix(in oklab, var(--accent) 62%, var(--foreground));
   --diff-del-tone: color-mix(in oklab, var(--destructive) 68%, var(--foreground));
   --diff-add-row: color-mix(in oklab, var(--accent) 13%, transparent);
@@ -50,7 +51,8 @@
 }
 
 .mono {
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-family:
+    var(--font-mono, "Fira Code"), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 /* ── Header: title, summary, strip ──────────────────────── */
@@ -369,8 +371,8 @@ button.toggle:focus-visible .pathBase {
   max-width: 100%;
   overflow-x: auto;
   overscroll-behavior-x: contain;
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  border: 1px solid var(--code-border);
+  border-radius: 10px;
   background: var(--diff-well);
 }
 
@@ -383,9 +385,11 @@ button.toggle:focus-visible .pathBase {
   width: max-content;
   min-width: 100%;
   border-collapse: collapse;
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
-  font-size: 0.75rem;
-  line-height: 1.6;
+  font-family:
+    var(--font-mono, "Fira Code"), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8125rem;
+  line-height: var(--diff-code-line);
+  color: var(--code-foreground);
   tab-size: 4;
 }
 
@@ -400,7 +404,8 @@ button.toggle:focus-visible .pathBase {
 .num {
   min-width: calc(var(--diff-digits, 2) * 1ch + 1rem);
   padding: 0 var(--spacing-inset-sm);
-  color: var(--muted-foreground);
+  color: color-mix(in oklab, var(--code-muted-foreground) 75%, transparent);
+  font-size: 0.6875rem;
   font-variant-numeric: tabular-nums;
   text-align: right;
   white-space: nowrap;
@@ -503,7 +508,9 @@ button.toggle:focus-visible .pathBase {
 .gap > td,
 .fold > td {
   padding: 0 var(--spacing-inset-sm);
-  color: var(--muted-foreground);
+  border-block: 1px solid color-mix(in oklab, var(--code-border) 65%, transparent);
+  background: color-mix(in oklab, var(--code-foreground) 2.5%, transparent);
+  color: var(--code-muted-foreground);
   font-family: inherit;
 }
 

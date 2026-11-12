@@ -5,6 +5,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "./FocusFeedback.css";
+@import "./CodePalette.css";
 
 @source "../components/**/*.{js,ts,jsx,tsx,mdx}";
 @source "../app/**/*.{js,ts,jsx,tsx,mdx}";

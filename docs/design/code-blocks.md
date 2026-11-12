@@ -21,6 +21,19 @@ blog prose and the rabbit-hole article all use it. It owns its appearance; calle
 - **Mermaid:** a `language-mermaid` fence keeps its diagram and gets no code chrome.
 - **Unknown or missing language:** plain lines, same layout, no tokens.
 
+## Shared palette
+
+`styles/CodePalette.css` holds the one light and one dark palette and the Prism token colors, under
+the global class `organic-code`. The code block and the code diff block both put that class on their
+root, so a palette change happens in one place. Dark follows the app's `.dark` class.
+
+## Code diff block
+
+`components/chat/gen-ui/blocks/CodeDiff.tsx` renders on the same palette: Fira Code at 13px with
+1.6 leading, syntax-colored lines (language from the file extension), the changed span emphasised
+by tint and weight on top of the tokens, and unchanged-line folds as quiet separator rows. This is
+a restyle only. The schema, the tool description and the agent contract are unchanged.
+
 ## Highlighting
 
 `code-highlight.tsx` uses the Prism light build of `react-syntax-highlighter` with an explicit
@@ -36,6 +49,7 @@ mounts complete is colored at once. Re-measure before raising `HIGHLIGHT_EAGER_L
 
 ## Not yet
 
-- The code-diff Gen UI block still has its own styling; it moves to this design next.
+- The diff block has no Changes / Result toggle: its files are partial hunks, so a "result" view
+  would show only fragments. Add it only with a defined meaning for multi-file diffs.
 - Explain mode (explanations anchored to lines) is design-only. It needs an agent contract and an
   approved proposal before it ships.

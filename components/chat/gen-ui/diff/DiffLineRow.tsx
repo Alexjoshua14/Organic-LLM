@@ -1,8 +1,10 @@
 import { Fragment } from "react";
 
-import { splitAtRange, type DisplayLine, type PlacedAnnotation } from "./diff-model";
+import { type DisplayLine, type PlacedAnnotation } from "./diff-model";
 import { DiffAnnotationNote } from "./DiffAnnotation";
 import styles from "./Diff.module.css";
+
+import { HighlightedText } from "@/components/shared/code-highlight";
 
 type DiffLineRowProps = {
   line: DisplayLine;
@@ -11,27 +13,27 @@ type DiffLineRowProps = {
   showNew: boolean;
   /** Total table columns, for rows that span them. */
   columns: number;
+  /** Fence-style language of the file, for syntax colour; undefined renders plain text. */
+  language?: string;
 };
 
 const SIGN = { add: "+", del: "−", context: "" } as const;
 const SIGN_LABEL = { add: "Added line", del: "Removed line" } as const;
 
-/** One code line's text; the changed span (if any) is emphasised by tint and weight. Text only. */
-function CodeText({ line }: { line: DisplayLine }) {
+/**
+ * One code line's text as syntax tokens; the changed span (if any) is emphasised by tint and
+ * weight. Text only.
+ */
+function CodeText({ line, language }: { line: DisplayLine; language: string | undefined }) {
   if (line.text === "") return null;
 
-  const [before, changed, after] = splitAtRange(line.text, line.emphasis);
-
-  if (changed === "") return <>{line.text}</>;
-
   return (
-    <>
-      {before}
-      <span className={styles.emph} data-emphasis="true">
-        {changed}
-      </span>
-      {after}
-    </>
+    <HighlightedText
+      emphasis={line.emphasis}
+      emphasisClassName={styles.emph}
+      language={language}
+      text={line.text}
+    />
   );
 }
 
@@ -39,7 +41,14 @@ function CodeText({ line }: { line: DisplayLine }) {
  * Gutters (old / new number), a +/− marker with an accessible name, then the code. Gutters and
  * marker are not selectable, so copying by selection yields the code alone.
  */
-export function DiffLineRow({ line, annotations, showOld, showNew, columns }: DiffLineRowProps) {
+export function DiffLineRow({
+  line,
+  annotations,
+  showOld,
+  showNew,
+  columns,
+  language,
+}: DiffLineRowProps) {
   return (
     <Fragment>
       <tr className={styles.line} data-kind={line.kind}>
@@ -52,7 +61,7 @@ export function DiffLineRow({ line, annotations, showOld, showNew, columns }: Di
           {SIGN[line.kind]}
         </td>
         <td className={styles.code}>
-          <CodeText line={line} />
+          <CodeText language={language} line={line} />
         </td>
       </tr>
       {line.noNewline ? (

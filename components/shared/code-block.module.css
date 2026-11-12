@@ -7,52 +7,15 @@
   --code-line: 20.8px;
   --code-mono:
     var(--font-mono, "Fira Code"), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  --cb-background: #ffffff;
-  --cb-foreground: #222222;
-  --cb-muted: #f0f0f0;
-  --cb-muted-foreground: #686868;
-  --cb-border: #dedede;
-  --cb-keyword: #0433ff;
-  --cb-function: #0000a2;
-  --cb-type: #6f42c1;
-  --cb-string: #036a07;
-  --cb-comment: #0075eb;
-  --cb-comment-style: normal;
-  --cb-operator: #333333;
-  --cb-punctuation: #444444;
-  --cb-guide: #dcdbda;
-  --cb-add: #1a7f4b;
-  --cb-del: #b3261e;
   position: relative;
   min-width: 0;
   max-width: 100%;
   margin: 0;
   overflow: hidden;
-  border: 1px solid var(--cb-border);
+  border: 1px solid var(--code-border);
   border-radius: 10px;
-  background: var(--cb-background);
-  color: var(--cb-foreground);
-  color-scheme: light;
-}
-:global(.dark) .root {
-  color-scheme: dark;
-  --cb-background: #0f1216;
-  --cb-foreground: #d3d8df;
-  --cb-muted: #181c22;
-  --cb-muted-foreground: #9aa3b0;
-  --cb-border: #262b33;
-  --cb-keyword: #f0a24a;
-  --cb-function: #fdd888;
-  --cb-type: #59c2ff;
-  --cb-string: #9fd36a;
-  --cb-comment: #8b94a1;
-  --cb-comment-style: italic;
-  --cb-operator: #e8946a;
-  --cb-punctuation: #b7bec9;
-  --cb-guide: #262b33;
-  --cb-add: #6fcf97;
-  --cb-del: #f08a84;
-  box-shadow: inset 0 1px 0 #ffffff08;
+  background: var(--code-background);
+  color: var(--code-foreground);
 }
 .root *,
 .root *::before,
@@ -66,22 +29,22 @@
   gap: 10px;
   min-height: 40px;
   padding: 0 8px 0 14px;
-  border-bottom: 1px solid var(--cb-border);
-  background: color-mix(in oklab, var(--cb-foreground) 2%, var(--cb-background));
+  border-bottom: 1px solid var(--code-border);
+  background: color-mix(in oklab, var(--code-foreground) 2%, var(--code-background));
 }
 .identity {
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
-  color: var(--cb-muted-foreground);
+  color: var(--code-muted-foreground);
   font: 12px var(--code-mono);
 }
 .identity svg {
   flex-shrink: 0;
 }
 .language {
-  color: var(--cb-foreground);
+  color: var(--code-foreground);
   font-weight: 500;
 }
 .meta {
@@ -104,7 +67,7 @@
   border: 0;
   border-radius: 5px;
   background: none;
-  color: var(--cb-muted-foreground);
+  color: var(--code-muted-foreground);
   font:
     11px / 1 var(--font-satoshi, system-ui),
     sans-serif;
@@ -112,14 +75,14 @@
 }
 .action:hover,
 .action[aria-pressed="true"] {
-  background: var(--cb-muted);
-  color: var(--cb-foreground);
+  background: var(--code-muted);
+  color: var(--code-foreground);
 }
 .divider {
   width: 1px;
   height: 14px;
   margin: 0 4px;
-  background: var(--cb-border);
+  background: var(--code-border);
 }
 /* The label swaps between Copy code / Copied / Copy failed; reserving its width keeps the icon
    and text start fixed so the toolbar never shifts. */
@@ -151,7 +114,7 @@
 }
 .number {
   padding-right: 12px;
-  color: var(--cb-muted-foreground);
+  color: var(--code-muted-foreground);
   font: 11px / var(--code-line) var(--code-mono);
   font-variant-numeric: tabular-nums;
   text-align: right;
@@ -160,10 +123,14 @@
 }
 .line > code {
   display: block;
-  color: var(--cb-foreground);
+  color: var(--code-foreground);
   font: inherit;
   white-space: pre;
-  background-image: repeating-linear-gradient(to right, var(--cb-guide) 0 1px, transparent 1px 2ch);
+  background-image: repeating-linear-gradient(
+    to right,
+    var(--code-guide) 0 1px,
+    transparent 1px 2ch
+  );
   background-size: calc(var(--indent-columns, 0) * 1ch) 100%;
   background-repeat: no-repeat;
 }
@@ -185,59 +152,6 @@
   overflow-wrap: anywhere;
   padding-inline-start: calc(var(--indent-columns, 0) * 1ch);
   text-indent: calc(var(--indent-columns, 0) * -1ch);
-}
-
-/* Prism token classes (class-based output, no inline styles). */
-.body :global(.token.keyword),
-.body :global(.token.atrule),
-.body :global(.token.selector) {
-  color: var(--cb-keyword);
-}
-.body :global(.token.string),
-.body :global(.token.char),
-.body :global(.token.attr-value),
-.body :global(.token.template-string),
-.body :global(.token.inserted) {
-  color: var(--cb-string);
-}
-.body :global(.token.function),
-.body :global(.token.attr-name),
-.body :global(.token.method) {
-  color: var(--cb-function);
-}
-.body :global(.token.class-name),
-.body :global(.token.builtin),
-.body :global(.token.number),
-.body :global(.token.boolean),
-.body :global(.token.constant),
-.body :global(.token.symbol),
-.body :global(.token.tag),
-.body :global(.token.regex) {
-  color: var(--cb-type);
-}
-.body :global(.token.comment),
-.body :global(.token.prolog),
-.body :global(.token.doctype) {
-  color: var(--cb-comment);
-  font-style: var(--cb-comment-style);
-}
-.body :global(.token.operator),
-.body :global(.token.entity),
-.body :global(.token.url) {
-  color: var(--cb-operator);
-}
-.body :global(.token.punctuation) {
-  color: var(--cb-punctuation);
-}
-.body :global(.token.deleted) {
-  color: var(--cb-del);
-}
-.body :global(.token.important),
-.body :global(.token.bold) {
-  font-weight: 600;
-}
-.body :global(.token.italic) {
-  font-style: italic;
 }
 
 /* Mermaid and other non-code fences keep the plain wrapper, with no header chrome. */

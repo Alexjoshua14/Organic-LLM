@@ -120,7 +120,13 @@ export function CodeBlock({
 
   return (
     <div
-      className={cn(styles.root, fontMono.variable, "not-prose", className, containerClassName)}
+      className={cn(
+        styles.root,
+        "organic-code not-prose",
+        fontMono.variable,
+        className,
+        containerClassName
+      )}
       data-wrap={wrapped}
       data-highlighted={highlighted}
     >

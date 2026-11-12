@@ -10,6 +10,8 @@ import { DiffFoldToggle, DiffGap, DiffHunkHead } from "./DiffHunkRows";
 import { DiffLineRow } from "./DiffLineRow";
 import styles from "./Diff.module.css";
 
+import { languageForPath } from "@/components/shared/code-highlight";
+
 type DiffFileBodyProps = {
   file: ResolvedFile;
   /** Id of the region, so the file header can point at it. */
@@ -26,6 +28,7 @@ const PLAIN_TEXT_CHARS = 10_000;
  */
 export function DiffFileBody({ file, id }: DiffFileBodyProps) {
   const view = useMemo(() => buildFileView(file), [file]);
+  const language = useMemo(() => languageForPath(file.path), [file.path]);
   const [unfolded, setUnfolded] = useState<ReadonlySet<string>>(() => new Set());
   const parsed = file.parsed;
   const hasRows = view.rows.length > 0;
@@ -121,6 +124,7 @@ export function DiffFileBody({ file, id }: DiffFileBodyProps) {
                               key={line.id}
                               annotations={[]}
                               columns={columns}
+                              language={language}
                               line={line}
                               showNew={view.showNew}
                               showOld={view.showOld}
@@ -136,6 +140,7 @@ export function DiffFileBody({ file, id }: DiffFileBodyProps) {
                     key={row.key}
                     annotations={row.annotations}
                     columns={columns}
+                    language={language}
                     line={row.line}
                     showNew={view.showNew}
                     showOld={view.showOld}

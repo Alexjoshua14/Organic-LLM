@@ -4,7 +4,13 @@ import { cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { render } from "../helpers/render";
 
 import { CodeBlock } from "@/components/shared/code-block";
-import { codeLanguageLabel, resolveHighlightLanguage } from "@/components/shared/code-highlight";
+import {
+  HighlightedText,
+  codeLanguageLabel,
+  languageForPath,
+  resolveHighlightLanguage,
+  splitSegments,
+} from "@/components/shared/code-highlight";
 
 const copyText = mock(async (_text: string) => true);
 
@@ -154,5 +160,57 @@ describe("CodeBlock", () => {
 
     expect(view.getByTestId("pre-tokenized")).toBeTruthy();
     expect(view.getByRole("button", { name: "Copy code" }).hasAttribute("disabled")).toBe(true);
+  });
+});
+
+describe("line-level highlighting (code diff rows)", () => {
+  test("maps file paths to a language by extension", () => {
+    expect(languageForPath("lib/memory/search.ts")).toBe("typescript");
+    expect(languageForPath("app/page.TSX")).toBe("tsx");
+    expect(languageForPath("scripts/deploy.sh")).toBe("bash");
+    expect(languageForPath("Makefile")).toBeUndefined();
+    expect(languageForPath(undefined)).toBeUndefined();
+  });
+
+  test("splits runs at the emphasis boundaries without losing or reordering text", () => {
+    const segments = [
+      { text: "const", className: "token keyword" },
+      { text: " total = ", className: "" },
+      { text: "42", className: "token number" },
+    ];
+    const [before, inside, after] = splitSegments(segments, [4, 12]);
+    const join = (parts: { text: string }[]) => parts.map((part) => part.text).join("");
+
+    expect(join(before)).toBe("cons");
+    expect(join(inside)).toBe("t total ");
+    expect(join(after)).toBe("= 42");
+    expect(`${join(before)}${join(inside)}${join(after)}`).toBe("const total = 42");
+    expect(inside[0]).toEqual({ text: "t", className: "token keyword" });
+    expect(splitSegments(segments, null)).toEqual([segments, [], []]);
+  });
+
+  test("renders tokens and wraps only the changed span in the emphasis element", () => {
+    const view = render(
+      <HighlightedText
+        emphasis={[6, 11]}
+        emphasisClassName="emph"
+        language="typescript"
+        text="const total = 42;"
+      />
+    );
+    const emphasised = view.container.querySelector("[data-emphasis]");
+
+    expect(view.container.textContent).toBe("const total = 42;");
+    expect(view.container.querySelector(".token.keyword")?.textContent).toBe("const");
+    expect(emphasised?.textContent).toBe("total");
+    expect(emphasised?.className).toBe("emph");
+  });
+
+  test("an unknown language still renders and emphasises plain text", () => {
+    const view = render(<HighlightedText emphasis={[0, 3]} language="zig" text="abc def" />);
+
+    expect(view.container.querySelector(".token")).toBeNull();
+    expect(view.container.querySelector("[data-emphasis]")?.textContent).toBe("abc");
+    expect(view.container.textContent).toBe("abc def");
   });
 });

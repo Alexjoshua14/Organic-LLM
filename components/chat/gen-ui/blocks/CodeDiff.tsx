@@ -11,7 +11,9 @@ import { DiffFileIndex } from "../diff/DiffFileIndex";
 import { DiffStatStrip } from "../diff/DiffStatStrip";
 import styles from "../diff/Diff.module.css";
 
+import { fontMono } from "@/config/fonts";
 import { resolveCodeDiffFiles, type ResolvedFile } from "@/lib/diff/resolve-file";
+import { cn } from "@/lib/utils";
 
 type CodeDiffProps = {
   block: CodeDiffBlock;
@@ -69,7 +71,7 @@ export function CodeDiff({ block, partial }: CodeDiffProps) {
 
   return (
     <div
-      className={styles.root}
+      className={cn(styles.root, "organic-code", fontMono.variable)}
       data-partial={partial ? "true" : undefined}
       data-wrap={wrap ? "true" : undefined}
     >

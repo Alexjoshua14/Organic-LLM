@@ -18,7 +18,9 @@ import Link from "next/link";
 
 import styles from "./study.module.css";
 
+import { CodeDiff } from "@/components/chat/gen-ui/blocks/CodeDiff";
 import { glass } from "@/components/design-system/primitives";
+import { CodeBlock } from "@/components/shared/code-block";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -55,6 +57,31 @@ const DIFF = [
   { old: 13, next: 13, text: "  });" },
   { old: 14, next: 14, text: "}" },
 ];
+
+// The same change, as the model sends it: standard unified-diff text per file.
+const PRODUCT_DIFF = {
+  type: "code-diff",
+  version: 1,
+  title: "Give unknown input a real boundary",
+  summary: "Validate the request before it is sent, so bad input fails early and clearly.",
+  files: [
+    {
+      path: "lib/subscribe.ts",
+      diff: [
+        "@@ -7,8 +7,8 @@",
+        " export async function subscribe(input: unknown) {",
+        "-  const { email } = input as { email: string };",
+        "+  const { email } = schema.parse(input);",
+        " ",
+        '   return fetch("/api/subscribe", {',
+        '     method: "POST",',
+        "     body: JSON.stringify({ email }),",
+        "   });",
+        " }",
+      ].join("\n"),
+    },
+  ],
+} as const;
 
 const NOTES = [
   {
@@ -580,6 +607,18 @@ export function CodeStudies() {
             </div>
           )}
         </main>
+
+        <section className={styles.production} aria-labelledby="in-the-product">
+          <h3 id="in-the-product">In the product</h3>
+          <p>
+            These are the real components chat renders by default, not copies. Fenced code uses the
+            shared code block; a change sent as unified-diff text uses the code diff block.
+          </p>
+          <CodeBlock>
+            <code className="language-ts">{SOURCE.join("\n")}</code>
+          </CodeBlock>
+          <CodeDiff block={PRODUCT_DIFF as never} />
+        </section>
 
         <footer className={styles.references}>
           <span>

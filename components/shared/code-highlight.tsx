@@ -215,3 +215,163 @@ export const CodeLines = memo(function CodeLines({
 function Passthrough({ children }: { children?: React.ReactNode }) {
   return <>{children}</>;
 }
+
+// ── Single-line text (code diff rows) ─────────────────────
+
+const EXTENSIONS: Record<string, string> = {
+  ts: "typescript",
+  mts: "typescript",
+  cts: "typescript",
+  tsx: "tsx",
+  js: "javascript",
+  mjs: "javascript",
+  cjs: "javascript",
+  jsx: "jsx",
+  json: "json",
+  jsonc: "json",
+  css: "css",
+  scss: "css",
+  html: "markup",
+  htm: "markup",
+  xml: "markup",
+  svg: "markup",
+  md: "markdown",
+  mdx: "markdown",
+  sh: "bash",
+  bash: "bash",
+  zsh: "bash",
+  py: "python",
+  yml: "yaml",
+  yaml: "yaml",
+  sql: "sql",
+  go: "go",
+  rs: "rust",
+  java: "java",
+  c: "c",
+  h: "c",
+  cc: "cpp",
+  cpp: "cpp",
+  hpp: "cpp",
+  diff: "diff",
+  patch: "diff",
+};
+
+/** Fence-style language for a file path (`lib/a.ts` → `typescript`), or undefined if unknown. */
+export function languageForPath(path: string | undefined): string | undefined {
+  const base = path?.split(/[\\/]/).pop() ?? "";
+  const extension = base.includes(".") ? base.split(".").pop()?.toLowerCase() : undefined;
+
+  return extension ? EXTENSIONS[extension] : undefined;
+}
+
+/** A run of text with the Prism classes it inherited from its ancestors. */
+export type TokenSegment = { text: string; className: string };
+
+/** Flattens a Prism hast tree into ordered, class-carrying text runs. */
+export function flattenTokens(nodes: HastNode[], inherited = ""): TokenSegment[] {
+  const segments: TokenSegment[] = [];
+
+  for (const node of nodes) {
+    if (node.type === "text") {
+      if (node.value) segments.push({ text: node.value, className: inherited });
+      continue;
+    }
+    const own = node.properties?.className?.join(" ") ?? "";
+
+    segments.push(...flattenTokens(node.children ?? [], `${inherited} ${own}`.trim()));
+  }
+
+  return segments;
+}
+
+/** Splits runs at the emphasis boundaries: [before, inside, after]. Offsets are in characters. */
+export function splitSegments(
+  segments: TokenSegment[],
+  range: readonly [number, number] | null
+): [TokenSegment[], TokenSegment[], TokenSegment[]] {
+  if (!range) return [segments, [], []];
+
+  const parts: [TokenSegment[], TokenSegment[], TokenSegment[]] = [[], [], []];
+  let offset = 0;
+
+  for (const segment of segments) {
+    const end = offset + segment.text.length;
+    const cuts = [range[0], range[1]].filter((cut) => cut > offset && cut < end);
+    let from = 0;
+
+    for (const bound of [...cuts.map((cut) => cut - offset), segment.text.length]) {
+      const text = segment.text.slice(from, bound);
+      const at = offset + from;
+
+      if (text) parts[at < range[0] ? 0 : at < range[1] ? 1 : 2].push({ ...segment, text });
+      from = bound;
+    }
+    offset = end;
+  }
+
+  return parts;
+}
+
+function renderSegments(segments: TokenSegment[]) {
+  return segments.map((segment, index) =>
+    segment.className ? (
+      <span key={index} className={segment.className}>
+        {segment.text}
+      </span>
+    ) : (
+      segment.text
+    )
+  );
+}
+
+export type HighlightedTextProps = {
+  text: string;
+  language?: string;
+  /** Character range to emphasise (the changed span of a diff line). */
+  emphasis?: readonly [number, number] | null;
+  /** Class for the emphasis wrapper; it also gets `data-emphasis`. */
+  emphasisClassName?: string;
+};
+
+/**
+ * One line of code as tokens, with an optional emphasised span wrapped around the characters that
+ * changed. Unknown language: plain text, still emphasised. Text only; never markup.
+ */
+export const HighlightedText = memo(function HighlightedText({
+  text,
+  language,
+  emphasis = null,
+  emphasisClassName,
+}: HighlightedTextProps) {
+  const grammar = resolveHighlightLanguage(language);
+
+  function render(segments: TokenSegment[]) {
+    const [before, inside, after] = splitSegments(segments, emphasis);
+
+    return (
+      <>
+        {renderSegments(before)}
+        {inside.length > 0 && (
+          <span className={emphasisClassName} data-emphasis="true">
+            {renderSegments(inside)}
+          </span>
+        )}
+        {renderSegments(after)}
+      </>
+    );
+  }
+
+  if (!grammar) return render([{ text, className: "" }]);
+
+  return (
+    <SyntaxHighlighter
+      PreTag={Passthrough}
+      CodeTag={Passthrough}
+      language={grammar}
+      renderer={({ rows }) => render(flattenTokens(rows as unknown as HastNode[]))}
+      useInlineStyles={false}
+    >
+      {text}
+    </SyntaxHighlighter>
+  );
+});
