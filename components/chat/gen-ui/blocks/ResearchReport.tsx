@@ -17,9 +17,36 @@ import {
 import { GenUIMarkdown } from "@/components/chat/gen-ui/GenUIMarkdown";
 import { cn } from "@/lib/utils";
 
+/**
+ * Research report spacing — one shared edge and token roles only.
+ * @see docs/design/spacing.md
+ */
+export const researchSpacing = {
+  /** Shared left edge for section headers, bands, lists, and rows. */
+  sectionInset: "px-inset-sm",
+  /** Divider rule + stack below it (mirrors spacing.card.section rhythm). */
+  sectionAfterRule: "border-t border-border/40 pt-stack-lg sm:pt-stack-md",
+  /** Header band height/padding — Findings, Limitations, Sources. */
+  sectionHeader: "flex min-h-11 w-full items-center justify-between gap-inline-sm px-inset-sm py-stack-sm",
+  /** Body under a section header — same inset as the header. */
+  sectionBody: "px-inset-sm pt-stack-sm pb-stack-sm",
+  /** Padded action controls (Inspect source, Open original, …). */
+  controlPad: "px-inset-md py-inset-sm",
+} as const;
+
 /** Hover = muted wash; keyboard focus = inverted fill + underline (no focus rings). */
-const controlClass =
-  "min-h-11 rounded-lg px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:bg-foreground focus-visible:text-background focus-visible:underline focus-visible:underline-offset-4";
+const controlFocus =
+  "text-xs font-medium text-foreground transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:bg-foreground focus-visible:text-background focus-visible:underline focus-visible:underline-offset-4";
+const controlClass = cn(
+  "inline-flex min-h-11 items-center rounded-lg",
+  researchSpacing.controlPad,
+  controlFocus
+);
+const sectionHeaderInteractiveClass = cn(
+  researchSpacing.sectionHeader,
+  "cursor-pointer list-none rounded-none",
+  controlFocus
+);
 const labelClass = "text-2xs font-semibold uppercase tracking-[0.1em] text-muted-foreground";
 const linkClass =
   "underline underline-offset-2 focus-visible:outline-none focus-visible:bg-foreground focus-visible:text-background focus-visible:decoration-2";
@@ -82,7 +109,7 @@ function CapturedTextReader({
   }, [threadId, sourceId, page, offset, attempt]);
 
   return (
-    <div className="space-y-stack-sm" aria-busy={loading}>
+    <div className={spacing.card.blockItems} aria-busy={loading}>
       {text ? (
         <textarea
           className="max-h-96 w-full resize-y overflow-y-auto overscroll-contain rounded-lg border border-border/40 bg-background/40 p-inset-md font-sans text-sm leading-relaxed text-foreground/85 focus-visible:outline-none focus-visible:bg-muted focus-visible:text-foreground focus-visible:border-foreground"
@@ -158,11 +185,11 @@ export function ResearchSourceCard({
     >
       <summary
         className={cn(
-          controlClass,
-          "flex cursor-pointer list-none items-start gap-inline-sm rounded-none px-0 py-inset-sm"
+          controlFocus,
+          "flex min-h-11 cursor-pointer list-none items-start gap-inline-sm rounded-none px-0 py-stack-sm"
         )}
       >
-        <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md border border-border/50 font-mono text-2xs text-muted-foreground group-open/source:border-foreground/40 group-open/source:text-foreground">
+        <span className="mt-stack-xs flex size-6 shrink-0 items-center justify-center rounded-md border border-border/50 font-mono text-2xs text-muted-foreground group-open/source:border-foreground/40 group-open/source:text-foreground">
           {index + 1}
         </span>
         <span className="min-w-0 flex-1">
@@ -175,18 +202,18 @@ export function ResearchSourceCard({
           </span>
         </span>
         <ChevronDown
-          className="mt-1 size-4 shrink-0 text-muted-foreground group-open/source:rotate-180"
+          className="mt-stack-xs size-4 shrink-0 text-muted-foreground group-open/source:rotate-180"
           aria-hidden
         />
       </summary>
-      <div className={cn("pb-inset-md", spacing.card.section)}>
+      <div className={cn("pb-stack-md", spacing.card.section)}>
         {source.synopsis ? (
           <p className="text-sm leading-relaxed text-foreground/80">{source.synopsis}</p>
         ) : null}
         {source.takeaways.length ? (
           <div className={spacing.card.labelStack}>
             <p className={labelClass}>Lyra’s takeaways</p>
-            <ul className="list-disc space-y-stack-sm pl-4 text-sm leading-relaxed text-foreground/90">
+            <ul className={cn("list-disc list-inside text-sm leading-relaxed text-foreground/90", spacing.card.blockItems)}>
               {source.takeaways.map((takeaway, i) => (
                 <li key={i}>{takeaway}</li>
               ))}
@@ -211,22 +238,19 @@ export function ResearchSourceCard({
           {source.publishedAt ? <span>Published {displayDate(source.publishedAt)}</span> : null}
           <span>{new Intl.NumberFormat().format(source.capturedChars)} characters</span>
         </div>
-        <div className="flex flex-wrap items-center gap-inline-sm">
+        <div className={cn("flex flex-wrap items-center", spacing.gap.sm)}>
           <a
             href={source.url}
             target="_blank"
             rel="noopener noreferrer"
-            className={cn(
-              controlClass,
-              "inline-flex items-center gap-inline-sm border border-border/50"
-            )}
+            className={cn(controlClass, spacing.gap.sm, "border border-border/50")}
           >
             Open original <ExternalLink className="size-3" aria-hidden />
           </a>
           {threadId ? (
             <button
               type="button"
-              className={cn(controlClass, "inline-flex items-center gap-inline-sm")}
+              className={cn(controlClass, spacing.gap.sm)}
               onClick={() => setReadText((previous) => !previous)}
               aria-expanded={readText}
             >
@@ -238,7 +262,7 @@ export function ResearchSourceCard({
         {readText && threadId ? (
           <div className={spacing.card.block}>
             {source.pages.length ? (
-              <label className="flex flex-wrap items-center gap-inline-sm text-xs text-muted-foreground">
+              <label className={cn("flex flex-wrap items-center text-xs text-muted-foreground", spacing.gap.sm)}>
                 Document page
                 <select
                   value={page}
@@ -289,7 +313,7 @@ export function ResearchClaimCard({
   return (
     <article
       aria-labelledby={titleId}
-      className={cn("min-w-0 py-inset-md", spacing.card.blockItems)}
+      className={cn("min-w-0 py-stack-md", spacing.card.blockItems)}
     >
       <div className={spacing.card.labelStack}>
         <h4 id={titleId} className="text-sm font-medium leading-snug text-foreground">
@@ -314,18 +338,18 @@ export function ResearchClaimCard({
         <details className="group/claim">
           <summary
             className={cn(
-              controlClass,
-              "flex w-fit cursor-pointer list-none items-center gap-inline-sm px-0"
+              controlFocus,
+              "flex min-h-11 w-fit cursor-pointer list-none items-center gap-inline-sm px-0 py-stack-sm"
             )}
           >
             <BookOpen className="size-3.5 shrink-0" aria-hidden />
             Inspect evidence · {claim.evidence.length}
             <ChevronDown className="size-3.5 group-open/claim:rotate-180" aria-hidden />
           </summary>
-          <div className={cn("border-t border-border/30 pt-inset-sm", spacing.card.blockItems)}>
+          <div className={cn("border-t border-border/30 pt-stack-sm", spacing.card.blockItems)}>
             {claim.evidence.map((evidence, index) => (
               <figure key={`${evidence.sourceId}-${index}`} className={spacing.card.labelStack}>
-                <figcaption className="flex flex-wrap items-center gap-inline-sm text-xs text-muted-foreground">
+                <figcaption className={cn("flex flex-wrap items-center text-xs text-muted-foreground", spacing.gap.sm)}>
                   <span
                     className={cn(
                       "font-medium capitalize",
@@ -359,7 +383,7 @@ export function ResearchClaimCard({
       ) : null}
 
       {onInspectSource && sourceIds.length ? (
-        <div className="flex flex-wrap items-center gap-inline-sm" aria-label="Finding sources">
+        <div className={cn("flex flex-wrap items-center", spacing.gap.sm)} aria-label="Finding sources">
           {sourceIds.map((sourceId) => {
             const number = sourceNumbers?.get(sourceId);
 
@@ -407,8 +431,9 @@ export function ResearchReport({
     <section
       className={cn("min-w-0 text-foreground", spacing.card.section)}
       aria-label={block.title}
+      data-research-spacing="card"
     >
-      <header className={spacing.card.labelStack}>
+      <header className={cn(researchSpacing.sectionInset, spacing.card.labelStack)}>
         <p className={labelClass}>Lyra · Research</p>
         <h3 className="text-lg font-semibold leading-snug tracking-tight">{block.title}</h3>
         <GenUIMarkdown className="space-y-stack-sm text-sm leading-relaxed text-foreground/85">
@@ -421,10 +446,16 @@ export function ResearchReport({
         </p>
       </header>
 
-      <section aria-label="Findings and evidence" className="border-t border-border/40 pt-inset-sm">
-        <h4 className={labelClass}>Findings</h4>
+      <section
+        aria-label="Findings and evidence"
+        className={researchSpacing.sectionAfterRule}
+        data-research-section="findings"
+      >
+        <div className={researchSpacing.sectionHeader} data-research-section-header="findings">
+          <h4 className={labelClass}>Findings</h4>
+        </div>
         {block.claims.length ? (
-          <div className="divide-y divide-border/30">
+          <div className={cn(researchSpacing.sectionInset, "divide-y divide-border/30")}>
             {block.claims.map((claim) => (
               <ResearchClaimCard
                 key={claim.id}
@@ -435,7 +466,12 @@ export function ResearchReport({
             ))}
           </div>
         ) : (
-          <p className="pt-inset-sm text-sm leading-relaxed text-muted-foreground">
+          <p
+            className={cn(
+              researchSpacing.sectionBody,
+              "text-sm leading-relaxed text-muted-foreground"
+            )}
+          >
             {partial
               ? "Findings are still arriving."
               : "No findings have been recorded for this report. The source notes below remain available to inspect."}
@@ -444,12 +480,13 @@ export function ResearchReport({
       </section>
 
       {block.limitations.length ? (
-        <details className="group/limits border-t border-border/40 pt-inset-sm">
+        <details
+          className={cn("group/limits", researchSpacing.sectionAfterRule)}
+          data-research-section="limitations"
+        >
           <summary
-            className={cn(
-              controlClass,
-              "flex w-full cursor-pointer list-none items-center justify-between gap-inline-sm rounded-none px-0"
-            )}
+            className={sectionHeaderInteractiveClass}
+            data-research-section-header="limitations"
           >
             <span className={labelClass}>
               Limitations & open questions · {block.limitations.length}
@@ -459,7 +496,13 @@ export function ResearchReport({
               aria-hidden
             />
           </summary>
-          <ul className="list-disc space-y-stack-sm pb-inset-sm pl-inset-lg pt-inset-sm text-sm leading-relaxed text-muted-foreground">
+          <ul
+            className={cn(
+              researchSpacing.sectionBody,
+              "list-disc list-inside text-sm leading-relaxed text-muted-foreground",
+              spacing.card.blockItems
+            )}
+          >
             {block.limitations.map((limitation, index) => (
               <li key={index}>{limitation}</li>
             ))}
@@ -469,13 +512,12 @@ export function ResearchReport({
 
       <details
         ref={sourcesLibraryRef}
-        className="group/sources border-t border-border/40 pt-inset-sm"
+        className={cn("group/sources", researchSpacing.sectionAfterRule)}
+        data-research-section="sources"
       >
         <summary
-          className={cn(
-            controlClass,
-            "flex w-full cursor-pointer list-none items-center justify-between gap-inline-sm rounded-none px-0"
-          )}
+          className={sectionHeaderInteractiveClass}
+          data-research-section-header="sources"
         >
           <span className={labelClass}>Sources · {block.sources.length}</span>
           <ChevronDown
@@ -483,7 +525,7 @@ export function ResearchReport({
             aria-hidden
           />
         </summary>
-        <div className={cn("pb-inset-sm pt-inset-sm", spacing.card.blockItems)}>
+        <div className={cn(researchSpacing.sectionBody, spacing.card.blockItems)}>
           <p className="text-2xs leading-relaxed text-muted-foreground">
             Inspect the captured material behind the findings. Synopses and takeaways are Lyra’s
             interpretation.
@@ -505,7 +547,7 @@ export function ResearchReport({
         </div>
       </details>
 
-      <p className="text-2xs leading-relaxed text-muted-foreground">
+      <p className={cn(researchSpacing.sectionInset, "text-2xs leading-relaxed text-muted-foreground")}>
         Matching quotations establish traceability, not truth or source independence. Assess the
         source and its methods yourself.
       </p>

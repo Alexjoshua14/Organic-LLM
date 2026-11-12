@@ -5,10 +5,14 @@ import { render } from "../helpers/render";
 import { FIXTURE_RESEARCH_REPORT } from "../fixtures/lyra-research";
 
 import { GenUIRenderer } from "@/components/chat/gen-ui/GenUIRenderer";
-import { ResearchReport } from "@/components/chat/gen-ui/blocks/ResearchReport";
+import {
+  ResearchReport,
+  researchSpacing,
+} from "@/components/chat/gen-ui/blocks/ResearchReport";
 import { ResearchToolResult } from "@/components/chat/gen-ui/ResearchToolResult";
 import { messagePartsToCopyMarkdown } from "@/lib/chat/message-copy-markdown";
 import { GenUIBlockSchema } from "@/lib/schemas/gen-ui";
+import { spacing } from "@/lib/design-tokens/spacing";
 
 const originalFetch = globalThis.fetch;
 
@@ -242,6 +246,52 @@ describe("Lyra's browsable research", () => {
     expect(
       view.getByText(FIXTURE_RESEARCH_REPORT.sources[0]!.synopsis).closest("details")?.open
     ).toBe(false);
+  });
+
+  test("main sections share design-system inset and stack token classes", () => {
+    const view = render(<ResearchReport block={FIXTURE_RESEARCH_REPORT} />);
+    const root = view.getByLabelText(FIXTURE_RESEARCH_REPORT.title);
+    const findings = view.getByLabelText("Findings and evidence");
+    const limits = view.getByText(/Limitations & open questions/).closest("details")!;
+    const sources = view
+      .getByText(`Sources · ${FIXTURE_RESEARCH_REPORT.sources.length}`)
+      .closest("details")!;
+    const headers = [
+      findings.querySelector("[data-research-section-header='findings']"),
+      limits.querySelector("[data-research-section-header='limitations']"),
+      sources.querySelector("[data-research-section-header='sources']"),
+    ];
+
+    expect(root.className).toContain("space-y-stack-lg");
+    expect(root.className).toContain(spacing.card.section.split(/\s+/)[0]!);
+
+    for (const section of [findings, limits, sources]) {
+      expect(section.className).toContain("border-t");
+      expect(section.className).toContain("pt-stack-lg");
+      expect(section.className).toContain("sm:pt-stack-md");
+    }
+
+    const insetClasses = headers.map((header) => {
+      expect(header).toBeTruthy();
+      expect(header!.className).toContain(researchSpacing.sectionInset);
+      expect(header!.className).toContain("py-stack-sm");
+      expect(header!.className).toContain("min-h-11");
+      return researchSpacing.sectionInset;
+    });
+    expect(new Set(insetClasses).size).toBe(1);
+
+    const limitationsBody = limits.querySelector("ul");
+    const sourcesBody = sources.querySelector("[data-research-section-header='sources'] + *");
+
+    expect(limitationsBody?.className).toContain(researchSpacing.sectionInset);
+    expect(sourcesBody?.className).toContain(researchSpacing.sectionInset);
+    expect(limitationsBody?.className).toContain("pt-stack-sm");
+    expect(sourcesBody?.className).toContain("pt-stack-sm");
+
+    const inspectSource = view.getByRole("button", { name: /Inspect source/ });
+
+    expect(inspectSource.className).toContain("px-inset-md");
+    expect(inspectSource.className).toContain("py-inset-sm");
   });
 
   test("copy includes the published synopsis, interpretation, quotations and original links", () => {
