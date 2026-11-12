@@ -38,15 +38,6 @@ import { CoreInput } from "@/components/chat/core-input";
 import { BtwPanel } from "@/components/chat/btw/btw-panel";
 import { PageNavBack } from "@/components/layout/page-content-frame";
 import { glass } from "@/components/design-system/primitives";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/third-party/ui/select";
 import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
 import { GEN_UI_BLOCK_TYPES, type GenUIBlockType } from "@/lib/schemas/gen-ui/shared";
 import { buildDefaultBlockMap, type GenUiLabApiResponse } from "@/lib/sandbox/gen-ui-lab";
@@ -276,12 +267,15 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
     );
 
   return (
-    <div className="@container relative flex h-full min-h-0 min-w-0 flex-col overflow-y-auto">
-      {/* Rows are bounded (`minmax(0,1fr)`), not `auto`: a tall block scrolls inside its panel instead of growing the row past the viewport. */}
-      <div className="grid min-h-[30rem] min-w-0 flex-1 grid-cols-1 grid-rows-[auto_minmax(16rem,1fr)] gap-stack-lg @min-[56rem]:grid-cols-[15rem_minmax(0,1fr)] @min-[56rem]:grid-rows-[minmax(0,1fr)] @min-[56rem]:gap-x-stack-2xl">
+    <div
+      data-gen-ui-lab-root
+      className="@container relative flex h-full min-h-0 min-w-0 flex-col overflow-y-auto"
+    >
+      {/* Rows are bounded (`minmax(0,1fr)`), not `auto`: a tall block scrolls inside its panel instead of growing the row past the viewport. Narrow (a phone), the lab is the focused component and the dot rail: the control column below only exists from 56rem up. */}
+      <div className="grid min-h-[30rem] min-w-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)] gap-stack-lg @min-[56rem]:grid-cols-[15rem_minmax(0,1fr)] @min-[56rem]:grid-rows-[minmax(0,1fr)] @min-[56rem]:gap-x-stack-2xl">
         <aside
           className={cn(
-            "flex min-h-0 min-w-0 flex-col gap-stack-md *:shrink-0",
+            "hidden min-h-0 min-w-0 flex-col gap-stack-md *:shrink-0 @min-[56rem]:flex",
             // Wide: its own scroller. The gutter keeps rows out from under the scrollbar.
             "@min-[56rem]:gap-stack-lg @min-[56rem]:overflow-y-auto @min-[56rem]:px-inset-md @min-[56rem]:[scrollbar-gutter:stable]"
           )}
@@ -298,46 +292,8 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
             </header>
           </div>
 
-          {/* Narrow: one wrapping row of controls. Wide: dissolves into the column. */}
-          <div className="flex min-w-0 flex-wrap items-center gap-inline-sm @min-[56rem]:contents">
-            <div className="flex min-w-[12rem] flex-1 items-center gap-inline-sm text-xs text-muted-foreground @min-[56rem]:hidden">
-              <span>Preview</span>
-              <Select
-                value={stateView ?? selectedType}
-                onValueChange={(value) => {
-                  const renderingState = GEN_UI_LAB_STATES.find((state) => state.id === value);
-
-                  if (renderingState) setStateView(renderingState.id);
-                  else handleSelectType(value as GenUiLabArchetype);
-                }}
-              >
-                <SelectTrigger
-                  aria-label="Preview component"
-                  className="min-h-11 min-w-0 flex-1 focus-visible:border-transparent focus-visible:bg-foreground focus-visible:text-background focus-visible:ring-0 focus-visible:[&_svg]:text-background"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectLabel>Archetypes</SelectLabel>
-                    {archetypeList.map(({ type, label }) => (
-                      <SelectItem key={type} value={type}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                  <SelectGroup>
-                    <SelectLabel>Rendering states</SelectLabel>
-                    {GEN_UI_LAB_STATES.map(({ id, label }) => (
-                      <SelectItem key={id} value={id}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </div>
-
+          {/* Wide only: dissolves into the column. */}
+          <div className="contents">
             <nav
               aria-label="Gen UI archetypes"
               className="hidden shrink-0 space-y-stack-xs @min-[56rem]:block"
@@ -441,7 +397,7 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
           it and the gallery dots (overlaid on the right edge) never sit on top of content. The
           side question dock lives in this column, so it centres on the preview, not the page.
         */}
-        <section className="relative flex min-h-0 min-w-0 flex-col @min-[56rem]:px-12">
+        <section className="relative flex min-h-0 min-w-0 flex-col pr-8 @min-[56rem]:px-12">
           {/* The decision toolbar lives in its own gallery section (see `header`): mounting it out
               here resized the scroller mid-scroll and broke snapping. */}
           {galleryActive ? (

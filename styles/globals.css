@@ -505,6 +505,13 @@ body.font-theme-commissioner {
   scrollbar-width: none;
 }
 
+/* Touch: a page taller than the screen must scroll freely; mandatory snapping would fight it. */
+@media (pointer: coarse) {
+  .gen-ui-gallery-scroll {
+    scroll-snap-type: y proximity;
+  }
+}
+
 .gen-ui-gallery-scroll::-webkit-scrollbar {
   display: none;
 }

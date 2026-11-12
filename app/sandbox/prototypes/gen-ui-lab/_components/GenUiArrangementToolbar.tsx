@@ -56,7 +56,7 @@ export function GenUiArrangementToolbar({
           <button
             type="button"
             aria-label={`Previous ${noun}`}
-            className={`inline-flex size-9 items-center justify-center rounded-md ${TOOLBAR_CONTROL}`}
+            className={`inline-flex size-9 items-center justify-center rounded-md pointer-coarse:size-11 ${TOOLBAR_CONTROL}`}
             onClick={() => step(-1)}
           >
             <ArrowLeft aria-hidden className="size-4" />
@@ -64,7 +64,7 @@ export function GenUiArrangementToolbar({
           <button
             type="button"
             aria-label={`Next ${noun}`}
-            className={`inline-flex size-9 items-center justify-center rounded-md ${TOOLBAR_CONTROL}`}
+            className={`inline-flex size-9 items-center justify-center rounded-md pointer-coarse:size-11 ${TOOLBAR_CONTROL}`}
             onClick={() => step(1)}
           >
             <ArrowRight aria-hidden className="size-4" />
@@ -78,7 +78,7 @@ export function GenUiArrangementToolbar({
                 ? "Automatic cycling is off with reduced motion"
                 : `Cycle ${noun}s; pauses while you interact`
             }
-            className={`inline-flex min-h-9 items-center gap-1.5 rounded-md px-2 text-xs disabled:opacity-50 ${TOOLBAR_CONTROL}`}
+            className={`inline-flex min-h-9 items-center gap-1.5 rounded-md px-2 text-xs disabled:opacity-50 pointer-coarse:min-h-11 ${TOOLBAR_CONTROL}`}
             onClick={toggleAuto}
           >
             {auto && !reducedMotion ? (

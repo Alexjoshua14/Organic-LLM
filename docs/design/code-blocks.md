@@ -106,6 +106,18 @@ in random order and never repeats one back to back; it pauses on hover, focus, a
 reduced motion, runs only while Snippet or Diff is showing, and picking by hand stops it. Diagram
 fences have their own lab page.
 
+### On a phone
+
+Below 56rem (a container query on the lab root, not the viewport) the lab is the focused component
+and the dot rail, nothing else: the control column (title, archetype list, rendering states,
+Generate with AI, Reset fixtures, /btw) is hidden, and so is the narrow-only preview picker it
+replaced. The rail is a quiet pill of bare dots at the right edge with 28px tap targets (no labels:
+a phone has no hover); the stage keeps 32px clear of it. On touch devices the lab's own controls
+(preset arrows, Auto, language picker, Shuffle) grow to 44px, and gallery snapping relaxes to
+`proximity` so a page taller than the screen scrolls freely. A section's own toolbar stays, since
+that is how you operate the component in focus. The jsdom tests guard the class contract; layout
+itself needs a look on a real phone or a narrow window.
+
 ## Not yet
 
 - The diff block has no Changes / Result toggle: its files are partial hunks, so a "result" view
