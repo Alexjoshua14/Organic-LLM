@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import { cleanup, fireEvent, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 
 import { render } from "../helpers/render";
 
@@ -52,7 +52,7 @@ describe("CodeSurface and CodeScroll", () => {
         </CodeScroll>
       </>
     );
-    const [scrollable, wrapped] = view.getAllByRole("region");
+    const [scrollable, wrapped] = within(view.container).getAllByRole("region");
 
     expect(scrollable!.getAttribute("aria-label")).toBe("Diff of a.ts");
     expect(scrollable!.getAttribute("tabindex")).toBe("0");
@@ -173,7 +173,8 @@ describe("CodeCopyButton and CodeWrapButton", () => {
         <CodeWrapButton pressed variant="text" onToggle={() => {}} />
       </>
     );
-    const [icon, text] = view.getAllByRole("button");
+    // Within this render: another suite's portal can leave buttons elsewhere in the document.
+    const [icon, text] = within(view.container).getAllByRole("button");
 
     expect(icon!.getAttribute("aria-label")).toBe("Wrap lines");
     expect(icon!.getAttribute("aria-pressed")).toBe("false");
