@@ -144,22 +144,9 @@
   gap: 24px;
   align-items: start;
 }
-/* Syntax roles follow the owner's Zed macOS Classic references. */
+/* One dark and one light palette, distilled from the owner's Zed macOS Classic and Glass references. */
 .codePanel {
-  --background: light-dark(#ffffff, #131313);
-  --foreground: light-dark(#222222, #dddddd);
-  --muted: light-dark(#f0f0f0, #272727);
-  --muted-foreground: light-dark(#686868, #9e9e9e);
-  --border: light-dark(#dedede, #303030);
   --study-well: var(--background);
-  --study-keyword: light-dark(#0433ff, #d5a029);
-  --study-function: light-dark(#0000a2, #fdd888);
-  --study-type: light-dark(#6f42c1, #e18a5c);
-  --study-string: light-dark(#036a07, #82c86a);
-  --study-comment: light-dark(#0075eb, #9e9e9e);
-  --study-operator: light-dark(#333333, #dddddd);
-  --study-punctuation: light-dark(#444444, #caccce);
-  --study-guide: light-dark(#dcdbda, #303030);
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--border);
@@ -167,30 +154,40 @@
   background: var(--study-well);
   color: var(--foreground);
 }
-.codePanel[data-code-theme="classic"] {
+/* Dark keeps an opaque reading surface so background prose cannot bleed through. */
+.codePanel[data-code-theme="dark"] {
   color-scheme: dark;
-}
-.codePanel[data-code-theme="paper"] {
-  color-scheme: light;
-}
-/* The glass palette keeps an opaque reading surface so background prose cannot bleed through. */
-.codePanel[data-code-theme="glass"] {
-  color-scheme: dark;
-  --background: #080b10;
-  --foreground: #cdd3dc;
-  --muted: #171b22;
-  --muted-foreground: #9ca5b3;
-  --border: #252b34;
-  --study-keyword: #ff8f40;
-  --study-function: #ffb454;
+  --background: #0f1216;
+  --foreground: #d3d8df;
+  --muted: #181c22;
+  --muted-foreground: #9aa3b0;
+  --border: #262b33;
+  --study-keyword: #f0a24a;
+  --study-function: #fdd888;
   --study-type: #59c2ff;
-  --study-string: #aad94c;
+  --study-string: #9fd36a;
   --study-comment: #8b94a1;
   --study-comment-style: italic;
-  --study-operator: #f29668;
+  --study-operator: #e8946a;
   --study-punctuation: #b7bec9;
-  --study-guide: #252b34;
+  --study-guide: #262b33;
   box-shadow: inset 0 1px 0 #ffffff08;
+}
+.codePanel[data-code-theme="light"] {
+  color-scheme: light;
+  --background: #ffffff;
+  --foreground: #222222;
+  --muted: #f0f0f0;
+  --muted-foreground: #686868;
+  --border: #dedede;
+  --study-keyword: #0433ff;
+  --study-function: #0000a2;
+  --study-type: #6f42c1;
+  --study-string: #036a07;
+  --study-comment: #0075eb;
+  --study-operator: #333333;
+  --study-punctuation: #444444;
+  --study-guide: #dcdbda;
 }
 .themePicker {
   margin-left: auto;
@@ -278,28 +275,23 @@
 }
 .themeSwatch,
 .themeMiniature {
-  --preview-bg: light-dark(#ffffff, #131313);
-  --preview-a: light-dark(#0433ff, #d5a029);
-  --preview-b: light-dark(#6f42c1, #fdd888);
-  --preview-c: light-dark(#036a07, #82c86a);
   display: flex;
   flex-shrink: 0;
   gap: 2px;
 }
-.themeSwatch[data-preview-theme="classic"],
-.themeMiniature[data-preview-theme="classic"] {
-  color-scheme: dark;
-}
-.themeSwatch[data-preview-theme="paper"],
-.themeMiniature[data-preview-theme="paper"] {
-  color-scheme: light;
-}
-.themeSwatch[data-preview-theme="glass"],
-.themeMiniature[data-preview-theme="glass"] {
-  --preview-bg: #080b10;
-  --preview-a: #ff8f40;
+.themeSwatch[data-preview-theme="dark"],
+.themeMiniature[data-preview-theme="dark"] {
+  --preview-bg: #0f1216;
+  --preview-a: #f0a24a;
   --preview-b: #59c2ff;
-  --preview-c: #aad94c;
+  --preview-c: #9fd36a;
+}
+.themeSwatch[data-preview-theme="light"],
+.themeMiniature[data-preview-theme="light"] {
+  --preview-bg: #ffffff;
+  --preview-a: #0433ff;
+  --preview-b: #6f42c1;
+  --preview-c: #036a07;
 }
 .themeSwatch {
   align-items: center;

@@ -83,13 +83,11 @@ const MODES = [
 ] as const;
 
 type Mode = (typeof MODES)[number]["id"];
-type CodeTheme = "auto" | "classic" | "glass" | "paper";
+type CodeTheme = "dark" | "light";
 
 const CODE_THEMES: { id: CodeTheme; name: string; description: string }[] = [
-  { id: "auto", name: "Adaptive", description: "Follows your app appearance" },
-  { id: "classic", name: "Classic dark", description: "Graphite, amber and green" },
-  { id: "glass", name: "Dark glass", description: "Deep ink, citrus and cyan" },
-  { id: "paper", name: "Classic light", description: "Paper, blue and violet" },
+  { id: "dark", name: "Dark", description: "Graphite ink, amber and cyan" },
+  { id: "light", name: "Light", description: "Paper white, blue and violet" },
 ];
 
 function ThemeSwatch({ theme, miniature = false }: { theme: CodeTheme; miniature?: boolean }) {
@@ -135,7 +133,7 @@ function CodeThemePicker({
         >
           <div className={styles.themeMenuHeading}>
             <span>Code appearance</span>
-            <span>4 themes</span>
+            <span>Dark / Light</span>
           </div>
           <DropdownMenuRadioGroup
             value={theme}
@@ -208,7 +206,7 @@ export function CodeStudies() {
   const [view, setView] = useState<"changes" | "result">("changes");
   const [context, setContext] = useState(false);
   const [selection, setSelection] = useState<number | null>(null);
-  const [theme, setTheme] = useState<CodeTheme>("auto");
+  const [theme, setTheme] = useState<CodeTheme>("dark");
   const showDiff = mode === "diff" && view === "changes";
   const activeNote = note === null ? null : NOTES[note];
 
