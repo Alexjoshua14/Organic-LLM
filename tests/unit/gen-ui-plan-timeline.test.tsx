@@ -52,7 +52,7 @@ function rowButton(view: ReturnType<typeof render>, name: RegExp) {
 
 /** The open step's detail region (at most one), or null. */
 function openRegion(view: ReturnType<typeof render>) {
-  return view.queryByRole("region");
+  return within(view.container).queryByRole("region");
 }
 
 describe("plan model", () => {
@@ -208,8 +208,12 @@ describe("PlanTimeline full", () => {
     const view = render(<PlanTimeline block={fixture} />);
 
     expect(view.container.textContent).not.toMatch(/%/);
-    expect(view.queryByRole("progressbar")).toBeNull();
-    expect(view.queryByRole("checkbox")).toBeNull();
+    // Scoped to the card: `view.queryBy*` searches the whole document, and in a full run another
+    // file's leftover DOM (a checkbox) made this fail in CI although the Plan renders no input.
+    const card = within(view.container);
+
+    expect(card.queryByRole("progressbar")).toBeNull();
+    expect(card.queryByRole("checkbox")).toBeNull();
     expect(view.container.querySelector("input")).toBeNull();
     // Every control is a native, natively-focusable button.
     const controls = view.container.querySelectorAll("button, a, [tabindex]");
