@@ -102,25 +102,36 @@ function Syntax({ text }: { text: string }) {
 
 export function CodeStudies() {
   const [mode, setMode] = useState<Mode>("diff");
-  const [wrap, setWrap] = useState(false);
+  const [wrap, setWrap] = useState(true);
   const [expanded, setExpanded] = useState(false);
   const [open, setOpen] = useState(true);
   const [note, setNote] = useState<number | null>(1);
   const [copyState, setCopyState] = useState("Copy");
+  const [view, setView] = useState<"changes" | "result">("changes");
+  const [context, setContext] = useState(false);
+  const [selection, setSelection] = useState<number | null>(null);
+  const showDiff = mode === "diff" && view === "changes";
+  const activeNote = note === null ? null : NOTES[note];
+
+  function selectMode(next: Mode) {
+    setMode(next);
+    setCopyState("Copy");
+    setOpen(true);
+    setSelection(null);
+  }
 
   async function copy() {
-    const text =
-      mode === "diff"
-        ? [
-            "--- a/lib/subscribe.ts",
-            "+++ b/lib/subscribe.ts",
-            "@@ -7,8 +7,8 @@",
-            ...DIFF.map(
-              (line) =>
-                `${line.kind === "added" ? "+" : line.kind === "removed" ? "-" : " "}${line.text}`
-            ),
-          ].join("\n")
-        : SOURCE.join("\n");
+    const text = showDiff
+      ? [
+          "--- a/lib/subscribe.ts",
+          "+++ b/lib/subscribe.ts",
+          "@@ -7,8 +7,8 @@",
+          ...DIFF.map(
+            (line) =>
+              `${line.kind === "added" ? "+" : line.kind === "removed" ? "-" : " "}${line.text}`
+          ),
+        ].join("\n")
+      : SOURCE.join("\n");
 
     try {
       await navigator.clipboard.writeText(text);
@@ -137,11 +148,11 @@ export function CodeStudies() {
           <Link href="/sandbox/prototypes/gen-ui-lab" className={styles.back}>
             <ArrowLeft size={14} /> Gen UI Lab
           </Link>
-          <span className={styles.studyTag}>Design study · interactive</span>
+          <span className={styles.studyTag}>Design study · second pass</span>
         </header>
         <div className={styles.intro}>
           <h1>Code primitives</h1>
-          <p>One visual language. Three ways to read code.</p>
+          <p>Read the code. See the change. Follow the reasoning.</p>
         </div>
         <div className={styles.modes} aria-label="Code primitive">
           {MODES.map(({ id, label, icon: Icon }) => (
@@ -149,11 +160,7 @@ export function CodeStudies() {
               key={id}
               type="button"
               aria-pressed={mode === id}
-              onClick={() => {
-                setMode(id);
-                setCopyState("Copy");
-                setOpen(true);
-              }}
+              onClick={() => selectMode(id)}
             >
               <Icon size={15} />
               {label}
@@ -161,183 +168,317 @@ export function CodeStudies() {
           ))}
         </div>
 
-        <main className={styles.stage}>
+        <main className={styles.stage} data-mode={mode}>
           <div className={styles.context}>
-            <span className={styles.responseLabel}>Organic</span>
+            <span className={styles.responseLabel}>
+              <span className={styles.presence} />
+              Organic<span className={styles.responseDivider}>/</span>
+              {mode === "diff"
+                ? "Suggested change"
+                : mode === "explain"
+                  ? "A closer look"
+                  : "Ready to use"}
+            </span>
             <h2>
               {mode === "diff"
-                ? "Validate before making the request."
+                ? "Give unknown input a real boundary."
                 : mode === "explain"
-                  ? "Here’s how the validation works."
-                  : "A small, typed subscription handler."}
+                  ? "From unknown input to a trusted value."
+                  : "A small handler. An explicit contract."}
             </h2>
             <p>
               {mode === "diff"
-                ? "Replace the type assertion with a runtime check. Invalid input will fail before the request is sent."
+                ? "A type assertion only changes what TypeScript believes. Parse the input before it leaves your application."
                 : mode === "explain"
-                  ? "Choose a step to bring the relevant code into focus."
-                  : "The schema checks the email address, then sends the validated value to your endpoint."}
+                  ? "Three decisions, each connected to the code that makes it work."
+                  : "Validate the email, then send exactly what the endpoint needs."}
             </p>
           </div>
 
-          <div className={styles.codePanel}>
-            <div className={styles.fileHeader}>
-              <button
-                className={styles.fileToggle}
-                type="button"
-                onClick={() => setOpen(!open)}
-                aria-expanded={open}
-                aria-controls="study-code"
-              >
-                <ChevronDown size={14} className={open ? undefined : styles.closed} />
-                <FileCode2 size={16} />
-                <span className={styles.path}>
-                  lib/<strong>subscribe.ts</strong>
-                </span>
-              </button>
-              {mode === "diff" ? (
-                <span className={styles.counts}>
-                  <span>+1</span>
-                  <span>−1</span>
-                </span>
-              ) : (
-                <span className={styles.language}>TypeScript</span>
-              )}
-              <div className={styles.actions}>
+          <div className={styles.readingLayout} data-annotated={mode === "explain"}>
+            <div className={styles.codePanel}>
+              <div className={styles.fileHeader}>
                 <button
+                  className={styles.fileToggle}
                   type="button"
-                  aria-label="Wrap lines"
-                  aria-pressed={wrap}
-                  onClick={() => setWrap(!wrap)}
+                  onClick={() => setOpen(!open)}
+                  aria-expanded={open}
+                  aria-controls="study-code"
                 >
-                  <WrapText size={15} />
-                </button>
-                <button
-                  type="button"
-                  aria-label={expanded ? "Restore width" : "Expand width"}
-                  aria-pressed={expanded}
-                  onClick={() => setExpanded(!expanded)}
-                >
-                  <Maximize2 size={14} />
-                </button>
-                <button className={styles.copy} type="button" onClick={copy}>
-                  {copyState === "Copied" ? <Check size={14} /> : <Copy size={14} />}
-                  <span aria-live="polite">
-                    {copyState === "Copy" && mode === "diff" ? "Copy patch" : copyState}
+                  <ChevronDown size={13} className={open ? undefined : styles.closed} />
+                  <span className={styles.fileIcon}>
+                    <FileCode2 size={16} />
+                  </span>
+                  <span className={styles.fileIdentity}>
+                    <strong>subscribe.ts</strong>
+                    <span>lib</span>
                   </span>
                 </button>
+                <div className={styles.actions}>
+                  <button
+                    type="button"
+                    aria-label="Wrap lines"
+                    title="Wrap lines"
+                    aria-pressed={wrap}
+                    onClick={() => setWrap(!wrap)}
+                  >
+                    <WrapText size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={expanded ? "Restore width" : "Expand width"}
+                    title={expanded ? "Restore width" : "Expand width"}
+                    aria-pressed={expanded}
+                    onClick={() => setExpanded(!expanded)}
+                  >
+                    <Maximize2 size={14} />
+                  </button>
+                  <span className={styles.actionDivider} />
+                  <button className={styles.copy} type="button" onClick={copy}>
+                    {copyState === "Copied" ? <Check size={14} /> : <Copy size={14} />}
+                    <span aria-live="polite">
+                      {copyState === "Copy" ? (showDiff ? "Copy patch" : "Copy code") : copyState}
+                    </span>
+                  </button>
+                </div>
               </div>
-            </div>
 
-            {open && (
-              <div id="study-code" className={styles.codeBody} data-wrap={wrap}>
-                {mode === "diff" ? (
-                  <>
-                    <div className={styles.hunk}>
-                      <span>@@ 7–14</span>
-                      <span>subscribe</span>
-                      <span className={styles.hunkLabel}>Validate input</span>
-                    </div>
+              {open && (
+                <div id="study-code" className={styles.codeBody} data-wrap={wrap}>
+                  <div className={styles.codeToolbar}>
+                    {mode === "diff" ? (
+                      <div className={styles.viewSwitch} aria-label="Diff view">
+                        <button
+                          type="button"
+                          aria-pressed={view === "changes"}
+                          onClick={() => {
+                            setView("changes");
+                            setCopyState("Copy");
+                          }}
+                        >
+                          Changes
+                        </button>
+                        <button
+                          type="button"
+                          aria-pressed={view === "result"}
+                          onClick={() => {
+                            setView("result");
+                            setCopyState("Copy");
+                          }}
+                        >
+                          Result
+                        </button>
+                      </div>
+                    ) : (
+                      <span className={styles.language}>
+                        TypeScript<span className={styles.toolbarDot}>·</span>14 lines
+                      </span>
+                    )}
+                    {mode === "diff" ? (
+                      <span className={styles.counts}>
+                        <span>+1</span>
+                        <span>−1</span>
+                        <span className={styles.changeWord}>line changed</span>
+                      </span>
+                    ) : mode === "explain" ? (
+                      <button
+                        className={styles.resetFocus}
+                        type="button"
+                        onClick={() => {
+                          setNote(null);
+                          setSelection(null);
+                        }}
+                      >
+                        Show all lines
+                      </button>
+                    ) : (
+                      <span className={styles.language}>Source</span>
+                    )}
+                  </div>
+                  {showDiff ? (
+                    <>
+                      <div className={styles.hunk}>
+                        <span>07—14</span>
+                        <span>subscribe(input)</span>
+                      </div>
+                      <div className={styles.lines}>
+                        {DIFF.filter((_, index) => context || index < 4 || index === 8).map(
+                          (line, index) => (
+                            <div
+                              key={`${line.old}-${line.next}`}
+                              className={styles.diffLine}
+                              data-kind={line.kind}
+                            >
+                              <span className={styles.number} aria-hidden>
+                                {line.old}
+                              </span>
+                              <span className={styles.number} aria-hidden>
+                                {line.next}
+                              </span>
+                              <span className={styles.sign} aria-label={line.kind}>
+                                {line.kind === "added" ? "+" : line.kind === "removed" ? "−" : ""}
+                              </span>
+                              <code>
+                                {line.kind ? (
+                                  <>
+                                    {"  const { email } = "}
+                                    <mark>
+                                      <Syntax
+                                        text={
+                                          line.kind === "added"
+                                            ? "schema.parse(input)"
+                                            : "input as { email: string }"
+                                        }
+                                      />
+                                    </mark>
+                                    ;
+                                  </>
+                                ) : (
+                                  <Syntax text={line.text} />
+                                )}
+                              </code>
+                              {!context && index === 3 && (
+                                <button
+                                  type="button"
+                                  className={styles.foldContext}
+                                  onClick={() => setContext(true)}
+                                >
+                                  <ChevronDown size={12} />
+                                  Show 4 unchanged lines<span>10—13</span>
+                                </button>
+                              )}
+                            </div>
+                          )
+                        )}
+                      </div>
+                      {context && (
+                        <button
+                          type="button"
+                          className={styles.hideContext}
+                          onClick={() => setContext(false)}
+                        >
+                          Hide unchanged request
+                        </button>
+                      )}
+                    </>
+                  ) : (
                     <div className={styles.lines}>
-                      {DIFF.map((line, index) => (
-                        <div key={index} className={styles.diffLine} data-kind={line.kind}>
-                          <span className={styles.number} aria-hidden>
-                            {line.old}
-                          </span>
-                          <span className={styles.number} aria-hidden>
-                            {line.next}
-                          </span>
-                          <span className={styles.sign} aria-label={line.kind}>
-                            {line.kind === "added" ? "+" : line.kind === "removed" ? "−" : ""}
-                          </span>
+                      {SOURCE.map((line, index) => (
+                        <div
+                          key={index}
+                          className={styles.sourceLine}
+                          data-selected={selection === index + 1}
+                          data-focus={
+                            mode === "explain" && activeNote
+                              ? activeNote.lines.includes(index + 1)
+                                ? "active"
+                                : "dimmed"
+                              : undefined
+                          }
+                        >
+                          <button
+                            className={styles.lineNumber}
+                            type="button"
+                            aria-label={`Select line ${index + 1}`}
+                            aria-pressed={selection === index + 1}
+                            onClick={() => {
+                              setSelection(selection === index + 1 ? null : index + 1);
+                              if (mode === "explain") {
+                                const match = NOTES.findIndex((item) =>
+                                  item.lines.includes(index + 1)
+                                );
+
+                                setNote(match < 0 ? null : match);
+                              }
+                            }}
+                          >
+                            {index + 1}
+                          </button>
                           <code>
-                            {line.kind ? (
-                              <>
-                                {"  const { email } = "}
-                                <mark>
-                                  <Syntax
-                                    text={
-                                      line.kind === "added"
-                                        ? "schema.parse(input)"
-                                        : "input as { email: string }"
-                                    }
-                                  />
-                                </mark>
-                                ;
-                              </>
-                            ) : (
-                              <Syntax text={line.text} />
-                            )}
+                            <Syntax text={line} />
                           </code>
+                          {mode === "explain" &&
+                            NOTES.some((item) => item.lines[0] === index + 1) && (
+                              <span className={styles.anchorMark} aria-hidden>
+                                {NOTES.findIndex((item) => item.lines[0] === index + 1) + 1}
+                              </span>
+                            )}
                         </div>
                       ))}
                     </div>
-                    <div className={styles.reviewNote}>
-                      <span className={styles.noteDot} />
-                      <div>
-                        <strong>A type assertion doesn’t validate at runtime.</strong>
-                        <p>
-                          <code>schema.parse</code> checks the value and gives the rest of the
-                          function a typed email.
-                        </p>
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <div className={styles.lines}>
-                    {SOURCE.map((line, index) => (
-                      <div
-                        key={index}
-                        className={styles.sourceLine}
-                        data-focus={
-                          mode === "explain" && note !== null
-                            ? NOTES[note].lines.includes(index + 1)
-                              ? "active"
-                              : "dimmed"
-                            : undefined
-                        }
-                      >
-                        <span className={styles.number} aria-hidden>
-                          {index + 1}
-                        </span>
-                        <code>
-                          <Syntax text={line} />
-                        </code>
-                        {mode === "explain" && index === 7 && (
-                          <span className={styles.lineLabel}>validate</span>
-                        )}
-                      </div>
-                    ))}
+                  )}
+                  <div className={styles.footer}>
+                    <span>
+                      {selection
+                        ? `Line ${selection} selected`
+                        : showDiff
+                          ? context
+                            ? "Full change context"
+                            : "Unchanged request folded"
+                          : "UTF-8"}
+                    </span>
+                    <span>{showDiff ? "Unified diff" : "TypeScript"}</span>
                   </div>
-                )}
-                <div className={styles.footer}>
-                  <span>{mode === "diff" ? "1 file changed" : "14 lines"}</span>
-                  <span>{mode === "diff" ? "Unified diff" : "TypeScript"}</span>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
 
-          {mode === "explain" && (
-            <div className={styles.explanation}>
-              <div className={styles.stepList}>
+            {mode === "explain" && (
+              <aside className={styles.explanation} aria-label="Code walkthrough">
+                <span className={styles.railLabel}>Follow the flow</span>
                 {NOTES.map((item, index) => (
                   <button
+                    className={styles.step}
                     key={item.title}
                     type="button"
                     aria-pressed={note === index}
-                    onClick={() => setNote(note === index ? null : index)}
+                    onClick={() => {
+                      setNote(note === index ? null : index);
+                      setSelection(null);
+                      setOpen(true);
+                    }}
                   >
-                    <span>{index + 1}</span>
-                    {item.title}
+                    <span className={styles.stepIndex}>{String(index + 1).padStart(2, "0")}</span>
+                    <span className={styles.stepContent}>
+                      <span className={styles.stepTitle}>
+                        {item.title}
+                        <span className={styles.lineRange}>
+                          L{item.lines[0]}
+                          {item.lines.length > 1 ? `–${item.lines.at(-1)}` : ""}
+                        </span>
+                      </span>
+                      <span className={styles.stepDetail}>{item.detail}</span>
+                    </span>
                   </button>
                 ))}
+                <span className={styles.railFoot}>Select a step or a line number.</span>
+              </aside>
+            )}
+          </div>
+
+          {mode === "diff" && (
+            <div className={styles.changeReason}>
+              <span className={styles.reasonIcon}>
+                <GitCompareArrows size={15} />
+              </span>
+              <div>
+                <span className={styles.reasonLabel}>Why this change</span>
+                <p>
+                  The check now happens at runtime.
+                  <br />
+                  <span>Malformed input stops here, before the network request.</span>
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    selectMode("explain");
+                    setNote(1);
+                  }}
+                >
+                  Walk through the code
+                  <ArrowUpRight size={13} />
+                </button>
               </div>
-              <p aria-live="polite">
-                {note === null
-                  ? "All code is visible. Select a step to focus."
-                  : NOTES[note].detail}
-              </p>
             </div>
           )}
         </main>
@@ -345,10 +486,10 @@ export function CodeStudies() {
         <footer className={styles.references}>
           <span>
             {mode === "diff"
-              ? "Precise changes · quiet context · attached reasoning"
+              ? "A change you can read at a glance."
               : mode === "snippet"
-                ? "Readable source · stable controls · clean copy"
-                : "Connected explanation · selective focus · full context"}
+                ? "The code gets the space. Controls stay quiet."
+                : "Reasoning and implementation, in the same place."}
           </span>
           <a
             href={
