@@ -88,17 +88,23 @@ Highlighting is regex work on the main thread, so its input is bounded (`HIGHLIG
 
 ## In the Gen UI Lab
 
-The lab's **Code** page (lab-only, like Diagram) steps through six presets with the same prev/next
-toolbar the comparison uses: Snippet, Reference, Command, Long lines, Plain and Long block. One code
-block at a time; languages are switched from the dropdown in the Snippet slide, never listed
-together. Diagram fences have their own lab page. Each preset is a complete markdown message rendered by the real chat markdown
-renderer, so it exercises exactly what chat ships. The code diff block has its own eight fixtures.
+One **Code** page (the code diff block's page, labelled Code in the lab nav) covers both ways code
+reaches chat, because they share one set of primitives. It steps through eight slides with the same
+prev/next toolbar the comparison uses:
 
-Both the Code page's Snippet slide and the first code diff page have a **language picker** and a
-**Shuffle** toggle. `_fixtures/language-samples.ts` holds one real change per supported language,
-used as the diff the model would send and as the fenced snippet. Shuffle visits every language once
-per round in random order and never repeats one back to back; it pauses on hover, focus, a hidden
-tab and reduced motion, and picking by hand stops it.
+- **Snippet:** a fenced block in a markdown reply, through the real chat renderer. One block at a time.
+- **Diff:** the same language as the unified diff a model sends, through the registry. The app finds
+  the language from the file path.
+- **Fixture:** the page's schema fixture, which "Generate with AI" replaces (the lab jumps here after
+  generating).
+- **Reference, Command, Long lines, Plain, Long block:** fenced blocks for layout checks.
+
+Snippet and Diff have a **language dropdown** and a **Shuffle** toggle. Languages are never listed
+together. `_fixtures/language-samples.ts` holds one real change per supported language, used as the
+diff the model would send and as the fenced snippet. Shuffle visits every language once per round
+in random order and never repeats one back to back; it pauses on hover, focus, a hidden tab and
+reduced motion, runs only while Snippet or Diff is showing, and picking by hand stops it. Diagram
+fences have their own lab page.
 
 ## Not yet
 

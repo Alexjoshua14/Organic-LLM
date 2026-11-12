@@ -68,7 +68,7 @@ function openLanguageMenu(section: HTMLElement) {
 describe("Code page language picker", () => {
   test("picking a language changes the snippet, its header and the gutter", () => {
     const { view, page } = renderShell();
-    const section = page("code-block");
+    const section = page("code-diff");
 
     expect(within(codeBlock(section)).getByText("TypeScript")).toBeTruthy();
     openLanguageMenu(section);
@@ -83,32 +83,39 @@ describe("Code page language picker", () => {
   test("the menu lists every supported language", () => {
     const { view, page } = renderShell();
 
-    openLanguageMenu(page("code-block"));
+    openLanguageMenu(page("code-diff"));
     expect(view.getAllByRole("menuitemradio").length).toBe(LANGUAGE_SAMPLES.length);
   });
 
-  test("the language controls live on the Snippet slide only, and the row keeps its space", () => {
+  test("the language controls live on the Snippet and Diff slides only, and the row keeps its space", () => {
     const { page } = renderShell();
-    const section = page("code-block");
+    const section = page("code-diff");
     const controls = () => within(section).queryByRole("group", { name: "Language" });
-    const rowHeight = () => controls()?.parentElement ?? section.querySelector(".min-h-9");
+    const next = () =>
+      fireEvent.click(within(section).getByRole("button", { name: "Next preset" }));
+    const previous = () =>
+      fireEvent.click(within(section).getByRole("button", { name: "Previous preset" }));
 
     expect(controls()).not.toBeNull();
-    fireEvent.click(within(section).getByRole("button", { name: "Next preset" }));
-    expect(within(section).getByText("Reference")).toBeTruthy();
+    next();
+    expect(within(section).getByText("Diff")).toBeTruthy();
+    expect(controls()).not.toBeNull();
+    next();
+    expect(within(section).getByText("Fixture")).toBeTruthy();
     expect(controls()).toBeNull();
     // The reserved row stays in the toolbar, so the arrows and the preview do not move.
-    expect(rowHeight()).not.toBeNull();
-    fireEvent.click(within(section).getByRole("button", { name: "Previous preset" }));
+    expect(section.querySelector(".min-h-9")).not.toBeNull();
+    previous();
+    previous();
     expect(controls()).not.toBeNull();
   });
 
   test("Shuffle moves to another language at once, then every few seconds, never repeating", () => {
     jest.useFakeTimers();
     const { view, page } = renderShell();
-    const section = page("code-block");
+    const section = page("code-diff");
 
-    selectPage(view, /code block$/i);
+    selectPage(view, /code diff$/i);
     const shuffle = within(section).getByRole("button", { name: "Shuffle" });
     const shown = () => within(section).getByRole("button", { name: /^Language:/ }).textContent;
 
@@ -131,9 +138,9 @@ describe("Code page language picker", () => {
   test("picking a language by hand stops the shuffle", () => {
     jest.useFakeTimers();
     const { view, page } = renderShell();
-    const section = page("code-block");
+    const section = page("code-diff");
 
-    selectPage(view, /code block$/i);
+    selectPage(view, /code diff$/i);
     const shuffle = within(section).getByRole("button", { name: "Shuffle" });
 
     fireEvent.click(shuffle);
@@ -150,10 +157,10 @@ describe("Code page language picker", () => {
   test("Shuffle pauses while the pointer is over the code", () => {
     jest.useFakeTimers();
     const { view, page } = renderShell();
-    const section = page("code-block");
+    const section = page("code-diff");
     const shown = () => within(section).getByRole("button", { name: /^Language:/ }).textContent;
 
-    selectPage(view, /code block$/i);
+    selectPage(view, /code diff$/i);
     fireEvent.click(within(section).getByRole("button", { name: "Shuffle" }));
     const before = shown();
     const preview = section.querySelector(".ai-message")!.parentElement!;
@@ -166,36 +173,36 @@ describe("Code page language picker", () => {
   });
 });
 
-describe("Code diff page language picker", () => {
-  test("opens on the default fixture; picking a language swaps in that language's diff", () => {
+describe("Diff slide language picker", () => {
+  test("the same picker drives the diff: its file and its colors follow the language", () => {
     const { view, page } = renderShell();
     const section = page("code-diff");
 
-    expect(within(section).getByRole("button", { name: "Language: Default fixture" })).toBeTruthy();
-    expect(section.textContent).not.toContain("cmd/server/main.go");
+    fireEvent.click(within(section).getByRole("button", { name: "Next preset" }));
+    expect(within(section).getByRole("region", { name: "Diff of lib/subscribe.ts" })).toBeTruthy();
 
     openLanguageMenu(section);
     fireEvent.click(view.getByRole("menuitemradio", { name: "Go" }));
 
     expect(section.textContent).toContain("A small Go change");
-    expect(section.textContent).toContain("main.go");
+    expect(
+      within(section).getByRole("region", { name: "Diff of cmd/server/main.go" })
+    ).toBeTruthy();
     expect(section.textContent).toContain("ListenAndServe");
-    // The diff block colors it: the language was found from the .go extension.
+    // The diff block found the language from the .go extension.
     expect(section.querySelector(".token.keyword")).not.toBeNull();
   });
 
-  test("Default fixture returns the page's own content", () => {
+  test("a language picked on Snippet carries to Diff, and back", () => {
     const { view, page } = renderShell();
     const section = page("code-diff");
-    const original = section.textContent;
 
     openLanguageMenu(section);
-    fireEvent.click(view.getByRole("menuitemradio", { name: "Go" }));
-    expect(section.textContent).not.toBe(original);
+    fireEvent.click(view.getByRole("menuitemradio", { name: "Rust" }));
+    fireEvent.click(within(section).getByRole("button", { name: "Next preset" }));
 
-    openLanguageMenu(section);
-    fireEvent.click(view.getByRole("menuitemradio", { name: "Default fixture" }));
-    expect(section.textContent).toBe(original);
+    expect(within(section).getByRole("region", { name: "Diff of src/lib.rs" })).toBeTruthy();
+    expect(within(section).getByRole("button", { name: "Language: Rust" })).toBeTruthy();
   });
 
   test("Shuffle rotates the diff through languages without repeating", () => {
@@ -203,6 +210,7 @@ describe("Code diff page language picker", () => {
     const { view, page } = renderShell();
     const section = page("code-diff");
 
+    fireEvent.click(within(section).getByRole("button", { name: "Next preset" }));
     selectPage(view, /code diff$/i);
     const shown = () => within(section).getByRole("button", { name: /^Language:/ }).textContent;
 
@@ -216,6 +224,27 @@ describe("Code diff page language picker", () => {
       seen.push(shown());
     }
     for (let i = 1; i < seen.length; i += 1) expect(seen[i]).not.toBe(seen[i - 1]);
-    expect(seen[0]).not.toContain("Default fixture");
+    expect(within(section).getByText("Diff")).toBeTruthy();
+  });
+
+  test("Shuffle stops when the reader leaves for the Fixture slide", () => {
+    jest.useFakeTimers();
+    const { view, page } = renderShell();
+    const section = page("code-diff");
+
+    selectPage(view, /code diff$/i);
+    fireEvent.click(within(section).getByRole("button", { name: "Shuffle" }));
+    fireEvent.click(within(section).getByRole("button", { name: "Next preset" }));
+    fireEvent.click(within(section).getByRole("button", { name: "Next preset" }));
+    expect(within(section).getByText("Fixture")).toBeTruthy();
+    expect(
+      within(section).getByRole("heading", { level: 3, name: "Retry web search on rate limits" })
+    ).toBeTruthy();
+    act(() => {
+      jest.advanceTimersByTime(GEN_UI_LANGUAGE_INTERVAL_MS * 3);
+    });
+    expect(
+      within(section).getByRole("heading", { level: 3, name: "Retry web search on rate limits" })
+    ).toBeTruthy();
   });
 });

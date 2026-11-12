@@ -46,9 +46,9 @@ describe("Gen UI Lab shell", () => {
 
     expect(view.queryByRole("button", { name: "Focus" })).toBeNull();
     expect(view.queryByRole("group", { name: "Preview mode" })).toBeNull();
-    // Every Gen UI block type, plus the lab-only Diagram and Code pages.
+    // Every Gen UI block type, plus the lab-only Diagram page.
     expect(view.container.querySelectorAll("[data-archetype]").length).toBe(
-      Object.keys(GEN_UI_REGISTRY).length + 2
+      Object.keys(GEN_UI_REGISTRY).length + 1
     );
   });
 
@@ -61,7 +61,9 @@ describe("Gen UI Lab shell", () => {
 
     scrolled.length = 0;
     fireEvent.click(
-      within(archetypes).getByRole("button", { name: new RegExp(GEN_UI_REGISTRY["decision-matrix"].label) })
+      within(archetypes).getByRole("button", {
+        name: new RegExp(GEN_UI_REGISTRY["decision-matrix"].label),
+      })
     );
 
     expect(view.container.querySelectorAll("[data-archetype]").length).toBeGreaterThan(0);

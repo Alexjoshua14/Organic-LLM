@@ -16,7 +16,9 @@ const mermaidMock = {
   render: async (_id: string, code: string) => {
     renderedSources.push(code);
 
-    return { svg: '<svg xmlns="http://www.w3.org/2000/svg"><g class="node"><text>Node</text></g></svg>' };
+    return {
+      svg: '<svg xmlns="http://www.w3.org/2000/svg"><g class="node"><text>Node</text></g></svg>',
+    };
   },
 };
 
@@ -98,14 +100,14 @@ function DiagramHarness({ active = true }: { active?: boolean }) {
 }
 
 describe("Gen UI Lab Diagram page", () => {
-  test("Diagram is a gallery page, a sidebar entry and a dot after the block types", () => {
+  test("Diagram is a gallery page, a sidebar entry and a dot after every block type", () => {
     const { view, section } = renderShell();
     const archetypes = view.getByRole("navigation", { name: "Gen UI archetypes" });
     const pages = view.container.querySelectorAll("[data-archetype]");
 
-    // Lab-only pages follow the block types: Diagram, then Code.
-    expect(pages.length).toBe(Object.keys(GEN_UI_REGISTRY).length + 2);
-    expect(pages[pages.length - 2]).toBe(section);
+    // The lab-only page follows every block type.
+    expect(pages.length).toBe(Object.keys(GEN_UI_REGISTRY).length + 1);
+    expect(pages[pages.length - 1]).toBe(section);
     expect(within(archetypes).getByRole("button", { name: /Diagram/ })).toBeTruthy();
     expect(view.getByRole("button", { name: "Diagram" })).toBeTruthy();
   });
@@ -122,7 +124,9 @@ describe("Gen UI Lab Diagram page", () => {
     await waitFor(() => {
       expect(section.querySelector(".mermaid svg")).not.toBeNull();
     });
-    expect(section.querySelector(".mermaid svg")?.getAttribute("aria-label")).toBe("Order request check");
+    expect(section.querySelector(".mermaid svg")?.getAttribute("aria-label")).toBe(
+      "Order request check"
+    );
     expect(renderedSources.at(-1)).toContain(MERMAID_FLOWCHART_EDGE_LABELS.split("\n")[1]!.trim());
   });
 
@@ -134,7 +138,9 @@ describe("Gen UI Lab Diagram page", () => {
     expect(within(section).getByLabelText("Preset 2 of 4")).toBeTruthy();
     expect(within(section).getByText("Overview")).toBeTruthy();
     await waitFor(() => {
-      expect(section.querySelector(".mermaid svg")?.getAttribute("aria-label")).toBe("Chat request path");
+      expect(section.querySelector(".mermaid svg")?.getAttribute("aria-label")).toBe(
+        "Chat request path"
+      );
     });
     // Inline always draws the overview source, as in chat.
     expect(renderedSources.at(-1)).toContain('A["Client"] --> B["API Gateway"]');
@@ -165,7 +171,9 @@ describe("Gen UI Lab Diagram page", () => {
 
     fireEvent.click(view.getByRole("button", { name: "Reset fixtures" }));
     expect(view.getByText("Reset to fixture data.")).toBeTruthy();
-    expect(view.container.querySelector(`[data-archetype="${LAB_DIAGRAM_ARCHETYPE}"]`)).not.toBeNull();
+    expect(
+      view.container.querySelector(`[data-archetype="${LAB_DIAGRAM_ARCHETYPE}"]`)
+    ).not.toBeNull();
   });
 });
 

@@ -12,17 +12,11 @@ import { useGenUiLabQuestion } from "../_hooks/use-gen-ui-lab-question";
 
 import { GenUiGalleryNav } from "./GenUiGalleryNav";
 import {
-  GenUiCodeDiffDemo,
-  GenUiCodeDiffDemoToolbar,
-  useGenUiCodeDiffDemo,
-} from "./GenUiCodeDiffDemo";
-import {
-  GenUiCodeBlockDemo,
-  GenUiCodeBlockDemoToolbar,
-  LAB_CODE_ARCHETYPE,
+  GenUiCodeDemo,
+  GenUiCodeDemoToolbar,
   LAB_CODE_LABEL,
-  useGenUiCodeBlockDemo,
-} from "./GenUiCodeBlockDemo";
+  useGenUiCodeDemo,
+} from "./GenUiCodeDemo";
 import {
   GenUiDecisionDemo,
   GenUiDecisionDemoToolbar,
@@ -70,15 +64,12 @@ type GenUiLabShellProps = {
 
 /**
  * A gallery page: every Gen UI block type, plus lab-only pages that are not blocks (the Mermaid
- * diagram, fenced code). Only block types reach the lab API, which knows nothing else.
+ * diagram). Only block types reach the lab API, which knows nothing else.
  */
-export type GenUiLabArchetype =
-  | GenUIBlockType
-  | typeof LAB_DIAGRAM_ARCHETYPE
-  | typeof LAB_CODE_ARCHETYPE;
+export type GenUiLabArchetype = GenUIBlockType | typeof LAB_DIAGRAM_ARCHETYPE;
 
 function isBlockType(archetype: GenUiLabArchetype): archetype is GenUIBlockType {
-  return archetype !== LAB_DIAGRAM_ARCHETYPE && archetype !== LAB_CODE_ARCHETYPE;
+  return archetype !== LAB_DIAGRAM_ARCHETYPE;
 }
 
 export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
@@ -98,8 +89,11 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
   const diagramDemo = useGenUiMermaidDiagramDemo(
     selectedType === LAB_DIAGRAM_ARCHETYPE && galleryActive
   );
-  const codeDiffDemo = useGenUiCodeDiffDemo(selectedType === "code-diff" && galleryActive);
-  const codeDemo = useGenUiCodeBlockDemo(selectedType === LAB_CODE_ARCHETYPE && galleryActive);
+  const codeDemo = useGenUiCodeDemo(selectedType === "code-diff" && galleryActive);
+  // Read inside callbacks that must not be recreated on every render.
+  const codeDemoRef = useRef(codeDemo);
+
+  codeDemoRef.current = codeDemo;
   const canGenerate = isBlockType(selectedType);
   const [status, setStatus] = useState<ChatStatus>("ready");
   const [aionMessage, setAionMessage] = useState<string | null>(null);
@@ -118,6 +112,8 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
     }
 
     if (response.generated) {
+      // A generated code diff replaces the fixture, so bring that slide up.
+      if (response.generated.blockType === "code-diff") codeDemoRef.current.showFixture();
       setBlocks((prev) => ({
         ...prev,
         [response.generated!.blockType]: response.generated!.block,
@@ -132,23 +128,22 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
     const entries: Array<{ type: GenUiLabArchetype; label: string }> = GEN_UI_BLOCK_TYPES.map(
       (type) => ({
         type,
-        label: GEN_UI_REGISTRY[type].label,
+        // The code diff page also shows fenced code, so the lab calls it Code.
+        label: type === "code-diff" ? LAB_CODE_LABEL : GEN_UI_REGISTRY[type].label,
       })
     );
     // Lab-only, after every block type: it is a chat tool output, not a Gen UI block.
     const diagram = { type: LAB_DIAGRAM_ARCHETYPE, label: LAB_DIAGRAM_LABEL };
-    const code = { type: LAB_CODE_ARCHETYPE, label: LAB_CODE_LABEL };
 
     const restaurantIndex = entries.findIndex((e) => e.type === "restaurant-card");
 
-    if (restaurantIndex <= 0) return [...entries, diagram, code];
+    if (restaurantIndex <= 0) return [...entries, diagram];
 
     return [
       entries[restaurantIndex]!,
       ...entries.slice(0, restaurantIndex),
       ...entries.slice(restaurantIndex + 1),
       diagram,
-      code,
     ];
   }, []);
 
@@ -257,8 +252,7 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
   }, []);
 
   const handleGenerateSelected = useCallback(async () => {
-    // Diagrams come from the chat's `make_mermaid_diagram` tool and code is plain markdown; the lab
-    // API can generate neither.
+    // Diagrams come from the chat's `make_mermaid_diagram` tool, which the lab API cannot call.
     if (!isBlockType(selectedType)) return;
 
     const label = GEN_UI_REGISTRY[selectedType].label;
@@ -396,7 +390,7 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
                 title={
                   canGenerate
                     ? undefined
-                    : "Diagram and Code are not Gen UI blocks; the lab only generates blocks"
+                    : "Diagrams come from the chat diagram tool; the lab only generates Gen UI blocks"
                 }
                 onClick={() => void handleGenerateSelected()}
               >
@@ -478,29 +472,23 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
                   header={
                     type === LAB_DIAGRAM_ARCHETYPE ? (
                       <GenUiMermaidDiagramDemoToolbar demo={diagramDemo} />
-                    ) : type === LAB_CODE_ARCHETYPE ? (
-                      <GenUiCodeBlockDemoToolbar demo={codeDemo} />
                     ) : type === "decision-matrix" ? (
                       <GenUiDecisionDemoToolbar demo={decisionDemo} />
                     ) : type === "code-diff" ? (
-                      <GenUiCodeDiffDemoToolbar rotation={codeDiffDemo} />
+                      <GenUiCodeDemoToolbar demo={codeDemo} />
                     ) : undefined
                   }
                   registerRef={registerSection(type)}
                 >
                   {type === LAB_DIAGRAM_ARCHETYPE ? (
                     <GenUiMermaidDiagramDemo demo={diagramDemo} />
-                  ) : type === LAB_CODE_ARCHETYPE ? (
-                    <GenUiCodeBlockDemo demo={codeDemo} />
                   ) : type === "decision-matrix" ? (
                     <GenUiDecisionDemo
                       block={blocks[type] as DecisionMatrixBlock}
                       demo={decisionDemo}
                     />
                   ) : type === "code-diff" ? (
-                    <GenUiCodeDiffDemo rotation={codeDiffDemo}>
-                      <GenUIRenderer data={{ block: blocks[type] }} messageId={`lab-${type}`} />
-                    </GenUiCodeDiffDemo>
+                    <GenUiCodeDemo demo={codeDemo} fixture={blocks[type]} />
                   ) : (
                     <GenUIRenderer data={{ block: blocks[type] }} messageId={`lab-${type}`} />
                   )}
