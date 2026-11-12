@@ -6,6 +6,8 @@ import { render } from "../helpers/render";
 import { CodeBlock } from "@/components/shared/code-block";
 import {
   HIGHLIGHT_LANGUAGES,
+  HIGHLIGHT_LIMITS,
+  HighlightBoundary,
   HighlightedText,
   codeLanguageLabel,
   languageForPath,
@@ -253,5 +255,100 @@ describe("lazy grammars", () => {
       expect({ language, text: view.container.textContent }).toEqual({ language, text: sample });
       view.unmount();
     }
+  });
+});
+
+describe("hostile and oversized input", () => {
+  const INHERITED = ["constructor", "__proto__", "toString", "hasOwnProperty", "valueOf"];
+
+  test("inherited object keys are never treated as a language, label or extension", () => {
+    for (const key of INHERITED) {
+      expect(resolveHighlightLanguage(key)).toBeUndefined();
+      expect(typeof codeLanguageLabel(key)).toBe("string");
+      expect(languageForPath(`src/file.${key}`)).toBeUndefined();
+      expect(languageForPath(key)).toBeUndefined();
+      expect(() => block("x = 1", key)).not.toThrow();
+      cleanup();
+      expect(() => render(<HighlightedText language={key} text="x" />)).not.toThrow();
+      cleanup();
+    }
+  });
+
+  test("non-string language and path values are ignored, not thrown on", () => {
+    for (const value of [42, {}, [], null, undefined, () => 1]) {
+      expect(resolveHighlightLanguage(value)).toBeUndefined();
+      expect(languageForPath(value)).toBeUndefined();
+      expect(codeLanguageLabel(value)).toBe("Code");
+    }
+  });
+
+  test("an unknown fence label is cut and stripped to safe characters", () => {
+    const label = codeLanguageLabel(`evil<script>alert(1)</script>${"x".repeat(500)}\u202e`);
+
+    expect(label.length).toBeLessThanOrEqual(HIGHLIGHT_LIMITS.labelChars);
+    expect(label).toMatch(/^[\w+#.-]+$/);
+    expect(codeLanguageLabel("a".repeat(200)).length).toBeLessThanOrEqual(
+      HIGHLIGHT_LIMITS.labelChars
+    );
+  });
+
+  test("a block over the line limit renders as one plain text node, still copyable", async () => {
+    const lines = Array.from(
+      { length: HIGHLIGHT_LIMITS.blockLines + 1 },
+      (_, i) => `const v${i} = ${i};`
+    );
+    const source = lines.join("\n");
+    const view = block(source, "ts");
+
+    expect(view.container.querySelector(".token")).toBeNull();
+    expect(view.container.querySelectorAll("code").length).toBe(0);
+    expect(view.container.querySelectorAll("pre").length).toBe(1);
+    expect(view.container.querySelector("pre")?.textContent).toBe(source);
+    expect(view.getByText(/block too large to color/)).toBeTruthy();
+
+    fireEvent.click(view.getByRole("button", { name: "Copy code" }));
+    await waitFor(() => expect(copyText).toHaveBeenCalledTimes(1));
+    expect(copyText.mock.calls[0][0]).toBe(source);
+  });
+
+  test("a single enormous line is also plain, and a block just under the limits still highlights", () => {
+    const huge = block(`const s = "${"a".repeat(HIGHLIGHT_LIMITS.blockChars)}";`, "ts");
+
+    expect(huge.container.querySelector(".token")).toBeNull();
+    cleanup();
+
+    const lines = Array.from({ length: HIGHLIGHT_LIMITS.blockLines }, (_, i) => `const a${i} = 1;`);
+
+    expect(block(lines.join("\n"), "ts").container.querySelector(".token.keyword")).not.toBeNull();
+  });
+
+  test("a diff line over the per-line limit is not tokenized but keeps its emphasis", () => {
+    const text = `x = ${"1".repeat(HIGHLIGHT_LIMITS.lineChars)}`;
+    const view = render(<HighlightedText emphasis={[0, 1]} language="typescript" text={text} />);
+
+    expect(view.container.querySelector(".token")).toBeNull();
+    expect(view.container.querySelector("[data-emphasis]")?.textContent).toBe("x");
+    expect(view.container.textContent).toBe(text);
+  });
+
+  test("a grammar that throws falls back to the uncolored text instead of crashing", () => {
+    function Boom(): never {
+      throw new Error("grammar blew up");
+    }
+    const view = render(
+      <HighlightBoundary fallback={<span data-testid="plain">plain text</span>}>
+        <Boom />
+      </HighlightBoundary>
+    );
+
+    expect(view.getByTestId("plain").textContent).toBe("plain text");
+  });
+
+  test("code is rendered as text, never as markup", () => {
+    const view = block('<img src=x onerror="alert(1)"><script>alert(2)</script>', "html");
+
+    expect(view.container.querySelector("img")).toBeNull();
+    expect(view.container.querySelector("script")).toBeNull();
+    expect(view.container.textContent).toContain("<script>alert(2)</script>");
   });
 });

@@ -13,7 +13,13 @@ import {
 } from "react";
 
 import styles from "./code-block.module.css";
-import { CodeLines, codeLanguageLabel, resolveHighlightLanguage } from "./code-highlight";
+import {
+  CodeLines,
+  codeLanguageLabel,
+  countLines,
+  exceedsHighlightLimits,
+  resolveHighlightLanguage,
+} from "./code-highlight";
 
 import { fontMono } from "@/config/fonts";
 import { copyTextToClipboard } from "@/lib/clipboard/copy";
@@ -112,11 +118,12 @@ export function CodeBlock({
     return <div className={cn(styles.plain, containerClassName)}>{children}</div>;
   }
 
-  const lineCount = rawCode ? rawCode.split("\n").length : 0;
+  const lineCount = countLines(rawCode);
+  const large = exceedsHighlightLimits(rawCode);
   const label = codeLanguageLabel(extracted?.language);
   const settling = lineCount > HIGHLIGHT_EAGER_LINES && settledCode !== rawCode;
   const highlightLanguage = settling ? undefined : extracted?.language;
-  const highlighted = resolveHighlightLanguage(highlightLanguage) !== undefined;
+  const highlighted = !large && resolveHighlightLanguage(highlightLanguage) !== undefined;
 
   return (
     <div
@@ -134,7 +141,12 @@ export function CodeBlock({
         <span className={styles.identity}>
           <FileCode2 size={14} aria-hidden />
           <span className={styles.language}>{label}</span>
-          {lineCount > 1 && <span className={styles.meta}>· {lineCount} lines</span>}
+          {lineCount > 1 && (
+            <span className={styles.meta}>
+              · {lineCount.toLocaleString("en-US")} lines
+              {large ? " · plain text, block too large to color" : ""}
+            </span>
+          )}
         </span>
         <div className={styles.actions}>
           <button

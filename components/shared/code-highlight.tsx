@@ -1,8 +1,8 @@
 "use client";
 
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
-import { memo, useEffect, useState } from "react";
+import { Component, memo, useEffect, useState } from "react";
 import SyntaxHighlighter from "react-syntax-highlighter/dist/esm/prism-light";
 import createElement from "react-syntax-highlighter/dist/esm/create-element";
 import bash from "react-syntax-highlighter/dist/esm/languages/prism/bash";
@@ -118,6 +118,7 @@ function loadGrammar(name: LazyLanguage): Promise<void> {
 
   const load = LAZY_GRAMMARS[name]()
     .then((module) => {
+      if (!module?.default) return;
       SyntaxHighlighter.registerLanguage(name, module.default);
       ready.add(name);
     })
@@ -159,6 +160,47 @@ function useGrammar(language: string | undefined): HighlightLanguage | undefined
   }, [resolved]);
 
   return resolved && ready.has(resolved) ? resolved : undefined;
+}
+
+/**
+ * Lookups key off text a model or a file path supplies, so they must never reach inherited
+ * properties: `"constructor" in table` is true, and `table["__proto__"]` is not a grammar.
+ */
+function own(table: object, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(table, key);
+}
+
+/**
+ * Highlighting is regex work on the main thread, so its input is bounded. Past a limit the block
+ * renders as plain text, which costs one text node however large it is.
+ */
+export const HIGHLIGHT_LIMITS = {
+  /** Characters in one block (about 2,500 lines of typical code, roughly 100-200 ms to tokenize). */
+  blockChars: 100_000,
+  /** Lines in one block; also bounds the per-line DOM. */
+  blockLines: 2_500,
+  /** Characters in one diff line, which is tokenized on its own. */
+  lineChars: 5_000,
+  /** Characters of a fence label shown in the header. */
+  labelChars: 24,
+} as const;
+
+/** Lines in `text`, counted without allocating one string per line. */
+export function countLines(text: string): number {
+  if (text === "") return 0;
+
+  let lines = 1;
+
+  for (let at = text.indexOf("\n"); at !== -1; at = text.indexOf("\n", at + 1)) lines += 1;
+
+  return lines;
+}
+
+/** True when `code` is too large to tokenize or lay out row by row. */
+export function exceedsHighlightLimits(code: string): boolean {
+  return (
+    code.length > HIGHLIGHT_LIMITS.blockChars || countLines(code) > HIGHLIGHT_LIMITS.blockLines
+  );
 }
 
 const ALIASES: Record<string, HighlightLanguage> = {
@@ -266,27 +308,35 @@ const LABELS: Record<string, string> = {
 };
 
 /** Canonical grammar for a fence label (`ts`, `TypeScript`, `language-ts`), or undefined. */
-export function resolveHighlightLanguage(
-  language: string | undefined
-): HighlightLanguage | undefined {
+export function resolveHighlightLanguage(language: unknown): HighlightLanguage | undefined {
+  if (typeof language !== "string" || language.length > 64) return undefined;
+
   const key = language
-    ?.trim()
+    .trim()
     .toLowerCase()
     .replace(/^language-/, "");
 
   if (!key) return undefined;
-  if (key in GRAMMARS || key in LAZY_GRAMMARS) return key as HighlightLanguage;
+  if (own(GRAMMARS, key) || own(LAZY_GRAMMARS, key)) return key as HighlightLanguage;
 
-  return ALIASES[key];
+  return own(ALIASES, key) ? ALIASES[key] : undefined;
 }
 
-/** Human label for the header: "TypeScript" for `ts`, the raw fence label otherwise. */
-export function codeLanguageLabel(language: string | undefined): string {
+/**
+ * Human label for the header: "TypeScript" for `ts`, the fence's own label otherwise. An unknown
+ * label is cut to a few safe characters, so a hostile fence cannot flood the header.
+ */
+export function codeLanguageLabel(language: unknown): string {
   const resolved = resolveHighlightLanguage(language);
 
-  if (resolved) return LABELS[resolved];
+  if (resolved && own(LABELS, resolved)) return LABELS[resolved];
+  if (typeof language !== "string") return "Code";
 
-  const raw = language?.trim().replace(/^language-/, "");
+  const raw = language
+    .trim()
+    .replace(/^language-/, "")
+    .replace(/[^\w+#.-]/g, "")
+    .slice(0, HIGHLIGHT_LIMITS.labelChars);
 
   if (!raw || /^(text|txt|plain|plaintext)$/i.test(raw)) return "Code";
 
@@ -322,7 +372,12 @@ export const CodeLines = memo(function CodeLines({
   language,
   showLineNumbers,
 }: CodeLinesProps) {
-  const grammar = useGrammar(language);
+  const oversized = exceedsHighlightLimits(code);
+  const grammar = useGrammar(oversized ? undefined : language);
+
+  // Too large to tokenize or lay out line by line: one text node, no gutter, no tokens.
+  if (oversized) return <pre className={styles.fallback}>{code}</pre>;
+
   const sourceLines = code.split("\n");
   const gutter = {
     "--number-width": `${String(sourceLines.length).length + 1}ch`,
@@ -363,18 +418,39 @@ export const CodeLines = memo(function CodeLines({
   if (!grammar) return renderLines(null);
 
   return (
-    <SyntaxHighlighter
-      PreTag={Passthrough}
-      CodeTag={Passthrough}
-      language={grammar}
-      renderer={({ rows }) => renderLines(rows as unknown as HastNode[])}
-      useInlineStyles={false}
-      wrapLines
-    >
-      {code}
-    </SyntaxHighlighter>
+    <HighlightBoundary key={code} fallback={renderLines(null)}>
+      <SyntaxHighlighter
+        PreTag={Passthrough}
+        CodeTag={Passthrough}
+        language={grammar}
+        renderer={({ rows }) => renderLines(rows as unknown as HastNode[])}
+        useInlineStyles={false}
+        wrapLines
+      >
+        {code}
+      </SyntaxHighlighter>
+    </HighlightBoundary>
   );
 });
+
+/**
+ * A grammar that throws (a regex blowing the stack, a malformed chunk) must not take the message
+ * down with it: fall back to the same text, uncolored.
+ */
+export class HighlightBoundary extends Component<
+  { fallback: ReactNode; children: ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  render() {
+    return this.state.failed ? this.props.fallback : this.props.children;
+  }
+}
 
 function Passthrough({ children }: { children?: React.ReactNode }) {
   return <>{children}</>;
@@ -463,15 +539,18 @@ const BASENAMES: Record<string, string> = {
 };
 
 /** Fence-style language for a file path (`lib/a.ts` → `typescript`), or undefined if unknown. */
-export function languageForPath(path: string | undefined): string | undefined {
-  const base = path?.split(/[\\/]/).pop() ?? "";
-  const named = BASENAMES[base.toLowerCase()];
+export function languageForPath(path: unknown): string | undefined {
+  if (typeof path !== "string") return undefined;
+
+  // Paths come from a model; only the file name matters, and only its tail.
+  const base = (path.slice(-300).split(/[\\/]/).pop() ?? "").toLowerCase();
+  const named = own(BASENAMES, base) ? BASENAMES[base] : undefined;
 
   if (named) return named;
 
-  const extension = base.includes(".") ? base.split(".").pop()?.toLowerCase() : undefined;
+  const extension = base.includes(".") ? base.split(".").pop() : undefined;
 
-  return extension ? EXTENSIONS[extension] : undefined;
+  return extension && own(EXTENSIONS, extension) ? EXTENSIONS[extension] : undefined;
 }
 
 /** A run of text with the Prism classes it inherited from its ancestors. */
@@ -553,7 +632,7 @@ export const HighlightedText = memo(function HighlightedText({
   emphasis = null,
   emphasisClassName,
 }: HighlightedTextProps) {
-  const grammar = useGrammar(language);
+  const grammar = useGrammar(text.length > HIGHLIGHT_LIMITS.lineChars ? undefined : language);
 
   function render(segments: TokenSegment[]) {
     const [before, inside, after] = splitSegments(segments, emphasis);
@@ -574,14 +653,16 @@ export const HighlightedText = memo(function HighlightedText({
   if (!grammar) return render([{ text, className: "" }]);
 
   return (
-    <SyntaxHighlighter
-      PreTag={Passthrough}
-      CodeTag={Passthrough}
-      language={grammar}
-      renderer={({ rows }) => render(flattenTokens(rows as unknown as HastNode[]))}
-      useInlineStyles={false}
-    >
-      {text}
-    </SyntaxHighlighter>
+    <HighlightBoundary key={text} fallback={render([{ text, className: "" }])}>
+      <SyntaxHighlighter
+        PreTag={Passthrough}
+        CodeTag={Passthrough}
+        language={grammar}
+        renderer={({ rows }) => render(flattenTokens(rows as unknown as HastNode[]))}
+        useInlineStyles={false}
+      >
+        {text}
+      </SyntaxHighlighter>
+    </HighlightBoundary>
   );
 });
