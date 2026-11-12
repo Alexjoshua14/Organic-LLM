@@ -1,5 +1,11 @@
 /** Canonical journey ids — single source of truth for instrumentation and docs. */
-export const PERF_JOURNEYS = ["load", "to-chat", "to-arcadia"] as const;
+export const PERF_JOURNEYS = [
+  "load",
+  "to-chat",
+  "to-arcadia",
+  "thread-switch",
+  "launcher-open",
+] as const;
 
 export type PerfJourneyId = (typeof PERF_JOURNEYS)[number];
 
@@ -25,6 +31,9 @@ export const PERF_PHASES = {
   chatLoadingShown: "chat:loading-shown",
   chatReady: "chat:ready",
 
+  // ⌘K launcher: keydown to the frame after the surface has painted
+  launcherReady: "launcher:ready",
+
   // Server phase names (also used in RSC collectors)
   serverCreateChat: "createChat",
   serverUpdateThreadRouting: "updateThreadRouting",
@@ -37,6 +46,8 @@ export const PERF_JOURNEY_LABELS: Record<PerfJourneyId, string> = {
   load: "Page load",
   "to-chat": "Home → Chat",
   "to-arcadia": "Home → Arcadia",
+  "thread-switch": "Switch thread",
+  "launcher-open": "Open ⌘K launcher",
 };
 
 export const PERF_PHASE_LABELS: Record<string, string> = {
@@ -54,6 +65,7 @@ export const PERF_PHASE_LABELS: Record<string, string> = {
   [PERF_PHASES.chatCreated]: "Chat created",
   [PERF_PHASES.chatLoadingShown]: "Loading spinner shown",
   [PERF_PHASES.chatReady]: "Chat composer ready",
+  [PERF_PHASES.launcherReady]: "Launcher ready",
   [PERF_PHASES.serverCreateChat]: "createChat (server)",
   [PERF_PHASES.serverUpdateThreadRouting]: "updateThreadRouting (server)",
   [PERF_PHASES.serverLoadChat]: "loadChat (server)",

@@ -19,8 +19,10 @@ function isModifiedClick(event: MouseEvent): boolean {
 
 export function PerfHudGate() {
   const pathname = usePathname() ?? "";
-  const { isLoaded, isSignedIn } = useAuth();
-  const enabled = usePerfSession({ isLoaded, isSignedIn, pathname });
+  const { isLoaded, isSignedIn, userId } = useAuth();
+  const hudEnabled = usePerfSession({ isLoaded, isSignedIn, pathname, userId });
+  // Journey triggers run for any signed-in session; they record only if collection is allowed.
+  const enabled = isLoaded && isSignedIn === true;
   const prevPathRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -41,7 +43,7 @@ export function PerfHudGate() {
 
       if (!href || !href.startsWith(ARCADIA_HREF_PREFIX)) return;
 
-      startJourney("to-arcadia", `link:${window.location.pathname}`);
+      startJourney("to-arcadia", "link");
     };
 
     document.addEventListener("click", onClick, true);
@@ -65,7 +67,7 @@ export function PerfHudGate() {
     prevPathRef.current = pathname;
   }, [enabled, pathname]);
 
-  if (!enabled) return null;
+  if (!hudEnabled) return null;
 
   return <PerfHud />;
 }

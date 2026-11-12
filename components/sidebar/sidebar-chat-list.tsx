@@ -28,6 +28,7 @@ import {
   IDLE_SIGNAL,
   type SessionSignal,
 } from "@/lib/sidebar/session-signal";
+import { startJourney } from "@/lib/perf/trace-store";
 import { cn } from "@/lib/utils";
 
 const logger = createLogger("components/sidebar/sidebar-chat-list.tsx");
@@ -131,6 +132,7 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads, signals, ac
       }
       setOpenMobile(false);
       setChatId(thread.id);
+      startJourney("thread-switch", "sidebar-thread");
       router.push(thread.href ?? `/chat/${thread.id}`);
     },
     [editingThreadId, setOpenMobile, setChatId, router]

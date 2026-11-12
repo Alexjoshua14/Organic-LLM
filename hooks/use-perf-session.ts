@@ -1,8 +1,15 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
-import { applyPerfFlagFromSearch, isPerfEnabled, setPerfSessionAllowed } from "@/lib/perf/enabled";
+import {
+  applyPerfFlagFromSearch,
+  isPerfCollecting,
+  isPerfEnabled,
+  setPerfSessionAllowed,
+} from "@/lib/perf/enabled";
+import { loadPerfConsent, primePerfConsent, resetPerfConsent } from "@/lib/perf/consent";
+import { perfRouteTemplate } from "@/lib/perf/events";
 import { PERF_PHASES } from "@/lib/perf/journeys";
 import {
   discardActivePerfTrace,
@@ -50,20 +57,29 @@ function seedNavigationTimings(): () => void {
   };
 }
 
-/** Owned by the persistent root HUD gate, including while auth is unresolved. */
+/** Routes whose first paint is measured when they are the initial document. */
+const LOAD_JOURNEY_ROUTES = new Set(["/", "/chat/[id]", "/arcadia/[id]"]);
+
+/**
+ * Owned by the persistent root HUD gate, including while auth is unresolved. Collection (marks,
+ * traces, anonymous reporting) depends on a signed-in session plus the account's consent; the
+ * returned boolean is only whether the local debug HUD (`?perf=1`) should render.
+ */
 export function usePerfSession({
   isLoaded,
   isSignedIn,
   pathname,
+  userId,
 }: {
   isLoaded: boolean;
   isSignedIn: boolean | undefined;
   pathname: string;
+  userId?: string | null;
 }): boolean {
   const [enabled, setEnabled] = useState(false);
   const initialPath = useRef(pathname);
   const authResolved = useRef(false);
-  const loadEligible = useRef(pathname === "/");
+  const loadEligible = useRef(LOAD_JOURNEY_ROUTES.has(perfRouteTemplate(pathname)));
   const initialized = useRef(false);
 
   // Layout effects run before the composer's passive effect schedules its ready mark.
@@ -77,9 +93,11 @@ export function usePerfSession({
     if (isLoaded) authResolved.current = true;
 
     setPerfSessionAllowed(signedIn);
-    const collecting = isPerfEnabled();
+    if (signedIn && userId) primePerfConsent(userId);
+    if (isLoaded && !signedIn) resetPerfConsent();
+    const collecting = isPerfCollecting();
 
-    setEnabled(collecting);
+    setEnabled(isPerfEnabled());
 
     if (!collecting) {
       discardActivePerfTrace();
@@ -95,7 +113,7 @@ export function usePerfSession({
     let disconnect: (() => void) | undefined;
 
     if (loadEligible.current && window.location.pathname === initialPath.current) {
-      // Only an initially signed-in home visit measures time from document navigation.
+      // Only an initially signed-in visit to a measured route times from document navigation.
       startJourney("load", `document:${initialPath.current}`, { startedAt: 0 });
       disconnect = seedNavigationTimings();
       mark(PERF_PHASES.appHydrated);
@@ -107,6 +125,11 @@ export function usePerfSession({
       discardActivePerfTrace();
     };
   }, [isLoaded, isSignedIn]);
+
+  // The server-held choice decides whether timings are shared; ask once per signed-in user.
+  useEffect(() => {
+    if (isLoaded && isSignedIn === true && userId) void loadPerfConsent(userId);
+  }, [isLoaded, isSignedIn, userId]);
 
   return isLoaded && isSignedIn === true && enabled;
 }

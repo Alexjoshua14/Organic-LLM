@@ -2,7 +2,8 @@
 
 import type { PerfJourneyId } from "./journeys";
 
-import { isPerfEnabled } from "./enabled";
+import { isPerfCollecting, isPerfEnabled } from "./enabled";
+import { reportPerfTrace } from "./report";
 
 import { createLogger } from "@/lib/logger";
 
@@ -95,6 +96,9 @@ function emitUserTimingMeasure(trace: PerfTrace): void {
 }
 
 function logCompletion(trace: PerfTrace): void {
+  // The console line carries the raw path, so it stays behind the local debug flag.
+  if (!isPerfEnabled()) return;
+
   logger.log(
     "complete",
     JSON.stringify({
@@ -112,7 +116,7 @@ function logCompletion(trace: PerfTrace): void {
 }
 
 function persistTraces(): void {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined" || !isPerfEnabled()) return;
 
   try {
     sessionStorage.setItem(TRACES_STORAGE_KEY, JSON.stringify(traceRing));
@@ -122,7 +126,7 @@ function persistTraces(): void {
 }
 
 function loadTracesFromStorage(): void {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined" || !isPerfEnabled()) return;
 
   try {
     const raw = sessionStorage.getItem(TRACES_STORAGE_KEY);
@@ -208,7 +212,7 @@ export function startJourney(
   trigger: string,
   options?: { startedAt?: number }
 ): void {
-  if (!isPerfEnabled()) return;
+  if (!isPerfCollecting()) return;
 
   if (activeTrace) {
     finalizeActive("abandoned");
@@ -242,7 +246,7 @@ function resolveMarkTarget(): PerfTrace | null {
 }
 
 export function mark(name: string, detail?: Record<string, unknown>): void {
-  if (!isPerfEnabled()) return;
+  if (!isPerfCollecting()) return;
 
   const target = resolveMarkTarget();
 
@@ -257,7 +261,7 @@ export function mark(name: string, detail?: Record<string, unknown>): void {
 
 /** Record a mark at an absolute performance.now() offset from navigation start. */
 export function markAt(name: string, absoluteMs: number, detail?: Record<string, unknown>): void {
-  if (!isPerfEnabled()) return;
+  if (!isPerfCollecting()) return;
 
   const target = resolveMarkTarget();
 
@@ -275,7 +279,7 @@ export function completeForJourney(
   name: string,
   detail?: Record<string, unknown>
 ): void {
-  if (!isPerfEnabled() || !activeTrace) return;
+  if (!isPerfCollecting() || !activeTrace) return;
 
   const allowed = Array.isArray(expected) ? expected : [expected];
 
@@ -285,7 +289,7 @@ export function completeForJourney(
 }
 
 export function complete(name: string, detail?: Record<string, unknown>): void {
-  if (!isPerfEnabled() || !activeTrace) return;
+  if (!isPerfCollecting() || !activeTrace) return;
 
   const t = now() - activeTrace.startedAt;
 
@@ -298,6 +302,8 @@ export function complete(name: string, detail?: Record<string, unknown>): void {
   emitUserTimingMark(activeTrace.journey, name);
   emitUserTimingMeasure(activeTrace);
   logCompletion(activeTrace);
+  // Snapshot at completion: marks that arrive late must not change what is reported.
+  reportPerfTrace(activeTrace);
 
   traceRing = [activeTrace, ...traceRing.filter((tr) => tr.id !== activeTrace!.id)].slice(
     0,
@@ -309,7 +315,7 @@ export function complete(name: string, detail?: Record<string, unknown>): void {
 }
 
 export function addServerPhases(phases: Array<{ name: string; ms: number }>): void {
-  if (!isPerfEnabled() || phases.length === 0) return;
+  if (!isPerfCollecting() || phases.length === 0) return;
 
   const target = activeTrace ?? traceRing[0];
 
