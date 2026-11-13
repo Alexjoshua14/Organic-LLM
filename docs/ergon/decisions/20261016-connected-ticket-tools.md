@@ -10,8 +10,9 @@ tokens server-side and calls tools via `@ai-sdk/mcp`, matching Chronos
 
 **Why not lock in REST Bearer `/api/rpc`?** MCP OAuth is already what Cursor and other clients
 use against Ergon, supports refresh + consent, and keeps Organic on one protocol for Mira and
-chat. REST remains only for the optional admin env bridge
-(`ERGON_TOKEN` / `ERGON_AGENT_TOKEN` + `ERGON_OWNER_PROFILE_ID`).
+chat. REST `/api/rpc` and the shared admin env bridge (`ERGON_TOKEN` / `ERGON_AGENT_TOKEN` +
+`ERGON_OWNER_PROFILE_ID`) were removed (2026-11-05): the only way in is the user's own OAuth
+session.
 
 Settings offers **OAuth connect/disconnect only** (no paste-PAT product UX). Deployments need
 `ERGON_OAUTH_CLIENT_ID` + redirect; OAuth start returns 503 until configured. No secrets or
@@ -21,7 +22,7 @@ refresh tokens are ever returned to the client.
 
 The optional engineering-ticket connection exposes curated Organic tools
 (`ergon_list_issues`, `ergon_get_issue`, `ergon_save_issue`, …). Organic’s chat model calls
-Ergon directly through MCP (or REST admin fallback); there is no second model invocation through
+Ergon directly through MCP; there is no second model invocation through
 intake. The current personal-todo tool and storage continue independently.
 
 Each user may connect Ergon in Settings → Connectors via MCP OAuth. Credentials stay
@@ -29,9 +30,7 @@ server-side (never returned on GET). When present, main chat gets write ticket t
 `write` scope). Mira (`tools.ergon`) loads the user’s MCP session for docs / briefs / agent
 runs (`agents` scope). There is no second hard-set Ergon agent.
 
-An optional server credential (`ERGON_URL`, `ERGON_TOKEN`, `ERGON_OWNER_PROFILE_ID`) remains as
-an admin fallback for a single Supabase profile. Missing configuration disables the tools.
-Credentials remain server-only, redirects are rejected, and ambiguous writes are never retried
+Missing configuration or a missing connection disables the tools. Credentials remain server-only, redirects are rejected, and ambiguous writes are never retried
 automatically. Mira skips the write ticket set on her turns.
 
 `ergon_save_issue` exposes optional values plus a `clearFields` list. The adapter converts
@@ -56,4 +55,4 @@ not decide a future migration of Organic's personal task store.
 
 ## See also
 
-- [Ergon connection README](../README.md) — per-user MCP OAuth + env REST fallback
+- [Ergon connection README](../README.md) — per-user MCP OAuth, durable encrypted store

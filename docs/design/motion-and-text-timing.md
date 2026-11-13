@@ -13,6 +13,9 @@ mapped to our production knobs.
 - Wrappers: `ChatThinking` / `ChatReasoning` / `ChatSearching` in [`components/chat/chat-loading.tsx`](../../components/chat/chat-loading.tsx)
 - Chat *route* loading (thread hydrate): [`lib/chat/chat-page-loading-timing.ts`](../../lib/chat/chat-page-loading-timing.ts) + [`styles/ChatPageLoading.css`](../../styles/ChatPageLoading.css) + [`components/chat/chat-page-loading.tsx`](../../components/chat/chat-page-loading.tsx)
 - Lab: `/sandbox/prototypes/llm-states` → **Processing burn (proto)**
+- App startup: `components/layout/startup-loading.tsx`; review alongside chat-route loading at `/sandbox/prototypes/loading-pages`.
+
+The app startup surface streams before root session/admin reads finish. It uses the existing liquid chrome SSR fill, then the adaptive background and a working `OrganicActivityMark`. The mark's standalone material uses 3px diffusion, 100% brightness, and 22% fill so its dots stay visible on light chrome. Its existing motion/reduced-motion behavior is retained. There is no entrance fade, exit hold, or minimum loader duration; resolving the session tree clears it immediately. A visible loader does not imply the composer is ready.
 
 ---
 
@@ -271,6 +274,19 @@ Timing lives in `app/sandbox/arcadia/_components/send-target-picker-motion.ts`:
 **220ms enter / 160ms exit**, within the brief 160–240ms disclosure band. Reduced motion
 settles immediately. Escape and clicking outside collapse the picker; hidden recipients
 leave the tab order and accessibility tree.
+
+## Multiagent activity retention
+
+The dashboard board and condensed row omit unused idle slots. Working and blocked
+agents stay visible; other agents remain for **30 seconds** after their latest live
+status timestamp, giving completed work a readable hold before it clears. This is
+an activity grace period, not an animation duration. Polling does not renew it.
+Agents being viewed, selected, addressed, or called stay visible until that interaction
+ends. The recipient picker retains the full roster so an idle agent can still be addressed.
+The client schedules the next expiry directly, so clearing does not wait for a poll.
+
+`MULTITASK_RECENT_ACTIVITY_MS` lives in
+`lib/arcadia/multitask/agent-visibility.ts`.
 
 ## Usage refresh indicator
 

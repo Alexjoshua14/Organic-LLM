@@ -301,6 +301,32 @@ describe("CoreInput lab", () => {
     expect(getByRole("button", { name: "Show all" })).toBeTruthy();
   });
 
+  test("the live voice bar toggle renders the real bar in the composer's drawer slot", async () => {
+    const user = userEvent.setup();
+    const { findByRole, findByText, queryByRole, getByRole } = await renderLab();
+    const voiceBar = within(getByRole("radiogroup", { name: "Live voice bar" }));
+
+    expect(queryByRole("button", { name: "End voice session" })).toBeNull();
+
+    await user.click(voiceBar.getByRole("radio", { name: "Live" }));
+    expect(await findByRole("button", { name: "End voice session" })).toBeTruthy();
+
+    await user.click(voiceBar.getByRole("radio", { name: "Connecting" }));
+    expect(await findByText("Connecting voice session")).toBeTruthy();
+
+    // Paused shows the real Resume button, and pressing it goes live, as the real bar would.
+    // The drawer slot is aria-hidden unless connected (or Stage), so query hidden elements.
+    await user.click(voiceBar.getByRole("radio", { name: "Paused" }));
+    await user.click(await findByRole("button", { name: "Resume voice session", hidden: true }));
+    expect(await findByRole("button", { name: "End voice session" })).toBeTruthy();
+
+    // The bar's own End button turns the toggle back off.
+    await user.click(await findByRole("button", { name: "End voice session" }));
+    await waitFor(() =>
+      expect(voiceBar.getByRole("radio", { name: "Off" }).getAttribute("aria-checked")).toBe("true")
+    );
+  });
+
   test("interactive chips drive lab state while pinned cells hold theirs", async () => {
     search = "view=focus&control=tool-toggles";
     const user = userEvent.setup();
@@ -708,5 +734,260 @@ describe("CoreInput first paint", () => {
     first.unmount();
     mount();
     expect(observed).toEqual([true, true]);
+  });
+});
+
+describe("CoreInput shared compact layout", () => {
+  afterEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+    localStorage.clear();
+  });
+
+  test.each(["default", "compact", "stage-beta"] as const)(
+    "%s uses the same compact controls, glass, and settings without losing its draft",
+    async (variant) => {
+      const rect = spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(() => ({
+        width: 375,
+        height: 60,
+        top: 0,
+        left: 0,
+        right: 375,
+        bottom: 60,
+        x: 0,
+        y: 0,
+        toJSON() {},
+      }));
+      try {
+        const app = render(
+          <Providers>
+            <CoreInput
+              variant={variant}
+              modelRef={{ current: DEFAULT_COMPOSER_MODEL }}
+              useWebSearchRef={{ current: false }}
+              useMemoriesRef={{ current: false }}
+              useSpeechFriendlyRef={{ current: false }}
+              defaultWebSearch={false}
+              defaultMemories={false}
+              sendMessage={async () => {}}
+              stop={async () => {}}
+              status="ready"
+              featureHints={false}
+              showContextBudget={false}
+            />
+          </Providers>
+        );
+        const input = app.getByRole("textbox") as HTMLTextAreaElement;
+        fireEvent.change(input, { target: { value: "Keep this draft" } });
+        expect(app.container.querySelector(".core-input-compact-row")).toBeTruthy();
+        expect(
+          app.container
+            .querySelector("[data-prompt-input-shell]")
+            ?.classList.contains("organic-glass-smoke")
+        ).toBe(true);
+        expect(app.queryByRole("combobox", { name: "Model" })).toBeNull();
+        const options = app.getByRole("button", { name: "Composer options" });
+        await waitFor(() => expect(options.hasAttribute("disabled")).toBe(false));
+        fireEvent.click(options);
+        const panel = await app.findByRole("dialog", { name: "Composer settings" });
+        expect(panel.classList.contains("organic-glass-smoke")).toBe(true);
+        expect(within(panel).getByRole("combobox", { name: "Model" })).toBeTruthy();
+        // Photos & files live in the compact row beside the mic and send, not in the panel.
+        expect(within(panel).queryByRole("button", { name: "Add files" })).toBeNull();
+        expect(
+          Boolean(app.container.querySelector('.core-input-compact-row [aria-label="Add files"]'))
+        ).toBe(variant !== "stage-beta");
+        // Thread references share the `+` button; Stage has no files, so it is the thread entry.
+        expect(within(panel).queryByRole("button", { name: "Reference a thread" })).toBeNull();
+        expect(
+          Boolean(
+            app.container.querySelector('.core-input-compact-row [aria-label="Reference a thread"]')
+          )
+        ).toBe(variant === "stage-beta");
+        fireEvent.click(within(panel).getByRole("button", { name: "Web search off" }));
+        expect(within(panel).getByRole("button", { name: "Web search on" })).toBeTruthy();
+        fireEvent.click(within(panel).getByRole("button", { name: "Memory off" }));
+        expect(within(panel).getByRole("button", { name: "Memory on" })).toBeTruthy();
+        expect(app.getByRole("textbox") === input).toBe(true);
+        expect(input.value).toBe("Keep this draft");
+        // No heading or close button: Escape dismisses the panel and returns focus to the trigger.
+        expect(within(panel).queryByRole("button", { name: "Close composer settings" })).toBeNull();
+        fireEvent.keyDown(panel, { key: "Escape" });
+        await waitFor(() =>
+          expect(app.queryByRole("dialog", { name: "Composer settings" })).toBeNull()
+        );
+        expect(document.activeElement).toBe(options);
+      } finally {
+        rect.mockRestore();
+      }
+    }
+  );
+});
+
+describe("CoreInput steer tab", () => {
+  afterEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+    localStorage.clear();
+  });
+
+  /** Pins the measured shell width: narrow is the compact layout, wide is the desktop footer. */
+  function withShellWidth(width: number) {
+    return spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(() => ({
+      width,
+      height: 60,
+      top: 0,
+      left: 0,
+      right: width,
+      bottom: 60,
+      x: 0,
+      y: 0,
+      toJSON() {},
+    }));
+  }
+
+  function renderComposer(
+    variant: "default" | "compact" | "stage-beta",
+    onSecondarySubmit?: (text: string) => void
+  ) {
+    return render(
+      <Providers>
+        <CoreInput
+          variant={variant}
+          modelRef={{ current: DEFAULT_COMPOSER_MODEL }}
+          useWebSearchRef={{ current: false }}
+          useMemoriesRef={{ current: false }}
+          useSpeechFriendlyRef={{ current: false }}
+          defaultWebSearch={false}
+          defaultMemories={false}
+          sendMessage={async () => {}}
+          stop={async () => {}}
+          status="ready"
+          featureHints={false}
+          showContextBudget={false}
+          onSecondarySubmit={onSecondarySubmit}
+        />
+      </Providers>
+    );
+  }
+
+  test("the live voice bar and the steer tab share one strip above the composer", async () => {
+    const { LabVoiceBar } = await import(
+      "@/app/sandbox/prototypes/core-input/_components/lab-voice-bar"
+    );
+    const rect = withShellWidth(375);
+
+    try {
+      const app = render(
+        <LabVoiceBar mode="live" onModeChange={() => {}}>
+          <Providers>
+            <CoreInput
+              modelRef={{ current: DEFAULT_COMPOSER_MODEL }}
+              useWebSearchRef={{ current: false }}
+              useMemoriesRef={{ current: false }}
+              useSpeechFriendlyRef={{ current: false }}
+              defaultWebSearch={false}
+              defaultMemories={false}
+              sendMessage={async () => {}}
+              stop={async () => {}}
+              status="ready"
+              featureHints={false}
+              showContextBudget={false}
+              onSecondarySubmit={() => {}}
+            />
+          </Providers>
+        </LabVoiceBar>
+      );
+      const strip = app.container.querySelector(".core-input-strip")!;
+      const shell = app.container.querySelector("[data-prompt-input-shell]")!;
+
+      // One row holds the real bar (in the drawer slot) and the tab, both before the composer.
+      expect(strip).toBeTruthy();
+      await waitFor(() => expect(strip.querySelector("[data-voice-live-bar]")).toBeTruthy());
+      expect(
+        within(strip as HTMLElement).getByRole("group", { name: "Draft actions" })
+      ).toBeTruthy();
+      expect(strip.compareDocumentPosition(shell) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(strip.contains(shell)).toBe(false);
+    } finally {
+      rect.mockRestore();
+    }
+  });
+
+  test.each(["default", "compact", "stage-beta"] as const)(
+    "%s puts steer in a tab above the composer, not in the settings panel",
+    async (variant) => {
+      const rect = withShellWidth(375);
+
+      try {
+        const onSecondarySubmit = mock((_text: string) => {});
+        const app = renderComposer(variant, onSecondarySubmit);
+        const tab = app.getByRole("group", { name: "Draft actions" });
+        const shell = app.container.querySelector("[data-prompt-input-shell]")!;
+        const steer = within(tab).getByRole("button", { name: "Tune" });
+
+        // The tab comes directly before the shell in document order and is outside the form.
+        expect(tab.compareDocumentPosition(shell) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        expect(shell.contains(tab)).toBe(false);
+        // Empty draft: present but disabled, so the tab never shifts the layout.
+        expect(steer.hasAttribute("disabled")).toBe(true);
+
+        const input = app.getByRole("textbox") as HTMLTextAreaElement;
+
+        fireEvent.change(input, { target: { value: "Keep it brief" } });
+        await waitFor(() => expect(steer.hasAttribute("disabled")).toBe(false));
+        fireEvent.click(steer);
+        expect(onSecondarySubmit).toHaveBeenCalledWith("Keep it brief");
+
+        fireEvent.change(input, { target: { value: "   " } });
+        await waitFor(() => expect(steer.hasAttribute("disabled")).toBe(true));
+
+        const options = app.getByRole("button", { name: "Composer options" });
+
+        await waitFor(() => expect(options.hasAttribute("disabled")).toBe(false));
+        fireEvent.click(options);
+        const panel = await app.findByRole("dialog", { name: "Composer settings" });
+
+        expect(within(panel).queryByRole("button", { name: "Tune" })).toBeNull();
+        // Nothing in the compact row carries steer either.
+        expect(
+          app.container.querySelector(".core-input-compact-row [aria-label='Tune']")
+        ).toBeNull();
+      } finally {
+        rect.mockRestore();
+      }
+    }
+  );
+
+  test("a compact composer without a steer action renders no tab", () => {
+    const rect = withShellWidth(375);
+
+    try {
+      const app = renderComposer("default");
+
+      expect(app.queryByRole("group", { name: "Draft actions" })).toBeNull();
+      expect(app.queryByRole("button", { name: "Tune" })).toBeNull();
+    } finally {
+      rect.mockRestore();
+    }
+  });
+
+  test("the desktop footer keeps steer inline beside send, with no tab", async () => {
+    const rect = withShellWidth(900);
+
+    try {
+      const app = renderComposer("default", () => {});
+
+      expect(app.container.querySelector(".core-input-compact-row")).toBeNull();
+      expect(app.queryByRole("group", { name: "Draft actions" })).toBeNull();
+      const steer = app.getByRole("button", { name: "Tune" });
+
+      expect(steer.closest("[data-core-input-tab]")).toBeNull();
+      expect(steer.hasAttribute("disabled")).toBe(true);
+      fireEvent.change(app.getByRole("textbox"), { target: { value: "Hello" } });
+      await waitFor(() => expect(steer.hasAttribute("disabled")).toBe(false));
+    } finally {
+      rect.mockRestore();
+    }
   });
 });

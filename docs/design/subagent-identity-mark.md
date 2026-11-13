@@ -35,6 +35,9 @@ import { OrganicActivityMark } from "@/components/agents/organic-activity-mark";
 ```
 
 Sizes are 32, 40, and 56px (`sm`, `md`, `lg`); `className` can override dimensions.
+The mobile multiagent board overrides the mark to 64px; its condensed row uses
+56px marks in 192px cards, leaving a partial next card as the scroll cue. Desktop
+board marks remain 50px.
 An optional `label` gives the mark image semantics; otherwise it is decorative.
 Callers do not need to mount filters, schedule animation, or arrange layers.
 `renderer="v0"` selects the original grid for lab comparisons; the default `"auto"`
@@ -282,3 +285,12 @@ GPU/rendering cost still requires isolating a variant with browser profiling.
 The bench follows the existing LLM-states catalog's production-component fixtures,
 the glass lab's paired comparison pattern, and the design backbone's reserved-space
 and reduced-motion rules. Its quiet background keeps attention on the mark itself.
+
+## Large standalone marks
+
+`relativeBlur` opts a mark into container-relative background blur. It establishes an inline-size
+container and expresses blur in `cqw`, calibrated to the existing 40px mark: 4.25px at 40px becomes
+10.625cqw (about 22.1px at 208px). The state spring still operates on the existing material values;
+only the rendered background filter scales. The dot field and grain are filtered together once.
+Default small marks retain pixel blur. Speak opts in so its responsive hero retains the same
+proportional softness without a resize observer or a second animation loop.

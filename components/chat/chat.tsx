@@ -8,7 +8,12 @@ import type { ContextBudgetEstimate } from "@/lib/chat/context-budget";
 import type { DiagramNodeLink } from "@/lib/mermaid/types";
 
 import { UIMessage, useChat } from "@ai-sdk/react";
-import { DefaultChatTransport, type ChatTransport, type HttpChatTransportInitOptions } from "ai";
+import {
+  DefaultChatTransport,
+  type ChatTransport,
+  type HttpChatTransportInitOptions,
+  lastAssistantMessageIsCompleteWithToolCalls,
+} from "ai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BrainCircuit } from "lucide-react";
 import { AnimatePresence, useReducedMotion } from "framer-motion";
@@ -23,6 +28,7 @@ import { ChatStylePicker } from "./chat-style-picker";
 import { ChatThreadStyleOverlay } from "./chat-thread-style-overlay";
 import { BtwPanel } from "./btw/btw-panel";
 
+import { resolveChatRuntimeExperience } from "@/lib/chat/chat-experience";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { PersonaStarters } from "@/components/personas/persona-starters";
 import {
@@ -84,7 +90,10 @@ import { isEditableEventTarget } from "@/lib/dom/is-editable-event-target";
 import { useBackgroundThreadMessages } from "@/hooks/use-background-thread-messages";
 import { useMorphFlip } from "@/hooks/use-morph-flip";
 import { COMPOSER_SHIFT_MIN_PX, COMPOSER_SHIFT_SPRING } from "@/lib/chat/composer-shift-spring";
-import { useMultitaskComposerSlot } from "@/app/sandbox/arcadia/_components/multitask-composer-slot";
+import {
+  useMultitaskComposerSlot,
+  useMultitaskConversationHidden,
+} from "@/app/sandbox/arcadia/_components/multitask-composer-slot";
 import { useArcadiaMultitaskOptional } from "@/app/sandbox/arcadia/_components/multitask-provider";
 const logger = createLogger("components/chat/chat");
 
@@ -111,6 +120,10 @@ function createChatTransport({
 }
 
 export type ChatProps = {
+  /** Optional adapter for surfaces with client-executed tools and event-driven turns. */
+  clientTools?: Record<string, (input: unknown) => unknown>;
+  onRegisterSend?: (send: ((text: string) => Promise<void>) | null) => void;
+  onStatusChange?: (status: "submitted" | "streaming" | "ready" | "error") => void;
   initialComposerSettings?: CoreInputInitialSettings | null;
   chatData: { thread: Thread; messages: UIMessage[] } | null;
   initialMessage?: string;
@@ -132,10 +145,14 @@ export const Chat: React.FC<ChatProps> = ({
   persona,
   initialMessage,
   initialDraft,
-  experience,
+  experience: requestedExperience,
   strataPageId,
   assistantSession,
+  clientTools,
+  onRegisterSend,
+  onStatusChange,
 }) => {
+  const experience = resolveChatRuntimeExperience(requestedExperience);
   const { refreshSidebarChats } = useSharedChatContext();
   /**
    * The unified persona rides along on the main chat and Arcadia (no `persona` prop); the
@@ -156,6 +173,7 @@ export const Chat: React.FC<ChatProps> = ({
   const confineInMultitaskDashboard = arcadiaMultitask?.layoutMode === "dashboard";
   // Condensed multiagent row sits above CoreInput; CoreInput itself keeps its place.
   const composerSlot = useMultitaskComposerSlot();
+  const conversationHidden = useMultitaskConversationHidden();
   const composerAnchorRef = useRef<HTMLDivElement | null>(null);
   const reduceMotion = useReducedMotion();
 
@@ -183,7 +201,7 @@ export const Chat: React.FC<ChatProps> = ({
   // Per-thread CoreInput settings. Strata's assistant drives its own model, so it stays on
   // the legacy global prefs.
   const threadId = chatData?.thread.id;
-  const coreInputArea = experience ?? persona ?? "chat";
+  const coreInputArea = requestedExperience ?? persona ?? "chat";
   const scopesEnabled = Boolean(threadId) && experience !== "strata_page" && persona !== "strata";
   const threadScope = useMemo(
     () => (scopesEnabled && threadId ? coreInputScopes.thread(coreInputArea, threadId) : undefined),
@@ -296,15 +314,41 @@ export const Chat: React.FC<ChatProps> = ({
       messages: chatData?.messages ?? [],
       // Navigation can reuse stale thread metadata; the resume endpoint checks current state.
       resume: true,
+      onToolCall: clientTools
+        ? async ({ toolCall }) => {
+            const execute = clientTools[toolCall.toolName];
+
+            if (!execute) return;
+            try {
+              addToolOutput({
+                tool: toolCall.toolName,
+                toolCallId: toolCall.toolCallId,
+                output: await execute(toolCall.input),
+              });
+            } catch {
+              addToolOutput({
+                tool: toolCall.toolName,
+                toolCallId: toolCall.toolCallId,
+                state: "output-error",
+                errorText: "Could not update the surface. Please try again.",
+              });
+            }
+          }
+        : undefined,
+      ...(clientTools
+        ? { sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls }
+        : {}),
       transport: createChatTransport({
         api:
-          persona === "aion"
-            ? "/api/ai/aion"
-            : persona === "remy"
-              ? "/api/ai/remy"
-              : persona === "strata"
-                ? "/api/chat"
-                : (endpoint ?? (persona ? `/api/chat/${persona}` : "/api/chat")),
+          requestedExperience === "aion"
+            ? "/api/chat"
+            : persona === "aion"
+              ? "/api/ai/aion"
+              : persona === "remy"
+                ? "/api/ai/remy"
+                : persona === "strata"
+                  ? "/api/chat"
+                  : (endpoint ?? (persona ? `/api/chat/${persona}` : "/api/chat")),
         prepareSendMessagesRequest({ messages, id }) {
           const lastMessage = messages[messages.length - 1];
           const message = isClientPIIRedactionEnabled()
@@ -346,7 +390,7 @@ export const Chat: React.FC<ChatProps> = ({
               ...(personaHost && unifiedPersonaRef.current?.session
                 ? { personaSessionId: unifiedPersonaRef.current.session.id }
                 : {}),
-              experience,
+              experience: requestedExperience,
               ...(experience === "arcadia" ? { chatStyle: getChatStyle(id) } : {}),
               ...(strataPageId ? { strataPageId } : {}),
               zeroDataRetention: settings.zeroDataRetention,
@@ -620,6 +664,29 @@ export const Chat: React.FC<ChatProps> = ({
     [sendMessageWithPersona]
   );
 
+  useEffect(() => {
+    if (!onRegisterSend) return;
+    onRegisterSend(async (text) => {
+      const current = sendStateRef.current;
+
+      if (
+        current.isCheckingStream ||
+        current.status === "submitted" ||
+        current.status === "streaming" ||
+        pendingSendRef.current?.threadId === current.id
+      ) {
+        throw new Error("Conversation is busy. Try again when the current turn finishes.");
+      }
+      await sendMessageIfIdle({ text });
+    });
+
+    return () => onRegisterSend(null);
+  }, [onRegisterSend, sendMessageIfIdle]);
+
+  useEffect(() => {
+    onStatusChange?.(status);
+  }, [onStatusChange, status]);
+
   useBackgroundThreadMessages({
     threadId: id,
     enabled: experience === "arcadia" && (arcadiaMultitask?.hasSubagentThreads ?? false),
@@ -737,7 +804,7 @@ export const Chat: React.FC<ChatProps> = ({
           className={[
             "w-full",
             "min-w-0",
-            "h-full",
+            conversationHidden ? "h-auto" : "h-full",
             confineInMultitaskDashboard ? "max-h-none" : "sm:max-h-[calc(100dvh-2rem)]",
             "flex",
             "flex-col",
@@ -745,12 +812,14 @@ export const Chat: React.FC<ChatProps> = ({
           ].join(" ")}
         >
           <Conversation
+            aria-hidden={conversationHidden || undefined}
+            inert={conversationHidden || undefined}
             className={[
               "flex-1",
               "min-h-0",
               "w-full",
               "relative",
-              "flex",
+              conversationHidden ? "hidden" : "flex",
               "flex-col",
               "items-center",
               "overflow-x-hidden",
@@ -792,7 +861,12 @@ export const Chat: React.FC<ChatProps> = ({
             )}
             <ConversationScrollButton className="bottom-14" />
           </Conversation>
-          <div className="shrink-0 px-4 sm:px-7 pb-1 md:pb-4 w-full -mt-10 flex flex-col gap-2">
+          <div
+            className={[
+              "shrink-0 px-4 sm:px-7 pb-1 md:pb-4 w-full flex flex-col gap-2",
+              conversationHidden ? "" : "-mt-10",
+            ].join(" ")}
+          >
             <div className="relative mx-auto flex w-full max-w-4xl flex-col gap-2">
               {persona === "remy" && (
                 <Sheet>

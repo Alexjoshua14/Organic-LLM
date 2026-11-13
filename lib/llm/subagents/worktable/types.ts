@@ -70,6 +70,8 @@ export const WorktableSchema = z.object({
   bundles: z.array(ContextBundleSchema),
   /** Dispatches made by automatic (heartbeat) turns since the user last spoke. */
   autonomousDispatches: z.number().int().nonnegative(),
+  /** When the current stretch of automatic turns began (ISO); the spend ceiling counts from it. */
+  autonomousSince: z.string().nullable().optional(),
 });
 
 export type Worktable = z.infer<typeof WorktableSchema>;

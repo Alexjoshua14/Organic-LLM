@@ -9,6 +9,8 @@ feel — so improvements stay consistent and do not regress quality.
 | Doc | When to read |
 |-----|----------------|
 | [Stage grid](./stage-grid.md) | Quiet grid entry/exit, compositor-only layers, no interaction delay |
+| [Code blocks](./code-blocks.md) | Default fenced-code block, palettes, highlighting cost and the streaming rule |
+| [Focus feedback](./focus-feedback.md) | Lumen-based keyboard focus, shared controls and system-color fallback |
 | [Spacing](./spacing.md) | Card density, stack/gap/inset tokens, gen-ui vertical rhythm |
 | [Switches & quick settings](./switches-and-quick-settings.md) | Compact glass switches, caption popovers, quick-settings density |
 | [Context usage](./context-usage.md) | Composer context charts, source colors, percentage ramp, hover labels |
@@ -22,6 +24,7 @@ feel — so improvements stay consistent and do not regress quality.
 | [CoreInput snapshot morph](./core-input-morph.md) | Composer settings morphing between threads, areas, and `/btw`; fast-forward on touch |
 | [Motion & character text timing](./motion-and-text-timing.md) | Any char-by-char / stagger / status-label / loading-state animation |
 | [Sidebar session signals](./sidebar-session-signals.md) | Sidebar rows: experience glyphs, working / new / live signals, gaze hierarchy |
+| [⌘K launcher](./launcher.md) | The idea switcher: real homepage input, recent-idea cards, no-scroll layout, in-memory cues |
 | [Adaptive background](../adaptive-background.md) + [timing](../adaptive-background-timing.md) | Ambient dim / focus atmospheres |
 | [Organic presence](../organic-presence.md) | Presence indicators and ambient life |
 | [Mermaid diagram design](../mermaid-diagram-design.md) | Diagram wells, reveal, takeover |

@@ -160,13 +160,24 @@ export function resolveOrganicToolVisualIdentity(
     );
     const name = specialist?.name ?? "Subagent";
     const roleTag = specialist?.role ? ` (${specialist.role})` : "";
+    // Accepted dispatches render as assignment rows; a card that reaches here was refused or
+    // only sized, so never title it "Dispatched".
+    const refused = outputRec?.success === false || outputRec?.ok === false;
+    const dryRun = outputRec?.dryRun === true;
+    const completedTitle = refused
+      ? `Couldn't dispatch to ${specialist ? name : "a subagent"}`
+      : dryRun
+        ? `Sized a brief for ${name}`
+        : specialist
+          ? `Dispatched to ${name}`
+          : "Dispatched subagent";
 
     return {
       seed: `subagent-${name.toLowerCase()}`,
       category: `Subagent${roleTag}`,
       inFlightTitle: inFlightLabelOverride ?? `Briefing ${name}…`,
-      completedTitle: specialist ? `Dispatched to ${name}` : "Dispatched subagent",
-      subtitle: brief,
+      completedTitle,
+      subtitle: refused ? (firstNonEmptyString(outputRec?.error) ?? brief) : brief,
       specialistName: name,
       intensity: 0.78,
     };

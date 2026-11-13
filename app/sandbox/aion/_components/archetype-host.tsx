@@ -1,7 +1,7 @@
 "use client";
 
 import { MemoryItem } from "mem0ai/oss";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { ScrollShadow } from "@heroui/scroll-shadow";
 
 import MemoryList from "@/components/archetype/interfaces/memory";
@@ -12,9 +12,6 @@ import { sampleMemories } from "@/test-data/sampleData";
 import { useArchetypeContext } from "@/lib/context/archetype-context";
 import { Button } from "@/components/third-party/ui/button";
 import { getCurrentUserMemories } from "@/lib/memory/operations";
-import { createLogger } from "@/lib/logger";
-
-const logger = createLogger("app/sandbox/aion/_components/archetype-host.tsx");
 
 type ArchetypeHostProps = {
   showGlass?: boolean;
@@ -67,17 +64,19 @@ export function ArchetypeHost({
   className,
 }: ArchetypeHostProps) {
   const { setArchetypeData, archetypeData } = useArchetypeContext();
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  // TODO: Refactor into actual logic, this is a temporary placeholder while developing Archetypes
   useEffect(() => {
+    let canceled = false;
     const fetchMemories = async () => {
       if (archetypeData) return;
 
       const result = await getCurrentUserMemories();
 
+      if (canceled) return;
+
       if (result.error) {
-        if (result.error === "Not signed in") return;
-        setArchetypeData(sampleArchetypeData);
+        setLoadError("Memories could not be loaded. You can still try a sample surface.");
 
         return;
       }
@@ -90,7 +89,11 @@ export function ArchetypeHost({
       }
     };
 
-    fetchMemories();
+    void fetchMemories();
+
+    return () => {
+      canceled = true;
+    };
   }, [setArchetypeData, archetypeData]);
 
   return (
@@ -124,9 +127,9 @@ export function ArchetypeHost({
       ) : (
         <>
           <div className="h-full pt-6 pb-12">
-            <p>No archetype data</p>
+            <p>{loadError ?? "Ask Aion to show memories, or try a sample surface."}</p>
             <Button onClick={() => setArchetypeData(sampleArchetypeData)}>
-              Set archetype data
+              Load sample memories
             </Button>
           </div>
         </>

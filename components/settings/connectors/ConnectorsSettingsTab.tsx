@@ -221,7 +221,12 @@ export function ConnectorsSettingsTab({
           const parsed = UserConnectorsProfileSchema.safeParse(payload.data);
 
           if (parsed.success) {
-            const synced = setUserConnectors(parsed.data);
+            // The server never stores or echoes the Ergon status (it is derived from the durable
+            // connection), so keep the one we already show instead of resetting it on every save.
+            const synced = setUserConnectors({
+              ...parsed.data,
+              ergonConnection: savedLocal.ergonConnection,
+            });
 
             setFormState(synced);
           }
@@ -296,11 +301,7 @@ export function ConnectorsSettingsTab({
 
       setErgonStatus(next);
       await handleSave({ ergonConnection: next.connected ? next : null });
-      setSaveMessage(
-        next.source === "env"
-          ? "Disconnected your Ergon OAuth session. Admin env bridge still applies for this account."
-          : "Disconnected Ergon. Reconnect with OAuth to restore Mira and ticket tools."
-      );
+      setSaveMessage("Disconnected Ergon. Reconnect with OAuth to restore Mira and ticket tools.");
     } catch {
       setErgonError({ message: "Couldn’t disconnect Ergon. Please try again." });
     } finally {
@@ -472,7 +473,6 @@ export function ConnectorsSettingsTab({
                   <CheckCircle2 className="size-3" />
                   Connected
                   {ergonStatus.authMode === "oauth" ? " · OAuth" : ""}
-                  {ergonStatus.source === "env" ? " · admin" : ""}
                 </span>
               ) : (
                 <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">

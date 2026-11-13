@@ -32,6 +32,18 @@ export type PrototypeEntry = {
 
 export const prototypes: PrototypeEntry[] = [
   {
+    slug: "loading-pages",
+    title: "Loading pages",
+    description: "Full-screen startup and chat loading previews, held open for review.",
+    about: {
+      what: "The production startup surface with liquid chrome and a large working Organic Agent, alongside the existing chat-route loading state.",
+      authorThoughts:
+        "The loader should show off liquid chrome and the Organic Agent, front and center, decently large, in its working state.",
+      howToUse:
+        "Switch between App startup and Chat. Review at phone and desktop sizes in light and dark themes; system Reduce Motion is honored. These previews stay visible without adding any delay to real loading.",
+    },
+  },
+  {
     slug: "session-glyphs",
     title: "Session glyphs",
     description:
@@ -83,33 +95,14 @@ export const prototypes: PrototypeEntry[] = [
     },
   },
   {
-    slug: "gen-ui",
-    title: "Gen UI blocks",
-    description:
-      "Structured Arcadia chat blocks — answer card, decision matrix, plan timeline, audio snippet — with streaming skeletons and fallbacks.",
-    about: {
-      what: "A fixture gallery for structured chat blocks the model can emit instead of plain markdown — each block type has a schema, renderer, and fallback path.",
-      howToUse:
-        "Switch tabs to see valid blocks, partial recovery, invalid-to-markdown fallback, and streaming skeleton stages.",
-      adminQuestion:
-        "What is the core design intent behind gen-UI blocks — when should Arcadia choose structured UI over prose, and what feeling should that create for the user?",
-    },
-    ranking: {
-      importance: 8,
-      frequency: 5,
-      createdAt: "2026-05-16",
-      updatedAt: "2026-05-16",
-    },
-  },
-  {
     slug: "gen-ui-lab",
     title: "Gen UI Lab",
     description:
-      "Quick-creation sandbox for all gen-UI archetypes — scroll the gallery, focus one, and use Aion to select or generate content on demand.",
+      "Sandbox for every gen-UI archetype — scroll the gallery, focus one, check partial, invalid, and streaming renders, and use Aion to select or generate content on demand.",
     about: {
-      what: "An Aion-driven workshop for every gen-UI archetype — browse fixtures, focus one block, and ask the model to select or generate content for it.",
+      what: "An Aion-driven workshop for every gen-UI archetype — browse fixtures, focus one block, check how blocks degrade (partial, invalid, streaming), and ask the model to select or generate content for it.",
       howToUse:
-        "Pick an archetype from the gallery, describe what you want in the composer, and let Aion call the gen-UI tools to render or update the block.",
+        "Pick an archetype from the gallery, or a rendering state from the sidebar. Describe what you want in the composer and let Aion call the gen-UI tools to render or update the block.",
       adminQuestion:
         "What workflow were you imagining for Gen UI Lab — is this primarily for design review, archetype authoring, or something else?",
     },
@@ -384,6 +377,25 @@ export const prototypes: PrototypeEntry[] = [
       frequency: 4,
       createdAt: "2026-09-22",
       updatedAt: "2026-09-22",
+    },
+  },
+  {
+    slug: "speak-stage",
+    title: "Speak stage",
+    description:
+      "The /speak call screen in every state — ready, connecting, listening, thinking, speaking, muted, paused, error, low allowance — with a synthetic voice driving the orb.",
+    about: {
+      what: "The real SpeakStage component from app/speak, fed stubbed session data so each state can be reviewed without a microphone or a paid Realtime session.",
+      howToUse:
+        "Pick a state from the strip. Turn on Synthetic voice to drive the orb from a generated audio stream (inaudible). Resize to phone width to see the transcript become a sheet. Keyboard shortcuts work as on /speak.",
+      adminQuestion:
+        "What should the Speak stage feel like in the first second of a call? Your words here become the author thoughts for this lab.",
+    },
+    ranking: {
+      importance: 8,
+      frequency: 3,
+      createdAt: "2026-11-12",
+      updatedAt: "2026-11-12",
     },
   },
 ];

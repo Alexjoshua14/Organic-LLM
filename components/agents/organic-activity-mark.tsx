@@ -17,6 +17,8 @@ import { resolveIntensityTierFromScore } from "@/lib/usage/processing-intensity"
 import { cn } from "@/lib/utils";
 
 export type OrganicActivityMarkProps = {
+  /** Scale blur with width, calibrated to the existing 40px mark. */
+  relativeBlur?: boolean;
   state?: AgentDotState;
   size?: "sm" | "md" | "lg";
   seed?: string;
@@ -44,6 +46,7 @@ const SIZE_CLASS = { sm: "size-8", md: "size-10", lg: "size-14" } as const;
 
 /** Owns the local stack and all layer behavior; callers only supply state and dimensions. */
 export function OrganicActivityMark({
+  relativeBlur = false,
   state = "idle",
   size = "md",
   seed,
@@ -84,6 +87,7 @@ export function OrganicActivityMark({
         "relative isolate shrink-0 overflow-hidden rounded-lg",
         className
       )}
+      style={relativeBlur ? { containerType: "inline-size" } : undefined}
       role={label ? "img" : undefined}
     >
       <div
@@ -91,7 +95,7 @@ export function OrganicActivityMark({
         className="organic-activity-backdrop pointer-events-none absolute inset-0"
         data-activity-layer="backdrop"
         data-activity-state={state}
-        style={{ zIndex: 0, filter: activityBackgroundFilter(initialAppearance) }}
+        style={{ zIndex: 0, filter: activityBackgroundFilter(initialAppearance, relativeBlur) }}
       >
         <GlassBackdrop
           className="absolute inset-0"
@@ -124,6 +128,7 @@ export function OrganicActivityMark({
         />
       </div>
       <MorphActivityGlass
+        relativeBlur={relativeBlur}
         appearance={appearance}
         backdropRef={backdropRef}
         performanceId={performanceId}

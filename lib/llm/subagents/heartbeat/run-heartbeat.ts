@@ -18,10 +18,10 @@ import {
 
 /**
  * Server floor between Jev evaluations for one orchestrator thread, whatever the client asks.
- * Below the fastest client cadence (Performance, 30s) so honest clients never hit it; it exists
+ * Just below the fastest client cadence (Realtime, 10s) so honest clients never hit it; it exists
  * so several tabs or a misbehaving client cannot hammer Jev.
  */
-export const SUBAGENT_HEARTBEAT_SERVER_MIN_INTERVAL_MS = 30_000;
+export const SUBAGENT_HEARTBEAT_SERVER_MIN_INTERVAL_MS = 9_000;
 
 export type SubagentHeartbeatDeps = {
   listChildren(): Promise<SubagentThreadRow[]>;

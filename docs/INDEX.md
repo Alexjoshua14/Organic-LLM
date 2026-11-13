@@ -40,7 +40,7 @@ Canon for the product: what we're building, who owns which kind of truth, how ag
   - [Composer preferences & Auto model](./composer-preferences.md) → [/dev/docs/composer-preferences](https://organic.coalescencelabs.app/dev/docs/composer-preferences)
   - [Feature hints (onboarding)](./feature-hints.md) → [/dev/docs/feature-hints](https://organic.coalescencelabs.app/dev/docs/feature-hints)
 - [Chat tools](./chat-tools.md) — assistant toolbelt (memory, search, Gen UI, Mermaid, kanban, experiences)
-- [Ergon connection](./ergon/README.md) — per-user MCP OAuth Connectors + optional admin REST env fallback
+- [Ergon connection](./ergon/README.md) — per-user MCP OAuth Connectors, durable encrypted connection store
 - [Arcadia sandbox](./arcadia.md)
 - [Arcadia showcase progress](./architecture/decisions/20261009-arcadia-showcase-progress.md) — scripted replay isolated from live worker progress
 - [Chat LLM transparency](./chat-llm-transparency.md)
@@ -51,6 +51,9 @@ Canon for the product: what we're building, who owns which kind of truth, how ag
 
 - **[Design backbone](./design/README.md)** — agent-facing design standards (start here for UI/motion quality)
 - [Sidebar session signals](./design/sidebar-session-signals.md) — experience glyphs, working / new signals, gaze hierarchy
+  - [Code blocks](./design/code-blocks.md) — default fenced-code block, palettes, highlighting
+  - [Focus feedback](./design/focus-feedback.md) — Lumen-based keyboard focus and shared control defaults
+  - [⌘K launcher](./design/launcher.md) — idea switcher: homepage input, recent-idea cards, in-memory cues
   - [Spacing](./design/spacing.md) — stack/gap/inset tokens, card density
   - [Switches & quick settings](./design/switches-and-quick-settings.md) — shared glass switches and compact caption popovers
   - [Context usage](./design/context-usage.md) — composer charts, source colors, percentage ramp, hover labels

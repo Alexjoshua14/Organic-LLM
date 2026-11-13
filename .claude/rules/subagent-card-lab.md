@@ -1,0 +1,1 @@
+../../.agents/rules/subagent-card-lab.md

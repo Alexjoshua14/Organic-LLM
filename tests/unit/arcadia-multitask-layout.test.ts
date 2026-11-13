@@ -38,14 +38,24 @@ describe("resolveArcadiaMultitaskLayoutMode", () => {
 });
 
 describe("canToggleArcadiaMultitaskView", () => {
-  test("refuses while the thread has an active stream", () => {
-    expect(canToggleArcadiaMultitaskView({ activeStreamId: "stream-abc" })).toBe(false);
-    expect(canToggleArcadiaMultitaskView({ activeStreamId: "  " })).toBe(true);
+  test("refuses leaving while the thread has an active stream", () => {
+    expect(canToggleArcadiaMultitaskView({ activeStreamId: "stream-abc", nextEnabled: false })).toBe(
+      false
+    );
+    expect(canToggleArcadiaMultitaskView({ activeStreamId: "  ", nextEnabled: false })).toBe(true);
   });
 
-  test("allows when idle (null / undefined stream)", () => {
-    expect(canToggleArcadiaMultitaskView({ activeStreamId: null })).toBe(true);
-    expect(canToggleArcadiaMultitaskView({ activeStreamId: undefined })).toBe(true);
+  test("allows entering while the thread is streaming", () => {
+    expect(canToggleArcadiaMultitaskView({ activeStreamId: "stream-abc", nextEnabled: true })).toBe(
+      true
+    );
+  });
+
+  test("allows leaving when idle (null / undefined stream)", () => {
+    expect(canToggleArcadiaMultitaskView({ activeStreamId: null, nextEnabled: false })).toBe(true);
+    expect(canToggleArcadiaMultitaskView({ activeStreamId: undefined, nextEnabled: false })).toBe(
+      true
+    );
   });
 });
 
@@ -117,12 +127,12 @@ describe("queueAgentIdFromSendTarget", () => {
 });
 
 describe("condensed multiagent swipe row", () => {
-  test("a phone shows a few compact cards, with a partial one hinting the row scrolls", () => {
+  test("a phone shows larger compact cards, with a partial one hinting the row scrolls", () => {
     const cards = multitaskCondensedCardsInView(390);
 
-    expect(cards).toBeGreaterThanOrEqual(2.4);
+    expect(cards).toBeGreaterThanOrEqual(1.7);
     expect(cards % 1).toBeGreaterThan(0.2);
-    expect(multitaskCondensedCardsInView(360)).toBeGreaterThanOrEqual(2);
+    expect(multitaskCondensedCardsInView(360)).toBeGreaterThanOrEqual(1.5);
   });
 });
 

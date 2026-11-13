@@ -1,0 +1,374 @@
+/*
+ * Shared code primitives: the framed surface, scroll region, line table, rows and header actions
+ * that both the code block and the code diff block are built from. The palette and Prism token
+ * colors come from styles/CodePalette.css (`organic-code`). Design record: docs/design/code-blocks.md.
+ */
+
+.surface {
+  --code-size: 13px;
+  --code-line: calc(var(--code-size) * 1.6);
+  --code-mono:
+    var(--font-mono, "Fira Code"), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  position: relative;
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--code-border);
+  border-radius: 10px;
+  background: var(--code-background);
+  color: var(--code-foreground);
+}
+.surface *,
+.surface *::before,
+.surface *::after {
+  box-sizing: border-box;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* The scroll region. Keyboard focus is a Lumen wash plus a lower-edge cue (organic-focus). */
+.scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+.surface[data-wrap="true"] .scroll {
+  overflow-x: hidden;
+}
+
+.table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+  color: var(--code-foreground);
+  font: var(--code-size) / var(--code-line) var(--code-mono);
+  tab-size: 4;
+}
+.surface[data-wrap="true"] .table {
+  width: 100%;
+}
+.table tbody::before,
+.table tbody::after {
+  content: "";
+  display: table-row;
+  height: 14px;
+}
+
+.line > td {
+  vertical-align: top;
+}
+.num {
+  min-width: calc(var(--code-digits, 2) * 1ch + 1rem);
+  padding: 0 8px;
+  color: color-mix(in oklab, var(--code-muted-foreground) 75%, transparent);
+  font-size: 0.846em;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+  user-select: none;
+}
+.sign {
+  width: 1.25rem;
+  padding: 0 2px;
+  font-weight: 600;
+  text-align: center;
+  user-select: none;
+}
+.codeCell {
+  width: 100%;
+  padding: 0 16px;
+}
+.num + .codeCell,
+.sign + .codeCell {
+  padding-inline-start: 8px;
+}
+/* The <code> carries the text and the indentation guides, so guides start at the text. */
+.codeCell > code {
+  display: block;
+  color: var(--code-foreground);
+  font: inherit;
+  white-space: pre;
+  background-image: repeating-linear-gradient(
+    to right,
+    var(--code-guide) 0 1px,
+    transparent 1px 2ch
+  );
+  background-size: calc(var(--indent-columns, 0) * 1ch) 100%;
+  background-repeat: no-repeat;
+}
+.surface[data-wrap="true"] .codeCell > code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding-inline-start: calc(var(--indent-columns, 0) * 1ch);
+  text-indent: calc(var(--indent-columns, 0) * -1ch);
+}
+
+/* Added / removed: a marker, a row tint and a gutter tint, so the change never relies on color. */
+.line[data-kind="add"] {
+  background: color-mix(in oklab, var(--code-add) 11%, transparent);
+}
+.line[data-kind="add"] .num,
+.line[data-kind="add"] .sign {
+  background: color-mix(in oklab, var(--code-add) 22%, transparent);
+}
+.line[data-kind="add"] .sign {
+  color: var(--code-add);
+}
+.line[data-kind="del"] {
+  background: color-mix(in oklab, var(--code-del) 11%, transparent);
+}
+.line[data-kind="del"] .num,
+.line[data-kind="del"] .sign {
+  background: color-mix(in oklab, var(--code-del) 22%, transparent);
+}
+.line[data-kind="del"] .sign {
+  color: var(--code-del);
+}
+
+/* The changed span inside a line: tint and weight, so it holds up without color. */
+.emph {
+  border-radius: 2px;
+  font-weight: 700;
+}
+.line[data-kind="add"] .emph {
+  background: color-mix(in oklab, var(--code-add) 34%, transparent);
+}
+.line[data-kind="del"] .emph {
+  background: color-mix(in oklab, var(--code-del) 34%, transparent);
+}
+
+/* A block too large to tokenize or lay out per line: one text node. */
+.plain {
+  margin: 0;
+  padding: 14px 16px;
+  font: var(--code-size) / var(--code-line) var(--code-mono);
+  white-space: pre;
+}
+.surface[data-wrap="true"] .plain {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Header actions, shared by the code block header and the diff file headers. */
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 5px 7px;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: var(--code-muted-foreground);
+  font:
+    11px / 1 var(--font-satoshi, system-ui),
+    sans-serif;
+  cursor: pointer;
+}
+.action:hover,
+.action[aria-pressed="true"] {
+  background: var(--code-muted);
+  color: var(--code-foreground);
+}
+.action:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+.divider {
+  width: 1px;
+  height: 14px;
+  margin: 0 4px;
+  background: var(--code-border);
+}
+/* The label swaps between Copy / Copied / Copy failed; reserving its width keeps the icon and
+   text start fixed so the toolbar never shifts. */
+.copy {
+  min-inline-size: 9em;
+  flex-shrink: 0;
+  justify-content: flex-start;
+  white-space: nowrap;
+}
+
+/* The copy label is spoken but not shown on a phone, where the icon is the control. */
+.copyLabel {
+  min-width: 0;
+}
+
+/* Phone-only controls (Expand, Show all) are absent elsewhere; the phone block turns them on. */
+.phoneOnly {
+  display: none;
+}
+
+/*
+ * Phones. Wrapping is the default here (data-wrap="auto", set until the reader chooses): the
+ * same wrapped rules as data-wrap="true", repeated because a media query cannot sit inside a
+ * selector. The query matches CODE_NARROW_QUERY in use-code-wrap.ts.
+ *
+ * The inline block is a glance, not a miniature editor: no line-number gutter (data-glance), a
+ * height cap with a fade (data-capped), and an Expand control that opens the reader, where line
+ * numbers, sideways reading, wrapping and text size live. Everything here is CSS so a server-
+ * rendered block never flashes before hydration; JS only decides which blocks are long.
+ */
+@media (max-width: 40rem) {
+  .surface {
+    --code-size: 12.5px;
+    border-radius: 8px;
+  }
+  .surface[data-wrap="auto"] .scroll {
+    overflow-x: hidden;
+  }
+  .surface[data-wrap="auto"] .table {
+    width: 100%;
+  }
+  .surface[data-wrap="auto"] .codeCell > code {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    padding-inline-start: calc(var(--indent-columns, 0) * 1ch);
+    text-indent: calc(var(--indent-columns, 0) * -1ch);
+  }
+  .surface[data-wrap="auto"] .plain {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .table tbody::before,
+  .table tbody::after {
+    height: 10px;
+  }
+  .num {
+    padding: 0 5px;
+  }
+  .codeCell {
+    padding: 0 12px;
+  }
+  .num + .codeCell,
+  .sign + .codeCell {
+    padding-inline-start: 6px;
+  }
+  .plain {
+    padding: 10px 12px;
+  }
+
+  /* The glance: the code gets the whole width. */
+  .surface[data-glance] .num {
+    display: none;
+  }
+  .surface[data-glance] .sign + .codeCell {
+    padding-inline-start: 4px;
+  }
+
+  /* About 14 lines, then a fade into "Show all". Wrapped lines count as the lines they fill. */
+  .surface[data-capped] .scroll {
+    max-height: calc(var(--code-line) * 14 + 20px);
+    overflow-y: hidden;
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 3.25rem), transparent);
+  }
+
+  .phoneOnly {
+    display: flex;
+  }
+  .more {
+    width: 100%;
+    min-height: 44px;
+    border-top: 1px solid var(--code-border);
+    border-radius: 0;
+    color: var(--code-foreground);
+    font-size: 12.5px;
+    font-weight: 500;
+  }
+
+  .action {
+    min-width: 36px;
+    min-height: 36px;
+  }
+  .wideOnly {
+    display: none;
+  }
+  .copy:not([data-labelled]) {
+    position: relative;
+    min-inline-size: 36px;
+    justify-content: center;
+  }
+  .copy:not([data-labelled]) .copyLabel {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+}
+
+@media (pointer: coarse) {
+  .action {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+/*
+ * The reader's well (CodeReader): the same table in a full-screen sheet. The sheet sets
+ * --reader-size from the text-size control; the surface fills it and its scroll region is the
+ * only thing that scrolls. Declared after the phone block so the roomy gutters win over it.
+ */
+.surface[data-reader] {
+  --code-size: var(--reader-size, 13px);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+}
+.surface[data-reader] .scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.surface[data-reader] .num {
+  padding: 0 8px;
+}
+.surface[data-reader] .codeCell {
+  padding: 0 16px;
+}
+.surface[data-reader] .num + .codeCell,
+.surface[data-reader] .sign + .codeCell {
+  padding-inline-start: 8px;
+}
+.surface[data-reader] .table tbody::before,
+.surface[data-reader] .table tbody::after {
+  height: 14px;
+}
+
+/* Notes inside the table, e.g. "No newline at end of file". */
+.line[data-kind="meta"] code {
+  color: var(--code-muted-foreground);
+  font-style: italic;
+}
+
+/* Forced colors: the +/- markers stay legible as plain text. Focus uses organic-focus's outline. */
+@media (forced-colors: active) {
+  .line[data-kind="add"] .sign,
+  .line[data-kind="del"] .sign {
+    forced-color-adjust: none;
+    color: CanvasText;
+  }
+}

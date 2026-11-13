@@ -20,9 +20,25 @@ export const RABBIT_HOLE_MAX_DISPATCHES_PER_TURN = 4;
 
 /**
  * Most dispatches automatic (heartbeat) turns may make between real user messages. Bounds the
- * heartbeat → reply → dispatch → heartbeat loop while the user is not steering.
+ * heartbeat → reply → dispatch → heartbeat loop while the user is not steering. Sized for a
+ * user-requested multi-round run (about ten rounds across a few subagents); the spend ceiling
+ * below is the primary brake, this is the backstop if spend can't be read.
  */
-export const ORCHESTRATOR_MAX_AUTONOMOUS_DISPATCHES = 1;
+export const ORCHESTRATOR_MAX_AUTONOMOUS_DISPATCHES = 30;
+
+/** Default USD ceiling on spend during one stretch of automatic turns (see below). */
+export const ORCHESTRATOR_AUTONOMOUS_SPEND_LIMIT_USD = 3;
+
+/**
+ * Billed spend, owner-wide, allowed from the first automatic turn until the user speaks again.
+ * Owner-wide over-counts when other threads are busy, which only stops earlier. Override with
+ * `ARCADIA_AUTONOMOUS_SPEND_LIMIT_USD`; invalid values fall back to the default.
+ */
+export function getAutonomousSpendLimitUsd(): number {
+  const raw = Number(process.env.ARCADIA_AUTONOMOUS_SPEND_LIMIT_USD);
+
+  return Number.isFinite(raw) && raw > 0 ? raw : ORCHESTRATOR_AUTONOMOUS_SPEND_LIMIT_USD;
+}
 
 /**
  * Kill switch for orchestrator-authored dispatch. On unless

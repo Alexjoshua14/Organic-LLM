@@ -1,27 +1,44 @@
-import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
+import { requireProfileActor } from "@/lib/api/profile-actor";
+import { loadUserConnectorsWithErgon } from "@/lib/connectors/durable-ergon-status";
 import {
-  loadUserConnectorsProfile,
   saveUserConnectorsProfile,
+  UserConnectorsStoreError,
 } from "@/lib/connectors/user-connectors-store";
+import { createLogger } from "@/lib/logger";
 import { UserConnectorsProfileSchema } from "@/lib/schemas/user-connectors";
+
+const logger = createLogger("api/profile/connectors");
+
+function unavailable(operation: string, error: unknown) {
+  // Log only the short store code; store errors never carry profile content.
+  logger.error(operation, "Connectors profile store unavailable", {
+    code: error instanceof UserConnectorsStoreError ? (error.code ?? error.operation) : null,
+  });
+
+  return NextResponse.json(
+    { error: "Your connectors profile is temporarily unavailable. Try again shortly." },
+    { status: 503 }
+  );
+}
 
 /**
  * GET /api/profile/connectors
  *
- * Returns the authenticated user's private connectors & personal dossier.
+ * Returns the authenticated user's private connectors & personal dossier. The Ergon status is
+ * derived from the durable Ergon connection, never read from the stored profile.
  */
 export async function GET() {
-  const user = await auth();
+  const { actor, error } = await requireProfileActor();
 
-  if (!user?.userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (error) return error;
+
+  try {
+    return NextResponse.json({ data: await loadUserConnectorsWithErgon(actor.sbUserId) });
+  } catch (err) {
+    return unavailable("GET", err);
   }
-
-  const profile = await loadUserConnectorsProfile(user.userId);
-
-  return NextResponse.json({ data: profile });
 }
 
 /**
@@ -30,11 +47,9 @@ export async function GET() {
  * Validates, normalizes, and saves the authenticated user's private connectors & personal dossier.
  */
 export async function PUT(req: Request) {
-  const user = await auth();
+  const { actor, error } = await requireProfileActor();
 
-  if (!user?.userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (error) return error;
 
   let body: unknown;
 
@@ -53,7 +68,18 @@ export async function PUT(req: Request) {
     );
   }
 
-  const saved = await saveUserConnectorsProfile(user.userId, parsed.data);
+  // The Ergon connection status is server-owned (derived from the durable connection). A client
+  // must not be able to claim "connected" and steer routing, so drop it from client writes.
+  const clientFields = { ...parsed.data };
 
-  return NextResponse.json({ data: saved });
+  delete clientFields.ergonConnection;
+
+  try {
+    const saved = await saveUserConnectorsProfile(actor.sbUserId, clientFields);
+
+    return NextResponse.json({ data: saved });
+  } catch (err) {
+    // The save did not happen, so never report success.
+    return unavailable("PUT", err);
+  }
 }

@@ -65,7 +65,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: "Thread not found" }, { status: 404 });
   }
 
-  if (threadRow.feature !== "arcadia") {
+  if (threadRow.feature !== "arcadia" && threadRow.feature !== "aion") {
     return NextResponse.json({ error: "Not an Arcadia thread" }, { status: 400 });
   }
 

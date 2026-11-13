@@ -16,6 +16,7 @@ import {
 import { insertQueuedMessage } from "@/data/supabase/message-send-queue";
 import { getHardSetShellAgentId } from "@/data/supabase/subagent-shells";
 import { createSupabaseWorktableStore } from "@/data/supabase/subagent-worktable";
+import { sumLlmUsageCostUsd } from "@/data/supabase/llm-usage";
 import { recordGatewayCallUsage } from "@/lib/usage/record-gateway-call";
 import { resolveSubagentIdentity } from "@/lib/arcadia/multitask/subagent-identity";
 import { getHardSetSubagent } from "@/lib/llm/subagents/hard-set/registry";
@@ -55,6 +56,7 @@ export function createMultitaskTurnDeps(args: {
       appendThreadMessagesWithAdmin({ threadId, ownerId, messages }),
     setStatus: (threadId, status) => setSubagentThreadStatus({ threadId, ownerId, status }),
     openWorktable: (threadId) => createSupabaseWorktableStore({ threadId, ownerId }),
+    sumSpendSince: (since) => sumLlmUsageCostUsd({ ownerId, since, until: new Date() }),
     recordUsage: ({ modelId, usage, providerMetadata, operation }) =>
       recordGatewayCallUsage({ ownerId, modelId, usage, providerMetadata, operation, route }),
     enqueueWorker: async ({ goal, threadId, modelId, zeroDataRetention }) => {

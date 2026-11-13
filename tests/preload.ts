@@ -24,6 +24,15 @@ declare global {
 globalThis.__realUserSettings = { ...(await import("@/lib/user-settings")) };
 
 mock.module("server-only", () => ({}));
+// next/font loaders only run under the Next compiler; components that mount a font variable
+// (e.g. the shared CodeBlock) import config/fonts, so give tests inert class/variable strings.
+const testFont = (name: string) => ({ className: `font-${name}`, variable: `--font-${name}-test` });
+mock.module("@/config/fonts", () => ({
+  fontMono: testFont("mono"),
+  fontInter: testFont("inter"),
+  fontCommissioner: testFont("commissioner"),
+  fontSatoshi: testFont("satoshi"),
+}));
 mock.module("@/lib/supabase/server", () => ({
   supabaseServer: async () =>
     ({

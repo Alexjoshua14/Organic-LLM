@@ -214,3 +214,51 @@ test.each([
     false
   );
 });
+
+test("saving the dossier keeps the cached Ergon status that seeds the next page load", async () => {
+  const connected = {
+    connected: true,
+    authMode: "oauth" as const,
+    transport: "mcp" as const,
+    source: "user" as const,
+    url: "https://ergon.example.com",
+    mcpUrl: "https://ergon.example.com/mcp",
+    scopes: ["read" as const, "write" as const, "agents" as const],
+    connectedAt: "2026-11-05T00:00:00.000Z",
+    lastOkAt: null,
+    expiresAt: null,
+    hasToken: true,
+    oauthReady: true,
+  };
+  const fetchImpl = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    // The server never stores or echoes the Ergon status, so its PUT response omits it.
+    const sent = init?.body ? (JSON.parse(String(init.body)) as UserConnectorsProfile) : {};
+
+    return jsonResponse({ ...normalizeUserConnectorsProfile(sent), ergonConnection: null });
+  }) as typeof fetch;
+
+  const view = render(
+    <ConnectorsSettingsTab
+      fetchImpl={fetchImpl}
+      initialProfile={{ careerHistory: "Organic", ergonConnection: connected }}
+    />
+  );
+
+  expect(view.getAllByText(/Connected · OAuth/).length).toBe(1);
+
+  await act(async () => {
+    fireEvent.change(view.getByLabelText(/Career History/), { target: { value: "Organic LLM" } });
+  });
+  await act(async () => {
+    fireEvent.click(view.getByRole("button", { name: "Save Connectors & Dossier" }));
+  });
+
+  expect(view.queryByText("Not connected")).toBeNull();
+  expect(view.getAllByText(/Connected · OAuth/).length).toBe(1);
+  // The cached copy seeds the badge on the next load; losing it would flash "Not connected".
+  const cached = JSON.parse(localStorage.getItem(USER_SETTINGS_STORAGE_KEY) ?? "{}") as {
+    connectors?: { ergonConnection?: { connected?: boolean } | null };
+  };
+
+  expect(cached.connectors?.ergonConnection?.connected).toBe(true);
+});

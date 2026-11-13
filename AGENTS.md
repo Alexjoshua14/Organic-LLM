@@ -21,6 +21,26 @@ Route to the doc that owns the topic. Do not re-derive what is already written d
 | Threads, persistence, encryption | [`docs/thread-session-architecture.md`](docs/thread-session-architecture.md) |
 | Setup, env vars, PRs | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
 
+## Shared agent instructions
+
+Shared skills and rules live in `.agents/`; keep tool-specific directories as adapters, not
+separate copies. Claude loads this file through `CLAUDE.md`; Codex and Cursor use `AGENTS.md`.
+When a task matches a skill below, read its `SKILL.md` before working:
+
+- New hard-set subagents: [new-subagent](.agents/skills/new-subagent/SKILL.md).
+- Product hub maintenance: [organic-llm-hub](.agents/skills/organic-llm-hub/SKILL.md).
+- Subagent card or card lab changes: [subagent-card-lab](.agents/skills/subagent-card-lab/SKILL.md).
+- App versioning: [app-semver](.agents/skills/app-semver/SKILL.md).
+- Code walkthrough domain maps: [code-walkthrough-domains](.agents/skills/code-walkthrough-domains/SKILL.md).
+- Spring-driven layout morphs: [nebulae-morph-physics](.agents/skills/nebulae-morph-physics/SKILL.md).
+- Preview branch integration: [preview-branch](.agents/skills/preview-branch/SKILL.md).
+- Dependent PR chains: [stacked-pull-requests](.agents/skills/stacked-pull-requests/SKILL.md).
+- Track and ship a build brief: [ship-from-brief](.agents/skills/ship-from-brief/SKILL.md).
+
+For files matching the `paths` in [design-backbone](.agents/rules/design-backbone.md) or
+[subagent-card-lab](.agents/rules/subagent-card-lab.md), read and follow the matching rules before editing. `.agents/rules/` is routed here explicitly; do not
+assume tools automatically discover it.
+
 ## Commands
 
 ```bash
@@ -57,6 +77,9 @@ run; `-t "name"` filters by test name.
 
 ## Style
 
+- Keyboard focus follows [Focus feedback](docs/design/focus-feedback.md): use Lumen or clear
+  surface/text feedback instead of default focus rings. Never remove focus visibility.
+
 - Match the surrounding file — its naming, comment density, and idioms — over any general
   convention. Read a neighbour before adding a pattern.
 - Timing and animation constants live next to the effect, not inline in components. Docs record
@@ -71,6 +94,17 @@ run; `-t "name"` filters by test name.
 
 - Route Organic LLM code changes through a PR the user reviews before they reach `develop`
   or `main`. Prefer updating an existing related PR over creating additional PRs.
+- Keep implementation work in sync with Ergon throughout the task, not only when the user
+  requests tracking or incremental delivery. Before starting, read the relevant issue brief;
+  search for an existing issue before creating one for substantive work. Reuse the current
+  task's issue for small related changes rather than filing a ticket for every edit.
+- Keep the Ergon issue's state accurate and record meaningful progress, decisions, blockers,
+  and scope changes as they happen. At handoff, summarize changes, validation results (or
+  what could not be run), remaining work, and branch/PR/preview links when available.
+  Leave work awaiting review in the appropriate review state; do not mark it Done merely
+  because implementation is finished. Keep sensitive details out of public artifacts.
+- If Ergon is unavailable, continue safe local work and disclose what remains unsynced;
+  never claim an update succeeded without confirmation.
 - When the user requests incremental PR delivery, follow [`pr-checkpoints`](.agents/skills/pr-checkpoints/SKILL.md) for working preview checkpoints, Ergon tracking, and the final demo/review handoff.
 - Read [`docs/hub/README.md`](docs/hub/README.md) before product or feature-spec work, and
   follow its [maintenance protocol](docs/hub/maintenance-protocol.md) when you decide something.
@@ -89,9 +123,9 @@ run; `-t "name"` filters by test name.
   `organic-llm-hub/decisions/` (`YYYYMMDD-<topic>-proposed.md`, **Status: Proposed**): the
   problem, the solution, a concise why, and its impacts (performance, security, behaviour,
   code touched, rollback). Then stop and wait for the decision.
-- Creating Linear or Notion resources. Notion is agent-owned; Linear holds open questions only,
-  and implementation issues are gated — see `docs/hub/phases.md`.
-- Bumping the major version — see `.cursor/skills/app-semver/SKILL.md`.
+- Creating Notion resources. Routine Ergon issue creation and updates for implementation
+  work follow the tracking requirements above and do not require separate approval.
+- Bumping the major version — see `.agents/skills/app-semver/SKILL.md`.
 - `git commit`. Write files freely; commit only when the user asks.
 - Starting a server — `bun dev`, `bun start`, `next start`, or anything else that listens on a
   port. Start one only when the user asks; one may already be running (the preview checkout
