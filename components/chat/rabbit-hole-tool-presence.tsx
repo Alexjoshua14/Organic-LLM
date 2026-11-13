@@ -475,11 +475,11 @@ function PendingView({ toolKey, args }: { toolKey: string; args: Rec | null }) {
 
   return (
     <>
-      {subject && <ExplorationTitle>{subject}</ExplorationTitle>}
       <Meta>
         <SessionGlyph className={styles.glyph} experience="rabbitHole" signal={WORKING} />
         {PENDING_LABELS[toolKey] ?? "Exploring…"}
       </Meta>
+      {subject && <ExplorationTitle>{subject}</ExplorationTitle>}
     </>
   );
 }
@@ -498,8 +498,8 @@ function ErrorView({
 
   return (
     <>
-      {subject && <ExplorationTitle>{subject}</ExplorationTitle>}
       <Meta>Rabbit hole action failed</Meta>
+      {subject && <ExplorationTitle>{subject}</ExplorationTitle>}
       {error && <p className={styles.error}>{error}</p>}
     </>
   );
@@ -533,6 +533,12 @@ function CreateView({
 
   return (
     <>
+      <Meta>
+        {joinMeta(
+          root ? "Rabbit hole created" : "Branch created",
+          writing && "writing the article"
+        )}
+      </Meta>
       {root ? (
         <>
           <ExplorationTitle>{title}</ExplorationTitle>
@@ -569,12 +575,6 @@ function CreateView({
           />
         </>
       )}
-      <Meta>
-        {joinMeta(
-          root ? "Rabbit hole created" : "Branch created",
-          writing && "writing the article"
-        )}
-      </Meta>
       {(drawerNode || href || keyPoints) && (
         <Actions>
           {drawerNode ? (
@@ -727,12 +727,12 @@ function SessionView({ result }: { result: Rec }) {
 
   return (
     <>
+      <Meta>{joinMeta(plural(nodeCount, "article"), updated && `updated ${updated}`)}</Meta>
       <ExplorationTitle>{title}</ExplorationTitle>
       {description && description !== title && <p className={styles.description}>{description}</p>}
       {rows.length > 0 && (
         <NodeTree label={`Articles in ${title}`} rows={rows.slice(0, GLANCE_ROWS)} />
       )}
-      <Meta>{joinMeta(plural(nodeCount, "article"), updated && `updated ${updated}`)}</Meta>
       {href && (
         <Actions>
           <OpenRabbitHole href={href} />
@@ -764,6 +764,14 @@ function ArticleView({ result }: { result: Rec }) {
 
   return (
     <>
+      <Meta>
+        {joinMeta(
+          "Article read",
+          outline.length > 0 && plural(outline.length, "section"),
+          branches > 0 && plural(branches, "branch", "branches"),
+          result.status === "generating" && "still writing"
+        )}
+      </Meta>
       <ExplorationTitle>{title}</ExplorationTitle>
       {question && question !== title && <p className={styles.question}>{question}</p>}
       {takeaways.length > 0 ? (
@@ -786,14 +794,6 @@ function ArticleView({ result }: { result: Rec }) {
           <NodeTree label={`Outline of ${title}`} rows={outline.slice(0, GLANCE_ROWS)} />
         )
       )}
-      <Meta>
-        {joinMeta(
-          "Article read",
-          outline.length > 0 && plural(outline.length, "section"),
-          branches > 0 && plural(branches, "branch", "branches"),
-          result.status === "generating" && "still writing"
-        )}
-      </Meta>
       {href && (
         <Actions>
           <OpenRabbitHole href={href} />
@@ -823,11 +823,11 @@ function SectionView({ result }: { result: Rec }) {
 
   return (
     <>
-      <ExplorationTitle size="md">{heading}</ExplorationTitle>
-      {body && <p className={styles.excerpt}>{body}</p>}
       <Meta>
         {joinMeta("Section read", index !== null && total !== null && `${index + 1} of ${total}`)}
       </Meta>
+      <ExplorationTitle size="md">{heading}</ExplorationTitle>
+      {body && <p className={styles.excerpt}>{body}</p>}
       {href && (
         <Actions>
           <OpenRabbitHole href={href} />
@@ -857,13 +857,13 @@ function DrawerView({
 
   return (
     <>
+      <Meta>{DRAWER_DONE[toolKey] ?? "Rabbit hole response"}</Meta>
       {subject && (
         <NodeTree
           label="Rabbit hole node"
           rows={[{ id: "node", title: subject, depth: 0, tone: drawerNode ? "new" : undefined }]}
         />
       )}
-      <Meta>{DRAWER_DONE[toolKey] ?? "Rabbit hole response"}</Meta>
       {drawerNode && (
         <Actions>
           <ViewArticle nodeId={drawerNode} onOpen={onOpenNode} />

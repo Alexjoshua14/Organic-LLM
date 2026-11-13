@@ -17,6 +17,10 @@ and the explorer:
 - **No card.** Like the comparison block, the content sits directly in the thread with no
   border, fill or padding box. A card confined it and set it apart from the conversation.
   Structure comes from type, the tree and spacing.
+- **One system for meta.** Every result opens with the same quiet 11px line: what happened
+  and its counts ("Branch created · writing the article", "Article read · 3 sections",
+  "persona memory · 6 results"). The content follows. The eye finds the same kind of
+  information in the same place on every card, instead of hunting for it from card to card.
 - **Type:** exploration and article titles use Commissioner light, the app's voice. It is
   mounted globally, so it is available in chat. Meta is 11px tabular.
 - **Path rail:** one dot per article on a spine, and indented branches with an elbow.
