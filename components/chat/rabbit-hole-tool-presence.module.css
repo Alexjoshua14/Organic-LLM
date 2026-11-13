@@ -1,7 +1,8 @@
 /*
  * Rabbit-hole tool results speak the rabbit-hole app's language, not the generic tool pill's:
- * the app's card surface, Commissioner light titles, and the path rail's stem-and-dot grammar
- * for articles. Height comes from the data's shape; nothing decorative takes a row.
+ * Commissioner light titles and the path rail's stem-and-dot grammar for articles. Like the
+ * comparison block, there is no card: the content sits in the thread, structured by type,
+ * the tree and spacing. Height comes from the data's shape; nothing decorative takes a row.
  */
 .inlineRow {
   min-width: 0;
@@ -12,40 +13,12 @@
   --rh-stem: color-mix(in oklch, var(--muted-foreground) 32%, transparent);
   --rh-dot: color-mix(in oklch, var(--muted-foreground) 55%, transparent);
   --rh-indent: 14px;
-  position: relative;
   display: grid;
   gap: var(--spacing-stack-sm);
   width: min(100%, 34rem);
   min-width: 0;
-  padding: 14px 16px;
-  border: 1px solid var(--border);
-  border-radius: 0.5rem;
-  background: color-mix(in oklch, var(--card) 80%, transparent);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+  padding: 4px 0;
   color: var(--foreground);
-}
-/* SessionCard's hover hairline: the card is a way into an exploration. */
-.card::before {
-  content: "";
-  position: absolute;
-  inset: 0 24px auto;
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    color-mix(in oklch, var(--accent) 45%, transparent),
-    transparent
-  );
-  opacity: 0;
-  transition: opacity 300ms ease-out;
-  pointer-events: none;
-}
-.card:hover::before,
-.card:focus-within::before {
-  opacity: 1;
-}
-.card[data-tool-state="error"] {
-  border-color: color-mix(in oklab, var(--destructive) 40%, var(--border));
 }
 
 /* ── Type ─────────────────────────────────────────────────────────────── */
@@ -223,39 +196,50 @@
 
 /* ── Explorations (search, list) ──────────────────────────────────────── */
 
-/* The query is context, not content: a quiet label, then the query in the UI face. */
+/* The query is context, not content: a quiet label line (label and count share one style),
+   then the query in the UI face beside its icon on a shared 20px line. */
 .searchHeader {
   display: grid;
-  gap: 4px;
+  gap: 2px;
+  padding-bottom: 2px;
 }
 .searchLabel {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: var(--spacing-inline-sm);
-  font-size: 0.6875rem;
+  font-size: 0.6875rem; /* 11px */
   line-height: 1.5;
   letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
   color: var(--muted-foreground);
 }
+.searchLabel > span:last-child {
+  flex: none;
+  white-space: nowrap;
+}
 .query {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr);
+  align-items: start;
+  column-gap: 6px;
   margin: 0;
   min-width: 0;
   font-size: 0.875rem; /* 14px */
   font-weight: 500;
-  line-height: 1.4;
+  line-height: 20px;
   color: var(--foreground);
 }
-.query svg {
-  flex: none;
-  color: var(--muted-foreground);
-}
-.query span {
+.query > span:last-child {
   min-width: 0;
   overflow-wrap: anywhere;
+}
+/* The icon box is one text line tall, so the glyph centres on the query's first line. */
+.searchIcon {
+  display: flex;
+  align-items: center;
+  height: 20px;
+  color: var(--muted-foreground);
 }
 
 /* Results start folded: one row each, opened one at a time by curiosity. */
@@ -314,6 +298,31 @@
   text-decoration-color: color-mix(in oklch, var(--muted-foreground) 50%, transparent);
   text-underline-offset: 4px;
 }
+/* Extra results join the same list; one toggle at the foot shows more or fewer. */
+.moreToggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 40px;
+  margin-top: var(--spacing-stack-sm);
+  padding: 0;
+  border: 0;
+  border-top: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
+  background: none;
+  font-size: 0.6875rem;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+.moreToggle:hover {
+  color: var(--foreground);
+}
+.moreToggle svg {
+  transition: transform 150ms ease-out;
+}
+.moreToggle[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
 .entryPanel {
   display: grid;
   gap: var(--spacing-stack-sm);
@@ -363,7 +372,7 @@
 
 /* ── Actions and disclosures ─────────────────────────────────────────── */
 
-/* The card's way in: a tinted pill in the rabbit-hole accent, so it reads as the action. */
+/* The card's way in: the app's primary ink pill (as Button's default), not an accent tint. */
 .actions {
   display: flex;
   flex-wrap: wrap;
@@ -398,16 +407,15 @@
   inset: -6px -2px;
 }
 .openButton {
-  border: 1px solid color-mix(in oklch, var(--accent) 45%, transparent);
-  background: color-mix(in oklch, var(--accent) 14%, transparent);
-  color: var(--foreground);
+  border: 1px solid transparent;
+  background: var(--primary);
+  color: var(--primary-foreground);
 }
 .openButton svg {
-  color: var(--accent);
+  opacity: 0.7;
 }
 .openButton:hover {
-  border-color: color-mix(in oklch, var(--accent) 70%, transparent);
-  background: color-mix(in oklch, var(--accent) 22%, transparent);
+  background: color-mix(in oklab, var(--primary) 88%, var(--primary-foreground));
 }
 .toggle {
   border: 1px solid var(--border);
@@ -426,13 +434,9 @@
   transform: rotate(180deg);
 }
 
-/* Disclosures bleed to the card edge and close it, like a footer. */
+/* Disclosures are quiet rows under a hairline, inside the content column. */
 .disclosure {
-  margin: 0 -16px;
   border-top: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
-}
-.disclosure:last-child {
-  margin-bottom: -14px;
 }
 .disclosure + .disclosure {
   margin-top: calc(var(--spacing-stack-sm) * -1);
@@ -442,7 +446,7 @@
   align-items: center;
   gap: 6px;
   min-height: 36px;
-  padding: 0 16px;
+  padding: 0;
   font-size: 0.6875rem;
   color: var(--muted-foreground);
   cursor: pointer;
@@ -462,7 +466,7 @@
   transform: rotate(90deg);
 }
 .panel {
-  padding: 0 16px 12px;
+  padding: 0 0 8px;
 }
 .raw {
   max-height: 15rem;
@@ -476,32 +480,17 @@
 }
 
 @media (max-width: 480px) {
-  .card {
-    padding: 12px 14px;
-  }
-  .disclosure {
-    margin-left: -14px;
-    margin-right: -14px;
-  }
-  .disclosure:last-child {
-    margin-bottom: -12px;
-  }
-  .disclosure summary,
-  .panel {
-    padding-left: 14px;
-    padding-right: 14px;
-  }
   .title {
     font-size: 1.0625rem;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .card::before,
   .openButton,
   .toggle,
   .toggle svg,
   .entryChevron,
+  .moreToggle svg,
   .disclosure summary svg {
     transition: none;
   }

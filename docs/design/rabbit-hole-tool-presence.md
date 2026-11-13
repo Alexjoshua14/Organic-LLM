@@ -14,8 +14,9 @@ and an arrow. Everything in a card should be readable at a glance while scrollin
 The cards borrow the rabbit-hole app's language, from `lib/rabbit-holes/designTokens.ts`
 and the explorer:
 
-- **Surface:** the app's card (`bg-card/80`, border, `rounded-lg`, light shadow). SessionCard's
-  accent hairline appears on hover and focus, because the card leads into an exploration.
+- **No card.** Like the comparison block, the content sits directly in the thread with no
+  border, fill or padding box. A card confined it and set it apart from the conversation.
+  Structure comes from type, the tree and spacing.
 - **Type:** exploration and article titles use Commissioner light, the app's voice. It is
   mounted globally, so it is available in chat. Meta is 11px tabular.
 - **Path rail:** one dot per article on a spine, and indented branches with an elbow.
@@ -23,11 +24,12 @@ and the explorer:
   - An accent dot with a halo marks a new article.
   - A hollow accent ring marks one that is being written.
   - A hollow muted dot marks a parent that appears only to show where something attaches.
-- **Open:** a tinted pill in the accent ("Open rabbit hole ↗"), placed in the card's action
-  row. A bare title link read as plain text, so titles are headings and the pill is the action.
-  It is 32px tall, with a 44px hit area and Lumen focus. Links are built from session IDs and
-  always stay on `/rabbitholes`. There are no node deep links, so tree rows are not links.
-  Drawer tools use the same pill for "View article" (the node-open event).
+- **Open:** the app's primary ink pill (`--primary`, as Button's default variant) with
+  "Open rabbit hole ↗", in an action row under the content. It is not an accent tint (the
+  owner rejected the teal) and not a bare title link (which read as plain text). It is 32px
+  tall, with a 44px hit area and Lumen focus. Links are built from session IDs and always stay
+  on `/rabbitholes`. There are no node deep links, so tree rows are not links. Drawer tools use
+  the same pill for "View article" (the node-open event).
 - **Secondary toggles** (Key points) sit beside Open as a quiet outlined pill. Their content
   opens below the row.
 - **Key points** are a numbered list: accent tabular numerals in their own column, 10px
@@ -39,10 +41,10 @@ and the explorer:
 |------|-------------------|--------|
 | `create_rabbit_hole` | Title as a heading, then its first article as a node (the question it answers, ringed while writing), "Rabbit hole created · writing the article", then Open and Key points | Key points (lazy) |
 | `create_rabbit_hole_node` | The exploration's title, then a tree: parent → new branch | Key points (lazy) |
-| `search_rabbit_holes` | A quiet "Searched your rabbit holes · N results" label, the query in the UI face with a search icon, then up to 4 folded rows (title with matched terms marked, "N articles · date", chevron; the meta hides below 480px) | Each row opens to its description, matched articles as a tree, and Open; further results fold behind "N more" |
+| `search_rabbit_holes` | A quiet 11px label line, "Searched your rabbit holes" … "N results" in one shared style, then the query in the UI face beside its search icon on a shared 20px line. Then up to 4 folded rows (title with matched terms marked, "N articles · date", chevron; the meta hides below 480px) | Each row opens to its description, matched articles as a tree, and Open. Further results join the same list through "Show N more" at its foot, which becomes "Show less" |
 | `list_rabbit_holes` | The same folded rows, under "Your rabbit holes" | As for search |
 | `get_rabbit_hole` | Title, description, and the article tree (up to 7 rows, depth-first, generating node flagged) | Remaining articles |
-| `get_rabbit_hole_node` | Title, question, the first 3 key takeaways (or the section outline when there are none), and "N sections · N branches" | Further takeaways, outline |
+| `get_rabbit_hole_node` | Title, question, the first 3 key takeaways (or the section outline when there are none), and "N sections · N branches" | Further takeaways extend the same list ("Show N more" / "Show less"); outline |
 | `get_rabbit_hole_node_section` | Section heading, a 4-line excerpt, "n of N" | — |
 | Drawer tools | The node as a single dot row, status, "View article" | — |
 
@@ -59,8 +61,8 @@ cards.
   rabbit-hole glyph (its `grow` idiom); completed cards never animate.
 - Failed outputs (`ok: false`) never show success, key points or links. Malformed creation
   output never claims a creation.
-- Height comes from the data: no eyebrows, art blocks or chrome rows. Secondary detail folds
-  into native disclosures that close the card like a footer.
+- Height comes from the data: no eyebrows, art blocks or chrome rows. Lists grow in place
+  from a toggle at their foot; never a separate "more" section mid-content.
 - No shared SVG IDs, timers or per-frame work. The hover hairline and disclosure chevron are
   the only transitions, and reduced motion removes them.
 

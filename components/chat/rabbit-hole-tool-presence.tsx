@@ -355,10 +355,36 @@ function splitLead(point: string): [string | null, string] {
   return match ? [match[1]!, match[3]!] : [null, point];
 }
 
-/** Numbered, spaced takeaways: one idea per row, numerals in their own column. */
-function Takeaways({ points, start = 0 }: { points: string[]; start?: number }) {
+/** One toggle at the foot of a list: reveals the rest in place, then offers Show less. */
+function ShowMore({
+  controls,
+  expanded,
+  hidden,
+  onToggle,
+}: {
+  controls: string;
+  expanded: boolean;
+  hidden: number;
+  onToggle: () => void;
+}) {
   return (
-    <ol className={styles.takeaways}>
+    <button
+      aria-controls={controls}
+      aria-expanded={expanded}
+      className={cn(styles.moreToggle, "organic-focus")}
+      type="button"
+      onClick={onToggle}
+    >
+      <ChevronDown aria-hidden="true" size={12} />
+      {expanded ? "Show less" : `Show ${hidden} more`}
+    </button>
+  );
+}
+
+/** Numbered, spaced takeaways: one idea per row, numerals in their own column. */
+function Takeaways({ points, start = 0, id }: { points: string[]; start?: number; id?: string }) {
+  return (
+    <ol className={styles.takeaways} id={id}>
       {points.map((point, index) => {
         const [lead, rest] = splitLead(point);
 
@@ -645,23 +671,26 @@ function ExplorationsView({
   terms: string[];
   emptyText: string;
 }) {
+  const [expanded, setExpanded] = useState(false);
+  const listId = useId();
   const linked = hits.filter((hit) => sessionHref(hit.sessionId));
-  const glance = linked.slice(0, GLANCE_SESSIONS);
-  const rest = linked.slice(GLANCE_SESSIONS);
-  const entry = (hit: Rec, index: number) => (
-    <SessionEntry key={`${text(hit.sessionId)}-${index}`} hit={hit} terms={terms} />
-  );
+  const hidden = Math.max(0, linked.length - GLANCE_SESSIONS);
+  const shown = expanded ? linked : linked.slice(0, GLANCE_SESSIONS);
 
   return (
     <>
       <header className={styles.searchHeader}>
         <div className={styles.searchLabel}>
           <span>{label}</span>
-          <Meta>{total === 0 ? "None found" : plural(total, "result")}</Meta>
+          <span aria-atomic="true" data-rabbit-hole-status="" role="status">
+            {total === 0 ? "None found" : plural(total, "result")}
+          </span>
         </div>
         {query && (
           <p className={styles.query}>
-            <Search aria-hidden="true" size={14} />
+            <span aria-hidden="true" className={styles.searchIcon}>
+              <Search size={14} />
+            </span>
             <span>{query}</span>
           </p>
         )}
@@ -669,14 +698,19 @@ function ExplorationsView({
       {total === 0 ? (
         <p className={styles.quiet}>{emptyText}</p>
       ) : (
-        <ol className={styles.entries}>{glance.map(entry)}</ol>
+        <ol className={styles.entries} id={listId}>
+          {shown.map((hit, index) => (
+            <SessionEntry key={`${text(hit.sessionId)}-${index}`} hit={hit} terms={terms} />
+          ))}
+        </ol>
       )}
-      {rest.length > 0 && (
-        <Disclosure label={`${rest.length} more`}>
-          <ol className={styles.entries}>
-            {rest.map((hit, index) => entry(hit, index + GLANCE_SESSIONS))}
-          </ol>
-        </Disclosure>
+      {hidden > 0 && (
+        <ShowMore
+          controls={listId}
+          expanded={expanded}
+          hidden={hidden}
+          onToggle={() => setExpanded((value) => !value)}
+        />
       )}
     </>
   );
@@ -719,6 +753,9 @@ function ArticleView({ result }: { result: Rec }) {
   const title = text(result.title) ?? "Untitled";
   const question = text(result.userQuestion);
   const takeaways = strings(result.keyTakeaways);
+  const [allPoints, setAllPoints] = useState(false);
+  const pointsId = useId();
+  const hiddenPoints = Math.max(0, takeaways.length - GLANCE_TAKEAWAYS);
   const branches = Array.isArray(result.childNodeIds) ? result.childNodeIds.length : 0;
   const href = sessionHref(result.sessionId);
   const outline: TreeRow[] = records(result.sections).map((section, index) => ({
@@ -732,7 +769,20 @@ function ArticleView({ result }: { result: Rec }) {
       <ExplorationTitle>{title}</ExplorationTitle>
       {question && question !== title && <p className={styles.question}>{question}</p>}
       {takeaways.length > 0 ? (
-        <Takeaways points={takeaways.slice(0, GLANCE_TAKEAWAYS)} />
+        <div>
+          <Takeaways
+            id={pointsId}
+            points={allPoints ? takeaways : takeaways.slice(0, GLANCE_TAKEAWAYS)}
+          />
+          {hiddenPoints > 0 && (
+            <ShowMore
+              controls={pointsId}
+              expanded={allPoints}
+              hidden={hiddenPoints}
+              onToggle={() => setAllPoints((value) => !value)}
+            />
+          )}
+        </div>
       ) : (
         outline.length > 0 && (
           <NodeTree label={`Outline of ${title}`} rows={outline.slice(0, GLANCE_ROWS)} />
@@ -750,11 +800,6 @@ function ArticleView({ result }: { result: Rec }) {
         <Actions>
           <OpenRabbitHole href={href} />
         </Actions>
-      )}
-      {takeaways.length > GLANCE_TAKEAWAYS && (
-        <Disclosure label={`${takeaways.length - GLANCE_TAKEAWAYS} more key points`}>
-          <Takeaways points={takeaways.slice(GLANCE_TAKEAWAYS)} start={GLANCE_TAKEAWAYS} />
-        </Disclosure>
       )}
       {takeaways.length > 0 && outline.length > 0 && (
         <Disclosure label="Outline">

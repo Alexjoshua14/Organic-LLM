@@ -298,8 +298,15 @@ describe("Rabbit hole tool presence", () => {
       "/rabbitholes?sessionId=session-0"
     );
 
-    await openDisclosure(view, "4 more");
+    // The rest join the same list; the toggle stays at the foot and turns into Show less.
+    fireEvent.click(view.getByRole("button", { name: "Show 4 more" }));
     expect(view.getAllByRole("button", { name: /Persona study/ })).toHaveLength(8);
+    const toggle = view.getByRole("button", { name: "Show less" });
+
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(toggle.previousElementSibling?.tagName).toBe("OL");
+    fireEvent.click(toggle);
+    expect(view.getAllByRole("button", { name: /Persona study/ })).toHaveLength(4);
 
     view.rerender(
       <OrganicToolCallPresence
@@ -372,7 +379,9 @@ describe("Rabbit hole tool presence", () => {
     expect(view.getByText("Three")).toBeTruthy();
     expect(view.queryByText("Four")).toBeNull();
     expect(status(view)).toBe("Article read · 2 sections · 1 branch");
-    expect(view.getByText("1 more key points")).toBeTruthy();
+    fireEvent.click(view.getByRole("button", { name: "Show 1 more" }));
+    expect(view.getByText("Four")).toBeTruthy();
+    expect(view.getByRole("button", { name: "Show less" })).toBeTruthy();
     expect(view.getByText("Outline")).toBeTruthy();
   });
 
