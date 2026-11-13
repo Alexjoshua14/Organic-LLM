@@ -7,7 +7,7 @@ import type { SpeakScreenSurface } from "@/lib/schemas/speak-screen-context";
 import type { StrataPageWithSections } from "@/lib/schemas/strata";
 
 import { readStage } from "@/lib/stage/store";
-import { stageVoiceContext } from "@/lib/stage/voice";
+import { stageAmbientContext } from "@/lib/stage/voice-read";
 import { getSessionById, getRabbitHoleSessionOwnerId } from "@/data/supabase/rabbitholes";
 import { getThreadScreen } from "@/data/supabase/chat";
 import { getStrataPageById } from "@/data/supabase/strata";
@@ -473,10 +473,18 @@ export async function buildAmbientContext(
       case "stage": {
         const { state } = await (deps.readStage ?? readStage)(ownerId);
 
+        const header = "The user is on their Stage. Current Stage (quoted data):";
+
+        // Sized to fit whole: an oversized section is dropped by `fitAmbientBody`, which once
+        // left only the header. See `lib/stage/voice-read.ts`.
         return {
           body: fitAmbientBody([
-            "The user is on their Stage. Current Stage (quoted data):",
-            stageVoiceContext(state, surface.presentation),
+            header,
+            stageAmbientContext(
+              state,
+              surface.presentation,
+              SPEAK_AMBIENT_MAX_TOKENS * SPEAK_CHARS_PER_TOKEN - header.length - 2
+            ),
           ]),
           label: kind,
         };

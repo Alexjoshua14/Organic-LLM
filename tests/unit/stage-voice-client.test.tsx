@@ -36,7 +36,20 @@ test("Stage tools are session-scoped and use the shared designer rather than the
   const names = compileSpeakRealtimeTools(DEFAULT_SPEAK_MODALITIES, { stage: true }).map(
     (tool) => tool.name
   );
-  expect(names).toEqual(["stage_turn"]);
+  expect(names).toEqual(["stage_turn", "read_stage"]);
+  expect(
+    isToolAllowedForSession("read_stage", {
+      modalities: DEFAULT_SPEAK_MODALITIES,
+      memoryEnabled: false,
+    })
+  ).toBe(false);
+  expect(
+    isToolAllowedForSession("read_stage", {
+      modalities: DEFAULT_SPEAK_MODALITIES,
+      memoryEnabled: false,
+      stage: true,
+    })
+  ).toBe(true);
   expect(
     isToolAllowedForSession("stage_turn", {
       modalities: DEFAULT_SPEAK_MODALITIES,

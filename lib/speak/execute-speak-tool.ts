@@ -123,6 +123,34 @@ export async function executeSpeakRealtimeTool(args: {
     };
   }
 
+  if (toolName === "read_stage") {
+    const { StageReadArgsSchema, buildStageRead } = await import("@/lib/stage/voice-read");
+    const parsed = StageReadArgsSchema.safeParse(rawArgs);
+
+    if (!parsed.success) return invalidArgs();
+
+    try {
+      const [{ readStage }, { getThreadScreen }] = await Promise.all([
+        import("@/lib/stage/store"),
+        import("@/data/supabase/chat"),
+      ]);
+      const { state } = await readStage(args.userId);
+      const result = await buildStageRead(
+        { ownerId: args.userId, state, read: parsed.data },
+        { getThreadScreen }
+      );
+
+      return { ok: true, modelResult: { ok: true, ...result }, clientEffects: [] };
+    } catch {
+      return {
+        ok: false,
+        error: "Stage could not be read.",
+        modelResult: { ok: false, error: "The Stage could not be read right now." },
+        clientEffects: [],
+      };
+    }
+  }
+
   if (toolName === "stage_turn") {
     const parsed = StageVoiceTurnSchema.safeParse(rawArgs);
 
@@ -199,7 +227,7 @@ export async function executeSpeakRealtimeTool(args: {
 }
 
 async function runSpeakTool(args: {
-  name: Exclude<SpeakToolName, "stage_turn">;
+  name: Exclude<SpeakToolName, "stage_turn" | "read_stage">;
   rawArgs: unknown;
   modalities: SpeakModalities;
   threadId: string | null;
