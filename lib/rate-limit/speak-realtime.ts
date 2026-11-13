@@ -70,6 +70,7 @@ const monthlyCostLimiter = new Ratelimit({
 });
 
 export type SpeakRealtimeSessionRecord = {
+  contextBinding?: import("@/lib/continuity/schema").ContinuityBinding;
   sessionId: string;
   userId: string;
   model: string;
@@ -382,6 +383,7 @@ export async function registerSpeakRealtimeSession(args: {
   memoryEnabled?: boolean;
   stage?: boolean;
   stageSettings?: StageTurnSettings;
+  contextBinding?: import("@/lib/continuity/schema").ContinuityBinding;
   continuity?: SpeakSessionContinuity | null;
 }): Promise<SpeakRealtimeSessionRecord> {
   const startedAt = Date.now();
@@ -394,6 +396,7 @@ export async function registerSpeakRealtimeSession(args: {
     memoryEnabled: args.memoryEnabled === true,
     stage: args.stage === true,
     stageSettings: args.stageSettings,
+    contextBinding: args.contextBinding,
     startedAt,
     continuityStartedAt: args.continuity?.continuityStartedAt ?? startedAt,
     lastMeteredAt: startedAt,

@@ -704,6 +704,7 @@ export function useRealtimeVoice({
 
   const connect = useCallback(
     async (options?: {
+      continuity?: import("@/lib/continuity/schema").ContinuitySelection;
       threadPolicy?: SpeakThreadPolicy;
       resumeSessionId?: string;
       /** Continue this thread whatever the policy says; the session route checks ownership. */
@@ -757,6 +758,7 @@ export function useRealtimeVoice({
               memory: memoryEnabledRef.current,
               threadPolicy: options?.threadPolicy ?? threadPolicyRef.current,
               threadId: options?.threadId,
+              continuity: resumeSessionId ? undefined : options?.continuity,
               resumeSessionId,
               retryAfterConnectFailure: retryFailure ?? undefined,
               withoutThreadContext: retryFailure ? true : undefined,

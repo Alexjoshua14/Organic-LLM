@@ -3,6 +3,13 @@ import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { z } from "zod";
 
+import { ContinuityError } from "@/lib/continuity/store";
+import {
+  compileContinuity,
+  formatContinuityContext,
+  readContinuitySource,
+} from "@/lib/continuity/sources";
+import { ContinuitySelectionSchema } from "@/lib/continuity/schema";
 import { stageVoiceContext, STAGE_VOICE_INSTRUCTIONS } from "@/lib/stage/voice";
 import { readStage } from "@/lib/stage/store";
 import { StageTurnSettingsSchema } from "@/lib/stage/schema";
@@ -47,6 +54,7 @@ const logger = createLogger("app/api/ai/speak/realtime/session/route.ts");
 const RESUME_MIN_REMAINING_MS = 15_000;
 
 const SessionBodySchema = z.object({
+  continuity: ContinuitySelectionSchema.optional(),
   stage: z.boolean().optional(),
   stageSettings: StageTurnSettingsSchema.optional(),
   threadId: z.string().uuid().optional().nullable(),
@@ -133,6 +141,7 @@ export async function POST(req: Request) {
   // the user's only concurrency slot, so checking first would reject every reload.
   let continuity: SpeakSessionContinuity | null = null;
   let inheritedThreadId: string | null = null;
+  let contextBinding: import("@/lib/continuity/schema").ContinuityBinding | undefined;
   let stage = parsed.data.stage === true;
   let stageSettings = parsed.data.stageSettings;
 
@@ -162,6 +171,7 @@ export async function POST(req: Request) {
         expiresAt: previous.expiresAt,
       };
       inheritedThreadId = previous.threadId;
+      contextBinding = previous.contextBinding;
       stage = previous.stage === true;
       stageSettings = previous.stageSettings;
 
@@ -190,6 +200,48 @@ export async function POST(req: Request) {
     );
   }
 
+  let selectedContext = "";
+
+  if (parsed.data.continuity) {
+    if (
+      stage ||
+      parsed.data.personaSessionId ||
+      parsed.data.subagentSeed ||
+      parsed.data.resumeSessionId
+    ) {
+      return NextResponse.json(
+        { error: "Added context is available on a new ordinary Speak call." },
+        { status: 400 }
+      );
+    }
+    try {
+      const compiled = await compileContinuity(sbUserId, parsed.data.continuity, "speak");
+
+      selectedContext = compiled.text;
+      contextBinding = compiled.binding;
+    } catch (error) {
+      return NextResponse.json(
+        {
+          error: error instanceof ContinuityError ? error.message : "Selected context unavailable",
+        },
+        { status: error instanceof ContinuityError ? error.status : 503 }
+      );
+    }
+  }
+  if (!selectedContext && contextBinding?.source) {
+    try {
+      selectedContext = formatContinuityContext(
+        await readContinuitySource(sbUserId, contextBinding.source)
+      );
+    } catch (error) {
+      return NextResponse.json(
+        {
+          error: error instanceof ContinuityError ? error.message : "Selected context unavailable",
+        },
+        { status: error instanceof ContinuityError ? error.status : 503 }
+      );
+    }
+  }
   const modalities = parsed.data.modalities ?? DEFAULT_SPEAK_MODALITIES;
   const memoryEnabled = parsed.data.memory === true;
   const threadPolicy = parsed.data.threadPolicy ?? DEFAULT_SPEAK_THREAD_POLICY;
@@ -261,7 +313,7 @@ export async function POST(req: Request) {
       session: {
         type: "realtime",
         model,
-        instructions,
+        instructions: selectedContext ? `${instructions}\n\n${selectedContext}` : instructions,
         tools,
         tool_choice: tools.length > 0 ? "auto" : "none",
         max_output_tokens: 800,
@@ -310,6 +362,7 @@ export async function POST(req: Request) {
     memoryEnabled,
     stage,
     stageSettings,
+    contextBinding,
     continuity,
   });
 

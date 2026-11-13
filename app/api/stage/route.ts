@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
 import { NextResponse } from "next/server";
 
+import { ContinuityError } from "@/lib/continuity/store";
 import { scheduleStageSubagents, recoverStaleStageSubagents } from "@/lib/stage/subagents";
 import { runStageTurn, scheduleStageDesign, StageTurnError } from "@/lib/stage/turn";
 import { getSupabaseUserIdCached } from "@/data/supabase/profile-id-cache";
@@ -37,6 +38,7 @@ async function identity() {
 }
 
 function errorStatus(error: unknown) {
+  if (error instanceof ContinuityError) return json({ error: error.message }, error.status);
   if (error instanceof StageTurnError) return json({ error: error.message }, error.status);
   if (error instanceof StagePayloadError) return json({ error: error.message }, 413);
   if (error instanceof StageLayoutError) return json({ error: error.message }, 400);

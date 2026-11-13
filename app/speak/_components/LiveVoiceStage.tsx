@@ -1,11 +1,14 @@
 "use client";
 
+import type { ContinuitySelection } from "@/lib/continuity/schema";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { SpeakSettingsMenu } from "./SpeakSettingsMenu";
 import { SpeakStage, type SpeakStageCaption } from "./SpeakStage";
 import { SpeakVisualPanel } from "./SpeakVisualPanel";
 
+import { ContextPicker } from "@/components/continuity/context-picker";
 import { SpeakPersonaChip } from "@/components/personas/persona-chip";
 import { PersonaSpark, type PersonaSparkState } from "@/components/personas/persona-spark";
 import { PersonaStarters } from "@/components/personas/persona-starters";
@@ -53,6 +56,7 @@ export function LiveVoiceStage({ onExit }: { onExit?: () => void }) {
   const { displayText, genUiBlocks, webPreview, uiStateBySurface } = visual;
   const { setSuppressHostBar, localStream, connected } = voice;
 
+  const [continuity, setContinuity] = useState<ContinuitySelection>();
   const [muted, setMuted] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
 
@@ -102,12 +106,12 @@ export function LiveVoiceStage({ onExit }: { onExit?: () => void }) {
   );
   const primaryAction = speakPrimaryAction(voice);
 
-  const { connect, disconnect, resume } = voice;
+  const { connect, disconnect, resume, startNew } = voice;
   const onPrimary = useCallback(() => {
     if (primaryAction === "end") disconnect();
-    else if (primaryAction === "resume") resume();
-    else if (primaryAction === "start") connect();
-  }, [connect, disconnect, primaryAction, resume]);
+    else if (primaryAction === "resume") continuity ? startNew({ continuity }) : resume();
+    else if (primaryAction === "start") continuity ? startNew({ continuity }) : connect();
+  }, [connect, continuity, disconnect, primaryAction, resume, startNew]);
 
   const showVisuals =
     modalities.genUi || modalities.web || Object.keys(uiStateBySurface).length > 0;
@@ -194,7 +198,16 @@ export function LiveVoiceStage({ onExit }: { onExit?: () => void }) {
       memoryEnabled={memoryEnabled}
       muted={muted}
       panelOpen={panelOpen}
-      personaChip={<SpeakPersonaChip locked={sessionLocked} />}
+      personaChip={
+        <>
+          <SpeakPersonaChip locked={sessionLocked} />
+          <ContextPicker
+            surface="speak"
+            disabled={sessionLocked || personaActive}
+            onChange={setContinuity}
+          />
+        </>
+      }
       presence={
         personaActive ? (
           <PersonaSpark
@@ -246,7 +259,7 @@ export function LiveVoiceStage({ onExit }: { onExit?: () => void }) {
       }
       onPanelOpenChange={setPanelOpen}
       onPrimary={onPrimary}
-      onStartNew={() => voice.startNew()}
+      onStartNew={() => voice.startNew(continuity ? { continuity } : undefined)}
       onSwitchToReadAloud={onExit}
       onToggleMute={() => setMuted((m) => !m)}
     />
