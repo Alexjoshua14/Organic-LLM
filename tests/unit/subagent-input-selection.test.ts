@@ -1,7 +1,7 @@
 import type { UIMessage } from "ai";
 import { describe, expect, mock, test } from "bun:test";
 
-import { estimateTokenCountSync } from "@/lib/chat/context-budget";
+import { estimateTokenCountSync } from "@/lib/chat/tokenizer";
 import { buildSubagentGoalMessage } from "@/lib/llm/subagents/threads/messages";
 import { SUBAGENT_MAX_INPUT_TOKENS } from "@/lib/llm/subagents/worker/cost-limits";
 import { runSubagentThreadTurn } from "@/lib/llm/subagents/worker/run-in-thread";

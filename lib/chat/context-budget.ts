@@ -2,8 +2,6 @@ import type { UIMessage } from "ai";
 import type { ChatExperience } from "@/lib/chat/chat-experience";
 import type { ContextEffortLevel } from "@/lib/memory/context-effort";
 
-import { encodingForModel } from "js-tiktoken";
-
 import { resolveChatModelId } from "@/lib/api/resolve-chat-model";
 import { CHAT_RESPONSE_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
 import {
@@ -16,6 +14,7 @@ import {
   readActivatedMemories,
 } from "@/lib/memory/activated-thread-memories";
 import { selectArcadiaContextMessages } from "@/lib/chat/arcadia-token-context";
+import { approximateTokenCount } from "@/lib/chat/approximate-token-count";
 import {
   getContextMemoryReferences,
   mergeContextMemoryReferences,
@@ -323,47 +322,28 @@ export function getLatestContextBudgetFromMessages(
 
 /**
  * Token counts cached per message object. `useChat` replaces a message with a new snapshot when
- * it changes, so an unchanged message keeps its object and its counts. Each count is computed on
- * first use, so the Arcadia selector's text-only pass never serializes tool output it won't pack.
+ * it changes, so an unchanged message keeps its object and its counts. This module imports no
+ * tokenizer (it would put 2.3 MB of ranks in every client bundle that imports it): counts are
+ * filled by {@link countContextMessages}, from the background counter on the client or the
+ * synchronous one on the server and in tests.
  */
 type MessageTokenMemo = { text?: number; tool?: number };
 
 const messageTokenMemo = new WeakMap<UIMessage, MessageTokenMemo>();
 
-function messageTokenMemoFor(message: UIMessage): MessageTokenMemo {
-  let memo = messageTokenMemo.get(message);
-
-  if (!memo) {
-    memo = {};
-    messageTokenMemo.set(message, memo);
-  }
-
-  return memo;
+/** A message's cached text count, or an approximation if it hasn't been counted. */
+function cachedMessageTextTokens(message: UIMessage): number {
+  return (
+    messageTokenMemo.get(message)?.text ??
+    approximateTokenCount(getMessageTextForTokenEstimate(message))
+  );
 }
 
-/** Same count as the Arcadia selector's default counter. */
-function memoizedMessageTextTokens(message: UIMessage): number {
-  const memo = messageTokenMemoFor(message);
-
-  if (memo.text === undefined) {
-    const text = getMessageTextForTokenEstimate(message);
-
-    memo.text = text ? estimateTokenCountSync(text) : 0;
-  }
-
-  return memo.text;
-}
-
-function memoizedMessageToolTokens(message: UIMessage): number {
-  const memo = messageTokenMemoFor(message);
-
-  if (memo.tool === undefined) {
-    const toolSerialized = getMessageToolPartsForTokenEstimate(message);
-
-    memo.tool = toolSerialized ? estimateTokenCountSync(toolSerialized) : 0;
-  }
-
-  return memo.tool;
+function cachedMessageToolTokens(message: UIMessage): number {
+  return (
+    messageTokenMemo.get(message)?.tool ??
+    approximateTokenCount(getMessageToolPartsForTokenEstimate(message))
+  );
 }
 
 export type ContextMessageCountInput = {
@@ -378,53 +358,95 @@ function packContextMessages(input: ContextMessageCountInput): UIMessage[] {
   const { threadMessages, experience, contextMessageLimit: limit } = input;
 
   if (experience === "arcadia") {
-    return selectArcadiaContextMessages(threadMessages, { countTokens: memoizedMessageTextTokens })
+    return selectArcadiaContextMessages(threadMessages, { countTokens: cachedMessageTextTokens })
       .contextMessages;
   }
 
   return limit == null || limit <= 0 ? threadMessages : threadMessages.slice(-limit);
 }
 
+/** One count {@link composeContextBudget} needs: a message's text, or its tool parts. */
+type MessageTokenWork = { message: UIMessage; part: keyof MessageTokenMemo; text: string };
+
 /**
- * Counts what {@link composeContextBudget} will read for these messages, in the same order, until
- * `hasTimeLeft` returns false, so the composer can do the work in idle slices. The first unit is
- * building the tokenizer. Returns true once compose would tokenize nothing but the draft.
+ * The counts compose will read that aren't cached yet, one phase at a time. Text comes first:
+ * Arcadia's selection needs every message's text count to pick the packed set. Then the packed
+ * messages' tool parts. Empty once compose would count nothing but the draft.
  */
-export function countContextMessageTokens(
-  input: ContextMessageCountInput,
-  hasTimeLeft: () => boolean
-): boolean {
-  if (!isTokenizerReady()) {
-    if (!hasTimeLeft()) return false;
-
-    prepareTokenizer();
-  }
-
-  // Arcadia's selection reads every message's text; the slice reads only the packed ones.
+function uncountedContextWork(input: ContextMessageCountInput): MessageTokenWork[] {
   const textCounted =
     input.experience === "arcadia" ? input.threadMessages : packContextMessages(input);
+  const textWork = textCounted
+    .filter((message) => messageTokenMemo.get(message)?.text === undefined)
+    .map((message) => ({
+      message,
+      part: "text" as const,
+      text: getMessageTextForTokenEstimate(message),
+    }));
 
-  for (const message of textCounted) {
-    if (messageTokenMemo.get(message)?.text !== undefined) continue;
-    if (!hasTimeLeft()) return false;
+  if (textWork.length > 0) return textWork;
 
-    memoizedMessageTextTokens(message);
+  return packContextMessages(input)
+    .filter((message) => messageTokenMemo.get(message)?.tool === undefined)
+    .map((message) => ({
+      message,
+      part: "tool" as const,
+      text: getMessageToolPartsForTokenEstimate(message),
+    }));
+}
+
+function storeContextCounts(work: MessageTokenWork[], counts: readonly number[]): void {
+  work.forEach((item, index) => {
+    let memo = messageTokenMemo.get(item.message);
+
+    if (!memo) {
+      memo = {};
+      messageTokenMemo.set(item.message, memo);
+    }
+
+    memo[item.part] = counts[index] ?? approximateTokenCount(item.text);
+  });
+}
+
+/** Counts a batch of texts, in order. */
+export type TextTokenCounter = (texts: string[]) => Promise<number[]>;
+
+/**
+ * Counts and caches everything {@link composeContextBudget} will read for these messages, so
+ * composing afterwards tokenizes nothing. Each message is counted once per object. Stops early
+ * when `signal` aborts.
+ */
+export async function countContextMessages(
+  input: ContextMessageCountInput,
+  countTexts: TextTokenCounter,
+  signal?: AbortSignal
+): Promise<void> {
+  for (let work = uncountedContextWork(input); work.length > 0 && !signal?.aborted; ) {
+    storeContextCounts(work, await countTexts(work.map((item) => item.text)));
+    work = uncountedContextWork(input);
   }
+}
 
-  for (const message of packContextMessages(input)) {
-    if (messageTokenMemo.get(message)?.tool !== undefined) continue;
-    if (!hasTimeLeft()) return false;
-
-    memoizedMessageToolTokens(message);
+/** {@link countContextMessages} with a synchronous counter, for server code and tests. */
+export function countContextMessagesSync(
+  input: ContextMessageCountInput,
+  countText: (text: string) => number
+): void {
+  for (let work = uncountedContextWork(input); work.length > 0; ) {
+    storeContextCounts(
+      work,
+      work.map((item) => countText(item.text))
+    );
+    work = uncountedContextWork(input);
   }
-
-  return true;
 }
 
 export type ComposeContextBudgetParams = {
   scaffold: ContextBudgetScaffold;
   threadMessages: UIMessage[];
   draftText: string;
+  /** The draft's count from the background counter; approximated when absent. */
+  draftTokens?: number;
   modelId: string;
   experience?: ChatExperience;
   zeroDataRetention?: boolean;
@@ -432,13 +454,15 @@ export type ComposeContextBudgetParams = {
 };
 
 /**
- * Client-side compose: scaffold numbers + local thread/draft tokenization.
+ * Client-side compose: scaffold numbers plus cached thread counts and the draft's count. Run
+ * {@link countContextMessages} first; a message it hasn't counted is approximated, never tokenized.
  */
 export function composeContextBudget(params: ComposeContextBudgetParams): ContextBudgetEstimate {
   const {
     scaffold,
     threadMessages,
     draftText,
+    draftTokens = approximateDraftTokens(draftText),
     modelId,
     experience,
     zeroDataRetention = false,
@@ -463,11 +487,9 @@ export function composeContextBudget(params: ComposeContextBudgetParams): Contex
   let toolOutputTokens = 0;
 
   for (const message of packedMessages) {
-    messagesTokens += memoizedMessageTextTokens(message);
-    toolOutputTokens += memoizedMessageToolTokens(message);
+    messagesTokens += cachedMessageTextTokens(message);
+    toolOutputTokens += cachedMessageToolTokens(message);
   }
-
-  const draftTokens = estimateDraftTokens(draftText);
 
   const segments = filterBudgetSegments([
     {
@@ -539,58 +561,16 @@ export function composeContextBudget(params: ComposeContextBudgetParams): Contex
   });
 }
 
-let sharedEncoding: ReturnType<typeof encodingForModel> | null = null;
-
-function getEncoding() {
-  if (!sharedEncoding) {
-    sharedEncoding = encodingForModel("gpt-5");
-  }
-
-  return sharedEncoding;
-}
-
-/** Whether the tokenizer is built. Building it takes over 100 ms, so the client defers it. */
-export function isTokenizerReady(): boolean {
-  return sharedEncoding !== null;
-}
-
-/** Builds the tokenizer now rather than on the first count. */
-export function prepareTokenizer(): void {
-  getEncoding();
-}
-
-function approximateTokenCount(trimmed: string): number {
-  return Math.max(1, Math.ceil(trimmed.length / 4));
-}
-
-/** Synchronous tiktoken estimate (o200k_base via gpt-5). */
-export function estimateTokenCountSync(text: string): number {
-  const trimmed = text.trim();
-
-  if (!trimmed) return 0;
-
-  try {
-    return getEncoding().encode(trimmed).length;
-  } catch {
-    return approximateTokenCount(trimmed);
-  }
-}
-
-/**
- * Tokens the typed draft adds on send, framed as a user turn like packed thread messages.
- * Fast enough to run per keystroke (~0.1 ms for 2k chars, ~4 ms for 100k).
- */
-export function estimateDraftTokens(draftText: string): number {
+/** The draft as the next send frames it, a user turn like packed thread messages; empty if blank. */
+export function draftTokenText(draftText: string): string {
   const trimmed = draftText.trim();
 
-  return trimmed ? estimateTokenCountSync(`user: ${trimmed}`) : 0;
+  return trimmed ? `user: ${trimmed}` : "";
 }
 
-/** {@link estimateDraftTokens} at about four characters a token, for before the tokenizer is built. */
+/** The draft's count at about four characters a token, for before an exact count arrives. */
 export function approximateDraftTokens(draftText: string): number {
-  const trimmed = draftText.trim();
-
-  return trimmed ? approximateTokenCount(`user: ${trimmed}`) : 0;
+  return approximateTokenCount(draftTokenText(draftText));
 }
 
 export function getMessageTextForTokenEstimate(message: UIMessage): string {
@@ -652,6 +632,8 @@ export function getModelContextWindowTokens(modelId: string): number {
 
 export type ComputeContextBudgetParams = {
   modelId: string;
+  /** Counts one text; the server passes `estimateTokenCountSync` from `lib/chat/tokenizer`. */
+  countTokens: (text: string) => number;
   threadMessages: UIMessage[];
   draftText: string;
   contextMessageLimit?: number;
@@ -666,6 +648,7 @@ export type ComputeContextBudgetParams = {
 export function computeContextBudget(params: ComputeContextBudgetParams): ContextBudgetEstimate {
   const {
     modelId,
+    countTokens,
     threadMessages,
     draftText,
     contextMessageLimit = 10,
@@ -680,16 +663,16 @@ export function computeContextBudget(params: ComputeContextBudgetParams): Contex
   const messagesTokens = packedMessages.reduce((sum, message) => {
     const text = getMessageTextForTokenEstimate(message);
 
-    return sum + estimateTokenCountSync(text);
+    return sum + countTokens(text);
   }, 0);
 
   const toolOutputTokens = packedMessages.reduce((sum, message) => {
     const serialized = getMessageToolPartsForTokenEstimate(message);
 
-    return sum + (serialized ? estimateTokenCountSync(serialized) : 0);
+    return sum + (serialized ? countTokens(serialized) : 0);
   }, 0);
 
-  const draftTokens = estimateDraftTokens(draftText);
+  const draftTokens = countTokens(draftTokenText(draftText));
 
   let systemTokens = ESTIMATED_SYSTEM_PROMPT_TOKENS;
   let toolsTokens = ESTIMATED_BASE_TOOL_TOKENS;

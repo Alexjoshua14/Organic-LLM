@@ -7,7 +7,7 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { messagePlainText } from "@/lib/chat/btw-context";
+import { messagePlainText } from "@/lib/chat/btw-message-text";
 import { coreInputSnapshots } from "@/lib/core-input/snapshot-store";
 import { getSettings } from "@/lib/user-settings";
 

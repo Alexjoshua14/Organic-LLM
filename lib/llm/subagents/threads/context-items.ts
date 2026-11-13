@@ -4,7 +4,7 @@ import type { WorktableItemKind } from "@/lib/llm/subagents/worktable/types";
 import { tool } from "ai";
 import { z } from "zod";
 
-import { estimateTokenCountSync } from "@/lib/chat/context-budget";
+import { estimateTokenCountSync } from "@/lib/chat/tokenizer";
 import { WORKTABLE_LIMITS } from "@/lib/llm/subagents/worktable/types";
 
 /** Same structured-data framing as external-content tools, without altering source strings. */

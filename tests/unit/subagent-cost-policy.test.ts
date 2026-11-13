@@ -2,7 +2,7 @@ import type { ModelMessage } from "ai";
 
 import { describe, expect, test } from "bun:test";
 
-import { estimateTokenCountSync } from "@/lib/chat/context-budget";
+import { estimateTokenCountSync } from "@/lib/chat/tokenizer";
 import { selectSubagentModel } from "@/lib/llm/subagents/orchestrator/cost-policy";
 import {
   SUBAGENT_MAX_INPUT_TOKENS,

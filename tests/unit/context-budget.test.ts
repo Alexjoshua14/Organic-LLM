@@ -6,12 +6,12 @@ import { encodingForModel } from "js-tiktoken";
 import { resolveChatModelId } from "@/lib/api/resolve-chat-model";
 import { selectArcadiaContextMessages, sumMessagesTokens } from "@/lib/chat/arcadia-token-context";
 import {
+  approximateDraftTokens,
   composeContextBudget,
   computeContextBudget,
   computeNewThreadDefaultBudget,
-  countContextMessageTokens,
-  estimateDraftTokens,
-  estimateTokenCountSync,
+  countContextMessages,
+  countContextMessagesSync,
   ESTIMATED_SYSTEM_PROMPT_TOKENS,
   finalizeContextBudget,
   formatMemoryPackLabel,
@@ -22,11 +22,13 @@ import {
   getModelContextWindowTokens,
   getThreadContextCoverage,
   mergePreservedLastTurn,
-  prepareTokenizer,
   scaffoldFromStreamBudget,
   withLastTurnSnapshot,
+  type ComposeContextBudgetParams,
   type ContextBudgetScaffold,
 } from "@/lib/chat/context-budget";
+import { estimateDraftTokens, messageTextTokenCountSync } from "@/lib/chat/token-count";
+import { estimateTokenCountSync } from "@/lib/chat/tokenizer";
 import { AUTO_CHAT_MODEL_ID, AUTO_RESOLVED_SONNET_MODEL_ID } from "@/lib/schemas/chat";
 
 function userMessage(text: string, id = "u1"): UIMessage {
@@ -86,22 +88,24 @@ function readCountedMessage(id: string, reads: Map<string, number>): UIMessage {
   };
 }
 
-/** `hasTimeLeft` for a slice with no idle time: one unit, then stop. */
-function oneUnitSlice(): () => boolean {
-  let first = true;
+/** Compose as the meter does: thread counts cached first, the draft counted exactly. */
+function composeCounted(params: ComposeContextBudgetParams) {
+  countContextMessagesSync(
+    {
+      threadMessages: params.threadMessages,
+      experience: params.experience,
+      contextMessageLimit: params.scaffold.contextMessageLimit,
+    },
+    estimateTokenCountSync
+  );
 
-  return () => {
-    const allowed = first;
-
-    first = false;
-
-    return allowed;
-  };
+  return composeContextBudget({ ...params, draftTokens: estimateDraftTokens(params.draftText) });
 }
 
 describe("computeContextBudget", () => {
   test("counts draft text toward next submit total", () => {
     const budget = computeContextBudget({
+      countTokens: estimateTokenCountSync,
       modelId: "openai/gpt-6-sol",
       threadMessages: [userMessage("Hello there")],
       draftText: "What is next?",
@@ -117,6 +121,7 @@ describe("computeContextBudget", () => {
   test("adds rolling summary when thread exceeds last-N window", () => {
     const thread = Array.from({ length: 12 }, (_, i) => userMessage(`Turn ${i + 1}`, `u${i}`));
     const budget = computeContextBudget({
+      countTokens: estimateTokenCountSync,
       modelId: "anthropic/claude-sonnet-5",
       threadMessages: thread,
       draftText: "",
@@ -133,6 +138,7 @@ describe("computeContextBudget", () => {
 
   test("counts tool output parts in a dedicated segment", () => {
     const budget = computeContextBudget({
+      countTokens: estimateTokenCountSync,
       modelId: "openai/gpt-6-sol",
       threadMessages: [assistantWithToolOutput()],
       draftText: "",
@@ -150,6 +156,7 @@ describe("computeContextBudget", () => {
   test("reserves output tokens from the model window", () => {
     const window = getModelContextWindowTokens("openai/gpt-6-sol");
     const budget = computeContextBudget({
+      countTokens: estimateTokenCountSync,
       modelId: "openai/gpt-6-sol",
       threadMessages: [],
       draftText: "",
@@ -209,7 +216,7 @@ describe("composeContextBudget", () => {
       activeToolNames: ["manage_tasks", "web_search"],
     });
 
-    const composed = composeContextBudget({
+    const composed = composeCounted({
       scaffold,
       threadMessages: thread,
       draftText,
@@ -230,7 +237,7 @@ describe("composeContextBudget", () => {
 
   test("packs only the last N messages when scaffold sets a limit", () => {
     const thread = Array.from({ length: 12 }, (_, i) => userMessage(`Turn ${i + 1}`, `u${i}`));
-    const composed = composeContextBudget({
+    const composed = composeCounted({
       scaffold: fixtureScaffold({ contextMessageLimit: 10, summaryTokens: 600 }),
       threadMessages: thread,
       draftText: "",
@@ -279,7 +286,7 @@ describe("composeContextBudget", () => {
 
   test("compose keeps lastTurn from the scaffold", () => {
     const lastTurn = { inputTokens: 9_001, memoryTokens: 640, memoriesInjected: 4 };
-    const composed = composeContextBudget({
+    const composed = composeCounted({
       scaffold: fixtureScaffold({ lastTurn, memoryTokens: 900, memoriesInjected: 0 }),
       threadMessages: [userMessage("hi")],
       draftText: "next",
@@ -294,9 +301,11 @@ describe("composeContextBudget", () => {
     const thread = Array.from({ length: 9 }, (_, i) =>
       userMessage(`${"word ".repeat(8_000)} ${i}`, `long-${i}`)
     );
-    const expected = selectArcadiaContextMessages(thread).contextMessages;
+    const expected = selectArcadiaContextMessages(thread, {
+      countTokens: messageTextTokenCountSync,
+    }).contextMessages;
 
-    const composed = composeContextBudget({
+    const composed = composeCounted({
       scaffold: fixtureScaffold({}),
       threadMessages: thread,
       draftText: "",
@@ -307,7 +316,7 @@ describe("composeContextBudget", () => {
     expect(expected.length).toBeLessThan(thread.length);
     expect(composed.packedMessageCount).toBe(expected.length);
     expect(composed.segments.find((s) => s.id === "messages")?.tokens).toBe(
-      sumMessagesTokens(expected)
+      sumMessagesTokens(expected, messageTextTokenCountSync)
     );
   });
 
@@ -329,7 +338,7 @@ describe("composeContextBudget", () => {
     });
     const thread = Array.from({ length: 30 }, (_, i) => countedMessage(`m${i}`, `Turn ${i}`));
     const compose = (threadMessages: UIMessage[]) =>
-      composeContextBudget({
+      composeCounted({
         scaffold: fixtureScaffold({}),
         threadMessages,
         draftText: "",
@@ -350,44 +359,105 @@ describe("composeContextBudget", () => {
   });
 });
 
-describe("countContextMessageTokens", () => {
-  test("counts one unit per slice until compose has nothing left to tokenize", () => {
-    prepareTokenizer();
+describe("countContextMessages", () => {
+  test("counts text, then packed tool parts, and leaves compose nothing to tokenize", async () => {
     const reads = new Map<string, number>();
     const thread = Array.from({ length: 6 }, (_, i) => readCountedMessage(`m${i}`, reads));
-    const input = { threadMessages: thread, experience: "arcadia" as const };
+    const batches: number[] = [];
 
-    expect(countContextMessageTokens(input, () => false)).toBe(false);
-    expect(reads.size).toBe(0);
+    await countContextMessages({ threadMessages: thread, experience: "arcadia" }, async (texts) => {
+      batches.push(texts.length);
 
-    let slices = 1;
+      return texts.map(estimateTokenCountSync);
+    });
 
-    while (!countContextMessageTokens(input, oneUnitSlice())) slices++;
-
-    // Every message's text, then every packed message's tool parts.
-    expect(slices).toBe(thread.length * 2);
+    expect(batches).toEqual([thread.length, thread.length]);
     expect(thread.map((message) => reads.get(message.id))).toEqual(thread.map(() => 1));
 
-    composeContextBudget({
+    const composed = composeContextBudget({
       scaffold: fixtureScaffold(),
       threadMessages: thread,
       draftText: "next question",
+      draftTokens: 4,
       modelId: "openai/gpt-6-sol",
       experience: "arcadia",
     });
 
     expect(thread.map((message) => reads.get(message.id))).toEqual(thread.map(() => 1));
+    expect(composed.segments.find((s) => s.id === "messages")?.tokens).toBe(
+      sumMessagesTokens(thread, messageTextTokenCountSync)
+    );
+    expect(composed.segments.find((s) => s.id === "draft")?.tokens).toBe(4);
+  });
+
+  test("counts each message object once, so the next message change counts only the new one", async () => {
+    const thread = Array.from({ length: 5 }, (_, i) => userMessage(`Turn ${i}`, `t${i}`));
+    const counted: string[] = [];
+    const counter = async (texts: string[]) => {
+      counted.push(...texts);
+
+      return texts.map(estimateTokenCountSync);
+    };
+
+    await countContextMessages({ threadMessages: thread, experience: "arcadia" }, counter);
+    counted.length = 0;
+
+    const reply = userMessage("A new reply", "reply");
+
+    await countContextMessages(
+      { threadMessages: [...thread, reply], experience: "arcadia" },
+      counter
+    );
+
+    expect(counted).toEqual(["user: A new reply", ""]);
   });
 
   test("a message limit counts only the packed tail", () => {
-    prepareTokenizer();
     const reads = new Map<string, number>();
     const thread = Array.from({ length: 8 }, (_, i) => readCountedMessage(`n${i}`, reads));
 
-    expect(
-      countContextMessageTokens({ threadMessages: thread, contextMessageLimit: 3 }, () => true)
-    ).toBe(true);
+    countContextMessagesSync(
+      { threadMessages: thread, contextMessageLimit: 3 },
+      estimateTokenCountSync
+    );
+
     expect([...reads.keys()]).toEqual(["n5", "n6", "n7"]);
+  });
+
+  test("stops between phases once aborted", async () => {
+    const thread = Array.from({ length: 4 }, (_, i) => userMessage(`Turn ${i}`, `s${i}`));
+    const controller = new AbortController();
+    let batches = 0;
+
+    await countContextMessages(
+      { threadMessages: thread, experience: "arcadia" },
+      async (texts) => {
+        batches++;
+        controller.abort();
+
+        return texts.map(estimateTokenCountSync);
+      },
+      controller.signal
+    );
+
+    expect(batches).toBe(1);
+  });
+
+  test("compose approximates a message it hasn't counted", () => {
+    const message = userMessage("Never counted before", "uncounted");
+    const composed = composeContextBudget({
+      scaffold: fixtureScaffold(),
+      threadMessages: [message],
+      draftText: "a draft",
+      modelId: "openai/gpt-6-sol",
+    });
+
+    expect(composed.segments.find((s) => s.id === "messages")?.tokens).toBe(
+      Math.ceil("user: Never counted before".length / 4)
+    );
+    expect(composed.segments.find((s) => s.id === "draft")?.tokens).toBe(
+      approximateDraftTokens("a draft")
+    );
   });
 });
 
@@ -435,7 +505,7 @@ describe("scaffoldFromStreamBudget", () => {
       source: "server",
     });
 
-    const recomposed = composeContextBudget({
+    const recomposed = composeCounted({
       scaffold,
       threadMessages: [userMessage("hi")],
       draftText: "draft",
@@ -452,13 +522,27 @@ describe("scaffoldFromStreamBudget", () => {
   });
 });
 
-describe("estimateTokenCount shared encoder", () => {
-  test("sync estimate matches a fresh cl100k encode of the same text", () => {
-    const sample = "user: Counting tokens with a shared cl100k encoder.";
-    const sync = estimateTokenCountSync(sample);
-    const fresh = encodingForModel("gpt-5").encode(sample.trim()).length;
+describe("estimateTokenCountSync", () => {
+  test("the lite o200k tokenizer counts exactly like the full gpt-5 encoding", () => {
+    const full = encodingForModel("gpt-5");
+    const samples = [
+      "user: Counting tokens with the shared o200k encoder.",
+      "const square = (a: number) => a ** 2; // 🚀 ✨",
+      "日本語のテキストと한국어 그리고 العربية",
+      "  spaced\n\n\ttabs  ",
+      "a".repeat(5_000),
+    ];
 
-    expect(sync).toBe(fresh);
+    for (const sample of samples) {
+      expect(estimateTokenCountSync(sample)).toBe(full.encode(sample.trim()).length);
+    }
+  });
+
+  test("text with a special token is approximated, as before", () => {
+    const sample = "<|endoftext|> is a special token";
+
+    expect(() => encodingForModel("gpt-5").encode(sample)).toThrow();
+    expect(estimateTokenCountSync(sample)).toBe(Math.ceil(sample.length / 4));
   });
 });
 
@@ -476,13 +560,14 @@ describe("estimateDraftTokens", () => {
 
   test("agrees with the draft segment both budget paths report", () => {
     const draftText = "Summarize the thread so far, then list open questions.";
-    const composed = composeContextBudget({
+    const composed = composeCounted({
       scaffold: fixtureScaffold(),
       threadMessages: [userMessage("Hello there")],
       draftText,
       modelId: "openai/gpt-6-sol",
     });
     const computed = computeContextBudget({
+      countTokens: estimateTokenCountSync,
       modelId: "openai/gpt-6-sol",
       threadMessages: [userMessage("Hello there")],
       draftText,
@@ -512,6 +597,7 @@ describe("context budget derivations", () => {
   test("computes partial thread coverage when the window is smaller than the thread", () => {
     const thread = Array.from({ length: 12 }, (_, i) => userMessage(`Turn ${i + 1}`, `u${i}`));
     const budget = computeContextBudget({
+      countTokens: estimateTokenCountSync,
       modelId: "openai/gpt-6-sol",
       threadMessages: thread,
       draftText: "",
@@ -529,6 +615,7 @@ describe("context budget derivations", () => {
 
   test("computes headroom and composition from packed segments", () => {
     const budget = computeContextBudget({
+      countTokens: estimateTokenCountSync,
       modelId: "openai/gpt-6-sol",
       threadMessages: [userMessage("Hello"), assistantWithToolOutput()],
       draftText: "Next question",

@@ -1,7 +1,7 @@
 import type { MemoryItemType } from "@/lib/schemas/memory";
 import type { ProfileSection, ProfileTree } from "@/lib/schemas/profileTree";
 
-import { estimateTokenCountSync } from "@/lib/chat/context-budget";
+import { estimateTokenCountSync } from "@/lib/chat/tokenizer";
 import { formatMemoriesForPrompt } from "@/lib/memory/memory-relevance";
 
 export type CompactProfileOptions = {

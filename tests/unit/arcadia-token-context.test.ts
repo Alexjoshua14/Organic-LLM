@@ -13,6 +13,20 @@ import {
   assertLlmInputWithinHardCap,
   estimateLlmInputTokens,
 } from "@/lib/api/llm-input-token-guard";
+import { messageTextTokenCountSync } from "@/lib/chat/token-count";
+
+/** The send path's selection: exact, uncached text counts. */
+function select(
+  messages: UIMessage[],
+  options: Partial<Parameters<typeof selectArcadiaContextMessages>[1]> = {}
+) {
+  return selectArcadiaContextMessages(messages, {
+    countTokens: messageTextTokenCountSync,
+    ...options,
+  });
+}
+
+const sumTokens = (messages: UIMessage[]) => sumMessagesTokens(messages, messageTextTokenCountSync);
 
 function userMessage(id: string, text: string, pinned = false): UIMessage {
   return {
@@ -31,7 +45,7 @@ describe("selectArcadiaContextMessages", () => {
       userMessage("3", "Still here"),
     ];
 
-    const selection = selectArcadiaContextMessages(messages, {
+    const selection = select(messages, {
       tokenBudget: ARCADIA_MESSAGE_TOKEN_BUDGET,
     });
 
@@ -47,12 +61,12 @@ describe("selectArcadiaContextMessages", () => {
       userMessage(String(index + 1), `${longText} ${index + 1}`)
     );
 
-    const selection = selectArcadiaContextMessages(messages, {
+    const selection = select(messages, {
       tokenBudget: 2_000,
       minRecentCount: ARCADIA_MIN_RECENT_MESSAGES,
     });
 
-    expect(sumMessagesTokens(messages)).toBeGreaterThan(2_000);
+    expect(sumTokens(messages)).toBeGreaterThan(2_000);
     expect(selection.needsCondensation).toBe(true);
     expect(selection.recentCount).toBeGreaterThanOrEqual(ARCADIA_MIN_RECENT_MESSAGES);
     expect(selection.messagesToCondense.length).toBeGreaterThan(0);
@@ -67,7 +81,7 @@ describe("selectArcadiaContextMessages", () => {
       userMessage(`recent-${index}`, `recent ${index}`)
     );
 
-    const selection = selectArcadiaContextMessages([pinnedLarge, pinnedSmall, ...recent], {
+    const selection = select([pinnedLarge, pinnedSmall, ...recent], {
       tokenBudget: 1_000,
       pinnedBudgetRatio: 0.2,
       minRecentCount: 2,
@@ -88,14 +102,14 @@ describe("selectArcadiaContextMessages", () => {
     const countTokens = (message: UIMessage) => {
       calls.set(message.id, (calls.get(message.id) ?? 0) + 1);
 
-      return sumMessagesTokens([message]);
+      return sumTokens([message]);
     };
 
-    const counted = selectArcadiaContextMessages(messages, { tokenBudget: 1_000, countTokens });
+    const counted = select(messages, { tokenBudget: 1_000, countTokens });
 
     expect([...calls.values()].every((count) => count === 1)).toBe(true);
     expect(calls.size).toBe(messages.length);
-    expect(counted).toEqual(selectArcadiaContextMessages(messages, { tokenBudget: 1_000 }));
+    expect(counted).toEqual(select(messages, { tokenBudget: 1_000 }));
   });
 });
 

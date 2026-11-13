@@ -15,8 +15,6 @@ import {
   HoverCardTrigger,
 } from "@/components/third-party/ui/hover-card";
 import {
-  approximateDraftTokens,
-  estimateDraftTokens,
   formatTokenCount,
   getContextComposition,
   getContextHeadroomTurns,
@@ -26,7 +24,7 @@ import {
 import { AUTO_CHAT_MODEL_ID, ChatModels } from "@/lib/schemas/chat";
 import { contextSegmentColor, contextUsageLabelColor } from "@/lib/design/kelvin-color";
 import { useThreadContextBudget } from "@/hooks/use-thread-context-budget";
-import { useTokenizerReady } from "@/hooks/use-tokenizer-ready";
+import { useDraftTokenCount } from "@/hooks/use-draft-token-count";
 import { cn } from "@/lib/utils";
 import { summarizeContextMemories } from "@/lib/chat/context-memory";
 import { getActiveToolCategories } from "@/lib/chat/tool-categories";
@@ -503,13 +501,9 @@ export const ContextBudgetIndicator: React.FC<ContextBudgetIndicatorProps> = ({
     enabled: Boolean(chatId),
   });
   // Counted here, not read from the budget: the budget's draft segment is debounced and
-  // absent before a thread exists, and this should track every keystroke. A draft is
-  // approximated until the tokenizer is built, so building it never blocks a keystroke or the open.
-  const tokenizerReady = useTokenizerReady(draftText.trim() !== "");
-  const draftTokens = useMemo(
-    () => (tokenizerReady ? estimateDraftTokens(draftText) : approximateDraftTokens(draftText)),
-    [draftText, tokenizerReady]
-  );
+  // absent before a thread exists, and this should track every keystroke. It's counted in the
+  // background, so a keystroke never waits on the tokenizer.
+  const draftTokens = useDraftTokenCount(draftText);
 
   return (
     <ContextBudgetIndicatorView budget={budget} className={className} draftTokens={draftTokens} />

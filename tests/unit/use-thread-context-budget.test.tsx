@@ -8,7 +8,9 @@ import {
   composeContextBudget,
   finalizeContextBudget,
   type ContextBudgetScaffold,
+  type TextTokenCounter,
 } from "@/lib/chat/context-budget";
+import { estimateTokenCountSync } from "@/lib/chat/tokenizer";
 import { render } from "../helpers/render";
 
 mock.module("@/lib/user-settings", () => ({
@@ -42,6 +44,35 @@ const SCAFFOLD: ContextBudgetScaffold = {
   contextMessageLimit: 10,
   source: "server",
 };
+
+/** Counts on the test's thread instead of the background counter (and its worker). */
+const syncCounter: TextTokenCounter = async (texts) => texts.map(estimateTokenCountSync);
+
+/** A counter whose answers a test can hold back, to land them after a thread switch. */
+function holdableCounter() {
+  const calls: string[][] = [];
+  const held: Array<() => void> = [];
+  let holding = false;
+  const counter: TextTokenCounter = (texts) => {
+    calls.push(texts);
+    const counts = texts.map(estimateTokenCountSync);
+
+    if (!holding) return Promise.resolve(counts);
+
+    return new Promise((resolve) => held.push(() => resolve(counts)));
+  };
+
+  return {
+    calls,
+    counter,
+    hold: (value: boolean) => {
+      holding = value;
+    },
+    release: () => {
+      for (const resolve of held.splice(0)) resolve();
+    },
+  };
+}
 
 /** Idle callbacks run only when a test flushes them, each with no idle time left. */
 const idleQueue = new Map<number, IdleRequestCallback>();
@@ -154,6 +185,7 @@ function HookProbe(props: {
   draftText: string;
   memoryEnabled?: boolean;
   chatId?: string;
+  countTokens?: TextTokenCounter;
 }) {
   const budget = useThreadContextBudget({
     chatId: props.chatId ?? "11111111-1111-4111-8111-111111111111",
@@ -164,6 +196,7 @@ function HookProbe(props: {
     messageSearchEnabled: false,
     threadMessages: props.threadMessages,
     draftDebounceMs: 20,
+    countTokens: props.countTokens ?? syncCounter,
   });
 
   return (
@@ -237,6 +270,7 @@ function LastTurnProbe() {
     threadMessages: HELLO_THREAD,
     streamBudget,
     draftDebounceMs: 20,
+    countTokens: syncCounter,
   });
 
   return (
@@ -302,16 +336,24 @@ describe("useThreadContextBudget", () => {
     mockBudgetFetch();
     const reads = new Map<string, number>();
     const thread = Array.from({ length: 12 }, (_, i) => readCountedMessage(`m${i}`, reads));
-    const { container } = render(<HookProbe draftText="" threadMessages={thread} />);
+    const counting = holdableCounter();
+    const { container } = render(
+      <HookProbe countTokens={counting.counter} draftText="" threadMessages={thread} />
+    );
     const probe = () => container.querySelector("[data-source]");
 
     await waitFor(() => expect(fetchCalls.length).toBe(1));
-    // The scaffold has arrived and the count is queued, but nothing has been tokenized.
+    // The scaffold has arrived and the count is queued, but nothing has been counted.
     await waitFor(() => expect(idleQueue.size).toBe(1));
     expect(reads.size).toBe(0);
+    expect(counting.calls.length).toBe(0);
     expect(probe()?.getAttribute("data-source")).not.toBe("client");
 
     flushIdle();
+    await waitFor(() => expect(probe()?.getAttribute("data-source")).toBe("client"));
+
+    // The packed tail's text, then its tool parts (the scaffold packs the last 10).
+    expect(counting.calls.map((texts) => texts.length)).toEqual([10, 10]);
 
     const expected = composeContextBudget({
       scaffold: SCAFFOLD,
@@ -320,7 +362,6 @@ describe("useThreadContextBudget", () => {
       modelId: "openai/gpt-6-sol",
     });
 
-    expect(probe()?.getAttribute("data-source")).toBe("client");
     expect(Number(probe()?.getAttribute("data-next"))).toBe(expected.nextSubmitTokens);
     expect(Number(probe()?.getAttribute("data-packed"))).toBe(expected.packedMessageCount);
   });
@@ -331,27 +372,44 @@ describe("useThreadContextBudget", () => {
     const reads = new Map<string, number>();
     const first = Array.from({ length: 8 }, (_, i) => readCountedMessage(`a${i}`, reads));
     const second = Array.from({ length: 3 }, (_, i) => readCountedMessage(`b${i}`, reads));
+    const counting = holdableCounter();
     const { container, rerender } = render(
-      <HookProbe chatId="thread-a" draftText="" threadMessages={first} />
+      <HookProbe
+        chatId="thread-a"
+        countTokens={counting.counter}
+        draftText=""
+        threadMessages={first}
+      />
     );
 
     await waitFor(() => expect(idleQueue.size).toBe(1));
-    flushIdleOnce();
-    flushIdleOnce();
-    const firstReadsAtSwitch = new Map(reads);
+    counting.hold(true);
+    flushIdle();
+    expect(counting.calls.length).toBe(1);
 
-    rerender(<HookProbe chatId="thread-b" draftText="" threadMessages={second} />);
+    rerender(
+      <HookProbe
+        chatId="thread-b"
+        countTokens={counting.counter}
+        draftText=""
+        threadMessages={second}
+      />
+    );
     await waitFor(() => expect(fetchCalls.length).toBe(2));
     await waitFor(() => expect(idleQueue.size).toBe(1));
+
+    // The first thread's answer lands after the switch: it must not continue or compose.
+    counting.hold(false);
+    await act(async () => {
+      counting.release();
+    });
     flushIdle();
 
-    const probe = container.querySelector("[data-source]");
+    const probe = () => container.querySelector("[data-source]");
 
-    expect(probe?.getAttribute("data-source")).toBe("client");
-    expect(Number(probe?.getAttribute("data-total"))).toBe(second.length);
-    for (const message of first) {
-      expect(reads.get(message.id)).toBe(firstReadsAtSwitch.get(message.id));
-    }
+    await waitFor(() => expect(probe()?.getAttribute("data-source")).toBe("client"));
+    expect(Number(probe()?.getAttribute("data-total"))).toBe(second.length);
+    expect(counting.calls.filter((texts) => texts.length === first.length)).toHaveLength(1);
   });
 
   test("client compose: scaffold poll keeps last-send metrics from the stream budget", async () => {
