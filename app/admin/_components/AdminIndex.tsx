@@ -7,15 +7,15 @@ import { cn } from "@/lib/utils";
 /**
  * The /admin landing page. Desktop and phone are two separate layouts over the same registry, not
  * one grid that shrinks. Desktop is a bento: one featured card (the first page) beside a few
- * wider ones, then an even row. A page added to the registry lands as a regular card in both,
+ * wider ones, then an even row of three (two rows in all, so the page fits one screen). A page added to the registry lands as a regular card in both,
  * so nothing here needs to change for it to appear.
  */
 
 /** Desktop column spans on the 12-column grid (from `lg`; two equal columns below it). */
 const DESKTOP_SPAN: Record<string, string> = {
-  performance: "col-span-2 lg:col-span-7 lg:row-span-2",
-  "thread-reference-performance": "lg:col-span-5",
-  "memory-quality": "lg:col-span-5",
+  performance: "col-span-2 lg:col-span-6",
+  "thread-reference-performance": "lg:col-span-3",
+  "memory-quality": "lg:col-span-3",
 };
 const DESKTOP_DEFAULT_SPAN = "lg:col-span-4";
 
@@ -36,7 +36,7 @@ export function AdminIndex() {
           {pages.map((page, i) => (
             <li
               key={page.slug}
-              className={cn("flex", DESKTOP_SPAN[page.slug] ?? DESKTOP_DEFAULT_SPAN)}
+              className={cn("flex min-h-0", DESKTOP_SPAN[page.slug] ?? DESKTOP_DEFAULT_SPAN)}
             >
               <AdminCard
                 className="w-full"
