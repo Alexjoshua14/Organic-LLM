@@ -300,7 +300,7 @@ describe("ChatMessage OrganicToolCallPresence", () => {
     expect(getByText("Dispatched to Lyra")).toBeTruthy();
     expect(getByText("Synthesize speculative decoding benchmarks")).toBeTruthy();
     expect(getByText("Crafting context bundle")).toBeTruthy();
-    expect(getByText("Navigating a branch…")).toBeTruthy();
+    expect(getByText("Moving to a branch…")).toBeTruthy();
     expect(container.querySelectorAll("[data-organic-tool-presence]")).toHaveLength(3);
     expect(container.querySelectorAll('[role="img"][data-activity-state]')).toHaveLength(2);
     expect(
@@ -365,13 +365,13 @@ describe("ChatMessage rabbit-hole creation", () => {
     });
     const view = render(<ChatMessage message={message(current)} />);
     expect(view.getByText(/Rabbit hole created/)).toBeTruthy();
-    expect(view.getByRole("link", { name: "Open rabbit hole" }).getAttribute("href")).toBe(
-      "/rabbitholes?sessionId=rabbit-session"
-    );
+    expect(
+      view.getByRole("link", { name: "Open rabbit hole: New exploration" }).getAttribute("href")
+    ).toBe("/rabbitholes?sessionId=rabbit-session");
     expect(view.queryByText("Starting the exploration.")).toBeNull();
     view.rerender(<ChatMessage message={message(historical)} />);
     expect(view.getByText(/Rabbit hole created/)).toBeTruthy();
-    expect(view.getByRole("link", { name: "Open rabbit hole" })).toBeTruthy();
+    expect(view.getByRole("link", { name: "Open rabbit hole: New exploration" })).toBeTruthy();
   });
 });
 

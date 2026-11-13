@@ -41,37 +41,71 @@ async function openDisclosure(view: ReturnType<typeof render>, label: string | R
   return details;
 }
 
+function status(view: ReturnType<typeof render>) {
+  return view.getByRole("status").textContent;
+}
+
 describe("Rabbit hole tool presence", () => {
   test("creation is visible while inputs stream, without premature navigation or success", () => {
     const view = render(
-      <OrganicToolCallPresence toolName="create_rabbit_hole" state="in-flight" />
+      <OrganicToolCallPresence
+        toolName="create_rabbit_hole"
+        state="in-flight"
+        input={{ query: "Black holes" }}
+      />
     );
 
-    expect(view.getByRole("status").textContent).toContain("Creating a rabbit hole");
+    expect(status(view)).toContain("Starting a rabbit hole");
+    expect(view.getByText("Black holes")).toBeTruthy();
     expect(view.container.querySelector("[data-rabbit-hole-tool] .session-glyph")).toBeTruthy();
     expect(view.queryByRole("link")).toBeNull();
     expect(view.queryByText(/Rabbit hole created/)).toBeNull();
   });
 
-  test("scheduled creation is one compact row with an internal open action", () => {
+  test("a new rabbit hole leads with its title, linked only to the internal destination", () => {
     const pin = mock(noop);
     const view = render(
       <OrganicToolCallPresence
         toolName="create_rabbit_hole"
         state="complete"
+        input={{ query: "Why do black holes have a geometry?" }}
         output={output}
         onTogglePin={pin}
       />
     );
 
-    expect(view.getByRole("status").textContent).toBe("Rabbit hole created · writing article");
-    expect(view.getByText(output.title)).toBeTruthy();
-    expect(view.getByRole("link", { name: "Open rabbit hole" }).getAttribute("href")).toBe(
-      "/rabbitholes?sessionId=session-123"
-    );
+    expect(status(view)).toBe("Rabbit hole created · writing the article");
+    expect(view.getByText("Why do black holes have a geometry?")).toBeTruthy();
+    const link = view.getByRole("link", { name: `Open rabbit hole: ${output.title}` });
+
+    expect(link.textContent).toBe(output.title);
+    expect(link.getAttribute("href")).toBe("/rabbitholes?sessionId=session-123");
     expect(view.container.querySelector("pre")).toBeNull();
     fireEvent.click(view.getByRole("button", { name: "Pin tool output" }));
     expect(pin).toHaveBeenCalledTimes(1);
+  });
+
+  test("a new branch is drawn under its parent in its exploration", () => {
+    const view = render(
+      <OrganicToolCallPresence
+        toolName="create_rabbit_hole_node"
+        state="complete"
+        output={JSON.stringify({
+          ...output,
+          title: "Hawking radiation",
+          parentTitle: "Event horizons",
+          sessionTitle: "Black holes",
+        })}
+      />
+    );
+
+    expect(status(view)).toBe("Branch created · writing the article");
+    expect(view.getByRole("link", { name: "Open rabbit hole: Black holes" })).toBeTruthy();
+    const tree = view.getByRole("list", { name: "Where the branch attaches" });
+    const rows = Array.from(tree.querySelectorAll("li"));
+
+    expect(rows.map((row) => row.getAttribute("data-tone"))).toEqual(["context", "generating"]);
+    expect(rows[1]?.textContent).toContain("Hawking radiation");
   });
 
   test("key points stay folded and load once, only when opened", async () => {
@@ -148,7 +182,7 @@ describe("Rabbit hole tool presence", () => {
       />
     );
 
-    expect(view.getByRole("status").textContent).toContain("Rabbit hole action failed");
+    expect(status(view)).toContain("Rabbit hole action failed");
     expect(view.getByText("Spending limit reached.")).toBeTruthy();
     expect(view.queryByRole("link")).toBeNull();
     expect(view.queryByText("Key points")).toBeNull();
@@ -168,12 +202,13 @@ describe("Rabbit hole tool presence", () => {
     view.rerender(
       <OrganicToolCallPresence toolName="create_rabbit_hole" state="complete" output="unexpected" />
     );
-    expect(view.getByRole("status").textContent).toBe("Rabbit hole response");
+    expect(status(view)).toBe("Rabbit hole response");
     expect(view.queryByText(/Rabbit hole created/)).toBeNull();
   });
 
   test("drawer navigation uses its existing event", () => {
     const opened = mock(noop);
+
     window.addEventListener(RABBIT_HOLE_OPEN_NODE_EVENT, opened);
     try {
       const view = render(
@@ -183,6 +218,8 @@ describe("Rabbit hole tool presence", () => {
           output={{ ok: true, activeNodeId: "node-456", title: "A branch" }}
         />
       );
+
+      expect(view.getByText("A branch")).toBeTruthy();
       fireEvent.click(view.getByRole("button", { name: "View article" }));
       expect(opened).toHaveBeenCalledTimes(1);
       expect((opened.mock.calls[0] as unknown as [CustomEvent]).at(0)?.detail).toEqual({
@@ -193,32 +230,30 @@ describe("Rabbit hole tool presence", () => {
     }
   });
 
-  test("node creation links to its owning session and old drawer generation keeps the node action", () => {
+  test("old drawer generation keeps its node action", () => {
     const view = render(
-      <OrganicToolCallPresence
-        toolName="create_rabbit_hole_node"
-        state="complete"
-        output={JSON.stringify(output)}
-      />
-    );
-
-    expect(view.getByText(/Branch created/)).toBeTruthy();
-    expect(view.getByRole("link").getAttribute("href")).toBe("/rabbitholes?sessionId=session-123");
-    view.rerender(
       <OrganicToolCallPresence
         toolName="generate_rabbit_hole_node"
         state="complete"
         output={output}
       />
     );
+
     expect(view.getByRole("button", { name: "View article" })).toBeTruthy();
   });
 
-  test("search is one row; bounded, safe results fold behind a disclosure", async () => {
+  test("search shows top explorations with the articles that matched, the rest folded", async () => {
     const results = Array.from({ length: 8 }, (_, index) => ({
       sessionId: `session-${index}`,
-      title: `Result ${index}`,
-      description: `About result ${index}`,
+      title: `Persona study ${index}`,
+      description: `How memory shapes persona ${index}`,
+      nodeCount: index + 2,
+      updatedAt: "2026-11-02T10:00:00.000Z",
+      matchedTerms: ["persona", "memory"],
+      matchingNodes: [
+        { nodeId: `n-${index}-a`, title: "Memory extraction" },
+        { nodeId: `n-${index}-b`, title: "Persona tone" },
+      ],
       url: "https://untrusted.example",
     }));
     const view = render(
@@ -230,18 +265,21 @@ describe("Rabbit hole tool presence", () => {
       />
     );
 
-    expect(view.getByText("persona memory")).toBeTruthy();
-    expect(view.getByRole("status").textContent).toBe("Rabbit holes searched · 8 found");
-    expect(view.queryAllByRole("link")).toHaveLength(0);
-    await openDisclosure(view, "8 results");
+    expect(view.getByText("“persona memory”")).toBeTruthy();
+    expect(status(view)).toBe("8 rabbit holes");
+    expect(view.getAllByRole("link")).toHaveLength(3);
+    expect(view.getByRole("list", { name: "Matching articles in Persona study 0" })).toBeTruthy();
+    expect(view.getByText("2 articles · Nov 2")).toBeTruthy();
+    expect(view.container.querySelectorAll("mark").length).toBeGreaterThan(0);
+
+    await openDisclosure(view, "5 more");
     const links = view.getAllByRole("link");
 
-    expect(links).toHaveLength(6);
-    expect(view.getByText("About result 0")).toBeTruthy();
-    expect(view.getByText("Showing 6 of 8")).toBeTruthy();
+    expect(links).toHaveLength(8);
     expect(
       links.every((link) => link.getAttribute("href")?.startsWith("/rabbitholes?sessionId="))
     ).toBe(true);
+
     view.rerender(
       <OrganicToolCallPresence
         toolName="search_rabbit_holes"
@@ -249,8 +287,72 @@ describe("Rabbit hole tool presence", () => {
         output={{ ok: true, results: [] }}
       />
     );
-    expect(view.getByRole("status").textContent).toBe("No rabbit holes found");
-    expect(view.queryByText(/results?$/)).toBeNull();
+    expect(status(view)).toBe("None found");
+    expect(view.getByText("Nothing in your rabbit holes matches this yet.")).toBeTruthy();
+  });
+
+  test("a session read is drawn as its article tree", () => {
+    const view = render(
+      <OrganicToolCallPresence
+        toolName="get_rabbit_hole"
+        state="complete"
+        output={{
+          ok: true,
+          sessionId: "s1",
+          title: "Black holes",
+          description: "From horizons to radiation",
+          updatedAt: "2026-11-02T10:00:00.000Z",
+          rootNodeId: "a",
+          generatingNodeId: "c",
+          nodeCount: 3,
+          nodes: [
+            { nodeId: "a", title: "Black holes", parentNodeId: null },
+            { nodeId: "c", title: "Hawking radiation", parentNodeId: "b" },
+            { nodeId: "b", title: "Event horizons", parentNodeId: "a" },
+          ],
+        }}
+      />
+    );
+
+    const rows = Array.from(
+      view.getByRole("list", { name: "Articles in Black holes" }).querySelectorAll("li")
+    );
+
+    expect(rows.map((row) => row.textContent)).toEqual([
+      "Black holes",
+      "Event horizons",
+      "Hawking radiationwriting",
+    ]);
+    expect(rows.map((row) => row.getAttribute("data-tone"))).toEqual(["root", null, "generating"]);
+    expect(status(view)).toBe("3 articles · updated Nov 2");
+  });
+
+  test("an article read shows its key points first, with the outline folded", () => {
+    const view = render(
+      <OrganicToolCallPresence
+        toolName="get_rabbit_hole_node"
+        state="complete"
+        output={{
+          ok: true,
+          sessionId: "s1",
+          nodeId: "b",
+          title: "Event horizons",
+          userQuestion: "What is an event horizon?",
+          childNodeIds: ["c"],
+          sections: [
+            { index: 0, id: "intro", heading: "Introduction" },
+            { index: 1, id: "geometry", heading: "Geometry" },
+          ],
+          keyTakeaways: ["One", "Two", "Three", "Four"],
+        }}
+      />
+    );
+
+    expect(view.getByText("Three")).toBeTruthy();
+    expect(view.queryByText("Four")).toBeNull();
+    expect(status(view)).toBe("Article read · 2 sections · 1 branch");
+    expect(view.getByText("1 more key points")).toBeTruthy();
+    expect(view.getByText("Outline")).toBeTruthy();
   });
 
   test("multiple marks have no colliding SVG ids, and unknown tools retain their own renderer", () => {

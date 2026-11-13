@@ -1,115 +1,376 @@
-/* Same family and density as the generic Organic tool pill: one row, secondary detail folded. */
+/*
+ * Rabbit-hole tool results speak the rabbit-hole app's language, not the generic tool pill's:
+ * the app's card surface, Commissioner light titles, and the path rail's stem-and-dot grammar
+ * for articles. Height comes from the data's shape; nothing decorative takes a row.
+ */
 .inlineRow {
   min-width: 0;
   max-width: 100%;
 }
 
 .card {
-  width: min(100%, 28rem);
+  --rh-stem: color-mix(in oklch, var(--muted-foreground) 32%, transparent);
+  --rh-dot: color-mix(in oklch, var(--muted-foreground) 55%, transparent);
+  --rh-indent: 14px;
+  position: relative;
+  display: grid;
+  gap: var(--spacing-stack-sm);
+  width: min(100%, 34rem);
   min-width: 0;
-  overflow: hidden;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: color-mix(in oklch, var(--card) 80%, transparent);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
   color: var(--foreground);
 }
-/* Surface colours come from the same Tailwind classes as the generic pill; these only tint parts. */
+/* SessionCard's hover hairline: the card is a way into an exploration. */
+.card::before {
+  content: "";
+  position: absolute;
+  inset: 0 24px auto;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklch, var(--accent) 45%, transparent),
+    transparent
+  );
+  opacity: 0;
+  transition: opacity 300ms ease-out;
+  pointer-events: none;
+}
+.card:hover::before,
+.card:focus-within::before {
+  opacity: 1;
+}
+.card[data-tool-state="error"] {
+  border-color: color-mix(in oklch, var(--destructive) 40%, var(--border));
+}
 
-.row {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-  padding: 0.375rem 0.375rem 0.375rem 0.625rem;
-}
-.mark {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  width: 1.5rem;
-  height: 1.5rem;
-  border-radius: 0.375rem;
-  background: color-mix(in oklch, var(--foreground) 6%, transparent);
-  color: var(--foreground-secondary, var(--muted-foreground));
-}
-.pending .mark {
-  color: var(--accent);
-}
-.failed .mark {
-  color: var(--destructive);
-}
-.text {
-  min-width: 0;
-  flex: 1;
-}
+/* ── Type ─────────────────────────────────────────────────────────────── */
+
 .title {
+  display: block;
   margin: 0;
-  overflow: hidden;
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 1.5;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  min-width: 0;
+  font-family: var(--font-commissioner), sans-serif;
+  font-size: 1.1875rem; /* 19px */
+  font-weight: 300;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  color: var(--foreground);
+  overflow-wrap: anywhere;
+  text-wrap: balance;
 }
-.status {
+.titleMd {
+  font-size: 0.9375rem; /* 15px */
+  font-weight: 400;
+  line-height: 1.35;
+}
+.titleLink {
+  position: relative;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+  transition: text-decoration-color 150ms ease-out;
+}
+/* 44px touch target without a taller title. */
+.titleLink::after {
+  content: "";
+  position: absolute;
+  inset: -6px -4px;
+}
+.titleLink:hover {
+  text-decoration-color: color-mix(in oklch, var(--foreground) 45%, transparent);
+}
+@media (pointer: coarse) {
+  .titleLink {
+    text-decoration-color: color-mix(in oklch, var(--border) 90%, transparent);
+  }
+}
+.question,
+.description {
   margin: 0;
-  overflow: hidden;
-  font-size: 11px;
-  line-height: 1.5;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--muted-foreground);
-}
-.failed .status,
-.failed .title[role="status"] {
-  color: var(--destructive);
-}
-.error {
-  margin: 0;
-  font-size: 11px;
+  font-size: 0.8125rem; /* 13px */
   line-height: 1.5;
   color: var(--muted-foreground);
   overflow-wrap: anywhere;
 }
-
-/* Compact glass chip; the hit area extends to 44px without making the row taller. */
-.action {
-  position: relative;
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: 0.25rem;
-  height: 1.75rem;
-  padding: 0 0.625rem;
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 1;
-  text-decoration: none;
-  cursor: pointer;
-  transition: background-color 150ms ease-out;
+.description {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
 }
-.action::before {
+.excerpt {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  overflow: hidden;
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: var(--foreground);
+  opacity: 0.85;
+}
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 0.6875rem; /* 11px */
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted-foreground);
+}
+.card[data-tool-state="error"] .meta {
+  color: var(--destructive);
+}
+.glyph {
+  color: var(--accent);
+}
+.error,
+.quiet {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+  overflow-wrap: anywhere;
+}
+.match {
+  padding: 0 1px;
+  border-radius: 2px;
+  background: color-mix(in oklch, var(--accent) 22%, transparent);
+  color: inherit;
+}
+
+.headingRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--spacing-inline-sm);
+}
+.headingRow .meta {
+  flex: none;
+}
+
+/* ── Path-rail tree ───────────────────────────────────────────────────── */
+
+.tree {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.node {
+  --indent: calc(var(--depth, 0) * var(--rh-indent));
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacing-inline-sm);
+  min-height: 26px;
+  padding: 3px 0 3px calc(var(--indent) + 18px);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+/* Spine: one stem through the whole exploration; ends at the first and last dots. */
+.node::before {
   content: "";
   position: absolute;
-  inset: -0.5rem -0.25rem;
+  left: 3px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--rh-stem);
 }
-.action:hover {
-  background-color: color-mix(in oklch, var(--foreground) 8%, transparent);
+.node:first-child::before {
+  top: 13px;
 }
-.action svg {
+.node:last-child::before {
+  bottom: calc(100% - 13px);
+}
+.node:only-child::before {
+  display: none;
+}
+/* Dot: one per article. */
+.node::after {
+  content: "";
+  position: absolute;
+  left: calc(var(--indent));
+  top: 9px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--rh-dot);
+}
+.node[data-tone="root"]::after {
+  background: var(--foreground);
+}
+.node[data-tone="context"]::after {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--rh-dot);
+}
+.node[data-tone="new"]::after {
+  background: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--accent) 22%, transparent);
+}
+.node[data-tone="generating"]::after {
+  background: transparent;
+  box-shadow:
+    inset 0 0 0 1.5px var(--accent),
+    0 0 0 3px color-mix(in oklch, var(--accent) 16%, transparent);
+}
+/* Branch: a child article's connector from the spine to its dot. */
+.elbow {
+  position: absolute;
+  left: 3px;
+  top: 13px;
+  width: var(--indent);
+  height: 1px;
+  background: var(--rh-stem);
+}
+.nodeTitle {
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+.node[data-tone="context"] .nodeTitle {
+  color: var(--muted-foreground);
+}
+.node[data-tone="root"] .nodeTitle,
+.node[data-tone="new"] .nodeTitle {
+  color: var(--foreground);
+}
+.nodeMeta {
+  flex: none;
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted-foreground);
+}
+.node[data-tone="new"] .nodeMeta,
+.node[data-tone="generating"] .nodeMeta {
+  color: var(--accent);
+}
+
+/* ── Explorations (search, list) ──────────────────────────────────────── */
+
+.entries {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.entry {
+  display: grid;
+  gap: 4px;
+  padding: 10px 0;
+  border-top: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
+}
+.entry:last-child {
+  padding-bottom: 0;
+}
+.entryMeta {
+  margin: 0;
+  font-size: 0.6875rem;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted-foreground);
+}
+.compactList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.compactEntry {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--spacing-inline-sm);
+  min-height: 32px;
+  padding: 4px 0;
+}
+.compactLink {
+  min-width: 0;
+  font-family: var(--font-commissioner), sans-serif;
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--foreground);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+a.compactLink:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.compactMeta {
+  flex: none;
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
   color: var(--muted-foreground);
 }
 
-.disclosures {
-  border-top: 1px solid color-mix(in oklch, var(--border) 35%, transparent);
+/* ── Key takeaways ────────────────────────────────────────────────────── */
+
+.takeaways {
+  display: grid;
+  gap: var(--spacing-stack-xs);
+  margin: 0;
+  padding: 0 0 0 1.125rem;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  list-style: disc;
+  overflow-wrap: anywhere;
+}
+.takeaways li::marker {
+  color: var(--muted-foreground);
+}
+
+/* ── Actions and disclosures ─────────────────────────────────────────── */
+
+.textAction {
+  position: relative;
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--foreground);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklch, var(--border) 90%, transparent);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.textAction::after {
+  content: "";
+  position: absolute;
+  inset: -12px -8px;
+}
+.textAction:hover {
+  text-decoration-color: currentColor;
+}
+
+/* Disclosures bleed to the card edge and close it, like a footer. */
+.disclosure {
+  margin: 0 -16px;
+  border-top: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
+}
+.disclosure:last-child {
+  margin-bottom: -14px;
 }
 .disclosure + .disclosure {
-  border-top: 1px solid color-mix(in oklch, var(--border) 35%, transparent);
+  margin-top: calc(var(--spacing-stack-sm) * -1);
 }
 .disclosure summary {
   display: flex;
   align-items: center;
-  gap: 0.375rem;
-  min-height: 2rem;
-  padding: 0 0.625rem;
-  font-size: 11px;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 16px;
+  font-size: 0.6875rem;
   color: var(--muted-foreground);
   cursor: pointer;
   list-style: none;
@@ -128,92 +389,43 @@
   transform: rotate(90deg);
 }
 .panel {
-  padding: 0 0.625rem 0.5rem;
+  padding: 0 16px 12px;
 }
-
-.points {
-  display: grid;
-  gap: var(--spacing-stack-xs);
-  margin: 0;
-  padding: 0 0 0 1.125rem;
-  font-size: 12px;
-  line-height: 1.5;
-  list-style: disc;
-  color: var(--foreground);
-  overflow-wrap: anywhere;
-}
-.points li::marker {
-  color: var(--muted-foreground);
-}
-.quiet,
-.more {
-  margin: 0;
-  font-size: 11px;
-  line-height: 1.5;
-  color: var(--muted-foreground);
-}
-.more {
-  padding-top: var(--spacing-stack-xs);
-}
-
-.results {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.result {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-inline-sm);
-  min-height: 2.25rem;
-  margin: 0 -0.375rem;
-  padding: 0.25rem 0.375rem;
-  border-radius: 0.5rem;
-  color: var(--foreground);
-  text-decoration: none;
-}
-.result:hover {
-  background-color: color-mix(in oklch, var(--foreground) 6%, transparent);
-}
-.result svg {
-  flex: none;
-  color: var(--muted-foreground);
-}
-.resultText {
-  display: flex;
-  min-width: 0;
-  flex: 1;
-  flex-direction: column;
-}
-.resultTitle,
-.resultDescription {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.resultTitle {
-  font-size: 12px;
-  line-height: 1.5;
-}
-.resultDescription {
-  font-size: 11px;
-  line-height: 1.45;
-  color: var(--muted-foreground);
-}
-
 .raw {
   max-height: 15rem;
   overflow: auto;
   margin: 0;
-  padding: 0.5rem;
-  border-radius: 0.375rem;
+  padding: 8px;
+  border-radius: 6px;
   background: color-mix(in oklch, var(--background) 70%, transparent);
   font-size: 10px;
   line-height: 1.6;
 }
 
+@media (max-width: 480px) {
+  .card {
+    padding: 12px 14px;
+  }
+  .disclosure {
+    margin-left: -14px;
+    margin-right: -14px;
+  }
+  .disclosure:last-child {
+    margin-bottom: -12px;
+  }
+  .disclosure summary,
+  .panel {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+  .title {
+    font-size: 1.0625rem;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .action,
+  .card::before,
+  .titleLink,
   .disclosure summary svg {
     transition: none;
   }

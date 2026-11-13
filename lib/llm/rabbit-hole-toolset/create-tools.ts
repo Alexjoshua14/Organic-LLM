@@ -5,7 +5,7 @@ import { tool } from "ai";
 import { z } from "zod";
 
 import { loadOwnedSession } from "./access";
-import { buildGraphEntries, rabbitHoleSessionUrl } from "./shape";
+import { buildGraphEntries, nodeDisplayTitle, rabbitHoleSessionUrl, sessionTitle } from "./shape";
 
 import { createLogger } from "@/lib/logger";
 import { draftGeneratedRabbitHoleNode } from "@/lib/rabbit-holes/draft-node";
@@ -221,6 +221,9 @@ export function createRabbitHoleCreateTools({
           sessionId,
           nodeId: drafted.nodeId,
           parentNodeId: parent ?? null,
+          // Display context for the chat card: where the new branch attaches.
+          parentTitle: parent ? nodeDisplayTitle(session.nodesById[parent]) : null,
+          sessionTitle: sessionTitle(session),
           title: drafted.title,
           status: "generating" as const,
           url: rabbitHoleSessionUrl(sessionId),

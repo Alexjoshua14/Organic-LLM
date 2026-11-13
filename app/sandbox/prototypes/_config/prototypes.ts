@@ -63,6 +63,25 @@ export const prototypes: PrototypeEntry[] = [
     },
   },
   {
+    slug: "rabbit-hole-tools",
+    title: "Rabbit-hole tools",
+    description:
+      "Every rabbit-hole tool result in chat (create, branch, search, session, article, failure), from the real component.",
+    about: {
+      what: "The chat cards Arcadia shows when it creates, searches or reads rabbit holes, each drawn in its payload's shape: article trees, matched articles, key takeaways.",
+      adminQuestion:
+        "Which card should lead the next pass, and should key points ever show without opening the disclosure?",
+      howToUse:
+        "Scroll the stack as you would a thread: each card should say what it holds at a glance. Open Key points, the folded results and the outline. Check both themes and a phone width.",
+    },
+    ranking: {
+      importance: 7,
+      frequency: 3,
+      createdAt: "2026-11-13",
+      updatedAt: "2026-11-13",
+    },
+  },
+  {
     slug: "organic-agent",
     title: "Organic Agent",
     description:
