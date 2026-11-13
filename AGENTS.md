@@ -56,7 +56,8 @@ bun run build               # Next.js production build (also builds morph-physic
 ```
 
 Run `bun run lint:check` and `bun run test:unit` before handing work back. CI runs tests on
-PRs to `main`; changes under `llm/morph-physics/` trigger a separate workflow.
+PRs to `main`; changes under `llm/morph-physics/` trigger a separate workflow. A git worktree has
+no `node_modules` (see Boundaries), so in one, say these checks weren't run.
 
 Test scripts print failures and a summary only; console output from the code under test is
 silenced. When a failure shows no cause, rerun just that file with `--verbose`
@@ -140,6 +141,10 @@ run; `-t "name"` filters by test name.
 - Treat `docs/speak-page-architecture.md` or `docs/speak-page-workflow.md` as current — both
   describe the superseded pre-Realtime TTS pipeline.
 - Resolve an open question by assumption. Record it; close it with the user.
+- Build in a git worktree, or give one `node_modules` or `.next`, whether installed, copied or
+  symlinked. Organic LLM builds only in the main checkout. The exception is an explicit,
+  one-off approval from the owner for a named worktree and task; it doesn't carry over to other
+  worktrees or later tasks. Remove what it allowed when that task is done.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
