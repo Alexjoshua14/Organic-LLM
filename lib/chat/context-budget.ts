@@ -366,6 +366,61 @@ function memoizedMessageToolTokens(message: UIMessage): number {
   return memo.tool;
 }
 
+export type ContextMessageCountInput = {
+  threadMessages: UIMessage[];
+  experience?: ChatExperience;
+  /** The scaffold's limit; absent packs the whole thread. */
+  contextMessageLimit?: number;
+};
+
+/** The messages {@link composeContextBudget} packs into the next send. */
+function packContextMessages(input: ContextMessageCountInput): UIMessage[] {
+  const { threadMessages, experience, contextMessageLimit: limit } = input;
+
+  if (experience === "arcadia") {
+    return selectArcadiaContextMessages(threadMessages, { countTokens: memoizedMessageTextTokens })
+      .contextMessages;
+  }
+
+  return limit == null || limit <= 0 ? threadMessages : threadMessages.slice(-limit);
+}
+
+/**
+ * Counts what {@link composeContextBudget} will read for these messages, in the same order, until
+ * `hasTimeLeft` returns false, so the composer can do the work in idle slices. The first unit is
+ * building the tokenizer. Returns true once compose would tokenize nothing but the draft.
+ */
+export function countContextMessageTokens(
+  input: ContextMessageCountInput,
+  hasTimeLeft: () => boolean
+): boolean {
+  if (!isTokenizerReady()) {
+    if (!hasTimeLeft()) return false;
+
+    prepareTokenizer();
+  }
+
+  // Arcadia's selection reads every message's text; the slice reads only the packed ones.
+  const textCounted =
+    input.experience === "arcadia" ? input.threadMessages : packContextMessages(input);
+
+  for (const message of textCounted) {
+    if (messageTokenMemo.get(message)?.text !== undefined) continue;
+    if (!hasTimeLeft()) return false;
+
+    memoizedMessageTextTokens(message);
+  }
+
+  for (const message of packContextMessages(input)) {
+    if (messageTokenMemo.get(message)?.tool !== undefined) continue;
+    if (!hasTimeLeft()) return false;
+
+    memoizedMessageToolTokens(message);
+  }
+
+  return true;
+}
+
 export type ComposeContextBudgetParams = {
   scaffold: ContextBudgetScaffold;
   threadMessages: UIMessage[];
@@ -398,13 +453,11 @@ export function composeContextBudget(params: ComposeContextBudgetParams): Contex
   });
 
   const limit = scaffold.contextMessageLimit;
-  const packedMessages =
-    experience === "arcadia"
-      ? selectArcadiaContextMessages(threadMessages, { countTokens: memoizedMessageTextTokens })
-          .contextMessages
-      : limit == null || limit <= 0
-        ? threadMessages
-        : threadMessages.slice(-limit);
+  const packedMessages = packContextMessages({
+    threadMessages,
+    experience,
+    contextMessageLimit: limit,
+  });
 
   let messagesTokens = 0;
   let toolOutputTokens = 0;
@@ -496,7 +549,21 @@ function getEncoding() {
   return sharedEncoding;
 }
 
-/** Synchronous tiktoken estimate (cl100k_base via gpt-5). */
+/** Whether the tokenizer is built. Building it takes over 100 ms, so the client defers it. */
+export function isTokenizerReady(): boolean {
+  return sharedEncoding !== null;
+}
+
+/** Builds the tokenizer now rather than on the first count. */
+export function prepareTokenizer(): void {
+  getEncoding();
+}
+
+function approximateTokenCount(trimmed: string): number {
+  return Math.max(1, Math.ceil(trimmed.length / 4));
+}
+
+/** Synchronous tiktoken estimate (o200k_base via gpt-5). */
 export function estimateTokenCountSync(text: string): number {
   const trimmed = text.trim();
 
@@ -505,7 +572,7 @@ export function estimateTokenCountSync(text: string): number {
   try {
     return getEncoding().encode(trimmed).length;
   } catch {
-    return Math.max(1, Math.ceil(trimmed.length / 4));
+    return approximateTokenCount(trimmed);
   }
 }
 
@@ -517,6 +584,13 @@ export function estimateDraftTokens(draftText: string): number {
   const trimmed = draftText.trim();
 
   return trimmed ? estimateTokenCountSync(`user: ${trimmed}`) : 0;
+}
+
+/** {@link estimateDraftTokens} at about four characters a token, for before the tokenizer is built. */
+export function approximateDraftTokens(draftText: string): number {
+  const trimmed = draftText.trim();
+
+  return trimmed ? approximateTokenCount(`user: ${trimmed}`) : 0;
 }
 
 export function getMessageTextForTokenEstimate(message: UIMessage): string {

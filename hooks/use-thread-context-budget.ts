@@ -10,11 +10,13 @@ import { useEffect, useMemo, useState } from "react";
 import {
   composeContextBudget,
   computeNewThreadDefaultBudget,
+  countContextMessageTokens,
   mergePreservedLastTurn,
   scaffoldFromStreamBudget,
   withLastTurnSnapshot,
 } from "@/lib/chat/context-budget";
 import { useContextEffortSettings } from "@/hooks/use-context-effort-settings";
+import { runInIdleSlices } from "@/lib/idle-work";
 import { contextEffortForRequest } from "@/lib/memory/context-effort";
 import { getSettings } from "@/lib/user-settings";
 
@@ -38,9 +40,18 @@ type UseThreadContextBudgetParams = {
   enabled?: boolean;
   /**
    * When present, fetch a numbers-only scaffold on open/toggles/refresh and compose
-   * locally with these messages — no per-keystroke server calls.
+   * locally with these messages — no per-keystroke server calls. Keep the array stable between
+   * renders: a new array restarts the idle count.
    */
   threadMessages?: UIMessage[];
+};
+
+/** Inputs whose token counts are all cached, so composing from them tokenizes only the draft. */
+type CountedThread = {
+  chatId: string;
+  scaffold: ContextBudgetScaffold;
+  threadMessages: UIMessage[];
+  experience?: ChatExperience;
 };
 
 export function useThreadContextBudget(
@@ -75,6 +86,7 @@ export function useThreadContextBudget(
   const [debouncedDraft, setDebouncedDraft] = useState(draftText);
   const [polledBudget, setPolledBudget] = useState<ContextBudgetEstimate | null>(null);
   const [scaffold, setScaffold] = useState<ContextBudgetScaffold | null>(null);
+  const [counted, setCounted] = useState<CountedThread | null>(null);
 
   const defaultBudget = useMemo(
     () =>
@@ -96,6 +108,7 @@ export function useThreadContextBudget(
   useEffect(() => {
     setScaffold(null);
     setPolledBudget(null);
+    setCounted(null);
   }, [chatId]);
 
   // Adopt measured scaffold from the stream budget when it arrives.
@@ -229,18 +242,40 @@ export function useThreadContextBudget(
     contextEffort,
   ]);
 
+  // Tokenizing a long thread blocks the main thread (building the tokenizer alone takes over
+  // 100 ms), so it runs in idle slices once the page has loaded. Until it finishes, the meter
+  // composes from the last counted messages, or shows the stream or default budget.
+  useEffect(() => {
+    if (!useClientCompose || !chatId || !scaffold || !threadMessages) return;
+
+    const next: CountedThread = { chatId, scaffold, threadMessages, experience };
+    const input = {
+      threadMessages,
+      experience,
+      contextMessageLimit: scaffold.contextMessageLimit,
+    };
+
+    return runInIdleSlices((hasTimeLeft) => {
+      const done = countContextMessageTokens(input, hasTimeLeft);
+
+      if (done) setCounted(next);
+
+      return done;
+    });
+  }, [chatId, experience, scaffold, threadMessages, useClientCompose]);
+
   const composedBudget = useMemo(() => {
-    if (!useClientCompose || !scaffold || !threadMessages) return null;
+    if (!useClientCompose || !scaffold || !counted || counted.chatId !== chatId) return null;
 
     return composeContextBudget({
-      scaffold,
-      threadMessages,
+      scaffold: counted.scaffold,
+      threadMessages: counted.threadMessages,
       draftText: debouncedDraft,
       modelId,
-      experience,
+      experience: counted.experience,
       zeroDataRetention: getSettings().zeroDataRetention,
     });
-  }, [debouncedDraft, experience, modelId, scaffold, threadMessages, useClientCompose]);
+  }, [chatId, counted, debouncedDraft, modelId, scaffold, useClientCompose]);
 
   if (!enabled || !chatId) {
     return defaultBudget;

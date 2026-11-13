@@ -9,6 +9,7 @@ import {
   composeContextBudget,
   computeContextBudget,
   computeNewThreadDefaultBudget,
+  countContextMessageTokens,
   estimateDraftTokens,
   estimateTokenCountSync,
   ESTIMATED_SYSTEM_PROMPT_TOKENS,
@@ -21,6 +22,7 @@ import {
   getModelContextWindowTokens,
   getThreadContextCoverage,
   mergePreservedLastTurn,
+  prepareTokenizer,
   scaffoldFromStreamBudget,
   withLastTurnSnapshot,
   type ContextBudgetScaffold,
@@ -63,6 +65,37 @@ function fixtureScaffold(overrides: Partial<ContextBudgetScaffold> = {}): Contex
     contextMessageLimit: 10,
     source: "server",
     ...overrides,
+  };
+}
+
+/** A user message whose text counts how often it is read, i.e. tokenized. */
+function readCountedMessage(id: string, reads: Map<string, number>): UIMessage {
+  return {
+    id,
+    role: "user",
+    parts: [
+      {
+        type: "text",
+        get text() {
+          reads.set(id, (reads.get(id) ?? 0) + 1);
+
+          return `Turn ${id}`;
+        },
+      },
+    ],
+  };
+}
+
+/** `hasTimeLeft` for a slice with no idle time: one unit, then stop. */
+function oneUnitSlice(): () => boolean {
+  let first = true;
+
+  return () => {
+    const allowed = first;
+
+    first = false;
+
+    return allowed;
   };
 }
 
@@ -314,6 +347,47 @@ describe("composeContextBudget", () => {
       expect(reads.get(message.id)).toBe(afterFirst.get(message.id));
     }
     expect(reads.get("reply")).toBe(1);
+  });
+});
+
+describe("countContextMessageTokens", () => {
+  test("counts one unit per slice until compose has nothing left to tokenize", () => {
+    prepareTokenizer();
+    const reads = new Map<string, number>();
+    const thread = Array.from({ length: 6 }, (_, i) => readCountedMessage(`m${i}`, reads));
+    const input = { threadMessages: thread, experience: "arcadia" as const };
+
+    expect(countContextMessageTokens(input, () => false)).toBe(false);
+    expect(reads.size).toBe(0);
+
+    let slices = 1;
+
+    while (!countContextMessageTokens(input, oneUnitSlice())) slices++;
+
+    // Every message's text, then every packed message's tool parts.
+    expect(slices).toBe(thread.length * 2);
+    expect(thread.map((message) => reads.get(message.id))).toEqual(thread.map(() => 1));
+
+    composeContextBudget({
+      scaffold: fixtureScaffold(),
+      threadMessages: thread,
+      draftText: "next question",
+      modelId: "openai/gpt-6-sol",
+      experience: "arcadia",
+    });
+
+    expect(thread.map((message) => reads.get(message.id))).toEqual(thread.map(() => 1));
+  });
+
+  test("a message limit counts only the packed tail", () => {
+    prepareTokenizer();
+    const reads = new Map<string, number>();
+    const thread = Array.from({ length: 8 }, (_, i) => readCountedMessage(`n${i}`, reads));
+
+    expect(
+      countContextMessageTokens({ threadMessages: thread, contextMessageLimit: 3 }, () => true)
+    ).toBe(true);
+    expect([...reads.keys()]).toEqual(["n5", "n6", "n7"]);
   });
 });
 
