@@ -1,13 +1,12 @@
 "use client";
 
 import "./stage.css";
-
+import type { ContinuitySelection } from "@/lib/continuity/schema";
 import type { ChatModel } from "@/lib/schemas/chat";
 import type { ChatEffortLevel } from "@/lib/schemas/chat-effort";
 import type { StageTurnSettings, StageRect } from "@/lib/stage/schema";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { placeStageWidget } from "@/lib/stage/placements";
 import { AudioLines, Grid3X3, History, MessageCircle, ArrowUpRight, RotateCcw } from "lucide-react";
 
 import { useStage } from "./use-stage";
@@ -19,6 +18,8 @@ import { StageSubagents } from "./stage-subagents";
 import { StageHistory } from "./stage-history";
 import { useStageMeasurements } from "./use-stage-frame";
 
+import { placeStageWidget } from "@/lib/stage/placements";
+import { ContextPicker } from "@/components/continuity/context-picker";
 import { resolveStageView } from "@/lib/stage/views";
 import {
   ORGANIC_STAGE_VIEW,
@@ -74,7 +75,9 @@ export function Stage() {
   const speechRef = useRef(false);
   const [composerError, setComposerError] = useState<Error | null>(null);
   const [composerInject, setComposerInject] = useState<{ id: number; text: string } | null>(null);
+  const [continuity, setContinuity] = useState<ContinuitySelection>();
   const settings = (): StageTurnSettings => ({
+    continuity,
     model: modelRef.current.id,
     effort: effortRef.current,
     webSearch: searchRef.current,
@@ -228,7 +231,7 @@ export function Stage() {
     if (!voice) return;
     if (voice.connected || voice.connecting) voice.disconnect();
     else if (voice.paused && voice.stage) voice.resume();
-    else voice.connect({ stage: true, stageSettings: settings() });
+    else voice.connect({ stage: true, stageSettings: { ...settings(), continuity: undefined } });
   }
 
   function togglePanel(next: "conversation" | "activity") {
@@ -261,6 +264,12 @@ export function Stage() {
           <span>stage</span>
         </div>
         <nav aria-label="Stage controls" className="stage-tools">
+          <ContextPicker
+            compact
+            surface="stage"
+            disabled={sending || Boolean(voice?.connected || voice?.connecting)}
+            onChange={setContinuity}
+          />
           <button
             aria-label="Show grid"
             aria-pressed={showGrid}

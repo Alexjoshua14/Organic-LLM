@@ -39,6 +39,7 @@ export type VoiceCaption = {
 };
 
 export type VoiceConnectOptions = {
+  continuity?: import("@/lib/continuity/schema").ContinuitySelection;
   stage?: boolean;
   stageSettings?: StageTurnSettings;
   voice?: SpeakRealtimeVoice;

@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { StagePresentationSchema, StageViewCommandSchema } from "./view-schema";
 
+import { ContinuitySelectionSchema, ContinuitySourceSchema } from "@/lib/continuity/schema";
 import { ChatEffortLevelSchema } from "@/lib/schemas/chat-effort";
 import { RecipeCardBlockSchema } from "@/lib/schemas/gen-ui/recipe-card";
 
@@ -54,6 +55,9 @@ export type StageRect = z.infer<typeof StageRectSchema>;
 
 export const StageMessageSchema = z
   .object({
+    contextBinding: ContinuitySelectionSchema.extend({
+      source: ContinuitySourceSchema.nullable(),
+    }).optional(),
     id: z.string().uuid(),
     role: z.enum(["user", "assistant"]),
     text: z.string().max(8000),
@@ -140,6 +144,7 @@ export const StageMutationSchema = z
 
 export const StageTurnSettingsSchema = z
   .object({
+    continuity: ContinuitySelectionSchema.optional(),
     model: z.string().max(100).optional(),
     effort: ChatEffortLevelSchema.optional(),
     webSearch: z.boolean().optional(),
