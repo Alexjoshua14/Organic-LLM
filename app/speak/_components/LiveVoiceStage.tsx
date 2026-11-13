@@ -1,16 +1,11 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
-import { Loader2, Mic, PhoneOff, Plus, RotateCcw } from "lucide-react";
-import { AnimatePresence, motion } from "framer-motion";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { KaraokeCaption } from "./KaraokeCaption";
-import { SpeakBudgetChip } from "./SpeakBudgetChip";
-import { SpeakModalityToggles } from "./SpeakModalityToggles";
+import { SpeakSettingsMenu } from "./SpeakSettingsMenu";
+import { SpeakStage, type SpeakStageCaption } from "./SpeakStage";
 import { SpeakVisualPanel } from "./SpeakVisualPanel";
-import { VoicePresenceOrb } from "./VoicePresenceOrb";
 
-import { glass } from "@/components/design-system/primitives";
 import { SpeakPersonaChip } from "@/components/personas/persona-chip";
 import { PersonaSpark, type PersonaSparkState } from "@/components/personas/persona-spark";
 import { PersonaStarters } from "@/components/personas/persona-starters";
@@ -21,15 +16,31 @@ import {
 import { useVoiceSession } from "@/components/voice/voice-session-provider";
 import { useSharedChatContext } from "@/lib/context/chat-context";
 import { SPEAK_PERSONA_SCOPE } from "@/lib/personas/unified/session";
-import { cn } from "@/lib/utils";
+import {
+  deriveSpeakStageStatus,
+  speakPrimaryAction,
+  speakShortcutFor,
+} from "@/lib/speak/speak-stage-view";
 
+/** Matches Tailwind's `lg`, where the panel becomes a column instead of a sheet. */
+const WIDE_PANEL_QUERY = "(min-width: 1024px)";
+
+/** Whether focus is on something that owns Space/Enter itself. */
+function isInteractiveTarget(el: Element | null): boolean {
+  if (!el || el === document.body) return false;
+
+  return Boolean(el.closest("button, a[href], [role='button'], [role='switch'], [role='tab']"));
+}
+
+/**
+ * Container for the Speak stage. Reads the app-wide voice session and the persona session,
+ * owns the page-local UI state (mute, panel), and hands {@link SpeakStage} a view model.
+ *
+ * The session lives in `VoiceSessionProvider` at the root layout so it survives navigation.
+ * This page owns none of the connection.
+ */
 export function LiveVoiceStage({ onExit }: { onExit?: () => void }) {
   const { refreshSidebarChats } = useSharedChatContext();
-  /**
-   * The session itself lives in `VoiceSessionProvider` at the root layout so it survives
-   * navigation. This page is now a view onto it: it renders the stage and owns none of the
-   * connection, captions, or tool output.
-   */
   const voice = useVoiceSession();
   const persona = usePersonaSessionOptional();
 
@@ -38,8 +49,20 @@ export function LiveVoiceStage({ onExit }: { onExit?: () => void }) {
   const personaActive = Boolean(persona?.session);
   const { caption, modalities, setModalities, memoryEnabled, setMemoryEnabled, visual } = voice;
   const { displayText, genUiBlocks, webPreview, uiStateBySurface } = visual;
+  const { setSuppressHostBar, localStream, connected } = voice;
+
+  const [muted, setMuted] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(false);
 
   const sessionLocked = voice.connected || voice.connecting;
+
+  // This page is the call's full surface; the global live bar would be a second, smaller copy
+  // of the same controls (and a second End button). Hand it back on the way out.
+  useEffect(() => {
+    setSuppressHostBar(true);
+
+    return () => setSuppressHostBar(false);
+  }, [setSuppressHostBar]);
 
   // Speak threads carry `feature: "speak"`, so they only list under coalescence mode, but the
   // sidebar should still learn about a new thread the moment a session creates one.
@@ -47,37 +70,89 @@ export function LiveVoiceStage({ onExit }: { onExit?: () => void }) {
     if (voice.threadId) refreshSidebarChats();
   }, [refreshSidebarChats, voice.threadId]);
 
-  const showVisualPanel =
+  // Mute is a local track switch: the peer connection stays up and the model hears silence.
+  // It never outlives this page, because no other surface shows that the mic is off.
+  useEffect(() => {
+    if (!localStream) return;
+
+    for (const track of localStream.getAudioTracks()) track.enabled = !muted;
+
+    return () => {
+      for (const track of localStream.getAudioTracks()) track.enabled = true;
+    };
+  }, [localStream, muted]);
+
+  useEffect(() => {
+    if (!connected) setMuted(false);
+  }, [connected]);
+
+  const status = useMemo(
+    () =>
+      deriveSpeakStageStatus({
+        connected: voice.connected,
+        connecting: voice.connecting,
+        paused: voice.paused,
+        error: voice.error,
+        phase: voice.phase,
+        muted,
+      }),
+    [muted, voice.connected, voice.connecting, voice.error, voice.paused, voice.phase]
+  );
+  const primaryAction = speakPrimaryAction(voice);
+
+  const { connect, disconnect, resume } = voice;
+  const onPrimary = useCallback(() => {
+    if (primaryAction === "end") disconnect();
+    else if (primaryAction === "resume") resume();
+    else if (primaryAction === "start") connect();
+  }, [connect, disconnect, primaryAction, resume]);
+
+  const showVisuals =
     modalities.genUi || modalities.web || Object.keys(uiStateBySurface).length > 0;
 
-  const statusHint = useMemo(() => {
-    if (voice.connecting) return "Connecting…";
-    if (voice.connected) {
-      switch (voice.phase) {
-        case "listening":
-          return "Listening — keep talking or pause";
-        case "speaking":
-          return "Speaking — interrupt anytime";
-        default:
-          return "Connected — speak naturally";
-      }
-    }
+  // Wide screens have room for the transcript beside the call, so it starts open there.
+  useEffect(() => {
+    if (window.matchMedia?.(WIDE_PANEL_QUERY).matches) setPanelOpen(true);
+  }, []);
 
-    if (voice.paused)
-      return "Paused after a quiet stretch — tap the mic to pick up where you left off";
+  // A card or page is evidence for what is being said: surface it as it arrives.
+  const latestVisualKey = `${genUiBlocks.length}:${webPreview?.url ?? ""}`;
 
-    return "Tap the mic to start a Realtime voice session";
-  }, [voice.connected, voice.connecting, voice.paused, voice.phase]);
+  useEffect(() => {
+    if (latestVisualKey !== "0:") setPanelOpen(true);
+  }, [latestVisualKey]);
 
-  const resumeHint = voice.resumedThread
-    ? voice.resumedThread.title
-      ? `Continuing “${voice.resumedThread.title}”`
-      : "Continuing your last conversation"
-    : null;
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target instanceof Element ? event.target : null;
+      const shortcut = speakShortcutFor(
+        {
+          key: event.key,
+          metaKey: event.metaKey,
+          ctrlKey: event.ctrlKey,
+          altKey: event.altKey,
+          repeat: event.repeat,
+          targetTag: target?.tagName ?? null,
+          targetEditable: target instanceof HTMLElement && target.isContentEditable,
+          targetInteractive: isInteractiveTarget(target),
+        },
+        { connected: voice.connected, connecting: voice.connecting }
+      );
 
-  const idleHint = personaActive
-    ? "Artist assistant — ask when you need a hand. Asides are heard, not answered."
-    : "Realtime voice — picks up your last conversation. Tap + for a fresh one.";
+      if (!shortcut) return;
+      if (shortcut === "toggle-transcript" && !modalities.text && !showVisuals) return;
+
+      event.preventDefault();
+      if (shortcut === "primary") onPrimary();
+      else if (shortcut === "toggle-mute") setMuted((m) => !m);
+      else setPanelOpen((open) => !open);
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [modalities.text, onPrimary, showVisuals, voice.connected, voice.connecting]);
+
   const turn = voice.personaTurn;
   // The assistant's visual follows the call: listening, deciding, speaking, else at rest.
   const sparkState: PersonaSparkState = !voice.connected
@@ -89,196 +164,75 @@ export function LiveVoiceStage({ onExit }: { onExit?: () => void }) {
         : turn?.state === "deciding"
           ? "deciding"
           : "idle";
-  const captionText =
-    displayText && modalities.text
-      ? displayText
-      : caption.text || (voice.connected ? "" : idleHint);
-  const showText = modalities.text;
+
+  const stageCaption: SpeakStageCaption | null = !modalities.text
+    ? null
+    : displayText
+      ? { role: "assistant", text: displayText }
+      : voice.connected && caption.text
+        ? caption
+        : null;
+
+  const contextLine =
+    voice.connected && voice.resumedThread
+      ? voice.resumedThread.title
+        ? `Continuing “${voice.resumedThread.title}”`
+        : "Continuing your last conversation"
+      : personaActive && !voice.connected
+        ? "Artist assistant — asides are heard, not answered"
+        : null;
 
   return (
-    <div className="relative flex h-full min-h-0 w-full flex-col">
-      <div className="absolute left-4 right-4 top-4 z-20 flex flex-wrap items-start justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <SpeakPersonaChip locked={sessionLocked} />
-          <SpeakModalityToggles
-            disabled={sessionLocked}
-            value={modalities}
-            onChange={setModalities}
+    <SpeakStage
+      budget={voice.budget}
+      canStartNew={!sessionLocked}
+      caption={stageCaption}
+      contextLine={contextLine}
+      localStream={voice.localStream}
+      memoryEnabled={memoryEnabled}
+      muted={muted}
+      panelOpen={panelOpen}
+      personaChip={<SpeakPersonaChip locked={sessionLocked} />}
+      presence={
+        personaActive ? (
+          <PersonaSpark
+            pulseKey={turn && (turn.state === "heard" || turn.state === "held") ? turn.at : null}
+            size={200}
+            state={sparkState}
           />
-          <button
-            aria-pressed={memoryEnabled}
-            className={cn(
-              glass({ border: "all" }),
-              "rounded-2xl px-3 py-1.5 text-xs transition-colors",
-              memoryEnabled ? "text-foreground" : "text-muted-foreground hover:text-foreground",
-              sessionLocked && "opacity-60"
-            )}
-            disabled={sessionLocked}
-            title={
-              sessionLocked
-                ? "End session to change memory"
-                : "Recall what you know about me and save this conversation"
-            }
-            type="button"
-            onClick={() => setMemoryEnabled(!memoryEnabled)}
-          >
-            Memory {memoryEnabled ? "on" : "off"}
-          </button>
-        </div>
-        <SpeakBudgetChip budget={voice.budget} />
-      </div>
-
-      <div
-        className={cn("flex min-h-0 flex-1", showVisualPanel ? "flex-col lg:flex-row" : "flex-col")}
-      >
-        <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center px-6 py-16">
-          {/* The audio sink lives in VoiceSessionProvider — it must not unmount on navigation. */}
-
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={voice.phase + String(voice.connected)}
-              animate={{ opacity: 1, scale: 1 }}
-              className="flex flex-col items-center gap-8"
-              exit={{ opacity: 0.6, scale: 0.98 }}
-              initial={{ opacity: 0.7, scale: 0.96 }}
-              transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94] }}
-            >
-              {personaActive ? (
-                <PersonaSpark
-                  pulseKey={
-                    turn && (turn.state === "heard" || turn.state === "held") ? turn.at : null
-                  }
-                  size={200}
-                  state={sparkState}
-                />
-              ) : (
-                <VoicePresenceOrb phase={voice.phase} />
-              )}
-
-              {showText ? (
-                <div className="min-h-[5rem] w-full max-w-3xl">
-                  <KaraokeCaption
-                    interim={caption.interim}
-                    role={caption.role}
-                    text={captionText}
-                  />
-                </div>
-              ) : null}
-            </motion.div>
-          </AnimatePresence>
-
-          <p className="mt-6 text-xs text-muted-foreground">{statusHint}</p>
-
-          {personaActive && voice.connected ? (
-            <p
-              aria-live="polite"
-              className="mt-1 min-h-4 text-2xs text-muted-foreground"
-              role="status"
-            >
+        ) : undefined
+      }
+      primaryAction={primaryAction}
+      remoteStream={voice.remoteStream}
+      settings={
+        <SpeakSettingsMenu
+          locked={sessionLocked}
+          memoryEnabled={memoryEnabled}
+          modalities={modalities}
+          onMemoryEnabledChange={setMemoryEnabled}
+          onModalitiesChange={setModalities}
+          onReset={voice.resetSession}
+        />
+      }
+      startedAt={voice.startedAt}
+      status={status}
+      statusExtra={
+        personaActive ? (
+          voice.connected ? (
+            <p aria-live="polite" className="min-h-4 text-2xs text-muted-foreground" role="status">
               {turn && turn.state !== "listening" ? turn.label : ""}
             </p>
-          ) : null}
-
-          {personaActive && !voice.connected ? (
-            <div className="mt-6 w-full max-w-lg">
+          ) : (
+            <div className="mt-stack-md w-full max-w-lg">
               <PersonaStarters compact />
             </div>
-          ) : null}
-
-          {voice.connected && resumeHint ? (
-            <p className="mt-1 text-2xs text-muted-foreground/80">{resumeHint}</p>
-          ) : null}
-
-          {voice.error ? (
-            <p className="mt-2 max-w-md text-center text-xs text-destructive">{voice.error}</p>
-          ) : null}
-
-          <div className="mt-10 flex items-center gap-4">
-            {!voice.connected ? (
-              <button
-                aria-label={voice.paused ? "Resume Realtime voice" : "Start Realtime voice"}
-                className={cn(
-                  glass({ opaque: true, border: "all" }),
-                  "flex size-20 items-center justify-center rounded-full transition-all duration-300 hover:scale-105 hover:shadow-lg"
-                )}
-                disabled={voice.connecting}
-                type="button"
-                onClick={() => (voice.paused ? voice.resume() : voice.connect())}
-              >
-                {voice.connecting ? (
-                  <Loader2 className="size-8 animate-spin text-muted-foreground" />
-                ) : (
-                  <Mic className="size-8 text-foreground" />
-                )}
-              </button>
-            ) : (
-              <button
-                aria-label="End Realtime session"
-                className={cn(
-                  glass({ opaque: true, border: "all" }),
-                  "flex size-20 items-center justify-center rounded-full border-rose-400/50 bg-rose-500/15 shadow-[0_0_40px_rgba(244,63,94,0.2)]"
-                )}
-                type="button"
-                onClick={voice.disconnect}
-              >
-                <PhoneOff className="size-8 text-rose-200" />
-              </button>
-            )}
-
-            <button
-              aria-label="Start a new conversation"
-              className={cn(
-                glass(),
-                "flex size-12 items-center justify-center rounded-full text-muted-foreground hover:text-foreground disabled:opacity-50 disabled:hover:text-muted-foreground"
-              )}
-              disabled={sessionLocked}
-              title={
-                sessionLocked
-                  ? "End the session to start a new conversation"
-                  : "Start a fresh conversation instead of resuming"
-              }
-              type="button"
-              onClick={() => voice.startNew()}
-            >
-              <Plus className="size-4" />
-            </button>
-
-            <button
-              aria-label="Reset voice session"
-              className={cn(
-                glass(),
-                "flex size-12 items-center justify-center rounded-full text-muted-foreground hover:text-foreground"
-              )}
-              type="button"
-              onClick={voice.resetSession}
-            >
-              <RotateCcw className="size-4" />
-            </button>
-          </div>
-
-          {modalities.text && voice.transcript.length > 0 ? (
-            <div className="mt-8 max-h-40 w-full max-w-xl overflow-y-auto rounded-xl border border-white/10 bg-black/20 p-3 text-left text-xs text-muted-foreground">
-              {voice.transcript.map((t) => (
-                <p key={t.id} className="mb-1">
-                  <span className="font-medium text-foreground/80">{t.role}: </span>
-                  {t.text}
-                </p>
-              ))}
-            </div>
-          ) : null}
-
-          {onExit ? (
-            <button
-              className="absolute bottom-6 left-1/2 -translate-x-1/2 text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-              type="button"
-              onClick={onExit}
-            >
-              Read text aloud instead
-            </button>
-          ) : null}
-        </div>
-
-        {showVisualPanel ? (
+          )
+        ) : null
+      }
+      transcript={voice.transcript}
+      transcriptAvailable={modalities.text}
+      visuals={
+        showVisuals ? (
           <SpeakVisualPanel
             genUiBlocks={genUiBlocks}
             showGenUi={modalities.genUi}
@@ -286,8 +240,13 @@ export function LiveVoiceStage({ onExit }: { onExit?: () => void }) {
             uiStateBySurface={uiStateBySurface}
             webPreview={webPreview}
           />
-        ) : null}
-      </div>
-    </div>
+        ) : undefined
+      }
+      onPanelOpenChange={setPanelOpen}
+      onPrimary={onPrimary}
+      onStartNew={() => voice.startNew()}
+      onSwitchToReadAloud={onExit}
+      onToggleMute={() => setMuted((m) => !m)}
+    />
   );
 }
