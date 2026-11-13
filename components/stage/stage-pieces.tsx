@@ -1,6 +1,6 @@
 "use client";
 
-import type { StageRect, StageWidget as Widget } from "@/lib/stage/schema";
+import type { StageOperation, StageRect, StageWidget as Widget } from "@/lib/stage/schema";
 
 import { useEffect, useState } from "react";
 
@@ -12,11 +12,13 @@ export function StagePieces({
   visible,
   selectedId,
   onArrange,
+  onChange,
 }: {
   widgets: Widget[];
   visible: { widget: Widget; rect: StageRect }[];
   selectedId: string | null;
   onArrange: (id: string) => void;
+  onChange?: (operations: StageOperation[]) => Promise<boolean>;
 }) {
   const [visited, setVisited] = useState<string[]>([]);
 
@@ -41,9 +43,11 @@ export function StagePieces({
         <StageWidget
           key={widget.id}
           widget={placement?.widget ?? widget}
+          stored={widget}
           hidden={!placement}
           selected={widget.id === selectedId}
           onSelect={onArrange}
+          onChange={onChange}
         />
       );
     });

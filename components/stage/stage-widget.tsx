@@ -1,6 +1,6 @@
 "use client";
 
-import type { StageWidget as Widget } from "@/lib/stage/schema";
+import type { StageOperation, StageWidget as Widget } from "@/lib/stage/schema";
 
 import dynamic from "next/dynamic";
 import { Component, memo, type ReactNode } from "react";
@@ -8,6 +8,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { ArrowUpRight, Move } from "lucide-react";
 
 import { StageChat } from "./stage-chat";
+import { StageCollection, StageRecall } from "./stage-knowledge";
 
 import { RecipeCard } from "@/components/chat/gen-ui/blocks/RecipeCard";
 import { ChatMessageMarkdown } from "@/components/chat/chat-message-markdown";
@@ -38,7 +39,13 @@ class PieceBoundary extends Component<{ children: ReactNode }, { failed: boolean
 
 // Geometry changes never re-run Markdown, recipe, or Mermaid rendering.
 const PieceContent = memo(
-  function PieceContent({ widget }: { widget: Widget }) {
+  function PieceContent({
+    widget,
+    onChange,
+  }: {
+    widget: Widget;
+    onChange?: (operations: StageOperation[]) => Promise<boolean>;
+  }) {
     return (
       <PieceBoundary>
         {widget.kind === "note" && (
@@ -57,12 +64,15 @@ const PieceContent = memo(
         )}
         {widget.kind === "recipe" && <RecipeCard block={widget.recipe} />}
         {widget.kind === "chat" && <StageChat threadId={widget.threadId} widgetId={widget.id} />}
+        {widget.kind === "collection" && <StageCollection widget={widget} onChange={onChange} />}
+        {widget.kind === "recall" && <StageRecall widget={widget} />}
       </PieceBoundary>
     );
   },
   (a, b) =>
     JSON.stringify({ ...a.widget, rect: undefined, layouts: undefined }) ===
-    JSON.stringify({ ...b.widget, rect: undefined, layouts: undefined })
+      JSON.stringify({ ...b.widget, rect: undefined, layouts: undefined }) &&
+    a.onChange === b.onChange
 );
 
 export const StageWidget = memo(function StageWidget({
@@ -70,11 +80,16 @@ export const StageWidget = memo(function StageWidget({
   selected,
   onSelect,
   hidden = false,
+  stored,
+  onChange,
 }: {
   widget: Widget;
   selected: boolean;
   onSelect: (id: string) => void;
   hidden?: boolean;
+  /** The saved widget. `widget` may carry a view-local rect; edits must never persist that. */
+  stored?: Widget;
+  onChange?: (operations: StageOperation[]) => Promise<boolean>;
 }) {
   const reduced = useReducedMotion();
 
@@ -112,9 +127,11 @@ export const StageWidget = memo(function StageWidget({
           </a>
         )}
       </div>
-      {widget.kind === "chat" && <h2 className="stage-piece-title">{widget.title}</h2>}
+      {(widget.kind === "chat" || widget.kind === "collection" || widget.kind === "recall") && (
+        <h2 className="stage-piece-title">{widget.title}</h2>
+      )}
       <div className="stage-piece-content">
-        <PieceContent widget={widget} />
+        <PieceContent widget={stored ?? widget} onChange={onChange} />
       </div>
     </motion.article>
   );

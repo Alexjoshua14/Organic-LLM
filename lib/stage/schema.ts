@@ -43,11 +43,45 @@ const base = {
   source: z.object({ id: z.string().uuid(), name: z.string().max(40) }).optional(),
 };
 
+export const STAGE_MAX_COLLECTION_ITEMS = 40;
+export const STAGE_MAX_RECALL_ITEMS = 8;
+
+// A collection is a living list the central agent files thoughts into; the user curates it in place.
+export const StageCollectionItemSchema = z
+  .object({
+    id: z.string().uuid(),
+    text: z.string().trim().min(1).max(500),
+    at: z.string().datetime(),
+    done: z.boolean().optional(),
+  })
+  .strict();
+export type StageCollectionItem = z.infer<typeof StageCollectionItemSchema>;
+
+export const StageRecallItemSchema = z
+  .object({ text: z.string().max(600), at: z.string().max(40).nullable() })
+  .strict();
+
 export const StageWidgetSchema = z.discriminatedUnion("kind", [
   z.object({ ...base, kind: z.literal("note"), text: z.string().max(4000) }).strict(),
   z.object({ ...base, kind: z.literal("mermaid"), code: z.string().max(8000) }).strict(),
   z.object({ ...base, kind: z.literal("recipe"), recipe: RecipeCardBlockSchema }).strict(),
   z.object({ ...base, kind: z.literal("chat"), threadId: z.string().uuid() }).strict(),
+  z
+    .object({
+      ...base,
+      kind: z.literal("collection"),
+      items: z.array(StageCollectionItemSchema).max(STAGE_MAX_COLLECTION_ITEMS),
+    })
+    .strict(),
+  z
+    .object({
+      ...base,
+      kind: z.literal("recall"),
+      query: z.string().max(300),
+      at: z.string().datetime(),
+      items: z.array(StageRecallItemSchema).max(STAGE_MAX_RECALL_ITEMS),
+    })
+    .strict(),
 ]);
 export type StageWidget = z.infer<typeof StageWidgetSchema>;
 export type StageRect = z.infer<typeof StageRectSchema>;
