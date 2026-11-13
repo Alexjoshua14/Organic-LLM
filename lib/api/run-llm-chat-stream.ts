@@ -8,6 +8,7 @@ import { smoothStream, isStepCount, streamText } from "ai";
 import { GatewayProviderOptions } from "@ai-sdk/gateway";
 import { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 
+import { chatUsageSurface } from "@/lib/usage/surfaces";
 import { shouldSkipMemoryWriteForExperience } from "@/lib/chat/chat-experience";
 import { getMessageCount, markChatStreamStarted } from "@/data/supabase/chat";
 import { recordThreadActivityWithAdmin } from "@/data/supabase/chat-admin";
@@ -154,6 +155,7 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
     ownerId: sbUserId,
     clerkUserId,
     modelId: selectedModel.id,
+    surface: chatUsageSurface(experience),
     operation: "chat",
     route: "/api/chat",
   });

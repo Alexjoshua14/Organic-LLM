@@ -5,6 +5,7 @@ import type { PlanBudgetSnapshot } from "@/lib/plans/plan-tags";
 import type { LlmUsageEventRow } from "@/lib/usage/aggregate";
 import type { UsageApiPayload } from "@/lib/usage/types";
 
+import { operationUsageSurface, type UsageSurface } from "@/lib/usage/surfaces";
 import { createLogger } from "@/lib/logger";
 import { computeUsageCostUsd, getModelCost, MODEL_PRICING_AS_OF } from "@/lib/rate-limit/llm-cost";
 import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
@@ -18,6 +19,7 @@ const logger = createLogger("data/supabase/llm-usage.ts");
 const COST_PAGE_SIZE = 1_000;
 
 export type TrackLlmUsageInput = {
+  surface?: UsageSurface;
   ownerId: string;
   modelId: string;
   inputTokens?: number | null;
@@ -64,6 +66,16 @@ export async function insertLlmUsageEvent(input: TrackLlmUsageInput): Promise<vo
   if (totalTokens <= 0 && costUsd <= 0) return;
 
   const { error } = await supabaseAdmin.from("llm_usage_events").insert({
+    audio_input_tokens: audioInputTokens,
+    audio_output_tokens: audioOutputTokens,
+    surface: input.surface ?? operationUsageSurface(input.operation, input.route),
+    cache_reported:
+      audioInputTokens === 0 &&
+      !input.operation?.startsWith("speak-realtime") &&
+      typeof input.cachedInputTokens === "number" &&
+      Number.isFinite(input.cachedInputTokens) &&
+      input.cachedInputTokens >= 0 &&
+      input.cachedInputTokens <= inputTokens,
     owner_id: input.ownerId,
     model_id: input.modelId,
     input_tokens: inputTokens,

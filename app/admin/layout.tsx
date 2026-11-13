@@ -23,7 +23,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground"
           >
             <Link className="hover:text-foreground" href="/admin/usage">
-              Usage ledger
+              Token usage
             </Link>
             <Link className="hover:text-foreground" href="/admin/heartbeats">
               Heartbeats
