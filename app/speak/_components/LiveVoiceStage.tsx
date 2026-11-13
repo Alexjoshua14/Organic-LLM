@@ -28,6 +28,8 @@ const WIDE_PANEL_QUERY = "(min-width: 1024px)";
 /** Whether focus is on something that owns Space/Enter itself. */
 function isInteractiveTarget(el: Element | null): boolean {
   if (!el || el === document.body) return false;
+  // The End button lets Space through so it mutes instead of hanging up.
+  if (el.closest("[data-speak-space-passthrough]")) return false;
 
   return Boolean(el.closest("button, a[href], [role='button'], [role='switch'], [role='tab']"));
 }

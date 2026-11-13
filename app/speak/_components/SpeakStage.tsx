@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 import type { RealtimeTranscriptEntry } from "@/hooks/use-realtime-voice";
 import type { SpeakBudgetSnapshot } from "@/lib/speak/types";
 import type { SpeakPrimaryAction, SpeakStageStatus } from "@/lib/speak/speak-stage-view";
@@ -272,6 +272,11 @@ function LivePill({ live, startedAt }: { live: boolean; startedAt: number | null
   );
 }
 
+/** Blocks a button's native Space activation; the window-level shortcut still sees the key. */
+function swallowSpaceActivation(event: KeyboardEvent<HTMLButtonElement>) {
+  if (event.key === " " || event.key === "Spacebar") event.preventDefault();
+}
+
 function PrimaryButton({ action, onClick }: { action: SpeakPrimaryAction; onClick: () => void }) {
   const label = SPEAK_PRIMARY_ACTION_LABEL[action];
   const ending = action === "end";
@@ -285,10 +290,15 @@ function PrimaryButton({ action, onClick }: { action: SpeakPrimaryAction; onClic
           ? "bg-rose-500 text-white shadow-rose-500/30 hover:bg-rose-500/90"
           : "bg-foreground text-background shadow-foreground/20 hover:scale-[1.04] motion-reduce:hover:scale-100"
       )}
+      // Focus stays on this button after it starts a call, and then it becomes End. Space must
+      // not hang up (the stage maps it to mute), so it passes through; Enter still ends.
+      data-speak-space-passthrough={ending ? "" : undefined}
       disabled={action === "connecting"}
       title={action === "start" || action === "resume" ? `${label} (Space)` : label}
       type="button"
       onClick={onClick}
+      onKeyDown={ending ? swallowSpaceActivation : undefined}
+      onKeyUp={ending ? swallowSpaceActivation : undefined}
     >
       {action === "connecting" ? (
         <Loader2 aria-hidden className="size-7 animate-spin" />
