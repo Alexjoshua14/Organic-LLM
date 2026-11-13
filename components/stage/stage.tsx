@@ -34,12 +34,20 @@ import { ComposerActionButton } from "@/components/chat/composer-action-button";
 import { CoreInput } from "@/components/chat/core-input";
 import { useVoiceSessionOptional } from "@/components/voice/voice-session-provider";
 import { useVoiceScreenContext } from "@/hooks/use-voice-screen-context";
-import { DEFAULT_COMPOSER_MODEL } from "@/lib/chat/composer-tool-defaults";
+import {
+  DEFAULT_COMPOSER_MEMORIES,
+  DEFAULT_COMPOSER_MODEL,
+} from "@/lib/chat/composer-tool-defaults";
 import { coreInputScopes } from "@/lib/core-input/scopes";
 
 const STAGE_COMPOSER_SCOPE = coreInputScopes.area("stage");
 
 const STARTERS = [
+  {
+    label: "Empty my head",
+    prompt:
+      "I want to get some thoughts out of my head. Keep what matters and organize it as I go.",
+  },
   {
     label: "Map an idea",
     prompt: "Help me map an idea. Ask me what I’m exploring before making a diagram.",
@@ -71,7 +79,7 @@ export function Stage() {
   const modelRef = useRef<ChatModel>(DEFAULT_COMPOSER_MODEL);
   const effortRef = useRef<ChatEffortLevel>("auto");
   const searchRef = useRef(false);
-  const memoryRef = useRef(false);
+  const memoryRef = useRef(DEFAULT_COMPOSER_MEMORIES);
   const speechRef = useRef(false);
   const [composerError, setComposerError] = useState<Error | null>(null);
   const [composerInject, setComposerInject] = useState<{ id: number; text: string } | null>(null);
@@ -334,6 +342,7 @@ export function Stage() {
           visible={frame.pieces}
           selectedId={selectedId}
           onArrange={arrangePiece}
+          onChange={mutate}
         />
       </section>
 
@@ -429,7 +438,7 @@ export function Stage() {
                 useMemoriesRef={memoryRef}
                 useSpeechFriendlyRef={speechRef}
                 defaultWebSearch={false}
-                defaultMemories={false}
+                defaultMemories={DEFAULT_COMPOSER_MEMORIES}
                 disabled={!state}
                 status={sending ? "submitted" : "ready"}
                 error={composerError}
