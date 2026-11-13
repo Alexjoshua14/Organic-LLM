@@ -1,4 +1,4 @@
-import type { PerfDailyRow } from "@/lib/perf/summary-core";
+type TrendPoint = { day: string; p95: number | null };
 
 const W = 120;
 const H = 28;
@@ -8,9 +8,15 @@ const PAD = 3;
  * Daily p95 for one journey: a single thin line, so no legend is needed (the row names it).
  * The last value is labelled directly; the table beside it is the accessible data view.
  */
-export function PerfSparkline({ points, label }: { points: PerfDailyRow[]; label: string }) {
+export function PerfSparkline({ points: all, label }: { points: TrendPoint[]; label: string }) {
+  // Days with too few samples arrive as `null` and are not drawn: a p95 from a handful of events
+  // is the worst single event, not a trend point.
+  const points = all.filter((p): p is { day: string; p95: number } => p.p95 !== null);
+
   if (points.length < 2) {
-    return <span className="text-2xs text-muted-foreground">Needs 2+ days</span>;
+    return (
+      <span className="text-2xs text-muted-foreground">Needs 2+ days with enough samples</span>
+    );
   }
 
   const max = Math.max(...points.map((p) => p.p95), 1);

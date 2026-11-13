@@ -144,3 +144,19 @@ export function perfVerdict(row: PerfSummaryRow): PerfVerdict {
 
 export const isP95Reliable = (samples: number) => samples >= PERF_MIN_SAMPLES_P95;
 export const isP99Reliable = (samples: number) => samples >= PERF_MIN_SAMPLES_P99;
+
+/**
+ * Daily p95 values for a journey, with days that have too few samples left as gaps. A p95 from a
+ * handful of events is the worst single event, so it is never drawn as a trend point.
+ */
+export function reliableDailyP95(daily: readonly PerfDailyRow[], journey: PerfJourneyId) {
+  return daily
+    .filter((d) => d.journey === journey)
+    .sort((a, b) => a.day.localeCompare(b.day))
+    .map((d) => ({
+      day: d.day,
+      p50: d.p50,
+      p95: isP95Reliable(d.samples) ? d.p95 : null,
+      samples: d.samples,
+    }));
+}

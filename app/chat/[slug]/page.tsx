@@ -11,7 +11,7 @@ import { coreInputScopes } from "@/lib/core-input/scopes";
 import { Chat } from "@/components/chat/chat";
 import { PerfServerPhases } from "@/components/perf/perf-server-phases";
 import { loadChat } from "@/lib/chat/chat-store";
-import { PERF_PHASES } from "@/lib/perf/journeys";
+import { PERF_DURATIONS, PERF_PHASES } from "@/lib/perf/journeys";
 import { createRequestPhaseCollector, timeServerPhase } from "@/lib/perf/server-phase";
 import { resolveChatBrowserTabTitlePrimary } from "@/lib/metadata/resolve-browser-tab-title";
 import { tabTitleMetadata } from "@/lib/metadata/tab-title";
@@ -37,11 +37,14 @@ export async function generateMetadata({
   if (res.error || res.data === null) {
     return tabTitleMetadata(null, "Chat");
   }
-  const primary = await resolveChatBrowserTabTitlePrimary({
-    experience: "chat",
-    thread: res.data.thread,
-    messages: res.data.messages,
-  });
+  const { thread, messages } = res.data;
+  const primary = await timeServerPhase(getPhaseCollector(), PERF_DURATIONS.srvTitle, () =>
+    resolveChatBrowserTabTitlePrimary({
+      experience: "chat",
+      thread,
+      messages,
+    })
+  );
 
   return tabTitleMetadata(primary, "Chat");
 }
@@ -74,8 +77,10 @@ export default async function ChatPage({
     return <ChatLoadError />;
   }
 
-  const initialComposerSettings = await readCoreInputInitialSettings(
-    coreInputScopes.thread("chat", id)
+  const initialComposerSettings = await timeServerPhase(
+    getPhaseCollector(),
+    PERF_DURATIONS.srvSettings,
+    () => readCoreInputInitialSettings(coreInputScopes.thread("chat", id))
   );
 
   return (

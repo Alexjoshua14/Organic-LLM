@@ -11,6 +11,11 @@ share them, as anonymous production timings (see [performance metrics](./perf-me
 
 Phase names and journey ids live in [`lib/perf/journeys.ts`](../lib/perf/journeys.ts).
 
+Besides milestones (an offset from the start), a journey carries **durations**: how long a part
+took. They are listed, with what each one means and what is discarded, in
+[performance metrics](./perf-metrics.md#where-the-time-goes-durations); the HUD shows them under
+"Time spent".
+
 ## Enable
 
 **Collection** is on for every signed-in account that shares anonymous timings (the default after

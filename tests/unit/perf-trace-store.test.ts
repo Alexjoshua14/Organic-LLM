@@ -94,6 +94,45 @@ describe("perf trace store", () => {
     expect(getPerfSnapshot().active?.headlineMs).toBeNull();
   });
 
+  test("a navigation that finishes where it started never completes (the open thread was clicked)", () => {
+    startJourney("thread-switch", "sidebar-thread");
+    // jsdom stays on one path, so the "destination" is the start: nothing navigated.
+    completeForJourney(["thread-switch"], "chat:ready");
+
+    expect(getPerfSnapshot().active?.journey).toBe("thread-switch");
+    expect(getPerfSnapshot().active?.headlineMs).toBeNull();
+  });
+
+  test("a journey during which the tab was hidden is kept for the HUD but marked not reportable", () => {
+    startJourney("to-chat", "lets-chat");
+    Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
+    document.dispatchEvent(new Event("visibilitychange"));
+    Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
+    complete("chat:ready");
+
+    expect(getPerfSnapshot().traces[0]?.tainted).toBe(true);
+    expect(getPerfSnapshot().traces[0]?.headlineMs).not.toBeNull();
+  });
+
+  test("an interaction that took over 30 s is stale and not reported; a cold load is exempt", () => {
+    startJourney("to-chat", "lets-chat", { startedAt: performance.now() - 31_000 });
+    complete("chat:ready");
+    startJourney("load", "document:/", { startedAt: performance.now() - 31_000 });
+    complete("home:composer-ready");
+
+    const [load, chat] = getPerfSnapshot().traces;
+
+    expect(chat?.tainted).toBe(true);
+    expect(load?.tainted).toBeUndefined();
+  });
+
+  test("completion records the durations the browser's timing entries produce", () => {
+    startJourney("to-chat", "lets-chat");
+    complete("chat:ready");
+
+    expect(Array.isArray(getPerfSnapshot().traces[0]?.durations)).toBe(true);
+  });
+
   test("getPerfSnapshot returns stable reference until state changes", () => {
     const a = getPerfSnapshot();
     const b = getPerfSnapshot();

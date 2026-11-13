@@ -17,6 +17,8 @@ import {
 } from "@/lib/crypto/message-encryption";
 import { convertMessageToUIMessage, convertUIMessageToMessage } from "@/lib/chat/message-transform";
 import { threadHrefFromRow, type ThreadListRow } from "@/lib/chat/thread-routing-candidates";
+import { PERF_DURATIONS } from "@/lib/perf/journeys";
+import { recordRequestPhase } from "@/lib/perf/server-phase";
 import { supabaseServer } from "@/lib/supabase/server";
 import { createLogger } from "@/lib/logger";
 
@@ -326,10 +328,17 @@ export async function getChatsForSettingsForCurrentUser(): Promise<
 export async function loadChat(
   chatId: string
 ): Promise<Result<{ thread: Thread; messages: UIMessage[] }>> {
+  // The timed steps below are shipped to the browser with the page (see PerfServerPhases) so the
+  // performance dashboard can show where the server's time went. They are timed in place, with
+  // no extra await, so the reads still start in the same tick as before.
+  const authStart = performance.now();
   const sb = await supabaseServer();
+
+  recordRequestPhase(PERF_DURATIONS.srvAuth, authStart);
 
   // Both reads use the same authenticated RLS client. The loaded thread supplies the
   // decryption owner, avoiding another client/token setup and ownership read.
+  const queryStart = performance.now();
   const [{ data: thread, error: threadErr }, { data: messages, error: messagesErr }] =
     await Promise.all([
       sb.from("threads").select("*").eq("id", chatId).single(),
@@ -339,6 +348,8 @@ export async function loadChat(
         .eq("thread_id", chatId)
         .order("created_at", { ascending: true }),
     ]);
+
+  recordRequestPhase(PERF_DURATIONS.srvQuery, queryStart);
 
   if (threadErr || !thread) {
     return {
@@ -353,10 +364,13 @@ export async function loadChat(
     };
   }
 
+  const decryptStart = performance.now();
   const chat = {
     thread: ThreadSchema.parse(thread),
     messages: decodeThreadMessages(messages as Message[], thread.owner_id),
   };
+
+  recordRequestPhase(PERF_DURATIONS.srvDecrypt, decryptStart);
 
   return {
     data: chat,

@@ -6,6 +6,7 @@ import {
   loadPerfSummary,
   parsePerfRange,
   perfVerdict,
+  reliableDailyP95,
   type PerfSummaryRow,
 } from "@/lib/perf/summary-core";
 
@@ -103,5 +104,23 @@ describe("loadPerfSummary", () => {
       expect(await loadPerfSummary(client({ data: null, error: { code } }), "7d")).toEqual({ status: "pending" });
     }
     expect(await loadPerfSummary(client({ data: null, error: { code: "XX000" } }), "7d")).toEqual({ status: "error" });
+  });
+});
+
+describe("reliableDailyP95", () => {
+  test("a day with too few samples is a gap, not a point", () => {
+    const out = reliableDailyP95(
+      [
+        { day: "2026-11-12", journey: "load", samples: 5, p50: 900, p95: 3800 },
+        { day: "2026-11-11", journey: "load", samples: 40, p50: 300, p95: 700 },
+        { day: "2026-11-11", journey: "to-chat", samples: 40, p50: 1, p95: 2 },
+      ],
+      "load"
+    );
+
+    expect(out).toEqual([
+      { day: "2026-11-11", p50: 300, p95: 700, samples: 40 },
+      { day: "2026-11-12", p50: 900, p95: null, samples: 5 },
+    ]);
   });
 });

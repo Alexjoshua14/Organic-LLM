@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { PERF_JOURNEYS, PERF_PHASES } from "./journeys";
+import { PERF_DURATIONS, PERF_JOURNEYS, PERF_PHASES } from "./journeys";
 
 /**
  * The only shape a performance measurement can take on its way to storage.
@@ -51,8 +51,14 @@ export type PerfDevice = (typeof PERF_DEVICES)[number];
 export const PERF_CONNECTIONS = ["slow-2g", "2g", "3g", "4g", "unknown"] as const;
 export type PerfConnection = (typeof PERF_CONNECTIONS)[number];
 
-/** Phase names that may be reported: every client phase, plus the named server phases. */
-export const PERF_REPORTABLE_PHASES: readonly string[] = Object.values(PERF_PHASES);
+/**
+ * Phase names that may be reported: every client mark, the named server phases, and the closed
+ * list of durations. A name not in one of these lists cannot be sent.
+ */
+export const PERF_REPORTABLE_PHASES: readonly string[] = [
+  ...Object.values(PERF_PHASES),
+  ...Object.values(PERF_DURATIONS),
+];
 
 export const PERF_EVENT_KINDS = ["journey", "phase"] as const;
 export type PerfEventKind = (typeof PERF_EVENT_KINDS)[number];
@@ -60,7 +66,7 @@ export type PerfEventKind = (typeof PERF_EVENT_KINDS)[number];
 /** Upper bound on one timing; anything longer is a stalled tab, not a measurement. */
 export const PERF_MAX_MS = 120_000;
 export const PERF_MAX_EVENTS_PER_BATCH = 40;
-export const PERF_MAX_BODY_BYTES = 8 * 1024;
+export const PERF_MAX_BODY_BYTES = 16 * 1024;
 
 /** App version only, e.g. `0.12.3`. Never a commit hash, host or user string. */
 export const PERF_BUILD_PATTERN = /^\d{1,3}\.\d{1,3}\.\d{1,3}$/;
@@ -96,7 +102,11 @@ export const PERF_DISCLOSURE: ReadonlyArray<{ field: string; label: string; exam
     label: "Which action",
     example: "opening a chat, loading the home page, opening ⌘K",
   },
-  { field: "phase", label: "Which step of that action", example: "composer ready" },
+  {
+    field: "phase",
+    label: "Which step of that action, or what it spent time on",
+    example: "composer ready, loading fonts, waiting for the server",
+  },
   { field: "kind", label: "Whole action or one step", example: "step" },
   { field: "route", label: "The kind of page, never which one", example: "a chat page" },
   { field: "trigger", label: "What started it", example: "a sidebar click" },

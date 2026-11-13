@@ -176,6 +176,14 @@ export default function PrivacyAndSecurityPage() {
               ))}
             </ul>
             <p className="mt-2 text-foreground">
+              To say <em>where</em> time goes, a measurement can also be how long a kind of work
+              took: waiting for the server, loading fonts or scripts, requests to the app&apos;s own
+              API, or the browser being busy. These are named by category only (for example
+              &ldquo;fonts&rdquo;), never by address, so no URL, query or id is stored. A visit
+              where the tab was in the background is discarded, because its timings would be
+              misleading.
+            </p>
+            <p className="mt-2 text-foreground">
               Not recorded, and not possible to record with this code: your account or any user id,
               chat or message content, chat IDs, page addresses, your IP address, your browser or
               device model, or an exact time. A measurement has no account column, so it cannot be

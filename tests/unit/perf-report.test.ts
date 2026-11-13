@@ -48,6 +48,41 @@ function trace(overrides: Partial<PerfTrace> = {}): PerfTrace {
   };
 }
 
+describe("toPerfEvents: durations and hygiene", () => {
+  test("reports the closed list of durations, once each, with no id or URL anywhere", () => {
+    const events = toPerfEvents(
+      trace({
+        durations: [
+          { name: "seg:server", ms: 280.4 },
+          { name: "res:font", ms: 350 },
+          { name: "res:font", ms: 999 },
+          { name: `res:/chat/${THREAD_ID}`, ms: 5 },
+          { name: "api:messages", ms: Number.NaN },
+        ],
+      }),
+      ctx
+    );
+    const phases = events.map((e) => e.phase);
+
+    expect(phases).toContain("seg:server");
+    expect(phases.filter((p) => p === "res:font")).toHaveLength(1);
+    expect(events.find((e) => e.phase === "res:font")?.ms).toBe(350);
+    expect(phases).not.toContain("api:messages");
+    expect(JSON.stringify(events)).not.toContain(THREAD_ID);
+    expect(PerfBatchSchema.safeParse({ events }).success).toBe(true);
+  });
+
+  test("a journey that ran in a hidden tab, or went stale, is never reported", () => {
+    expect(toPerfEvents(trace({ tainted: true }), ctx)).toEqual([]);
+  });
+
+  test("a trace with many durations stays within the per-batch cap", () => {
+    const many = Array.from({ length: 60 }, (_, i) => ({ name: "res:font", ms: i }));
+
+    expect(toPerfEvents(trace({ durations: many }), ctx).length).toBeLessThanOrEqual(40);
+  });
+});
+
 describe("toPerfEvents", () => {
   test("builds the headline plus allow-listed steps, rounded, from the destination route", () => {
     const events = toPerfEvents(trace(), ctx);

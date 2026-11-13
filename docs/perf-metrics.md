@@ -26,7 +26,7 @@ server-set `hour`, so the notice cannot claim less than what is stored.
 | Field | Values |
 |-------|--------|
 | `ms` | integer, 0 to 120000 |
-| `journey`, `phase`, `kind` | closed lists from `journeys.ts` (whole action or one step) |
+| `journey`, `phase`, `kind` | closed lists from `journeys.ts` (whole action, a milestone, or a span of time spent) |
 | `route` | a route *template* from a closed list (`/chat/[id]`), never a path |
 | `trigger` | a closed list (`sidebar-thread`, `lets-chat`, …) |
 | `device`, `conn` | `mobile`/`desktop`; connection class |
@@ -42,6 +42,35 @@ measurement cannot be tied to a person even by someone with full database access
 Honest limits: the host's own request logs (IP, timing of requests) exist for any web app and are
 outside this table. With very few users, the combination of device, build and hour can narrow who
 a row came from; that is why time is bucketed to the hour and nothing finer is kept.
+
+## Where the time goes: durations
+
+A **milestone** is when something happened, counted from the start of the action (`chat:ready` at
+184 ms). A **duration** is how long something took (`api:messages`: 120 ms with a message read in
+flight). Durations are phases with a prefix, all in `PERF_DURATIONS`
+([`journeys.ts`](../lib/perf/journeys.ts)), computed in the browser by
+[`measure.ts`](../lib/perf/measure.ts) when an action completes:
+
+| Prefix | What it is |
+|--------|-----------|
+| `seg:` | Opening or switching a chat in five back-to-back segments (click to request, waiting for the server, downloading, route commit, render to ready). They add up to the total. Not reported when the page-payload request is missing from the window (a prefetch or cache hit) rather than guessed. With a streamed payload the server's own work lands in `seg:download`. |
+| `srv:` | The server's steps inside that wait: sign-in and database client, database reads, decrypt and parse, composer settings, tab title. Timed in place, shipped with the page. |
+| `load:`, `lcp:` | The document request (DNS and connect only when they happened) and Largest Contentful Paint split into waiting, loading and rendering. |
+| `res:`, `api:`, `net:busy` | Time with at least one request of that kind in flight (overlap counted once): fonts, scripts, stylesheets, Clerk, page payloads, other third parties, and the app's own API by category. `net:busy` is any request. A kind with no request is absent, not 0. |
+| `main:` | Main-thread time blocked by long tasks (beyond 50 ms each) and the single longest one. Chromium only; elsewhere nothing is reported. |
+
+Durations overlap, so they do not add up to the total. Request URLs are read **only** in the browser
+to pick one of the closed categories in [`resource-category.ts`](../lib/perf/resource-category.ts);
+a test feeds in UUID-bearing URLs and checks that only category names come out.
+
+### What is thrown away
+
+An action is **not reported** when the tab was hidden at any point during it (browsers throttle
+background tabs, so the number measures that, not the app), when an interaction ran longer than 30
+seconds (the click landed on the page already open, or the tab was parked), or when a navigation
+"finished" on the page it started from. The `?perf=1` panel still shows it, marked as not reported.
+
+The dashboard's trend line leaves a day as a gap when it has fewer samples than the p95 needs.
 
 ## Consent
 
@@ -61,7 +90,7 @@ a row came from; that is why time is bucketed to the hour and nothing finer is k
 ## Security
 
 - **Ingest:** Clerk session required (the proxy protects `/api/*`), cross-site requests refused
-  (`Sec-Fetch-Site` / `Origin`), body capped at 8 KB before parsing, 600 requests/hour/user
+  (`Sec-Fetch-Site` / `Origin`), body capped at 16 KB before parsing, 600 requests/hour/user
   (the limiter key is the authenticated id and is not stored with a metric), strict schema, body
   and headers never logged, service-role insert. A missing table returns 204 so the app never breaks.
 - **Tables:** row level security on, **no policies**, no access for `anon`/`authenticated`;
@@ -91,4 +120,8 @@ free-text or id-bearing field: the schema test will fail the build.
 - Server-side phase rows (e.g. `loadChat`) are reported with the journey that triggered them, so
   they are only as complete as the journey that carried them.
 - Launcher open/card journeys are wired once the launcher PR lands.
+- Counts and bytes (requests before ready, payload size), CLS, INP, navigation type and prefetch
+  hit versus network: each needs a unit or dimension the table does not have, so they need a
+  migration (COA-617, tier 2).
+- A `Server-Timing` header from `proxy.ts` (auth wiring; needs approval).
 - An agent-readable aggregates endpoint needs a proxy exemption and is awaiting approval.

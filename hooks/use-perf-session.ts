@@ -10,9 +10,11 @@ import {
 } from "@/lib/perf/enabled";
 import { loadPerfConsent, primePerfConsent, resetPerfConsent } from "@/lib/perf/consent";
 import { perfRouteTemplate } from "@/lib/perf/events";
+import { initPerfObservers } from "@/lib/perf/measure";
 import { PERF_PHASES } from "@/lib/perf/journeys";
 import {
   discardActivePerfTrace,
+  getActiveJourneyId,
   initPerfTraceStore,
   mark,
   markAt,
@@ -109,6 +111,8 @@ export function usePerfSession({
       initPerfTraceStore();
       initialized.current = true;
     }
+    // Before any journey can finish: the long-task and LCP observers, and a larger resource buffer.
+    initPerfObservers();
 
     let disconnect: (() => void) | undefined;
 
@@ -117,6 +121,13 @@ export function usePerfSession({
       startJourney("load", `document:${initialPath.current}`, { startedAt: 0 });
       disconnect = seedNavigationTimings();
       mark(PERF_PHASES.appHydrated);
+      // When every font the page asked for has arrived. Only counts while this load is the
+      // journey being timed; a later interaction must not inherit it.
+      void document.fonts?.ready
+        ?.then(() => {
+          if (getActiveJourneyId() === "load") markAt(PERF_PHASES.fontsReady, performance.now());
+        })
+        .catch(() => {});
     }
 
     return () => {

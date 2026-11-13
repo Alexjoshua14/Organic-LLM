@@ -2,12 +2,18 @@ import { Check, Minus, X } from "lucide-react";
 
 import { PerfSparkline } from "./PerfSparkline";
 
-import { PERF_JOURNEY_LABELS, PERF_PHASE_LABELS, PERF_JOURNEYS } from "@/lib/perf/journeys";
+import {
+  isPerfDuration,
+  PERF_JOURNEY_LABELS,
+  PERF_PHASE_LABELS,
+  PERF_JOURNEYS,
+} from "@/lib/perf/journeys";
 import { perfBudgetFor, PERF_MIN_SAMPLES_P95, PERF_MIN_SAMPLES_P99 } from "@/lib/perf/budgets";
 import {
   isP95Reliable,
   isP99Reliable,
   perfVerdict,
+  reliableDailyP95,
   type PerfDailyRow,
   type PerfSummaryRow,
 } from "@/lib/perf/summary-core";
@@ -162,7 +168,7 @@ export function PerfSummaryTable({
               <span className="text-xs">{PERF_JOURNEY_LABELS[journey]}</span>
               <PerfSparkline
                 label={PERF_JOURNEY_LABELS[journey]}
-                points={daily.filter((d) => d.journey === journey)}
+                points={reliableDailyP95(daily, journey)}
               />
             </li>
           ))}
@@ -171,11 +177,18 @@ export function PerfSummaryTable({
 
       <section aria-labelledby="steps-heading" className="space-y-2">
         <h2 className="text-sm font-medium" id="steps-heading">
-          Steps within each action
+          Where the time goes
         </h2>
+        <p className="text-xs text-muted-foreground">
+          For each action: <em>time spent</em> is how long a part took (server work, downloads,
+          fonts, scripts, the main thread). They overlap, so they do not add up to the total.{" "}
+          <em>Milestones</em> are when something happened, counted from the start of the action.
+        </p>
         {PERF_JOURNEYS.map((journey) => {
-          const steps = rows
-            .filter((r) => r.kind === "phase" && r.journey === journey)
+          const steps = rows.filter((r) => r.kind === "phase" && r.journey === journey);
+          const spent = steps.filter((r) => isPerfDuration(r.phase)).sort((a, b) => b.p50 - a.p50);
+          const milestones = steps
+            .filter((r) => !isPerfDuration(r.phase))
             .sort((a, b) => a.p50 - b.p50);
 
           if (steps.length === 0) return null;
@@ -183,45 +196,52 @@ export function PerfSummaryTable({
           return (
             <details key={journey} className="rounded-lg border border-border px-3 py-2">
               <summary className="cursor-pointer text-xs">{PERF_JOURNEY_LABELS[journey]}</summary>
-              <table className="mt-2 w-full border-collapse">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className={th}>Step</th>
-                    <th className={th}>Page</th>
-                    <th className={th}>Device</th>
-                    <th className={`${th} text-right`}>Samples</th>
-                    <th className={`${th} text-right`}>p50</th>
-                    <th className={`${th} text-right`}>p95</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {steps.map((row) => (
-                    <tr
-                      key={`${row.phase}|${row.route}|${row.device}`}
-                      className="border-b border-border/60 last:border-0"
-                    >
-                      <td className={`${td} font-sans`}>
-                        {PERF_PHASE_LABELS[row.phase] ?? row.phase}
-                      </td>
-                      <td className={td}>{row.route}</td>
-                      <td className={td}>{row.device}</td>
-                      <td className={`${td} text-right`}>{row.samples}</td>
-                      <td className={`${td} text-right`}>{ms(row.p50)}</td>
-                      <td className={`${td} text-right`}>
-                        <Percentile
-                          need={PERF_MIN_SAMPLES_P95}
-                          reliable={isP95Reliable(row.samples)}
-                          value={row.p95}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <StepsTable kind="Time spent" rows={spent} />
+              <StepsTable kind="Milestone (since the start)" rows={milestones} />
             </details>
           );
         })}
       </section>
     </div>
+  );
+}
+
+function StepsTable({ kind, rows }: { kind: string; rows: PerfSummaryRow[] }) {
+  if (rows.length === 0) return null;
+
+  return (
+    <table className="mt-2 w-full border-collapse">
+      <thead>
+        <tr className="border-b border-border">
+          <th className={th}>{kind}</th>
+          <th className={th}>Page</th>
+          <th className={th}>Device</th>
+          <th className={`${th} text-right`}>Samples</th>
+          <th className={`${th} text-right`}>p50</th>
+          <th className={`${th} text-right`}>p95</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row) => (
+          <tr
+            key={`${row.phase}|${row.route}|${row.device}`}
+            className="border-b border-border/60 last:border-0"
+          >
+            <td className={`${td} font-sans`}>{PERF_PHASE_LABELS[row.phase] ?? row.phase}</td>
+            <td className={td}>{row.route}</td>
+            <td className={td}>{row.device}</td>
+            <td className={`${td} text-right`}>{row.samples}</td>
+            <td className={`${td} text-right`}>{ms(row.p50)}</td>
+            <td className={`${td} text-right`}>
+              <Percentile
+                need={PERF_MIN_SAMPLES_P95}
+                reliable={isP95Reliable(row.samples)}
+                value={row.p95}
+              />
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }

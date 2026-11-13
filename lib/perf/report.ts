@@ -24,7 +24,7 @@ import { isPerfReportingAllowed } from "./enabled";
  */
 
 const INGEST_URL = "/api/perf/ingest";
-const MAX_QUEUE = 120;
+const MAX_QUEUE = 400;
 const IDLE_FLUSH_MS = 30_000;
 
 export type PerfReportContext = {
@@ -42,6 +42,8 @@ export function toPerfEvents(trace: PerfTrace, ctx: PerfReportContext): PerfEven
   if (trace.status !== "complete" || trace.headlineMs == null || trace.headlinePhase == null) {
     return [];
   }
+  // A journey that ran in a hidden tab, or went stale, measures the browser rather than the app.
+  if (trace.tainted) return [];
 
   const base = {
     journey: trace.journey,
@@ -69,6 +71,13 @@ export function toPerfEvents(trace: PerfTrace, ctx: PerfReportContext): PerfEven
     if (!Number.isFinite(phase.ms)) continue;
     seen.add(phase.name);
     candidates.push({ ...base, kind: "phase", phase: phase.name, ms: clampMs(phase.ms) });
+  }
+
+  for (const duration of trace.durations ?? []) {
+    if (seen.has(duration.name) || !PERF_REPORTABLE_PHASES.includes(duration.name)) continue;
+    if (!Number.isFinite(duration.ms)) continue;
+    seen.add(duration.name);
+    candidates.push({ ...base, kind: "phase", phase: duration.name, ms: clampMs(duration.ms) });
   }
 
   const events: PerfEvent[] = [];
