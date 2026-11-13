@@ -15,23 +15,6 @@
   isolation: isolate;
 }
 
-/*
- * Warm light from the top left, like the homepage composer's rim, kept very quiet. Each gradient's
- * radii are chosen so it reaches zero at or before the box's own edges: a gradient that is still
- * visible where its box ends draws a hard line.
- */
-.page::before {
-  content: "";
-  position: absolute;
-  inset: -1.5rem -3rem auto -3rem;
-  height: 26rem;
-  z-index: -1;
-  pointer-events: none;
-  background:
-    radial-gradient(ellipse 30% 90% at 30% 10%, rgb(var(--lumen) / 0.13), transparent),
-    radial-gradient(ellipse 22% 80% at 78% 12%, rgb(var(--lumen-deep) / 0.07), transparent);
-}
-
 .grid {
   display: grid;
   gap: 0.75rem;
@@ -46,14 +29,14 @@
 .gridDesktop {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-auto-rows: minmax(0, 1fr);
-  height: max(calc(100dvh - 9.5rem), 34rem);
+  height: max(calc(100dvh - 10.5rem), 34rem);
 }
 
 @media (min-width: 64rem) {
   .gridDesktop {
     grid-template-columns: repeat(12, minmax(0, 1fr));
     gap: 0.75rem;
-    height: max(calc(100dvh - 9.5rem), 25rem);
+    height: max(calc(100dvh - 10.5rem), 25rem);
   }
 }
 
@@ -72,18 +55,8 @@
   overflow: hidden;
   isolation: isolate;
   min-width: 0;
-  border: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
   border-radius: 1.25rem;
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in oklab, var(--foreground) 5%, transparent),
-      color-mix(in oklab, var(--foreground) 1.5%, transparent)
-    );
-  backdrop-filter: blur(16px) saturate(1.1);
-  box-shadow:
-    inset 0 1px 0 color-mix(in oklab, var(--background) 60%, transparent),
-    0 10px 28px -18px color-mix(in oklab, var(--foreground) 35%, transparent);
+  box-shadow: 0 10px 28px -18px color-mix(in oklab, var(--foreground) 35%, transparent);
   transition:
     transform var(--admin-hover) var(--admin-ease),
     border-color var(--admin-hover) var(--admin-ease),
@@ -108,9 +81,7 @@
 .card:hover,
 .card:focus-visible {
   border-color: rgb(var(--lumen) / 0.5);
-  box-shadow:
-    inset 0 1px 0 color-mix(in oklab, var(--background) 60%, transparent),
-    0 16px 36px -18px rgb(var(--lumen-deep) / 0.45);
+  box-shadow: 0 16px 36px -18px rgb(var(--lumen-deep) / 0.45);
 }
 
 .card:hover::before,
@@ -203,20 +174,22 @@
   gap: 0.25rem;
 }
 
+/* Commissioner light, as on the sandbox gateway's cards. */
 .title {
-  font-size: 1.0625rem;
-  font-weight: 600;
+  font-family: var(--font-commissioner, inherit);
+  font-size: 1.125rem;
+  font-weight: 300;
   line-height: 1.2;
   letter-spacing: -0.01em;
 }
 
 .cardFeature .title {
-  font-size: 1.375rem;
+  font-size: 1.5rem;
   letter-spacing: -0.02em;
 }
 
 .cardPhone .title {
-  font-size: 0.9375rem;
+  font-size: 1rem;
 }
 
 .blurb {
@@ -318,10 +291,6 @@
 }
 
 @media (forced-colors: active) {
-  .card {
-    border-color: CanvasText;
-  }
-
   .lumen {
     stroke: Highlight;
   }

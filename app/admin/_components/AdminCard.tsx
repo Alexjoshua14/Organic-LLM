@@ -7,6 +7,7 @@ import { type PointerEvent } from "react";
 import { AdminArt } from "./AdminArt";
 import styles from "./AdminIndex.module.css";
 
+import { glass } from "@/components/design-system/primitives";
 import { ADMIN_GROUPS, ADMIN_PAGES } from "@/lib/admin/admin-pages";
 import { cn } from "@/lib/utils";
 
@@ -43,7 +44,10 @@ export function AdminCard({ slug, layout, feature, index, className }: AdminCard
     <Link
       href={page.href}
       style={{ ["--i" as string]: index }}
+      data-dim-background
       className={cn(
+        glass(),
+        "border-border/70 backdrop-blur-xl",
         styles.card,
         styles.rise,
         "organic-focus",
