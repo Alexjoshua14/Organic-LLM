@@ -196,18 +196,14 @@
 
 /* ── Explorations (search, list) ──────────────────────────────────────── */
 
-/* The query is context, not content: a quiet label line (label and count share one style),
-   then the query in the UI face beside its icon on a shared 20px line. */
-.searchHeader {
-  display: grid;
-  gap: 2px;
-  padding-bottom: 2px;
-}
+/* The query is context, not content: one quiet line (query and count share a style), so the
+   results get the space. */
 .searchLabel {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: var(--spacing-inline-sm);
+  min-width: 0;
   font-size: 0.6875rem; /* 11px */
   line-height: 1.5;
   letter-spacing: 0.02em;
@@ -218,28 +214,19 @@
   flex: none;
   white-space: nowrap;
 }
-.query {
-  display: grid;
-  grid-template-columns: 14px minmax(0, 1fr);
-  align-items: start;
-  column-gap: 6px;
-  margin: 0;
-  min-width: 0;
-  font-size: 0.875rem; /* 14px */
-  font-weight: 500;
-  line-height: 20px;
-  color: var(--foreground);
-}
-.query > span:last-child {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-/* The icon box is one text line tall, so the glyph centres on the query's first line. */
-.searchIcon {
+.queryLine {
   display: flex;
   align-items: center;
-  height: 20px;
-  color: var(--muted-foreground);
+  gap: 5px;
+  min-width: 0;
+}
+.queryLine svg {
+  flex: none;
+}
+.queryText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Results start folded: one row each, opened one at a time by curiosity. */
@@ -313,6 +300,10 @@
   font-size: 0.6875rem;
   color: var(--muted-foreground);
   cursor: pointer;
+}
+/* Under result rows the card's own gap is enough; under key points it needs the extra air. */
+.entries + .moreToggle {
+  margin-top: 0;
 }
 .moreToggle:hover {
   color: var(--foreground);

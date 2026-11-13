@@ -279,8 +279,9 @@ describe("Rabbit hole tool presence", () => {
       />
     );
 
-    expect(view.getByText("Searched your rabbit holes")).toBeTruthy();
-    expect(view.getByText("persona memory")).toBeTruthy();
+    // The query is quiet context on the label line; the visible "Searched…" label is gone.
+    expect(view.getByText("persona memory").closest("header")).toBeTruthy();
+    expect(view.getByText(/Searched your rabbit holes/).className).toBe("sr-only");
     expect(status(view)).toBe("8 results");
     // Folded: four title rows, no links until a result is opened.
     const rows = view.getAllByRole("button", { name: /Persona study/ });

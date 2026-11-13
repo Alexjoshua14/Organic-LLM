@@ -679,21 +679,19 @@ function ExplorationsView({
 
   return (
     <>
-      <header className={styles.searchHeader}>
-        <div className={styles.searchLabel}>
-          <span>{label}</span>
-          <span aria-atomic="true" data-rabbit-hole-status="" role="status">
-            {total === 0 ? "None found" : plural(total, "result")}
+      <header className={styles.searchLabel}>
+        {query ? (
+          <span className={styles.queryLine} title={query}>
+            <Search aria-hidden="true" size={11} />
+            <span className="sr-only">{label}: </span>
+            <span className={styles.queryText}>{query}</span>
           </span>
-        </div>
-        {query && (
-          <p className={styles.query}>
-            <span aria-hidden="true" className={styles.searchIcon}>
-              <Search size={14} />
-            </span>
-            <span>{query}</span>
-          </p>
+        ) : (
+          <span>{label}</span>
         )}
+        <span aria-atomic="true" data-rabbit-hole-status="" role="status">
+          {total === 0 ? "None found" : plural(total, "result")}
+        </span>
       </header>
       {total === 0 ? (
         <p className={styles.quiet}>{emptyText}</p>
