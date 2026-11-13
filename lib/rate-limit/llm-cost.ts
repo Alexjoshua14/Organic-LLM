@@ -9,6 +9,8 @@ export type Usage = {
   inputTokens?: number;
   outputTokens?: number;
   cachedInputTokens?: number;
+  /** Cached audio is a subset of audioInputTokens, separate from cached text. */
+  cachedAudioInputTokens?: number;
   /** AI SDK usage, before conversion to the flat ledger shape. */
   inputTokenDetails?: { cacheReadTokens?: number };
   totalTokens?: number;
@@ -26,6 +28,7 @@ export type ModelCost = {
   cachedInputPerMillion?: number;
   /** Realtime audio input cost per million tokens (USD). */
   audioInputPerMillion?: number;
+  cachedAudioInputPerMillion?: number;
   /** Realtime audio output cost per million tokens (USD). */
   audioOutputPerMillion?: number;
 };
@@ -119,6 +122,7 @@ const MODEL_COSTS: Record<string, ModelCost> = {
     outputPerMillion: 2.4,
     cachedInputPerMillion: 0.06,
     audioInputPerMillion: 10.0,
+    cachedAudioInputPerMillion: 0.3,
     audioOutputPerMillion: 20.0,
   },
   "openai/gpt-realtime": {
@@ -126,6 +130,7 @@ const MODEL_COSTS: Record<string, ModelCost> = {
     outputPerMillion: 16.0,
     cachedInputPerMillion: 0.4,
     audioInputPerMillion: 32.0,
+    cachedAudioInputPerMillion: 0.4,
     audioOutputPerMillion: 64.0,
   },
   "openai/gpt-realtime-2.1-mini": {
@@ -133,6 +138,7 @@ const MODEL_COSTS: Record<string, ModelCost> = {
     outputPerMillion: 2.4,
     cachedInputPerMillion: 0.06,
     audioInputPerMillion: 10.0,
+    cachedAudioInputPerMillion: 0.3,
     audioOutputPerMillion: 20.0,
   },
   "openai/gpt-realtime-2.1": {
@@ -140,6 +146,7 @@ const MODEL_COSTS: Record<string, ModelCost> = {
     outputPerMillion: 16.0,
     cachedInputPerMillion: 0.4,
     audioInputPerMillion: 32.0,
+    cachedAudioInputPerMillion: 0.4,
     audioOutputPerMillion: 64.0,
   },
 };
@@ -186,6 +193,7 @@ export function computeUsageCostUsd(modelId: string, usage: Usage): number {
   );
   const uncachedInput = Math.max(0, input - cached);
   const audioIn = usage.audioInputTokens ?? 0;
+  const cachedAudio = Math.min(audioIn, Math.max(0, usage.cachedAudioInputTokens ?? 0));
   const audioOut = usage.audioOutputTokens ?? 0;
 
   const inputCost = (uncachedInput / 1_000_000) * cost.inputPerMillion;
@@ -194,7 +202,8 @@ export function computeUsageCostUsd(modelId: string, usage: Usage): number {
   const outputCost = (output / 1_000_000) * cost.outputPerMillion;
   const audioInCost =
     audioIn > 0 && cost.audioInputPerMillion !== undefined
-      ? (audioIn / 1_000_000) * cost.audioInputPerMillion
+      ? ((audioIn - cachedAudio) / 1_000_000) * cost.audioInputPerMillion +
+        (cachedAudio / 1_000_000) * (cost.cachedAudioInputPerMillion ?? cost.audioInputPerMillion)
       : 0;
   const audioOutCost =
     audioOut > 0 && cost.audioOutputPerMillion !== undefined

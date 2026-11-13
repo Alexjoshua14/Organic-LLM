@@ -17,6 +17,7 @@ const HeartbeatSchema = z.object({
       inputTokens: z.number().nonnegative().optional(),
       outputTokens: z.number().nonnegative().optional(),
       cachedInputTokens: z.number().nonnegative().optional(),
+      cachedAudioInputTokens: z.number().nonnegative().optional(),
       audioInputTokens: z.number().nonnegative().optional(),
       audioOutputTokens: z.number().nonnegative().optional(),
     })
