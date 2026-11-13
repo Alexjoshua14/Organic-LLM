@@ -9,7 +9,9 @@ import { RabbitHoleToolPresence, isRabbitHoleToolName } from "./rabbit-hole-tool
 import { OrganicActivityMark } from "@/components/chat/organic-activity-mark";
 import { glass } from "@/components/design-system/primitives";
 import { MermaidDiagram } from "@/components/blog/mermaid-diagram";
+import { SHOW_TOOL_DETAILS } from "@/lib/chat/tool-details-visibility";
 import { extractMermaidCode } from "@/lib/mermaid/source";
+import { loadRabbitHoleKeyPoints } from "@/lib/rabbit-holes/load-key-points";
 import { cn } from "@/lib/utils";
 
 export const RABBIT_HOLE_OPEN_NODE_EVENT = "rabbit-hole:open-node";
@@ -34,6 +36,8 @@ export type OrganicToolCallPresenceProps = {
   isPinned?: boolean;
   onTogglePin?: () => void;
   className?: string;
+  /** Raw output disclosure; defaults to dev instances only (see SHOW_TOOL_DETAILS). */
+  showToolDetails?: boolean;
 };
 
 type ToolVisualIdentity = {
@@ -343,6 +347,7 @@ export const OrganicToolCallPresence = memo(function OrganicToolCallPresence({
   isPinned = false,
   onTogglePin,
   className,
+  showToolDetails = SHOW_TOOL_DETAILS,
 }: OrganicToolCallPresenceProps) {
   const [expanded, setExpanded] = useState(false);
 
@@ -352,7 +357,9 @@ export const OrganicToolCallPresence = memo(function OrganicToolCallPresence({
         className={className}
         input={input}
         isPinned={isPinned}
+        loadKeyPoints={loadRabbitHoleKeyPoints}
         output={output}
+        showToolDetails={showToolDetails}
         state={state}
         toolName={toolName}
         onOpenNode={dispatchRabbitHoleOpenNode}
@@ -367,9 +374,11 @@ export const OrganicToolCallPresence = memo(function OrganicToolCallPresence({
   const markState = isInFlight ? "working" : isError ? "blocked" : "complete";
   const primaryLabel = isInFlight ? identity.inFlightTitle : identity.completedTitle;
 
-  const hasDetailPayload = !isInFlight && output !== undefined && output !== null;
-  const mermaid = hasDetailPayload ? extractMermaidCode(output) : null;
-  const formattedOutput = hasDetailPayload ? stableStringify(output) : null;
+  const hasOutput = !isInFlight && output !== undefined && output !== null;
+  // A diagram is content and always expands; the raw payload is a dev-only debugging aid.
+  const mermaid = hasOutput ? extractMermaidCode(output) : null;
+  const formattedOutput = hasOutput && showToolDetails && expanded ? stableStringify(output) : null;
+  const hasDetailPayload = Boolean(mermaid) || (hasOutput && showToolDetails);
 
   const pillContent = (
     <div
@@ -382,7 +391,10 @@ export const OrganicToolCallPresence = memo(function OrganicToolCallPresence({
           ? "border-destructive/40 bg-destructive/5"
           : isInFlight
             ? "border-accent/35 bg-accent/5"
-            : "border-border/40 bg-background-secondary/25 hover:border-border/65 hover:bg-background-secondary/40",
+            : cn(
+                "border-border/40 bg-background-secondary/25",
+                hasDetailPayload && "hover:border-border/65 hover:bg-background-secondary/40"
+              ),
         className
       )}
     >
@@ -441,6 +453,19 @@ export const OrganicToolCallPresence = memo(function OrganicToolCallPresence({
 
   if (isInFlight) {
     return pillContent;
+  }
+
+  if (!hasDetailPayload) {
+    return (
+      <ToolResultInlineRow
+        isPinned={isPinned}
+        pin={
+          onTogglePin ? <ToolResultPinButton isPinned={isPinned} onTogglePin={onTogglePin} /> : null
+        }
+      >
+        {pillContent}
+      </ToolResultInlineRow>
+    );
   }
 
   return (

@@ -1,211 +1,220 @@
-.row {
+/* Same family and density as the generic Organic tool pill: one row, secondary detail folded. */
+.inlineRow {
   min-width: 0;
   max-width: 100%;
 }
 
 .card {
-  /* A brief ripple draws attention once; completed history stays still. */
-  --rabbit-reveal: 220ms;
-  --rabbit-ripple: 600ms;
-  width: min(100%, 32rem);
+  width: min(100%, 28rem);
   min-width: 0;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border));
-  border-radius: 1rem;
-  background: var(--background);
   color: var(--foreground);
 }
+/* Surface colours come from the same Tailwind classes as the generic pill; these only tint parts. */
 
-.body {
+.row {
   display: flex;
   align-items: center;
-  gap: var(--spacing-inline-md);
-  padding: var(--spacing-inset-lg);
+  gap: 0.625rem;
+  padding: 0.375rem 0.375rem 0.375rem 0.625rem;
 }
-.art {
-  width: 6.5rem;
+.mark {
+  display: inline-flex;
   flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 0.375rem;
+  background: color-mix(in oklch, var(--foreground) 6%, transparent);
+  color: var(--foreground-secondary, var(--muted-foreground));
+}
+.pending .mark {
   color: var(--accent);
 }
-.tunnel {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-.mesh {
-  opacity: 0.48;
-}
-.ripple {
-  opacity: 0.8;
-  transform-origin: 80px 80px;
-}
-.card[data-tool-state="in-flight"] .mesh {
-  animation: rabbit-reveal var(--rabbit-reveal) ease-out both;
-}
-.card[data-tool-state="in-flight"] .ripple {
-  animation: rabbit-ripple var(--rabbit-ripple) ease-out both;
-}
-.card[data-tool-state="error"] {
-  border-color: var(--destructive);
-}
-.card[data-tool-state="error"] .art,
-.card[data-tool-state="error"] .status {
+.failed .mark {
   color: var(--destructive);
 }
-.content {
+.text {
   min-width: 0;
   flex: 1;
 }
-.eyebrow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  margin: 0 0 0.45rem;
-  font-family: var(--font-mono, monospace);
-  font-size: 9px;
+.title {
+  margin: 0;
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 500;
   line-height: 1.5;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--muted-foreground);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .status {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
   margin: 0;
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.5;
-}
-.status svg {
-  flex: none;
-}
-.title {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
   overflow: hidden;
-  margin: var(--spacing-stack-xs) 0 0;
-  font-size: 15px;
-  font-weight: 500;
-  line-height: 1.4;
-  overflow-wrap: anywhere;
-  text-wrap: pretty;
-}
-.note {
-  margin: var(--spacing-stack-xs) 0 0;
   font-size: 11px;
-  line-height: 1.55;
+  line-height: 1.5;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted-foreground);
+}
+.failed .status,
+.failed .title[role="status"] {
+  color: var(--destructive);
+}
+.error {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
   color: var(--muted-foreground);
   overflow-wrap: anywhere;
 }
-.open {
+
+/* Compact glass chip; the hit area extends to 44px without making the row taller. */
+.action {
+  position: relative;
   display: inline-flex;
+  flex: none;
   align-items: center;
-  gap: var(--spacing-inline-sm);
-  min-height: 44px;
-  margin-top: var(--spacing-stack-sm);
-  padding: 0.3rem 0.6rem;
-  border: 1px solid var(--border);
-  border-radius: 0.5rem;
-  background: var(--background-secondary);
-  color: var(--foreground);
+  gap: 0.25rem;
+  height: 1.75rem;
+  padding: 0 0.625rem;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 500;
+  line-height: 1;
   text-decoration: none;
   cursor: pointer;
+  transition: background-color 150ms ease-out;
 }
-.open:hover {
-  background: var(--background-tertiary);
+.action::before {
+  content: "";
+  position: absolute;
+  inset: -0.5rem -0.25rem;
 }
-.details {
-  border-top: 1px solid var(--border);
-  font-size: 11px;
+.action:hover {
+  background-color: color-mix(in oklch, var(--foreground) 8%, transparent);
 }
-.details summary {
+.action svg {
+  color: var(--muted-foreground);
+}
+
+.disclosures {
+  border-top: 1px solid color-mix(in oklch, var(--border) 35%, transparent);
+}
+.disclosure + .disclosure {
+  border-top: 1px solid color-mix(in oklch, var(--border) 35%, transparent);
+}
+.disclosure summary {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  min-height: 32px;
-  padding: 0.4rem 1rem;
+  gap: 0.375rem;
+  min-height: 2rem;
+  padding: 0 0.625rem;
+  font-size: 11px;
   color: var(--muted-foreground);
   cursor: pointer;
   list-style: none;
 }
-.details summary::-webkit-details-marker {
+.disclosure summary:hover {
+  color: var(--foreground);
+}
+.disclosure summary::-webkit-details-marker {
   display: none;
 }
-.details[open] summary svg {
+.disclosure summary svg {
+  flex: none;
+  transition: transform 150ms ease-out;
+}
+.disclosure[open] summary svg {
   transform: rotate(90deg);
 }
-.details pre {
+.panel {
+  padding: 0 0.625rem 0.5rem;
+}
+
+.points {
+  display: grid;
+  gap: var(--spacing-stack-xs);
+  margin: 0;
+  padding: 0 0 0 1.125rem;
+  font-size: 12px;
+  line-height: 1.5;
+  list-style: disc;
+  color: var(--foreground);
+  overflow-wrap: anywhere;
+}
+.points li::marker {
+  color: var(--muted-foreground);
+}
+.quiet,
+.more {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+}
+.more {
+  padding-top: var(--spacing-stack-xs);
+}
+
+.results {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.result {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-inline-sm);
+  min-height: 2.25rem;
+  margin: 0 -0.375rem;
+  padding: 0.25rem 0.375rem;
+  border-radius: 0.5rem;
+  color: var(--foreground);
+  text-decoration: none;
+}
+.result:hover {
+  background-color: color-mix(in oklch, var(--foreground) 6%, transparent);
+}
+.result svg {
+  flex: none;
+  color: var(--muted-foreground);
+}
+.resultText {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+.resultTitle,
+.resultDescription {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.resultTitle {
+  font-size: 12px;
+  line-height: 1.5;
+}
+.resultDescription {
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--muted-foreground);
+}
+
+.raw {
   max-height: 15rem;
   overflow: auto;
   margin: 0;
-  padding: 0.75rem 1rem;
-  border-top: 1px solid var(--border);
+  padding: 0.5rem;
+  border-radius: 0.375rem;
+  background: color-mix(in oklch, var(--background) 70%, transparent);
   font-size: 10px;
   line-height: 1.6;
 }
-.destinations {
-  margin: 0;
-  padding: 0 1rem 0.5rem;
-  list-style: none;
-}
-.destinations a {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--spacing-inline-sm);
-  min-height: 44px;
-  padding: 0.4rem 0;
-  border-top: 1px solid var(--border);
-  color: var(--foreground);
-  font-size: 12px;
-  text-decoration: none;
-  overflow-wrap: anywhere;
-}
-.destinations a:hover {
-  text-decoration: underline;
-}
-.destinations svg {
-  flex: none;
-}
 
-@keyframes rabbit-reveal {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 0.48;
-  }
-}
-@keyframes rabbit-ripple {
-  from {
-    opacity: 0;
-    transform: scale(0.72);
-  }
-  to {
-    opacity: 0.8;
-    transform: scale(1);
-  }
-}
-@media (max-width: 480px) {
-  .body {
-    align-items: flex-start;
-    gap: var(--spacing-inline-sm);
-    padding: var(--spacing-inset-md);
-  }
-  .art {
-    width: 4rem;
-  }
-  .title {
-    font-size: 14px;
-  }
-}
 @media (prefers-reduced-motion: reduce) {
-  .card[data-tool-state="in-flight"] .mesh,
-  .card[data-tool-state="in-flight"] .ripple {
-    animation: none;
+  .action,
+  .disclosure summary svg {
+    transition: none;
   }
 }

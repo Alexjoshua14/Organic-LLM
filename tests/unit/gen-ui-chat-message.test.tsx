@@ -256,7 +256,7 @@ describe("ChatMessage reasoning", () => {
 });
 
 describe("ChatMessage OrganicToolCallPresence", () => {
-  test("renders Organic marks for agent tools and a distinct tunnel for rabbit holes", () => {
+  test("renders Organic marks for agent tools and the rabbit-hole glyph for rabbit holes", () => {
     const message: UIMessage = {
       id: "msg-organic-tools",
       role: "assistant",
@@ -304,7 +304,7 @@ describe("ChatMessage OrganicToolCallPresence", () => {
     expect(container.querySelectorAll("[data-organic-tool-presence]")).toHaveLength(3);
     expect(container.querySelectorAll('[role="img"][data-activity-state]')).toHaveLength(2);
     expect(
-      container.querySelectorAll("[data-rabbit-hole-tool] svg[aria-hidden]").length
+      container.querySelectorAll("[data-rabbit-hole-tool] .session-glyph").length
     ).toBeGreaterThan(0);
   });
 });
@@ -364,13 +364,13 @@ describe("ChatMessage rabbit-hole creation", () => {
       ],
     });
     const view = render(<ChatMessage message={message(current)} />);
-    expect(view.getByText("Rabbit hole created")).toBeTruthy();
+    expect(view.getByText(/Rabbit hole created/)).toBeTruthy();
     expect(view.getByRole("link", { name: "Open rabbit hole" }).getAttribute("href")).toBe(
       "/rabbitholes?sessionId=rabbit-session"
     );
     expect(view.queryByText("Starting the exploration.")).toBeNull();
     view.rerender(<ChatMessage message={message(historical)} />);
-    expect(view.getByText("Rabbit hole created")).toBeTruthy();
+    expect(view.getByText(/Rabbit hole created/)).toBeTruthy();
     expect(view.getByRole("link", { name: "Open rabbit hole" })).toBeTruthy();
   });
 });

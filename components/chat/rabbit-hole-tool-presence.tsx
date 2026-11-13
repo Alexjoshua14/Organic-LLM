@@ -1,13 +1,18 @@
 "use client";
 
+import type { ReactNode } from "react";
 import type { OrganicToolCallPresenceProps } from "./organic-tool-call-presence";
+import type { SessionSignal } from "@/lib/sidebar/session-signal";
 
-import { memo, useState } from "react";
-import { ArrowUpRight, Check, ChevronRight, TriangleAlert } from "lucide-react";
+import { memo, useRef, useState } from "react";
+import { ArrowUpRight, ChevronRight } from "lucide-react";
 
 import { ToolResultInlineRow, ToolResultPinButton } from "./tool-result-inline";
 import styles from "./rabbit-hole-tool-presence.module.css";
 
+import { glass } from "@/components/design-system/primitives";
+import { SessionGlyph } from "@/components/sidebar/session-glyph";
+import { SHOW_TOOL_DETAILS } from "@/lib/chat/tool-details-visibility";
 import { cn } from "@/lib/utils";
 
 const TOOL_LABELS: Record<string, readonly [string, string]> = {
@@ -26,6 +31,28 @@ const TOOL_LABELS: Record<string, readonly [string, string]> = {
   read_rabbit_hole_node: ["Reading an article…", "Article read"],
   inspect_rabbit_hole_graph: ["Inspecting the graph…", "Graph inspected"],
 };
+
+const CREATE_TOOLS = new Set([
+  "create_rabbit_hole",
+  "create_rabbit_hole_node",
+  "generate_rabbit_hole_node",
+  "branch_rabbit_hole_node",
+]);
+const BROWSE_TOOLS = new Set(["search_rabbit_holes", "list_rabbit_holes"]);
+// These drawer tools historically open a node in place rather than leaving the conversation.
+const DRAWER_TOOLS = new Set(["generate_rabbit_hole_node", "navigate_rabbit_hole_node"]);
+
+/** Result rows shown inside the browse disclosure; the full list stays with the model. */
+const MAX_RESULTS = 6;
+
+const WORKING: SessionSignal = { kind: "working", step: "sources" };
+const IDLE: SessionSignal = { kind: "idle" };
+
+/** Loads one node's key takeaways: `null` if unreadable, `[]` if not written yet. */
+export type RabbitHoleKeyPointsLoader = (
+  sessionId: string,
+  nodeId: string
+) => Promise<string[] | null>;
 
 export function isRabbitHoleToolName(toolName: string): boolean {
   return Object.hasOwn(TOOL_LABELS, toolName.toLowerCase());
@@ -59,32 +86,6 @@ function sessionHref(value: unknown): string | null {
   return id ? `/rabbitholes?sessionId=${encodeURIComponent(id)}` : null;
 }
 
-/** Fixed curvilinear mesh: no filters, per-frame JS, random geometry, or shared SVG ids. */
-const RabbitHoleTunnel = memo(function RabbitHoleTunnel() {
-  return (
-    <svg aria-hidden="true" className={styles.tunnel} fill="none" viewBox="0 0 160 160">
-      <g className={styles.mesh} stroke="currentColor" strokeWidth="0.65">
-        {[68, 53, 40, 29, 20, 13, 8].map((radius) => (
-          <rect
-            key={radius}
-            height={radius * 2}
-            rx={radius * 0.74}
-            width={radius * 2}
-            x={80 - radius}
-            y={80 - radius}
-          />
-        ))}
-        <path d="M0 0Q57 23 80 80Q103 137 160 160M160 0Q103 23 80 80Q57 137 0 160M80 0V160M0 80H160M0 40Q51 48 80 80Q109 112 160 120M0 120Q51 112 80 80Q109 48 160 40M40 0Q48 51 80 80Q112 109 120 160M120 0Q112 51 80 80Q48 109 40 160" />
-      </g>
-      <g className={styles.ripple} stroke="currentColor" strokeWidth="1.2">
-        <rect height="80" rx="29.6" width="80" x="40" y="40" />
-        <rect height="40" rx="14.8" width="40" x="60" y="60" />
-      </g>
-      <circle cx="80" cy="80" fill="currentColor" r="2" />
-    </svg>
-  );
-});
-
 export const RabbitHoleToolPresence = memo(function RabbitHoleToolPresence({
   toolName,
   state,
@@ -93,29 +94,51 @@ export const RabbitHoleToolPresence = memo(function RabbitHoleToolPresence({
   isPinned = false,
   onTogglePin,
   onOpenNode,
+  loadKeyPoints,
+  showToolDetails = SHOW_TOOL_DETAILS,
   className,
-}: OrganicToolCallPresenceProps & { onOpenNode: (nodeId: string) => void }) {
-  const [detailsOpen, setDetailsOpen] = useState(false);
+}: OrganicToolCallPresenceProps & {
+  onOpenNode: (nodeId: string) => void;
+  loadKeyPoints?: RabbitHoleKeyPointsLoader;
+  showToolDetails?: boolean;
+}) {
   const key = toolName.toLowerCase();
   const args = record(input);
   const result = record(output);
   const pending = state === "in-flight";
   const failed = !pending && (state === "error" || result?.ok === false);
+  const settled = !pending && !failed;
   const labels = TOOL_LABELS[key] ?? ["Exploring…", "Rabbit hole response"];
-  const creates = [
-    "create_rabbit_hole",
-    "create_rabbit_hole_node",
-    "generate_rabbit_hole_node",
-    "branch_rabbit_hole_node",
-  ].includes(key);
+  const creates = CREATE_TOOLS.has(key);
+  const browses = BROWSE_TOOLS.has(key);
   const confirmed = result?.ok === true;
-  const status = pending
+  const items = Array.isArray(result?.sessions)
+    ? result.sessions
+    : Array.isArray(result?.results)
+      ? result.results
+      : null;
+  const results = (items ?? []).flatMap((item) => {
+    const entry = record(item);
+    const url = sessionHref(entry?.sessionId);
+    const label = text(entry?.title);
+
+    return url && label ? [{ url, label, description: text(entry?.description) }] : [];
+  });
+
+  let status = pending
     ? labels[0]
     : failed
       ? "Rabbit hole action failed"
       : creates && !confirmed
         ? "Rabbit hole response"
         : labels[1];
+
+  if (settled && browses && items) {
+    status = items.length === 0 ? "No rabbit holes found" : `${status} · ${items.length} found`;
+  } else if (settled && creates && confirmed && result?.status === "generating") {
+    status = `${status} · writing article`;
+  }
+
   const title = text(
     result?.title,
     result?.nodeTitle,
@@ -124,120 +147,123 @@ export const RabbitHoleToolPresence = memo(function RabbitHoleToolPresence({
     args?.query,
     args?.question
   );
-  const href = !pending && !failed ? sessionHref(result?.sessionId) : null;
-  // These drawer tools historically open a node in place rather than leaving the conversation.
+  const href = settled ? sessionHref(result?.sessionId) : null;
   const drawerNode =
-    !pending &&
-    !failed &&
-    confirmed &&
-    ["generate_rabbit_hole_node", "navigate_rabbit_hole_node"].includes(key)
+    settled && confirmed && DRAWER_TOOLS.has(key)
       ? text(result?.nodeId, result?.activeNodeId)
       : null;
-  const background =
-    !pending && !failed && (result?.status === "generating" || (creates && confirmed));
+  const keyPointsTarget =
+    settled && creates && confirmed && loadKeyPoints
+      ? { sessionId: text(result?.sessionId), nodeId: text(result?.nodeId) }
+      : null;
   const error = failed ? text(result?.error, typeof output === "string" ? output : null) : null;
-  const items = Array.isArray(result?.sessions)
-    ? result.sessions
-    : Array.isArray(result?.results)
-      ? result.results
-      : [];
-  const destinations = items
-    .flatMap((item) => {
-      const entry = record(item);
-      const url = sessionHref(entry?.sessionId);
-      const label = text(entry?.title);
 
-      return url && label ? [{ url, label }] : [];
-    })
-    .slice(0, 4);
+  const action = drawerNode ? (
+    <button
+      aria-label="View article"
+      className={cn(styles.action, glass({ chip: true }), "rounded-full organic-focus")}
+      data-rabbit-hole-open-node={drawerNode}
+      type="button"
+      onClick={() => onOpenNode(drawerNode)}
+    >
+      View
+      <ArrowUpRight aria-hidden="true" size={12} />
+    </button>
+  ) : href && !browses ? (
+    <a
+      aria-label="Open rabbit hole"
+      className={cn(styles.action, glass({ chip: true }), "rounded-full organic-focus")}
+      href={href}
+    >
+      Open
+      <ArrowUpRight aria-hidden="true" size={12} />
+    </a>
+  ) : null;
+
+  const disclosures: ReactNode[] = [];
+
+  if (keyPointsTarget?.sessionId && keyPointsTarget.nodeId && loadKeyPoints) {
+    disclosures.push(
+      <KeyPoints
+        key="key-points"
+        load={loadKeyPoints}
+        nodeId={keyPointsTarget.nodeId}
+        sessionId={keyPointsTarget.sessionId}
+      />
+    );
+  }
+  if (settled && browses && results.length > 0) {
+    disclosures.push(
+      <Disclosure
+        key="results"
+        label={results.length === 1 ? "1 result" : `${results.length} results`}
+      >
+        <ul className={styles.results}>
+          {results.slice(0, MAX_RESULTS).map(({ url, label, description }, index) => (
+            <li key={`${url}-${index}`}>
+              <a className={cn(styles.result, "organic-focus")} href={url}>
+                <span className={styles.resultText}>
+                  <span className={styles.resultTitle}>{label}</span>
+                  {description && <span className={styles.resultDescription}>{description}</span>}
+                </span>
+                <ArrowUpRight aria-hidden="true" size={12} />
+              </a>
+            </li>
+          ))}
+        </ul>
+        {results.length > MAX_RESULTS && (
+          <p className={styles.more}>
+            Showing {MAX_RESULTS} of {results.length}
+          </p>
+        )}
+      </Disclosure>
+    );
+  }
+  if (showToolDetails && !pending && output != null) {
+    disclosures.push(<ToolDetails key="details" output={output} />);
+  }
 
   const card = (
     <div
-      className={cn("not-prose", styles.card, className)}
+      className={cn(
+        "not-prose",
+        glass(),
+        styles.card,
+        "rounded-xl",
+        failed
+          ? cn(styles.failed, "border-destructive/40 bg-destructive/5")
+          : pending
+            ? cn(styles.pending, "border-accent/35 bg-accent/5")
+            : "border-border/40 bg-background-secondary/25",
+        className
+      )}
       data-organic-tool-presence={toolName}
       data-rabbit-hole-tool=""
       data-tool-state={pending ? "in-flight" : failed ? "error" : "complete"}
     >
-      <div className={styles.body}>
-        <div className={styles.art}>
-          <RabbitHoleTunnel />
-        </div>
-        <div className={styles.content}>
-          <p className={styles.eyebrow}>
-            Rabbit hole <span aria-hidden="true">/</span>{" "}
-            {key === "create_rabbit_hole" ? "New exploration" : creates ? "Branch" : "Explore"}
-          </p>
-          <p aria-atomic="true" className={styles.status} role="status">
-            {!pending &&
-              (!creates || confirmed || failed) &&
-              (failed ? (
-                <TriangleAlert aria-hidden="true" size={14} />
-              ) : (
-                <Check aria-hidden="true" size={14} />
-              ))}
-            {status}
-          </p>
+      <div className={styles.row}>
+        <span className={styles.mark}>
+          <SessionGlyph experience="rabbitHole" signal={pending ? WORKING : IDLE} />
+        </span>
+        <div className={styles.text}>
           {title && (
             <p className={styles.title} title={title}>
               {title}
             </p>
           )}
-          {background && (
-            <p className={styles.note}>
-              Article generating in the background. Open to follow its progress.
-            </p>
-          )}
-          {error && <p className={styles.note}>{error}</p>}
-          {!pending &&
-            !failed &&
-            (key === "search_rabbit_holes" || key === "list_rabbit_holes") &&
-            (Array.isArray(result?.sessions) || Array.isArray(result?.results)) && (
-              <p className={styles.note}>
-                {items.length === 0
-                  ? "No rabbit holes found."
-                  : `${items.length} rabbit hole${items.length === 1 ? "" : "s"} returned.`}
-              </p>
-            )}
-          {drawerNode ? (
-            <button
-              className={cn(styles.open, "organic-focus")}
-              data-rabbit-hole-open-node={drawerNode}
-              type="button"
-              onClick={() => onOpenNode(drawerNode)}
-            >
-              View article <ArrowUpRight aria-hidden="true" size={14} />
-            </button>
-          ) : href ? (
-            <a className={cn(styles.open, "organic-focus")} href={href}>
-              Open rabbit hole <ArrowUpRight aria-hidden="true" size={14} />
-            </a>
-          ) : null}
+          <p
+            aria-atomic="true"
+            className={title ? styles.status : styles.title}
+            data-rabbit-hole-status=""
+            role="status"
+          >
+            {status}
+          </p>
+          {error && <p className={styles.error}>{error}</p>}
         </div>
+        {action}
       </div>
-      {!pending && !failed && destinations.length > 0 && (
-        <ul className={styles.destinations}>
-          {destinations.map(({ url, label }, index) => (
-            <li key={`${url}-${index}`}>
-              <a className="organic-focus" href={url}>
-                {label}
-                <ArrowUpRight aria-hidden="true" size={14} />
-              </a>
-            </li>
-          ))}
-        </ul>
-      )}
-      {!pending && output != null && (
-        <details
-          className={styles.details}
-          onToggle={(event) => setDetailsOpen(event.currentTarget.open)}
-        >
-          <summary className="organic-focus">
-            <ChevronRight aria-hidden="true" size={12} />
-            Tool details
-          </summary>
-          {detailsOpen && <pre>{formatOutput(output)}</pre>}
-        </details>
-      )}
+      {disclosures.length > 0 && <div className={styles.disclosures}>{disclosures}</div>}
     </div>
   );
 
@@ -245,7 +271,7 @@ export const RabbitHoleToolPresence = memo(function RabbitHoleToolPresence({
     card
   ) : (
     <ToolResultInlineRow
-      className={styles.row}
+      className={styles.inlineRow}
       isPinned={isPinned}
       pin={
         onTogglePin ? <ToolResultPinButton isPinned={isPinned} onTogglePin={onTogglePin} /> : null
@@ -255,6 +281,104 @@ export const RabbitHoleToolPresence = memo(function RabbitHoleToolPresence({
     </ToolResultInlineRow>
   );
 });
+
+/** Native disclosure: secondary information that stays out of the way until asked for. */
+function Disclosure({
+  label,
+  children,
+  onOpen,
+}: {
+  label: string;
+  children: ReactNode;
+  onOpen?: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <details
+      className={styles.disclosure}
+      onToggle={(event) => {
+        const next = event.currentTarget.open;
+
+        setOpen(next);
+        if (next) onOpen?.();
+      }}
+    >
+      <summary className="organic-focus">
+        <ChevronRight aria-hidden="true" size={12} />
+        {label}
+      </summary>
+      {open && <div className={styles.panel}>{children}</div>}
+    </details>
+  );
+}
+
+type KeyPointsState =
+  | { kind: "idle" }
+  | { kind: "loading" }
+  | { kind: "ready"; points: string[] }
+  | { kind: "unavailable" };
+
+/** Loads on first open (and again while the article is unwritten); never polls. */
+function KeyPoints({
+  sessionId,
+  nodeId,
+  load,
+}: {
+  sessionId: string;
+  nodeId: string;
+  load: RabbitHoleKeyPointsLoader;
+}) {
+  const [state, setState] = useState<KeyPointsState>({ kind: "idle" });
+  // A ref, not state: two toggles in one tick must not start two reads.
+  const settledWithPoints = useRef(false);
+  const inFlight = useRef(false);
+
+  const fetchPoints = () => {
+    if (inFlight.current || settledWithPoints.current) return;
+    inFlight.current = true;
+    setState({ kind: "loading" });
+    load(sessionId, nodeId)
+      .then(
+        (points) => {
+          settledWithPoints.current = !!points?.length;
+          setState(points ? { kind: "ready", points } : { kind: "unavailable" });
+        },
+        () => setState({ kind: "unavailable" })
+      )
+      .finally(() => {
+        inFlight.current = false;
+      });
+  };
+
+  return (
+    <Disclosure label="Key points" onOpen={fetchPoints}>
+      {state.kind === "ready" && state.points.length > 0 ? (
+        <ul className={styles.points}>
+          {state.points.map((point, index) => (
+            <li key={index}>{point}</li>
+          ))}
+        </ul>
+      ) : (
+        <p aria-live="polite" className={styles.quiet}>
+          {state.kind === "unavailable"
+            ? "Key points could not be loaded."
+            : state.kind === "ready"
+              ? "Key points appear once the article is written."
+              : "Loading key points…"}
+        </p>
+      )}
+    </Disclosure>
+  );
+}
+
+function ToolDetails({ output }: { output: unknown }) {
+  return (
+    <Disclosure label="Tool details">
+      <pre className={styles.raw}>{formatOutput(output)}</pre>
+    </Disclosure>
+  );
+}
 
 function formatOutput(value: unknown): string {
   if (typeof value === "string") return value;

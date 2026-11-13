@@ -1,31 +1,52 @@
 # Rabbit-hole tool presence
 
-Arcadia's rabbit-hole tools render a dedicated curvilinear tunnel card in
-`components/chat/rabbit-hole-tool-presence.tsx`, routed through the shared
-`OrganicToolCallPresence` for current and historical tool parts. Creation stays inline
-beside reasoning disclosures; it is a product result rather than a process tool.
+Arcadia's rabbit-hole tools render `components/chat/rabbit-hole-tool-presence.tsx`, routed
+through the shared `OrganicToolCallPresence` for current and historical tool parts. It is a
+member of the generic tool pill family: same glass surface, radius, padding and 24px mark,
+so a rabbit hole reads as an Organic tool result rather than a separate widget.
 
-The card distinguishes an executing tool from a successfully scheduled exploration.
-“Rabbit hole created” confirms creation, while the separate background-generation note
-explains that the article is still being written. These are transcript snapshots, not live
-job monitors. Failed tool outputs (`ok: false`) must never show success or navigation.
+## Shape
 
-The graphic uses a fixed SVG mesh with no filters, random geometry, shared IDs, timers,
-or per-frame JavaScript. On tool entry, opacity reveals over 220ms and one small scale
-ripple settles over 600ms. Timing lives in the component's CSS module. The ripple is a
-brief attention cue, not an interaction delay; completed transcript cards stay still.
-Reduced motion disables both animations. Keep reveals within 180–240ms and the single
-ripple within 400–600ms. This follows the existing Stage grid and character-ripple
-language without introducing ongoing animation into a conversation.
+One row, then folded secondary detail:
 
-Open links are built from session IDs and always stay on `/rabbitholes`; arbitrary tool
-URLs are not used. Existing drawer generation/navigation tools keep their node-open event.
-Opening an article and expanding tool details are separate actions. Large raw outputs
-are formatted and mounted only after the native details disclosure opens. Search results
-show at most four destination links; the full payload remains inspectable in details.
+- **Mark** — the sidebar's rabbit-hole `SessionGlyph` (stem, node, forks), not a new
+  drawing. It uses the glyph's `grow` idiom only while the tool is in flight; completed
+  transcript cards stay still. Reduced motion is handled by the glyph's own stylesheet.
+- **Text** — the title (or search query) on one line, the status on a second muted line:
+  “Rabbit hole created · writing article”, “Rabbit holes searched · 8 found”.
+- **Action** — a compact glass chip (`glass({ chip: true })`, rounded-full, 28px tall)
+  with a 44px hit area from an expanded `::before`, so the target is large without making
+  the row tall. “Open” for sessions, “View” for drawer node navigation. Focus uses Lumen
+  via `organic-focus`.
 
-The card uses existing semantic theme colors and supports narrow containers, long titles,
-keyboard focus, native disclosures and pinning. Tests cover creation, transport and domain
-errors, safe destinations, drawer navigation, historical messages and visibility beside
-collapsed reasoning. Visual checks should include light/dark themes, 320px width,
-expanded details and reduced motion.
+Folded below, as native disclosures that stay out of the way until asked for:
+
+- **Key points** (creation tools) — loaded from one node's `key_takeaways` on first open via
+  `lib/rabbit-holes/key-points.ts` (one column, RLS-scoped; never the whole session). The
+  article is usually still being written when the card first appears, so an empty result
+  says so quietly and reopening retries. It never polls.
+- **Results** (search and list) — up to six compact rows: title plus the one-line description
+  the tool already returned. The model still sees the full list.
+- **Tool details** — raw output, development instances only (see below).
+
+Branch suggestions are not shown on the card: they belong inside the rabbit hole.
+
+## Rules
+
+- These are transcript snapshots, not live job monitors. Failed tool outputs (`ok: false`)
+  never show success, key points or navigation.
+- Open links are built from session IDs and always stay on `/rabbitholes`; tool-supplied URLs
+  are ignored. Drawer generation/navigation tools keep their node-open event.
+- The card is fixed-height per state: no ongoing animation, no shared SVG IDs, no timers.
+
+## Tool details are dev-only
+
+Raw tool payloads are a development and debugging aid, not product UI. Gen-ui tool
+components show them only when `SHOW_TOOL_DETAILS` (`lib/chat/tool-details-visibility.ts`)
+is true, which is `NODE_ENV === "development"`. Vercel previews and production build with
+`NODE_ENV=production` and never show them. Components accept a `showToolDetails` prop so
+tests can render both branches. Content that happens to live in a tool payload (a Mermaid
+diagram in the generic pill) is not a tool detail and still expands in production.
+
+Visual checks should include light/dark themes, 320px width, long titles, opened key points
+and results, and reduced motion.

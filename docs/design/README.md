@@ -15,7 +15,7 @@ feel — so improvements stay consistent and do not regress quality.
 | [Switches & quick settings](./switches-and-quick-settings.md) | Compact glass switches, caption popovers, quick-settings density |
 | [Context usage](./context-usage.md) | Composer context charts, source colors, percentage ramp, hover labels |
 | [Conversation scrolling](./conversation-scrolling.md) | Native reading, reduced-motion following, and isolated browser regression checks |
-| [Rabbit-hole tool presence](./rabbit-hole-tool-presence.md) | Visible creation, geometric tunnel cards, safe destinations and background-generation status |
+| [Rabbit-hole tool presence](./rabbit-hole-tool-presence.md) | Compact tool rows, folded key points and results, safe destinations, dev-only tool details |
 | [Reasoning display](./reasoning-display.md) | Secondary summary typography, stable streaming disclosure, and provider-stream verification |
 | [Subagent card lab](./subagent-card-lab.md) | Refining the subagent card: Current vs Next, "promote", shared Speak bar |
 | [Subagent identity mark](./subagent-identity-mark.md) | Layered SVG dots, glass diffusion, agent-state motion |
