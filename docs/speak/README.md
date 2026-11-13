@@ -33,7 +33,7 @@ app/layout.tsx → VoiceSessionProvider   — owns the session for the whole app
 ├── VoiceLiveBarHost                    — portals the live bar into CoreInput, or the page-area anchor in <main>
 └── children
     └── app/speak/page.tsx → SpeakShell
-        ├── LiveVoiceStage (default)    — a *view* onto the provider, owns no connection
+        ├── LiveVoiceStage (default)    — a *view* onto the provider, owns no connection → SpeakStage
         └── ReadAloudStage              — TTS read-aloud, a separate mode
 ```
 
@@ -58,7 +58,9 @@ client-side navigation. Held in a page, the peer connection dies on every route 
 | Voice visual state | `lib/speak/voice-visual-state.ts` |
 | Perf lab | `app/sandbox/prototypes/voice-bar/` |
 | Shell | `app/speak/_components/SpeakShell.tsx` |
-| Live voice UI | `app/speak/_components/LiveVoiceStage.tsx` |
+| Live voice UI | `app/speak/_components/LiveVoiceStage.tsx` (container) → `SpeakStage.tsx` (view); [stage design](./decisions/20261112-speak-stage-next.md) |
+| Stage view model | `lib/speak/speak-stage-view.ts` |
+| Stage lab | `app/sandbox/prototypes/speak-stage/` |
 | Read aloud | `app/speak/_components/ReadAloudStage.tsx` |
 | Realtime hook | `hooks/use-realtime-voice.ts` |
 | Server-event classifier | `lib/speak/realtime-events.ts` |

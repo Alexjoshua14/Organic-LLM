@@ -379,6 +379,25 @@ export const prototypes: PrototypeEntry[] = [
       updatedAt: "2026-09-22",
     },
   },
+  {
+    slug: "speak-stage",
+    title: "Speak stage",
+    description:
+      "The /speak call screen in every state — ready, connecting, listening, thinking, speaking, muted, paused, error, low allowance — with a synthetic voice driving the orb.",
+    about: {
+      what: "The real SpeakStage component from app/speak, fed stubbed session data so each state can be reviewed without a microphone or a paid Realtime session.",
+      howToUse:
+        "Pick a state from the strip. Turn on Synthetic voice to drive the orb from a generated audio stream (inaudible). Resize to phone width to see the transcript become a sheet. Keyboard shortcuts work as on /speak.",
+      adminQuestion:
+        "What should the Speak stage feel like in the first second of a call? Your words here become the author thoughts for this lab.",
+    },
+    ranking: {
+      importance: 8,
+      frequency: 3,
+      createdAt: "2026-11-12",
+      updatedAt: "2026-11-12",
+    },
+  },
 ];
 
 export type PrototypeTierId = "flagship" | "featured" | "library";
