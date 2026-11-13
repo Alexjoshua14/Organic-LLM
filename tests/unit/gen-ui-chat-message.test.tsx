@@ -365,13 +365,13 @@ describe("ChatMessage rabbit-hole creation", () => {
     });
     const view = render(<ChatMessage message={message(current)} />);
     expect(view.getByText(/Rabbit hole created/)).toBeTruthy();
-    expect(
-      view.getByRole("link", { name: "Open rabbit hole: New exploration" }).getAttribute("href")
-    ).toBe("/rabbitholes?sessionId=rabbit-session");
+    expect(view.getByRole("link", { name: "Open rabbit hole" }).getAttribute("href")).toBe(
+      "/rabbitholes?sessionId=rabbit-session"
+    );
     expect(view.queryByText("Starting the exploration.")).toBeNull();
     view.rerender(<ChatMessage message={message(historical)} />);
     expect(view.getByText(/Rabbit hole created/)).toBeTruthy();
-    expect(view.getByRole("link", { name: "Open rabbit hole: New exploration" })).toBeTruthy();
+    expect(view.getByRole("link", { name: "Open rabbit hole" })).toBeTruthy();
   });
 });
 

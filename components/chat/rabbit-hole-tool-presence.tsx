@@ -4,8 +4,8 @@ import type { CSSProperties, ReactNode } from "react";
 import type { OrganicToolCallPresenceProps } from "./organic-tool-call-presence";
 import type { SessionSignal } from "@/lib/sidebar/session-signal";
 
-import { memo, useRef, useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { memo, useId, useRef, useState } from "react";
+import { ArrowUpRight, ChevronDown, ChevronRight, Search } from "lucide-react";
 
 import { ToolResultInlineRow, ToolResultPinButton } from "./tool-result-inline";
 import styles from "./rabbit-hole-tool-presence.module.css";
@@ -56,8 +56,8 @@ const CREATE_TOOLS = new Set([
 // These drawer tools historically open a node in place rather than leaving the conversation.
 const DRAWER_TOOLS = new Set(["generate_rabbit_hole_node", "navigate_rabbit_hole_node"]);
 
-/** Explorations shown at a glance in search and list; the rest fold. */
-const GLANCE_SESSIONS = 3;
+/** Folded result rows shown in search and list before the "more" disclosure. */
+const GLANCE_SESSIONS = 4;
 /** Matched articles drawn under one search hit. */
 const GLANCE_MATCHES = 3;
 /** Rows of a session tree or outline shown before folding. */
@@ -291,26 +291,30 @@ type KeyPointsState =
   | { kind: "ready"; points: string[] }
   | { kind: "unavailable" };
 
-/** Loads on first open (and again while the article is unwritten); never polls. */
-function KeyPoints({
-  sessionId,
-  nodeId,
-  load,
-}: {
-  sessionId: string;
-  nodeId: string;
-  load: RabbitHoleKeyPointsLoader;
-}) {
+/**
+ * Key points for a just-created article: a footer toggle beside Open, the list below it.
+ * Loads on first open (and again while the article is unwritten); never polls.
+ */
+function useKeyPoints(
+  target: { sessionId: string; nodeId: string } | null,
+  load?: RabbitHoleKeyPointsLoader
+) {
+  const [open, setOpen] = useState(false);
   const [state, setState] = useState<KeyPointsState>({ kind: "idle" });
   // Refs, not state: two toggles in one tick must not start two reads.
   const settledWithPoints = useRef(false);
   const inFlight = useRef(false);
 
-  const fetchPoints = () => {
-    if (inFlight.current || settledWithPoints.current) return;
+  if (!target || !load) return null;
+
+  const toggle = () => {
+    const next = !open;
+
+    setOpen(next);
+    if (!next || inFlight.current || settledWithPoints.current) return;
     inFlight.current = true;
     setState({ kind: "loading" });
-    load(sessionId, nodeId)
+    load(target.sessionId, target.nodeId)
       .then(
         (points) => {
           settledWithPoints.current = !!points?.length;
@@ -323,8 +327,12 @@ function KeyPoints({
       });
   };
 
+  return { open, state, toggle };
+}
+
+function KeyPointsPanel({ id, state }: { id: string; state: KeyPointsState }) {
   return (
-    <Disclosure label="Key points" onOpen={fetchPoints}>
+    <div className={styles.keyPointsPanel} id={id}>
       {state.kind === "ready" && state.points.length > 0 ? (
         <Takeaways points={state.points} />
       ) : (
@@ -336,17 +344,37 @@ function KeyPoints({
               : "Loading key points…"}
         </p>
       )}
-    </Disclosure>
+    </div>
   );
 }
 
-function Takeaways({ points }: { points: string[] }) {
+/** "Lead: rest" or "Lead — rest" gets a bold lead, so a list of sentences scans. */
+function splitLead(point: string): [string | null, string] {
+  const match = /^(.{3,60}?)(:\s+|\s+[—–]\s+)(.+)$/s.exec(point);
+
+  return match ? [match[1]!, match[3]!] : [null, point];
+}
+
+/** Numbered, spaced takeaways: one idea per row, numerals in their own column. */
+function Takeaways({ points, start = 0 }: { points: string[]; start?: number }) {
   return (
-    <ul className={styles.takeaways}>
-      {points.map((point, index) => (
-        <li key={index}>{point}</li>
-      ))}
-    </ul>
+    <ol className={styles.takeaways}>
+      {points.map((point, index) => {
+        const [lead, rest] = splitLead(point);
+
+        return (
+          <li key={index}>
+            <span aria-hidden="true" className={styles.takeawayIndex}>
+              {String(start + index + 1).padStart(2, "0")}
+            </span>
+            <span className={styles.takeawayText}>
+              {lead && <strong>{lead}. </strong>}
+              {rest}
+            </span>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
@@ -368,27 +396,24 @@ function formatOutput(value: unknown): string {
   }
 }
 
-/** An exploration's title in Commissioner, the rabbit-hole app's voice; a link when it has one. */
-function ExplorationTitle({
-  children,
-  href,
-  size = "lg",
-  label,
-}: {
-  children: ReactNode;
-  href: string | null;
-  size?: "lg" | "md";
-  label?: string;
-}) {
-  const className = cn(styles.title, size === "md" && styles.titleMd);
+/** An exploration's title in Commissioner, the rabbit-hole app's voice. */
+function ExplorationTitle({ children, size = "lg" }: { children: ReactNode; size?: "lg" | "md" }) {
+  return <h3 className={cn(styles.title, size === "md" && styles.titleMd)}>{children}</h3>;
+}
 
-  return href ? (
-    <a aria-label={label} className={cn(className, styles.titleLink, "organic-focus")} href={href}>
-      {children}
+/** The way into an exploration: a tinted button, not a bare link. */
+function OpenRabbitHole({ href, label = "Open rabbit hole" }: { href: string; label?: string }) {
+  return (
+    <a className={cn(styles.openButton, "organic-focus")} href={href}>
+      {label}
+      <ArrowUpRight aria-hidden="true" size={14} />
     </a>
-  ) : (
-    <span className={className}>{children}</span>
   );
+}
+
+/** The card's action row: the primary way in, then any secondary toggles. */
+function Actions({ children }: { children: ReactNode }) {
+  return <div className={styles.actions}>{children}</div>;
 }
 
 function Meta({ children }: { children: ReactNode }) {
@@ -402,12 +427,13 @@ function Meta({ children }: { children: ReactNode }) {
 function ViewArticle({ nodeId, onOpen }: { nodeId: string; onOpen: (nodeId: string) => void }) {
   return (
     <button
-      className={cn(styles.textAction, "organic-focus")}
+      className={cn(styles.openButton, "organic-focus")}
       data-rabbit-hole-open-node={nodeId}
       type="button"
       onClick={() => onOpen(nodeId)}
     >
       View article
+      <ArrowUpRight aria-hidden="true" size={14} />
     </button>
   );
 }
@@ -423,7 +449,7 @@ function PendingView({ toolKey, args }: { toolKey: string; args: Rec | null }) {
 
   return (
     <>
-      {subject && <ExplorationTitle href={null}>{subject}</ExplorationTitle>}
+      {subject && <ExplorationTitle>{subject}</ExplorationTitle>}
       <Meta>
         <SessionGlyph className={styles.glyph} experience="rabbitHole" signal={WORKING} />
         {PENDING_LABELS[toolKey] ?? "Exploring…"}
@@ -446,7 +472,7 @@ function ErrorView({
 
   return (
     <>
-      {subject && <ExplorationTitle href={null}>{subject}</ExplorationTitle>}
+      {subject && <ExplorationTitle>{subject}</ExplorationTitle>}
       <Meta>Rabbit hole action failed</Meta>
       {error && <p className={styles.error}>{error}</p>}
     </>
@@ -476,14 +502,14 @@ function CreateView({
   const href = sessionHref(sessionId);
   const writing = result.status === "generating";
   const drawerNode = DRAWER_TOOLS.has(toolKey) ? text(result.nodeId, result.activeNodeId) : null;
+  const panelId = useId();
+  const keyPoints = useKeyPoints(sessionId && nodeId ? { sessionId, nodeId } : null, loadKeyPoints);
 
   return (
     <>
       {root ? (
         <>
-          <ExplorationTitle href={href} label={`Open rabbit hole: ${title}`}>
-            {title}
-          </ExplorationTitle>
+          <ExplorationTitle>{title}</ExplorationTitle>
           <NodeTree
             label="The new rabbit hole"
             rows={[
@@ -499,11 +525,7 @@ function CreateView({
         </>
       ) : (
         <>
-          {sessionName && (
-            <ExplorationTitle href={href} label={`Open rabbit hole: ${sessionName}`} size="md">
-              {sessionName}
-            </ExplorationTitle>
-          )}
+          {sessionName && <ExplorationTitle size="md">{sessionName}</ExplorationTitle>}
           <NodeTree
             label="Where the branch attaches"
             rows={[
@@ -527,90 +549,97 @@ function CreateView({
           writing && "writing the article"
         )}
       </Meta>
-      {drawerNode ? (
-        <ViewArticle nodeId={drawerNode} onOpen={onOpenNode} />
-      ) : (
-        !root &&
-        !sessionName &&
-        href && (
-          <a className={cn(styles.textAction, "organic-focus")} href={href}>
-            Open rabbit hole
-          </a>
-        )
+      {(drawerNode || href || keyPoints) && (
+        <Actions>
+          {drawerNode ? (
+            <ViewArticle nodeId={drawerNode} onOpen={onOpenNode} />
+          ) : (
+            href && <OpenRabbitHole href={href} />
+          )}
+          {keyPoints && (
+            <button
+              aria-controls={panelId}
+              aria-expanded={keyPoints.open}
+              className={cn(styles.toggle, "organic-focus")}
+              type="button"
+              onClick={keyPoints.toggle}
+            >
+              Key points
+              <ChevronDown aria-hidden="true" size={14} />
+            </button>
+          )}
+        </Actions>
       )}
-      {sessionId && nodeId && loadKeyPoints && (
-        <KeyPoints load={loadKeyPoints} nodeId={nodeId} sessionId={sessionId} />
-      )}
+      {keyPoints?.open && <KeyPointsPanel id={panelId} state={keyPoints.state} />}
     </>
   );
 }
 
+/** One result, folded to its title and meta; opens to its description, matched articles and Open. */
 function SessionEntry({ hit, terms }: { hit: Rec; terms: string[] }) {
+  const [open, setOpen] = useState(false);
+  const panelId = useId();
   const title = text(hit.title) ?? "Untitled";
   const description = text(hit.description);
   const nodeCount = count(hit.nodeCount);
   const matches = records(hit.matchingNodes).slice(0, GLANCE_MATCHES);
-
-  return (
-    <li className={styles.entry}>
-      <ExplorationTitle
-        href={sessionHref(hit.sessionId)}
-        label={`Open rabbit hole: ${title}`}
-        size="md"
-      >
-        <Highlighted terms={terms} value={title} />
-      </ExplorationTitle>
-      {description && description !== title && (
-        <p className={styles.description}>
-          <Highlighted terms={terms} value={description} />
-        </p>
-      )}
-      {matches.length > 0 && (
-        <NodeTree
-          label={`Matching articles in ${title}`}
-          rows={matches.map((node, index) => ({
-            id: text(node.nodeId) ?? String(index),
-            title: <Highlighted terms={terms} value={text(node.title) ?? "Untitled"} />,
-            depth: 0,
-          }))}
-        />
-      )}
-      <p className={styles.entryMeta}>
-        {joinMeta(nodeCount !== null && plural(nodeCount, "article"), shortDate(hit.updatedAt))}
-      </p>
-    </li>
-  );
-}
-
-function CompactEntry({ hit }: { hit: Rec }) {
-  const title = text(hit.title) ?? "Untitled";
   const href = sessionHref(hit.sessionId);
-  const nodeCount = count(hit.nodeCount);
 
   return (
-    <li className={styles.compactEntry}>
-      {href ? (
-        <a className={cn(styles.compactLink, "organic-focus")} href={href}>
-          {title}
-        </a>
-      ) : (
-        <span className={styles.compactLink}>{title}</span>
+    <li className={styles.entry} data-open={open || undefined}>
+      <button
+        aria-controls={panelId}
+        aria-expanded={open}
+        className={cn(styles.entryRow, "organic-focus")}
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+      >
+        <span className={styles.entryTitle}>
+          <Highlighted terms={terms} value={title} />
+        </span>
+        <span className={styles.entryMeta}>
+          {joinMeta(nodeCount !== null && plural(nodeCount, "article"), shortDate(hit.updatedAt))}
+        </span>
+        <ChevronDown aria-hidden="true" className={styles.entryChevron} size={14} />
+      </button>
+      {open && (
+        <div className={styles.entryPanel} id={panelId}>
+          {description && description !== title && (
+            <p className={styles.description}>
+              <Highlighted terms={terms} value={description} />
+            </p>
+          )}
+          {matches.length > 0 && (
+            <NodeTree
+              label={`Matching articles in ${title}`}
+              rows={matches.map((node, index) => ({
+                id: text(node.nodeId) ?? String(index),
+                title: <Highlighted terms={terms} value={text(node.title) ?? "Untitled"} />,
+                depth: 0,
+              }))}
+            />
+          )}
+          {href && (
+            <Actions>
+              <OpenRabbitHole href={href} />
+            </Actions>
+          )}
+        </div>
       )}
-      <span className={styles.compactMeta}>
-        {joinMeta(nodeCount !== null && plural(nodeCount, "article"), shortDate(hit.updatedAt))}
-      </span>
     </li>
   );
 }
 
 function ExplorationsView({
-  heading,
+  label,
+  query,
   hits,
   total,
   terms,
   emptyText,
 }: {
-  heading: ReactNode;
+  label: string;
+  query: string | null;
   hits: Rec[];
   total: number;
   terms: string[];
@@ -619,28 +648,33 @@ function ExplorationsView({
   const linked = hits.filter((hit) => sessionHref(hit.sessionId));
   const glance = linked.slice(0, GLANCE_SESSIONS);
   const rest = linked.slice(GLANCE_SESSIONS);
+  const entry = (hit: Rec, index: number) => (
+    <SessionEntry key={`${text(hit.sessionId)}-${index}`} hit={hit} terms={terms} />
+  );
 
   return (
     <>
-      <div className={styles.headingRow}>
-        <span className={cn(styles.title, styles.titleMd)}>{heading}</span>
-        <Meta>{total === 0 ? "None found" : plural(total, "rabbit hole")}</Meta>
-      </div>
+      <header className={styles.searchHeader}>
+        <div className={styles.searchLabel}>
+          <span>{label}</span>
+          <Meta>{total === 0 ? "None found" : plural(total, "result")}</Meta>
+        </div>
+        {query && (
+          <p className={styles.query}>
+            <Search aria-hidden="true" size={14} />
+            <span>{query}</span>
+          </p>
+        )}
+      </header>
       {total === 0 ? (
         <p className={styles.quiet}>{emptyText}</p>
       ) : (
-        <ol className={styles.entries}>
-          {glance.map((hit, index) => (
-            <SessionEntry key={`${text(hit.sessionId)}-${index}`} hit={hit} terms={terms} />
-          ))}
-        </ol>
+        <ol className={styles.entries}>{glance.map(entry)}</ol>
       )}
       {rest.length > 0 && (
         <Disclosure label={`${rest.length} more`}>
-          <ol className={styles.compactList}>
-            {rest.map((hit, index) => (
-              <CompactEntry key={`${text(hit.sessionId)}-${index}`} hit={hit} />
-            ))}
+          <ol className={styles.entries}>
+            {rest.map((hit, index) => entry(hit, index + GLANCE_SESSIONS))}
           </ol>
         </Disclosure>
       )}
@@ -657,17 +691,21 @@ function SessionView({ result }: { result: Rec }) {
   const nodeCount = count(result.nodeCount) ?? rows.length;
   const description = text(result.description);
   const updated = shortDate(result.updatedAt);
+  const href = sessionHref(result.sessionId);
 
   return (
     <>
-      <ExplorationTitle href={sessionHref(result.sessionId)} label={`Open rabbit hole: ${title}`}>
-        {title}
-      </ExplorationTitle>
+      <ExplorationTitle>{title}</ExplorationTitle>
       {description && description !== title && <p className={styles.description}>{description}</p>}
       {rows.length > 0 && (
         <NodeTree label={`Articles in ${title}`} rows={rows.slice(0, GLANCE_ROWS)} />
       )}
       <Meta>{joinMeta(plural(nodeCount, "article"), updated && `updated ${updated}`)}</Meta>
+      {href && (
+        <Actions>
+          <OpenRabbitHole href={href} />
+        </Actions>
+      )}
       {rows.length > GLANCE_ROWS && (
         <Disclosure label={`${rows.length - GLANCE_ROWS} more articles`}>
           <NodeTree label={`More articles in ${title}`} rows={rows.slice(GLANCE_ROWS)} />
@@ -682,6 +720,7 @@ function ArticleView({ result }: { result: Rec }) {
   const question = text(result.userQuestion);
   const takeaways = strings(result.keyTakeaways);
   const branches = Array.isArray(result.childNodeIds) ? result.childNodeIds.length : 0;
+  const href = sessionHref(result.sessionId);
   const outline: TreeRow[] = records(result.sections).map((section, index) => ({
     id: text(section.id) ?? String(index),
     title: text(section.heading) ?? `Section ${index + 1}`,
@@ -690,9 +729,7 @@ function ArticleView({ result }: { result: Rec }) {
 
   return (
     <>
-      <ExplorationTitle href={sessionHref(result.sessionId)} label={`Open rabbit hole: ${title}`}>
-        {title}
-      </ExplorationTitle>
+      <ExplorationTitle>{title}</ExplorationTitle>
       {question && question !== title && <p className={styles.question}>{question}</p>}
       {takeaways.length > 0 ? (
         <Takeaways points={takeaways.slice(0, GLANCE_TAKEAWAYS)} />
@@ -709,9 +746,14 @@ function ArticleView({ result }: { result: Rec }) {
           result.status === "generating" && "still writing"
         )}
       </Meta>
+      {href && (
+        <Actions>
+          <OpenRabbitHole href={href} />
+        </Actions>
+      )}
       {takeaways.length > GLANCE_TAKEAWAYS && (
         <Disclosure label={`${takeaways.length - GLANCE_TAKEAWAYS} more key points`}>
-          <Takeaways points={takeaways.slice(GLANCE_TAKEAWAYS)} />
+          <Takeaways points={takeaways.slice(GLANCE_TAKEAWAYS)} start={GLANCE_TAKEAWAYS} />
         </Disclosure>
       )}
       {takeaways.length > 0 && outline.length > 0 && (
@@ -734,16 +776,20 @@ function SectionView({ result }: { result: Rec }) {
   const body = text(section?.text);
   const index = count(section?.index);
   const total = count(result.totalSections);
+  const href = sessionHref(result.sessionId);
 
   return (
     <>
-      <ExplorationTitle href={sessionHref(result.sessionId)} size="md">
-        {heading}
-      </ExplorationTitle>
+      <ExplorationTitle size="md">{heading}</ExplorationTitle>
       {body && <p className={styles.excerpt}>{body}</p>}
       <Meta>
         {joinMeta("Section read", index !== null && total !== null && `${index + 1} of ${total}`)}
       </Meta>
+      {href && (
+        <Actions>
+          <OpenRabbitHole href={href} />
+        </Actions>
+      )}
     </>
   );
 }
@@ -775,7 +821,11 @@ function DrawerView({
         />
       )}
       <Meta>{DRAWER_DONE[toolKey] ?? "Rabbit hole response"}</Meta>
-      {drawerNode && <ViewArticle nodeId={drawerNode} onOpen={onOpenNode} />}
+      {drawerNode && (
+        <Actions>
+          <ViewArticle nodeId={drawerNode} onOpen={onOpenNode} />
+        </Actions>
+      )}
     </>
   );
 }
@@ -827,7 +877,8 @@ export const RabbitHoleToolPresence = memo(function RabbitHoleToolPresence({
     body = (
       <ExplorationsView
         emptyText="Nothing in your rabbit holes matches this yet."
-        heading={<>“{text(result.query, args?.query) ?? "Search"}”</>}
+        label="Searched your rabbit holes"
+        query={text(result.query, args?.query)}
         hits={hits}
         terms={[...new Set(hits.flatMap((hit) => strings(hit.matchedTerms)))]}
         total={hits.length}
@@ -839,7 +890,8 @@ export const RabbitHoleToolPresence = memo(function RabbitHoleToolPresence({
     body = (
       <ExplorationsView
         emptyText="No rabbit holes yet."
-        heading="Your rabbit holes"
+        label="Your rabbit holes"
+        query={null}
         hits={sessions}
         terms={[]}
         total={count(result.totalCount) ?? sessions.length}

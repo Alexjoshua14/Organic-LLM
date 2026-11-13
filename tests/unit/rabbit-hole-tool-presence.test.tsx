@@ -62,7 +62,7 @@ describe("Rabbit hole tool presence", () => {
     expect(view.queryByText(/Rabbit hole created/)).toBeNull();
   });
 
-  test("a new rabbit hole leads with its title, linked only to the internal destination", () => {
+  test("a new rabbit hole leads with its title and opens through its button", () => {
     const pin = mock(noop);
     const view = render(
       <OrganicToolCallPresence
@@ -82,10 +82,10 @@ describe("Rabbit hole tool presence", () => {
         .querySelector("li")
         ?.getAttribute("data-tone")
     ).toBe("generating");
-    const link = view.getByRole("link", { name: `Open rabbit hole: ${output.title}` });
-
-    expect(link.textContent).toBe(output.title);
-    expect(link.getAttribute("href")).toBe("/rabbitholes?sessionId=session-123");
+    expect(view.getByRole("heading", { name: output.title })).toBeTruthy();
+    expect(view.getByRole("link", { name: "Open rabbit hole" }).getAttribute("href")).toBe(
+      "/rabbitholes?sessionId=session-123"
+    );
     expect(view.container.querySelector("pre")).toBeNull();
     fireEvent.click(view.getByRole("button", { name: "Pin tool output" }));
     expect(pin).toHaveBeenCalledTimes(1);
@@ -106,7 +106,8 @@ describe("Rabbit hole tool presence", () => {
     );
 
     expect(status(view)).toBe("Branch created · writing the article");
-    expect(view.getByRole("link", { name: "Open rabbit hole: Black holes" })).toBeTruthy();
+    expect(view.getByRole("heading", { name: "Black holes" })).toBeTruthy();
+    expect(view.getByRole("link", { name: "Open rabbit hole" })).toBeTruthy();
     const tree = view.getByRole("list", { name: "Where the branch attaches" });
     const rows = Array.from(tree.querySelectorAll("li"));
 
@@ -128,8 +129,13 @@ describe("Rabbit hole tool presence", () => {
     );
 
     expect(load).not.toHaveBeenCalled();
-    await openDisclosure(view, "Key points");
+    await act(async () => {
+      fireEvent.click(view.getByRole("button", { name: "Key points" }));
+    });
     await waitFor(() => expect(view.getByText("Event horizons are one-way")).toBeTruthy());
+    expect(view.getByRole("button", { name: "Key points" }).getAttribute("aria-expanded")).toBe(
+      "true"
+    );
     expect(load).toHaveBeenCalledWith("session-123", "node-123");
   });
 
@@ -146,7 +152,9 @@ describe("Rabbit hole tool presence", () => {
       />
     );
 
-    await openDisclosure(view, "Key points");
+    await act(async () => {
+      fireEvent.click(view.getByRole("button", { name: "Key points" }));
+    });
     await waitFor(() =>
       expect(view.getByText("Key points appear once the article is written.")).toBeTruthy()
     );
@@ -271,20 +279,27 @@ describe("Rabbit hole tool presence", () => {
       />
     );
 
-    expect(view.getByText("“persona memory”")).toBeTruthy();
-    expect(status(view)).toBe("8 rabbit holes");
-    expect(view.getAllByRole("link")).toHaveLength(3);
-    expect(view.getByRole("list", { name: "Matching articles in Persona study 0" })).toBeTruthy();
+    expect(view.getByText("Searched your rabbit holes")).toBeTruthy();
+    expect(view.getByText("persona memory")).toBeTruthy();
+    expect(status(view)).toBe("8 results");
+    // Folded: four title rows, no links until a result is opened.
+    const rows = view.getAllByRole("button", { name: /Persona study/ });
+
+    expect(rows).toHaveLength(4);
+    expect(view.queryAllByRole("link")).toHaveLength(0);
+    expect(view.queryByText("How memory shapes persona 0")).toBeNull();
     expect(view.getByText("2 articles · Nov 2")).toBeTruthy();
     expect(view.container.querySelectorAll("mark").length).toBeGreaterThan(0);
 
-    await openDisclosure(view, "5 more");
-    const links = view.getAllByRole("link");
+    fireEvent.click(rows[0]!);
+    expect(rows[0]!.getAttribute("aria-expanded")).toBe("true");
+    expect(view.getByRole("list", { name: "Matching articles in Persona study 0" })).toBeTruthy();
+    expect(view.getByRole("link", { name: "Open rabbit hole" }).getAttribute("href")).toBe(
+      "/rabbitholes?sessionId=session-0"
+    );
 
-    expect(links).toHaveLength(8);
-    expect(
-      links.every((link) => link.getAttribute("href")?.startsWith("/rabbitholes?sessionId="))
-    ).toBe(true);
+    await openDisclosure(view, "4 more");
+    expect(view.getAllByRole("button", { name: /Persona study/ })).toHaveLength(8);
 
     view.rerender(
       <OrganicToolCallPresence

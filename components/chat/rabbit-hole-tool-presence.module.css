@@ -68,28 +68,6 @@
   font-weight: 400;
   line-height: 1.35;
 }
-.titleLink {
-  position: relative;
-  text-decoration: underline;
-  text-decoration-color: transparent;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 4px;
-  transition: text-decoration-color 150ms ease-out;
-}
-/* 44px touch target without a taller title. */
-.titleLink::after {
-  content: "";
-  position: absolute;
-  inset: -6px -4px;
-}
-.titleLink:hover {
-  text-decoration-color: color-mix(in oklch, var(--foreground) 45%, transparent);
-}
-@media (pointer: coarse) {
-  .titleLink {
-    text-decoration-color: color-mix(in oklch, var(--border) 90%, transparent);
-  }
-}
 .question,
 .description {
   margin: 0;
@@ -144,16 +122,6 @@
   border-radius: 2px;
   background: color-mix(in oklch, var(--accent) 22%, transparent);
   color: inherit;
-}
-
-.headingRow {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--spacing-inline-sm);
-}
-.headingRow .meta {
-  flex: none;
 }
 
 /* ── Path-rail tree ───────────────────────────────────────────────────── */
@@ -255,6 +223,42 @@
 
 /* ── Explorations (search, list) ──────────────────────────────────────── */
 
+/* The query is context, not content: a quiet label, then the query in the UI face. */
+.searchHeader {
+  display: grid;
+  gap: 4px;
+}
+.searchLabel {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--spacing-inline-sm);
+  font-size: 0.6875rem;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+  color: var(--muted-foreground);
+}
+.query {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  min-width: 0;
+  font-size: 0.875rem; /* 14px */
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--foreground);
+}
+.query svg {
+  flex: none;
+  color: var(--muted-foreground);
+}
+.query span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Results start folded: one row each, opened one at a time by curiosity. */
 .entries {
   display: grid;
   margin: 0;
@@ -262,95 +266,164 @@
   list-style: none;
 }
 .entry {
-  display: grid;
-  gap: 4px;
-  padding: 10px 0;
   border-top: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
 }
-.entry:last-child {
-  padding-bottom: 0;
+.entryRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--spacing-inline-sm);
+  width: 100%;
+  min-height: 44px;
+  padding: 6px 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.entryTitle {
+  overflow: hidden;
+  font-family: var(--font-commissioner), sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 400;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.entry[data-open] .entryTitle {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .entryMeta {
-  margin: 0;
   font-size: 0.6875rem;
   line-height: 1.5;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
   color: var(--muted-foreground);
 }
-.compactList {
-  margin: 0;
-  padding: 0;
-  list-style: none;
+.entryChevron {
+  color: var(--muted-foreground);
+  transition: transform 150ms ease-out;
 }
-.compactEntry {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--spacing-inline-sm);
-  min-height: 32px;
-  padding: 4px 0;
+.entry[data-open] .entryChevron {
+  transform: rotate(180deg);
 }
-.compactLink {
-  min-width: 0;
-  font-family: var(--font-commissioner), sans-serif;
-  font-size: 0.875rem;
-  font-weight: 400;
-  line-height: 1.4;
-  color: var(--foreground);
-  text-decoration: none;
-  overflow-wrap: anywhere;
-}
-a.compactLink:hover {
+.entryRow:hover .entryTitle {
   text-decoration: underline;
-  text-underline-offset: 3px;
+  text-decoration-color: color-mix(in oklch, var(--muted-foreground) 50%, transparent);
+  text-underline-offset: 4px;
 }
-.compactMeta {
-  flex: none;
-  font-size: 0.6875rem;
-  font-variant-numeric: tabular-nums;
-  color: var(--muted-foreground);
+.entryPanel {
+  display: grid;
+  gap: var(--spacing-stack-sm);
+  padding: 0 0 12px;
+}
+@media (max-width: 480px) {
+  .entryMeta {
+    display: none;
+  }
 }
 
 /* ── Key takeaways ────────────────────────────────────────────────────── */
 
+/* One idea per row: numerals in their own column, room between points, bold leads. */
 .takeaways {
   display: grid;
-  gap: var(--spacing-stack-xs);
+  gap: 10px;
   margin: 0;
-  padding: 0 0 0 1.125rem;
-  font-size: 0.8125rem;
-  line-height: 1.5;
-  list-style: disc;
-  overflow-wrap: anywhere;
+  padding: 0;
+  list-style: none;
 }
-.takeaways li::marker {
-  color: var(--muted-foreground);
+.takeaways li {
+  display: grid;
+  grid-template-columns: 1.5rem minmax(0, 1fr);
+  align-items: baseline;
+}
+.takeawayIndex {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+}
+.takeawayText {
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+.takeawayText strong {
+  font-weight: 600;
+}
+.keyPointsPanel {
+  padding: 12px 0 2px;
+  border-top: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
 }
 
 /* ── Actions and disclosures ─────────────────────────────────────────── */
 
-.textAction {
+/* The card's way in: a tinted pill in the rabbit-hole accent, so it reads as the action. */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-inline-sm);
+  padding-top: 2px;
+}
+.openButton,
+.toggle {
   position: relative;
-  justify-self: start;
-  padding: 0;
-  border: 0;
-  background: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 2rem;
+  padding: 0 12px;
+  border-radius: 9999px;
   font-size: 0.75rem;
   font-weight: 500;
-  line-height: 1.5;
-  color: var(--foreground);
-  text-decoration: underline;
-  text-decoration-color: color-mix(in oklch, var(--border) 90%, transparent);
-  text-underline-offset: 3px;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
   cursor: pointer;
+  transition:
+    background-color 150ms ease-out,
+    border-color 150ms ease-out;
 }
-.textAction::after {
+/* 44px targets without taller pills. */
+.openButton::after,
+.toggle::after {
   content: "";
   position: absolute;
-  inset: -12px -8px;
+  inset: -6px -2px;
 }
-.textAction:hover {
-  text-decoration-color: currentColor;
+.openButton {
+  border: 1px solid color-mix(in oklch, var(--accent) 45%, transparent);
+  background: color-mix(in oklch, var(--accent) 14%, transparent);
+  color: var(--foreground);
+}
+.openButton svg {
+  color: var(--accent);
+}
+.openButton:hover {
+  border-color: color-mix(in oklch, var(--accent) 70%, transparent);
+  background: color-mix(in oklch, var(--accent) 22%, transparent);
+}
+.toggle {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted-foreground);
+}
+.toggle:hover,
+.toggle[aria-expanded="true"] {
+  color: var(--foreground);
+  background: color-mix(in oklch, var(--foreground) 5%, transparent);
+}
+.toggle svg {
+  transition: transform 150ms ease-out;
+}
+.toggle[aria-expanded="true"] svg {
+  transform: rotate(180deg);
 }
 
 /* Disclosures bleed to the card edge and close it, like a footer. */
@@ -425,7 +498,10 @@ a.compactLink:hover {
 
 @media (prefers-reduced-motion: reduce) {
   .card::before,
-  .titleLink,
+  .openButton,
+  .toggle,
+  .toggle svg,
+  .entryChevron,
   .disclosure summary svg {
     transition: none;
   }

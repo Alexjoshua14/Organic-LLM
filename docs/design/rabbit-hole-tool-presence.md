@@ -23,18 +23,24 @@ and the explorer:
   - An accent dot with a halo marks a new article.
   - A hollow accent ring marks one that is being written.
   - A hollow muted dot marks a parent that appears only to show where something attaches.
-- **Open:** an exploration's title is its link, with an expanded 44px target and Lumen focus.
-  Links are built from session IDs and always stay on `/rabbitholes`. There are no node deep
-  links, so tree rows are not links. Drawer tools keep the "View article" node-open event.
+- **Open:** a tinted pill in the accent ("Open rabbit hole ↗"), placed in the card's action
+  row. A bare title link read as plain text, so titles are headings and the pill is the action.
+  It is 32px tall, with a 44px hit area and Lumen focus. Links are built from session IDs and
+  always stay on `/rabbitholes`. There are no node deep links, so tree rows are not links.
+  Drawer tools use the same pill for "View article" (the node-open event).
+- **Secondary toggles** (Key points) sit beside Open as a quiet outlined pill. Their content
+  opens below the row.
+- **Key points** are a numbered list: accent tabular numerals in their own column, 10px
+  between points, and a bold lead when a point reads "Lead: rest" or "Lead — rest".
 
 ## Shape per tool
 
 | Tool | Shown at a glance | Folded |
 |------|-------------------|--------|
-| `create_rabbit_hole` | Title as a heading, then its first article as a node (the question it answers, ringed while writing), "Rabbit hole created · writing the article" | Key points (lazy) |
+| `create_rabbit_hole` | Title as a heading, then its first article as a node (the question it answers, ringed while writing), "Rabbit hole created · writing the article", then Open and Key points | Key points (lazy) |
 | `create_rabbit_hole_node` | The exploration's title, then a tree: parent → new branch | Key points (lazy) |
-| `search_rabbit_holes` | Query plus count; top 3 explorations, each with its title, description, matched articles as a tree, and "N articles · date"; matched terms marked | The rest, as compact rows |
-| `list_rabbit_holes` | Top 3 explorations, as for search | The rest |
+| `search_rabbit_holes` | A quiet "Searched your rabbit holes · N results" label, the query in the UI face with a search icon, then up to 4 folded rows (title with matched terms marked, "N articles · date", chevron; the meta hides below 480px) | Each row opens to its description, matched articles as a tree, and Open; further results fold behind "N more" |
+| `list_rabbit_holes` | The same folded rows, under "Your rabbit holes" | As for search |
 | `get_rabbit_hole` | Title, description, and the article tree (up to 7 rows, depth-first, generating node flagged) | Remaining articles |
 | `get_rabbit_hole_node` | Title, question, the first 3 key takeaways (or the section outline when there are none), and "N sections · N branches" | Further takeaways, outline |
 | `get_rabbit_hole_node_section` | Section heading, a 4-line excerpt, "n of N" | — |
