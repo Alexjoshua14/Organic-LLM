@@ -188,7 +188,10 @@ const AIMessage: FC<ChatMessageProps> = ({
         );
 
       default:
-        if (isToolUIPart(part)) {
+        // The SDK's tool-* check also matches historical tool-invocation parts.
+        const legacyTool = getLegacyToolInvocationPart(part);
+
+        if (isToolUIPart(part) && !legacyTool) {
           const toolName = getToolOrDynamicToolName(part);
           const toolCallId = part.toolCallId;
 
@@ -459,8 +462,6 @@ const AIMessage: FC<ChatMessageProps> = ({
 
           return null;
         }
-        const legacyTool = getLegacyToolInvocationPart(part);
-
         if (legacyTool) {
           const tp = legacyTool;
 

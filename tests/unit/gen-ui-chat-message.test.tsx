@@ -256,7 +256,7 @@ describe("ChatMessage reasoning", () => {
 });
 
 describe("ChatMessage OrganicToolCallPresence", () => {
-  test("renders visual OrganicActivityMark presence for subagent dispatch, worktable, and rabbit hole tools", () => {
+  test("renders Organic marks for agent tools and a distinct tunnel for rabbit holes", () => {
     const message: UIMessage = {
       id: "msg-organic-tools",
       role: "assistant",
@@ -300,9 +300,12 @@ describe("ChatMessage OrganicToolCallPresence", () => {
     expect(getByText("Dispatched to Lyra")).toBeTruthy();
     expect(getByText("Synthesize speculative decoding benchmarks")).toBeTruthy();
     expect(getByText("Crafting context bundle")).toBeTruthy();
-    expect(getByText("Navigating branch…")).toBeTruthy();
+    expect(getByText("Navigating a branch…")).toBeTruthy();
     expect(container.querySelectorAll("[data-organic-tool-presence]")).toHaveLength(3);
-    expect(container.querySelectorAll('[role="img"][data-activity-state]')).toHaveLength(3);
+    expect(container.querySelectorAll('[role="img"][data-activity-state]')).toHaveLength(2);
+    expect(
+      container.querySelectorAll("[data-rabbit-hole-tool] svg[aria-hidden]").length
+    ).toBeGreaterThan(0);
   });
 });
 
@@ -325,6 +328,52 @@ function webSearchPart(state: "input-available" | "output-available") {
       : {}),
   } as UIMessage["parts"][number];
 }
+
+describe("ChatMessage rabbit-hole creation", () => {
+  test("creation stays visible beside collapsed reasoning for current and historical messages", () => {
+    const output = {
+      ok: true,
+      sessionId: "rabbit-session",
+      nodeId: "root-node",
+      title: "New exploration",
+      status: "generating",
+    };
+    const current = {
+      type: "dynamic-tool",
+      toolName: "create_rabbit_hole",
+      toolCallId: "rabbit-create",
+      state: "output-available",
+      input: { query: "space" },
+      output,
+    };
+    const historical = {
+      type: "tool-invocation",
+      toolName: "create_rabbit_hole",
+      toolInvocationId: "rabbit-create",
+      state: "result",
+      args: { query: "space" },
+      result: output,
+    };
+    const message = (part: unknown): UIMessage => ({
+      id: "rabbit-message",
+      role: "assistant",
+      parts: [
+        { type: "reasoning", text: "Starting the exploration.", state: "done" },
+        part as UIMessage["parts"][number],
+        { type: "text", text: "Follow the new exploration.", state: "done" },
+      ],
+    });
+    const view = render(<ChatMessage message={message(current)} />);
+    expect(view.getByText("Rabbit hole created")).toBeTruthy();
+    expect(view.getByRole("link", { name: "Open rabbit hole" }).getAttribute("href")).toBe(
+      "/rabbitholes?sessionId=rabbit-session"
+    );
+    expect(view.queryByText("Starting the exploration.")).toBeNull();
+    view.rerender(<ChatMessage message={message(historical)} />);
+    expect(view.getByText("Rabbit hole created")).toBeTruthy();
+    expect(view.getByRole("link", { name: "Open rabbit hole" })).toBeTruthy();
+  });
+});
 
 describe("ChatMessage activity trail", () => {
   test("reasoning around a web search coalesces into one trail with its thought time", () => {

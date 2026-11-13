@@ -59,6 +59,7 @@ Canon for the product: what we're building, who owns which kind of truth, how ag
   - [Context usage](./design/context-usage.md) — composer charts, source colors, percentage ramp, hover labels
   - [Conversation scrolling](./design/conversation-scrolling.md) — native reading, reduced-motion following, and browser regression checks
   - [Reasoning display](./design/reasoning-display.md) — secondary summary typography, stable disclosure, and streaming verification
+  - [Rabbit-hole tool presence](./design/rabbit-hole-tool-presence.md) — geometric inline tool cards and creation status
   - [Subagent identity mark](./design/subagent-identity-mark.md) — SVG dot states, glass diffusion, local layering
   - [Glass distortion](./design/glass-distortion.md) — opt-in source refraction beneath glass, Safari compatibility
   - [Liquid chrome materials](./design/liquid-chrome-materials.md) — theme-specific shader materials, fallbacks, and refraction parity
