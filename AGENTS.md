@@ -72,6 +72,12 @@ run; `-t "name"` filters by test name.
 - Route Organic LLM code changes through a PR the user reviews before they reach `develop`
   or `main`. Prefer updating an existing related PR over creating additional PRs.
 - When the user requests incremental PR delivery, follow [`pr-checkpoints`](.agents/skills/pr-checkpoints/SKILL.md) for working preview checkpoints, Ergon tracking, and the final demo/review handoff.
+- When creating or updating a PR whose work has a visual aspect (UI, layout, motion, copy the
+  user sees), attach screenshots to the PR description: before/after for changes, light and dark
+  or mobile and desktop where it matters. Refresh them when later pushes change the visuals.
+  Use synthetic content only — the repo is public, so no real user data, tokens, or private
+  URLs in an image. Capture from a server that is already running; if none is, ask before
+  starting one, or say the screenshots could not be taken.
 - Read [`docs/hub/README.md`](docs/hub/README.md) before product or feature-spec work, and
   follow its [maintenance protocol](docs/hub/maintenance-protocol.md) when you decide something.
 - Follow [`docs/design/README.md`](docs/design/README.md) for anything the user sees or feels.
