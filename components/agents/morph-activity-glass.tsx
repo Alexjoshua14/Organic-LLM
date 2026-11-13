@@ -32,11 +32,14 @@ function backdropFilter(pose: GlassPose): string {
 }
 
 /** Filter the complete owned background once, including SVG dots and the grain layer. */
-export function activityBackgroundFilter(pose: GlassPose & { saturation?: number }): string {
+export function activityBackgroundFilter(
+  pose: GlassPose & { saturation?: number },
+  relativeBlur = false
+): string {
   const saturation =
     pose.saturation !== undefined && Number.isFinite(pose.saturation) ? pose.saturation : 1.12;
 
-  return `blur(${pose.blur}px) brightness(${pose.brightness}) saturate(${saturation})`;
+  return `blur(${relativeBlur ? `${pose.blur * 2.5}cqw` : `${pose.blur}px`}) brightness(${pose.brightness}) saturate(${saturation})`;
 }
 
 /** The owner selects the target; this persistent cover springs only while it is changing. */
@@ -46,7 +49,9 @@ export function MorphActivityGlass({
   scheduler = dotPhysicsScheduler,
   performanceId,
   backdropRef,
+  relativeBlur = false,
 }: {
+  relativeBlur?: boolean;
   state: AgentDotState;
   appearance: ActivityGlassAppearance;
   /** Shared scheduler is injectable for actual DOM delivery/lifecycle tests. */
@@ -80,10 +85,13 @@ export function MorphActivityGlass({
 
       for (const key of Object.keys(style)) element.style.setProperty(key, style[key]!);
       if (backdropRef?.current) {
-        backdropRef.current.style.filter = activityBackgroundFilter({
-          ...pose,
-          saturation: saturationRef.current,
-        });
+        backdropRef.current.style.filter = activityBackgroundFilter(
+          {
+            ...pose,
+            saturation: saturationRef.current,
+          },
+          relativeBlur
+        );
       }
       // Do not blur the owned background a second time through the cover.
       const filter = backdropRef ? "none" : backdropFilter(pose);
@@ -158,7 +166,7 @@ export function MorphActivityGlass({
       window.removeEventListener("organic-llm-settings", sync);
       window.removeEventListener("storage", storage);
     };
-  }, [initial, scheduler, performanceId, backdropRef]);
+  }, [initial, scheduler, performanceId, backdropRef, relativeBlur]);
 
   useEffect(() => {
     retarget.current({ blur, opacity, brightness, tint, saturation });
