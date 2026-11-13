@@ -132,7 +132,7 @@ export async function runStageTurn(
       throw new StageTurnError("The requested view is no longer available.", 409);
     // Memory is opt-out on Stage: its job is to remember on the user's behalf.
     const memoryEnabled = settings?.memory !== false;
-    const hasKnowledge = result.captures.length > 0 || !!result.recall;
+    const hasKnowledge = result.captures.length > 0 || (!!result.recall && memoryEnabled);
 
     if (selectedView && !job && !result.subagents?.length && !hasKnowledge) {
       const navigated = await mutateStage(

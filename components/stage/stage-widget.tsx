@@ -80,12 +80,15 @@ export const StageWidget = memo(function StageWidget({
   selected,
   onSelect,
   hidden = false,
+  stored,
   onChange,
 }: {
   widget: Widget;
   selected: boolean;
   onSelect: (id: string) => void;
   hidden?: boolean;
+  /** The saved widget. `widget` may carry a view-local rect; edits must never persist that. */
+  stored?: Widget;
   onChange?: (operations: StageOperation[]) => Promise<boolean>;
 }) {
   const reduced = useReducedMotion();
@@ -128,7 +131,7 @@ export const StageWidget = memo(function StageWidget({
         <h2 className="stage-piece-title">{widget.title}</h2>
       )}
       <div className="stage-piece-content">
-        <PieceContent widget={widget} onChange={onChange} />
+        <PieceContent widget={stored ?? widget} onChange={onChange} />
       </div>
     </motion.article>
   );

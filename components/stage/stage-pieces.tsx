@@ -43,6 +43,7 @@ export function StagePieces({
         <StageWidget
           key={widget.id}
           widget={placement?.widget ?? widget}
+          stored={widget}
           hidden={!placement}
           selected={widget.id === selectedId}
           onSelect={onArrange}
