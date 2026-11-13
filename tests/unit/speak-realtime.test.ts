@@ -43,6 +43,24 @@ describe("speak realtime cost helpers", () => {
     expect(withAudio).toBeGreaterThan(textOnly);
   });
 
+  test("cached audio uses its own rate without discounting fresh text", () => {
+    const usage = {
+      inputTokens: 500,
+      cachedInputTokens: 200,
+      audioInputTokens: 1000,
+      cachedAudioInputTokens: 900,
+    };
+
+    // 300 fresh text + 200 cached text + 100 fresh audio + 900 cached audio.
+    expect(computeUsageCostUsd("openai/gpt-realtime-2.1-mini", usage)).toBeCloseTo(0.001462, 8);
+    expect(
+      computeUsageCostUsd("openai/gpt-realtime-2.1-mini", {
+        audioInputTokens: 100,
+        cachedAudioInputTokens: 200,
+      })
+    ).toBeCloseTo(0.00003, 8);
+  });
+
   test("costUnitsFromUsd uses 10k units per dollar", () => {
     expect(costUnitsFromUsd(20)).toBe(200_000);
     expect(costUnitsFromUsd(0.00005)).toBe(1);
@@ -165,7 +183,10 @@ describe("Speak Realtime screen awareness", () => {
   const variants = [
     buildSpeakRealtimeInstructions(DEFAULT_SPEAK_MODALITIES),
     buildSpeakRealtimeInstructions(DEFAULT_SPEAK_MODALITIES, { memoryEnabled: true }),
-    buildSpeakRealtimeInstructions(DEFAULT_SPEAK_MODALITIES, { resumed: true, sessionContext: "x" }),
+    buildSpeakRealtimeInstructions(DEFAULT_SPEAK_MODALITIES, {
+      resumed: true,
+      sessionContext: "x",
+    }),
   ];
 
   test("every session is told screen updates exist, by the label items carry", () => {

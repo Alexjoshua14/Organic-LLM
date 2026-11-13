@@ -225,12 +225,67 @@ describe("idle pause: the 20s window", () => {
     expect(result.current.connected).toBe(false);
     expect(harness.transport.closed).toBe(true);
     expect(harness.callsTo("end").map((c) => c.body.sessionId)).toEqual(["session-1"]);
+    expect(harness.callsTo("end")[0]!.body.usage).toEqual({
+      inputTokens: 0,
+      outputTokens: 0,
+      cachedInputTokens: 0,
+      audioInputTokens: 0,
+      audioOutputTokens: 0,
+    });
     expect(result.current.threadId).toBe(SPEAK_TEST_THREAD_ID);
     unmount();
   });
 });
 
 describe("idle pause: sustained activity is not idle", () => {
+  test("a quiet heartbeat reports zero usage instead of invoking a speech-cost estimate", async () => {
+    const hook = renderHook(() =>
+      useRealtimeVoice({
+        transportFactory: harness.transportFactory,
+        idlePauseMs: 120_000,
+      })
+    );
+
+    await act(async () => {
+      await hook.result.current.connect();
+    });
+    await advance(60_000);
+
+    expect(harness.callsTo("heartbeat").length).toBeGreaterThan(0);
+    expect(harness.callsTo("heartbeat")[0]!.body.usage).toEqual({
+      inputTokens: 0,
+      outputTokens: 0,
+      cachedInputTokens: 0,
+      audioInputTokens: 0,
+      audioOutputTokens: 0,
+    });
+    hook.unmount();
+  });
+
+  test("disconnect sends the final response usage once instead of estimating the tail", async () => {
+    const hook = await liveCall();
+    emit("response.done", {
+      response: {
+        usage: {
+          input_tokens: 100,
+          output_tokens: 50,
+          input_token_details: { text_tokens: 100 },
+          output_token_details: { text_tokens: 50 },
+        },
+      },
+    });
+
+    await act(async () => {
+      await hook.result.current.disconnect();
+    });
+
+    expect(harness.callsTo("end")[0]!.body.usage).toMatchObject({
+      inputTokens: 100,
+      outputTokens: 50,
+    });
+    hook.unmount();
+  });
+
   test("a user talking for longer than the window keeps the call open", async () => {
     const { result, unmount } = await liveCall();
 
