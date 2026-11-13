@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { act, cleanup, fireEvent, waitFor } from "@testing-library/react";
 
 import { render } from "../helpers/render";
@@ -23,7 +23,37 @@ const output = {
 
 const noop = () => {};
 
-afterEach(cleanup);
+type Feed = {
+  loaded: boolean;
+  entry: {
+    sessionId: string;
+    nodeId: string;
+    step: "sources" | "article" | "branch_suggestions" | null;
+  } | null;
+};
+
+let feed: Feed = { loaded: false, entry: null };
+
+/** Reports every observed card as on screen. Other files may leave a never-firing observer. */
+class OnScreen {
+  constructor(private readonly callback: (entries: Array<{ isIntersecting: boolean }>) => void) {}
+  observe() {
+    this.callback([{ isIntersecting: true }]);
+  }
+  disconnect() {}
+}
+
+const realObserver = globalThis.IntersectionObserver;
+
+beforeEach(() => {
+  (globalThis as { IntersectionObserver?: unknown }).IntersectionObserver = OnScreen;
+});
+
+afterEach(() => {
+  cleanup();
+  feed = { loaded: false, entry: null };
+  (globalThis as { IntersectionObserver?: unknown }).IntersectionObserver = realObserver;
+});
 
 async function openDisclosure(view: ReturnType<typeof render>, label: string | RegExp) {
   const details = view.getByText(label).closest("details") as HTMLDetailsElement;
@@ -115,39 +145,151 @@ describe("Rabbit hole tool presence", () => {
     expect(rows[1]?.textContent).toContain("Hawking radiation");
   });
 
-  test("key points stay folded and load once, only when opened", async () => {
-    const load = mock(async () => ["Event horizons are one-way", "Spacetime curvature diverges"]);
+  test("the status line follows the shared feed: sources, writing, then ready from one read", async () => {
+    const load = mock(async () => ({
+      state: "ready" as const,
+      keyPoints: ["Event horizons are one-way", "Spacetime curvature diverges"],
+    }));
     const view = render(
       <RabbitHoleToolPresence
-        loadKeyPoints={load}
+        loadNodeStatus={load}
         output={output}
         showToolDetails={false}
         state="complete"
         toolName="create_rabbit_hole"
+        useGenerationFeed={() => feed}
+        onOpenNode={noop}
+      />
+    );
+    const rerender = () =>
+      view.rerender(
+        <RabbitHoleToolPresence
+          loadNodeStatus={load}
+          output={output}
+          showToolDetails={false}
+          state="complete"
+          toolName="create_rabbit_hole"
+          useGenerationFeed={() => ({ ...feed })}
+          onOpenNode={noop}
+        />
+      );
+
+    // Before the feed arrives, the tool's own snapshot.
+    expect(status(view)).toBe("Rabbit hole created · writing the article");
+
+    feed = {
+      loaded: true,
+      entry: { sessionId: "session-123", nodeId: "node-123", step: "sources" },
+    };
+    rerender();
+    expect(status(view)).toBe("Rabbit hole created · finding sources");
+    expect(view.container.querySelector("[data-rabbit-hole-status] .session-glyph")).toBeTruthy();
+
+    feed = {
+      loaded: true,
+      entry: { sessionId: "session-123", nodeId: "node-123", step: "article" },
+    };
+    rerender();
+    expect(status(view)).toBe("Rabbit hole created · writing the article");
+    expect(load).not.toHaveBeenCalled();
+
+    // The session leaves the feed: one read says how it ended.
+    feed = { loaded: true, entry: null };
+    rerender();
+    await waitFor(() => expect(status(view)).toBe("Rabbit hole created · article ready"));
+    expect(load).toHaveBeenCalledTimes(1);
+    expect(load).toHaveBeenCalledWith("session-123", "node-123");
+    const node = view.getByRole("list", { name: "The new rabbit hole" }).querySelector("li");
+
+    expect(node?.getAttribute("data-tone")).toBe("new");
+    expect(node?.textContent).toContain("ready");
+
+    // Key points come from that same read: no second request.
+    fireEvent.click(view.getByRole("button", { name: "Key points" }));
+    expect(view.getByText("Event horizons are one-way")).toBeTruthy();
+    expect(load).toHaveBeenCalledTimes(1);
+  });
+
+  test("a node that stopped moving reads as stalled, and an unreadable one claims nothing", async () => {
+    feed = { loaded: true, entry: null };
+    const stalled = render(
+      <RabbitHoleToolPresence
+        loadNodeStatus={async () => ({ state: "stalled" as const })}
+        output={output}
+        showToolDetails={false}
+        state="complete"
+        toolName="create_rabbit_hole"
+        useGenerationFeed={() => feed}
         onOpenNode={noop}
       />
     );
 
-    expect(load).not.toHaveBeenCalled();
-    await act(async () => {
-      fireEvent.click(view.getByRole("button", { name: "Key points" }));
-    });
-    await waitFor(() => expect(view.getByText("Event horizons are one-way")).toBeTruthy());
-    expect(view.getByRole("button", { name: "Key points" }).getAttribute("aria-expanded")).toBe(
-      "true"
-    );
-    expect(load).toHaveBeenCalledWith("session-123", "node-123");
-  });
+    await waitFor(() => expect(status(stalled)).toBe("Rabbit hole created · article stalled"));
+    stalled.unmount();
 
-  test("unwritten articles say so quietly rather than polling", async () => {
-    const load = mock(async () => [] as string[]);
-    const view = render(
+    const unreadable = render(
       <RabbitHoleToolPresence
-        loadKeyPoints={load}
+        loadNodeStatus={async () => null}
         output={output}
         showToolDetails={false}
         state="complete"
         toolName="create_rabbit_hole"
+        useGenerationFeed={() => feed}
+        onOpenNode={noop}
+      />
+    );
+
+    await waitFor(() => expect(status(unreadable)).toBe("Rabbit hole created"));
+  });
+
+  test("an off-screen card makes no status read", async () => {
+    const original = globalThis.IntersectionObserver;
+    const load = mock(async () => ({ state: "ready" as const, keyPoints: [] }));
+
+    class OffScreen {
+      observe() {}
+      disconnect() {}
+    }
+    (globalThis as { IntersectionObserver?: unknown }).IntersectionObserver = OffScreen;
+    feed = { loaded: true, entry: null };
+    try {
+      render(
+        <RabbitHoleToolPresence
+          loadNodeStatus={load}
+          output={output}
+          showToolDetails={false}
+          state="complete"
+          toolName="create_rabbit_hole"
+          useGenerationFeed={() => feed}
+          onOpenNode={noop}
+        />
+      );
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(load).not.toHaveBeenCalled();
+    } finally {
+      (globalThis as { IntersectionObserver?: unknown }).IntersectionObserver = original;
+    }
+  });
+
+  test("key points opened while writing say so, without polling", async () => {
+    const load = mock(async () => ({
+      state: "working" as const,
+      step: "article" as const,
+      keyPoints: [],
+    }));
+
+    feed = {
+      loaded: true,
+      entry: { sessionId: "session-123", nodeId: "node-123", step: "article" },
+    };
+    const view = render(
+      <RabbitHoleToolPresence
+        loadNodeStatus={load}
+        output={output}
+        showToolDetails={false}
+        state="complete"
+        toolName="create_rabbit_hole"
+        useGenerationFeed={() => feed}
         onOpenNode={noop}
       />
     );

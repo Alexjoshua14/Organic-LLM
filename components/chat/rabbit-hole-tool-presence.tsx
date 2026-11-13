@@ -2,15 +2,18 @@
 
 import type { CSSProperties, ReactNode } from "react";
 import type { OrganicToolCallPresenceProps } from "./organic-tool-call-presence";
-import type { SessionSignal } from "@/lib/sidebar/session-signal";
+import type { RabbitHoleGenerationFeed } from "@/hooks/use-sidebar-activity";
+import type { RabbitHoleNodeStatus } from "@/lib/rabbit-holes/node-status";
+import type { RabbitHoleStep, SessionSignal } from "@/lib/sidebar/session-signal";
 
-import { memo, useId, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useId, useRef, useState } from "react";
 import { ArrowUpRight, ChevronDown, ChevronRight, Search } from "lucide-react";
 
 import { ToolResultInlineRow, ToolResultPinButton } from "./tool-result-inline";
 import styles from "./rabbit-hole-tool-presence.module.css";
 
 import { SessionGlyph } from "@/components/sidebar/session-glyph";
+import { useRabbitHoleGeneration } from "@/hooks/use-sidebar-activity";
 import { SHOW_TOOL_DETAILS } from "@/lib/chat/tool-details-visibility";
 import { cn } from "@/lib/utils";
 
@@ -68,11 +71,14 @@ const GLANCE_TAKEAWAYS = 3;
 const WORKING: SessionSignal = { kind: "working", step: "sources" };
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-/** Loads one node's key takeaways: `null` if unreadable, `[]` if not written yet. */
-export type RabbitHoleKeyPointsLoader = (
+/** Reads one node's generation status (and key points once written); `null` if unreadable. */
+export type RabbitHoleNodeStatusLoader = (
   sessionId: string,
   nodeId: string
-) => Promise<string[] | null>;
+) => Promise<RabbitHoleNodeStatus | null>;
+
+/** Whether a session is generating, from the shared activity poll. Injectable for tests. */
+export type RabbitHoleGenerationFeedHook = (sessionId: string | null) => RabbitHoleGenerationFeed;
 
 export function isRabbitHoleToolName(toolName: string): boolean {
   return Object.hasOwn(PENDING_LABELS, toolName.toLowerCase());
@@ -285,63 +291,149 @@ function Disclosure({
   );
 }
 
-type KeyPointsState =
-  | { kind: "idle" }
-  | { kind: "loading" }
-  | { kind: "ready"; points: string[] }
-  | { kind: "unavailable" };
+/** True once the element has been on screen; true at once where IntersectionObserver is missing. */
+function useInView<T extends Element>(): [(node: T | null) => void, boolean] {
+  const [node, setNode] = useState<T | null>(null);
+  const [inView, setInView] = useState(false);
 
-/**
- * Key points for a just-created article: a footer toggle beside Open, the list below it.
- * Loads on first open (and again while the article is unwritten); never polls.
- */
-function useKeyPoints(
-  target: { sessionId: string; nodeId: string } | null,
-  load?: RabbitHoleKeyPointsLoader
-) {
-  const [open, setOpen] = useState(false);
-  const [state, setState] = useState<KeyPointsState>({ kind: "idle" });
-  // Refs, not state: two toggles in one tick must not start two reads.
-  const settledWithPoints = useRef(false);
-  const inFlight = useRef(false);
+  useEffect(() => {
+    if (!node) return;
+    if (typeof IntersectionObserver === "undefined") {
+      setInView(true);
 
-  if (!target || !load) return null;
+      return;
+    }
+    const observer = new IntersectionObserver(([entry]) => setInView(!!entry?.isIntersecting));
 
-  const toggle = () => {
-    const next = !open;
+    observer.observe(node);
 
-    setOpen(next);
-    if (!next || inFlight.current || settledWithPoints.current) return;
-    inFlight.current = true;
-    setState({ kind: "loading" });
-    load(target.sessionId, target.nodeId)
-      .then(
-        (points) => {
-          settledWithPoints.current = !!points?.length;
-          setState(points ? { kind: "ready", points } : { kind: "unavailable" });
-        },
-        () => setState({ kind: "unavailable" })
-      )
-      .finally(() => {
-        inFlight.current = false;
-      });
-  };
+    return () => observer.disconnect();
+  }, [node]);
 
-  return { open, state, toggle };
+  return [setNode, inView];
 }
 
-function KeyPointsPanel({ id, state }: { id: string; state: KeyPointsState }) {
+/** Where a just-created article stands, as the card shows it. */
+type CreationPhase =
+  | { kind: "snapshot"; writing: boolean }
+  | { kind: "working"; step: RabbitHoleStep | null }
+  | { kind: "ready" }
+  | { kind: "stalled" }
+  | { kind: "unknown" };
+
+/**
+ * Keeps a creation card true to its rabbit hole without a poller of its own. The shared activity
+ * poll (the sidebar's, which runs only while something is working) says whether this node is
+ * still generating and at which step. When it is not, one narrow status read, made only once
+ * the card is on screen, says how it ended and brings the key points.
+ */
+function useCreationStatus({
+  target,
+  snapshotWriting,
+  load,
+  useFeed,
+}: {
+  target: { sessionId: string; nodeId: string } | null;
+  snapshotWriting: boolean;
+  load?: RabbitHoleNodeStatusLoader;
+  useFeed: RabbitHoleGenerationFeedHook;
+}) {
+  const feed = useFeed(target && load ? target.sessionId : null);
+  const live = target && feed.entry?.nodeId === target.nodeId ? feed.entry : null;
+  const [status, setStatus] = useState<RabbitHoleNodeStatus | null | undefined>(undefined);
+  const [reading, setReading] = useState(false);
+  const [observe, inView] = useInView<HTMLParagraphElement>();
+  // A ref, not state: two triggers in one tick must not start two reads.
+  const inFlight = useRef(false);
+  const sessionId = target?.sessionId;
+  const nodeId = target?.nodeId;
+
+  const read = useCallback(() => {
+    if (!sessionId || !nodeId || !load || inFlight.current) return;
+    inFlight.current = true;
+    setReading(true);
+    load(sessionId, nodeId)
+      .then(setStatus, () => setStatus(null))
+      .finally(() => {
+        inFlight.current = false;
+        setReading(false);
+      });
+  }, [sessionId, nodeId, load]);
+
+  const settled = status !== undefined && status?.state !== "working";
+
+  useEffect(() => {
+    if (feed.loaded && !live && inView && !settled) read();
+  }, [feed.loaded, live, inView, settled, read]);
+
+  const phase: CreationPhase = live
+    ? { kind: "working", step: live.step }
+    : status === undefined
+      ? { kind: "snapshot", writing: snapshotWriting }
+      : status === null
+        ? { kind: "unknown" }
+        : status.state === "working"
+          ? { kind: "working", step: status.step }
+          : { kind: status.state };
+  const keyPoints =
+    status && (status.state === "ready" || status.state === "working") ? status.keyPoints : [];
+
+  return { phase, keyPoints, reading, read, observe };
+}
+
+/** The article is being written (as opposed to finished, with only branch ideas left). */
+function isWriting(phase: CreationPhase): boolean {
+  return (
+    (phase.kind === "working" && phase.step !== "branch_suggestions") ||
+    (phase.kind === "snapshot" && phase.writing)
+  );
+}
+
+function phaseLabel(phase: CreationPhase): string | null {
+  switch (phase.kind) {
+    case "working":
+      return phase.step === "sources"
+        ? "finding sources"
+        : phase.step === "branch_suggestions"
+          ? "article ready · suggesting branches"
+          : "writing the article";
+    case "snapshot":
+      return phase.writing ? "writing the article" : null;
+    case "ready":
+      return "article ready";
+    case "stalled":
+      return "article stalled";
+    case "unknown":
+      return null;
+  }
+}
+
+function KeyPointsPanel({
+  id,
+  phase,
+  points,
+  reading,
+}: {
+  id: string;
+  phase: CreationPhase;
+  points: string[];
+  reading: boolean;
+}) {
+  const message = reading
+    ? "Loading key points…"
+    : phase.kind === "stalled"
+      ? "The article stopped before it was written."
+      : isWriting(phase)
+        ? "Key points appear once the article is written."
+        : "No key points for this article.";
+
   return (
     <div className={styles.keyPointsPanel} id={id}>
-      {state.kind === "ready" && state.points.length > 0 ? (
-        <Takeaways points={state.points} />
+      {points.length > 0 ? (
+        <Takeaways points={points} />
       ) : (
         <p aria-live="polite" className={styles.quiet}>
-          {state.kind === "unavailable"
-            ? "Key points could not be loaded."
-            : state.kind === "ready"
-              ? "Key points appear once the article is written."
-              : "Loading key points…"}
+          {message}
         </p>
       )}
     </div>
@@ -442,9 +534,21 @@ function Actions({ children }: { children: ReactNode }) {
   return <div className={styles.actions}>{children}</div>;
 }
 
-function Meta({ children }: { children: ReactNode }) {
+function Meta({
+  children,
+  statusRef,
+}: {
+  children: ReactNode;
+  statusRef?: (node: HTMLParagraphElement | null) => void;
+}) {
   return (
-    <p aria-atomic="true" className={styles.meta} data-rabbit-hole-status="" role="status">
+    <p
+      ref={statusRef}
+      aria-atomic="true"
+      className={styles.meta}
+      data-rabbit-hole-status=""
+      role="status"
+    >
       {children}
     </p>
   );
@@ -509,13 +613,15 @@ function CreateView({
   toolKey,
   args,
   result,
-  loadKeyPoints,
+  loadNodeStatus,
+  useFeed,
   onOpenNode,
 }: {
   toolKey: string;
   args: Rec | null;
   result: Rec;
-  loadKeyPoints?: RabbitHoleKeyPointsLoader;
+  loadNodeStatus?: RabbitHoleNodeStatusLoader;
+  useFeed: RabbitHoleGenerationFeedHook;
   onOpenNode: (nodeId: string) => void;
 }) {
   const root = toolKey === "create_rabbit_hole";
@@ -526,18 +632,44 @@ function CreateView({
   const parentTitle = text(result.parentTitle);
   const sessionName = text(result.sessionTitle);
   const href = sessionHref(sessionId);
-  const writing = result.status === "generating";
   const drawerNode = DRAWER_TOOLS.has(toolKey) ? text(result.nodeId, result.activeNodeId) : null;
   const panelId = useId();
-  const keyPoints = useKeyPoints(sessionId && nodeId ? { sessionId, nodeId } : null, loadKeyPoints);
+  const [keyPointsOpen, setKeyPointsOpen] = useState(false);
+  const { phase, keyPoints, reading, read, observe } = useCreationStatus({
+    target: sessionId && nodeId ? { sessionId, nodeId } : null,
+    snapshotWriting: result.status === "generating",
+    load: loadNodeStatus,
+    useFeed,
+  });
+  const writing = isWriting(phase);
+  const nodeTone = writing ? "generating" : phase.kind === "stalled" ? undefined : "new";
+  const nodeMeta = writing
+    ? "writing"
+    : phase.kind === "stalled"
+      ? "stalled"
+      : phase.kind === "ready" || phase.kind === "working"
+        ? "ready"
+        : "new";
+  const canShowKeyPoints = Boolean(sessionId && nodeId && loadNodeStatus);
+
+  const toggleKeyPoints = () => {
+    const next = !keyPointsOpen;
+
+    setKeyPointsOpen(next);
+    if (next && keyPoints.length === 0) read();
+  };
 
   return (
     <>
-      <Meta>
-        {joinMeta(
-          root ? "Rabbit hole created" : "Branch created",
-          writing && "writing the article"
+      <Meta statusRef={observe}>
+        {phase.kind === "working" && (
+          <SessionGlyph
+            className={styles.glyph}
+            experience="rabbitHole"
+            signal={{ kind: "working", step: phase.step }}
+          />
         )}
+        {joinMeta(root ? "Rabbit hole created" : "Branch created", phaseLabel(phase))}
       </Meta>
       {root ? (
         <>
@@ -549,8 +681,8 @@ function CreateView({
                 id: "root",
                 title: question && question !== title ? question : "First article",
                 depth: 0,
-                tone: writing ? "generating" : "new",
-                meta: writing ? "writing" : "new",
+                tone: nodeTone,
+                meta: nodeMeta,
               },
             ]}
           />
@@ -564,31 +696,25 @@ function CreateView({
               ...(parentTitle
                 ? [{ id: "parent", title: parentTitle, depth: 0, tone: "context" as const }]
                 : []),
-              {
-                id: "new",
-                title,
-                depth: parentTitle ? 1 : 0,
-                tone: writing ? ("generating" as const) : ("new" as const),
-                meta: "new",
-              },
+              { id: "new", title, depth: parentTitle ? 1 : 0, tone: nodeTone, meta: nodeMeta },
             ]}
           />
         </>
       )}
-      {(drawerNode || href || keyPoints) && (
+      {(drawerNode || href || canShowKeyPoints) && (
         <Actions>
           {drawerNode ? (
             <ViewArticle nodeId={drawerNode} onOpen={onOpenNode} />
           ) : (
             href && <OpenRabbitHole href={href} />
           )}
-          {keyPoints && (
+          {canShowKeyPoints && (
             <button
               aria-controls={panelId}
-              aria-expanded={keyPoints.open}
+              aria-expanded={keyPointsOpen}
               className={cn(styles.toggle, "organic-focus")}
               type="button"
-              onClick={keyPoints.toggle}
+              onClick={toggleKeyPoints}
             >
               Key points
               <ChevronDown aria-hidden="true" size={14} />
@@ -596,7 +722,9 @@ function CreateView({
           )}
         </Actions>
       )}
-      {keyPoints?.open && <KeyPointsPanel id={panelId} state={keyPoints.state} />}
+      {keyPointsOpen && (
+        <KeyPointsPanel id={panelId} phase={phase} points={keyPoints} reading={reading} />
+      )}
     </>
   );
 }
@@ -883,12 +1011,15 @@ export const RabbitHoleToolPresence = memo(function RabbitHoleToolPresence({
   isPinned = false,
   onTogglePin,
   onOpenNode,
-  loadKeyPoints,
+  loadNodeStatus,
+  useGenerationFeed = useRabbitHoleGeneration,
   showToolDetails = SHOW_TOOL_DETAILS,
   className,
 }: OrganicToolCallPresenceProps & {
   onOpenNode: (nodeId: string) => void;
-  loadKeyPoints?: RabbitHoleKeyPointsLoader;
+  loadNodeStatus?: RabbitHoleNodeStatusLoader;
+  /** Defaults to the shared activity poll; tests pass a fake. */
+  useGenerationFeed?: RabbitHoleGenerationFeedHook;
   showToolDetails?: boolean;
 }) {
   const key = toolName.toLowerCase();
@@ -908,8 +1039,9 @@ export const RabbitHoleToolPresence = memo(function RabbitHoleToolPresence({
     body = (
       <CreateView
         args={args}
-        loadKeyPoints={loadKeyPoints}
+        loadNodeStatus={loadNodeStatus}
         result={result}
+        useFeed={useGenerationFeed}
         toolKey={key}
         onOpenNode={onOpenNode}
       />

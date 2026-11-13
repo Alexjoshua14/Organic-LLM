@@ -11,7 +11,7 @@ import { glass } from "@/components/design-system/primitives";
 import { MermaidDiagram } from "@/components/blog/mermaid-diagram";
 import { SHOW_TOOL_DETAILS } from "@/lib/chat/tool-details-visibility";
 import { extractMermaidCode } from "@/lib/mermaid/source";
-import { loadRabbitHoleKeyPoints } from "@/lib/rabbit-holes/load-key-points";
+import { loadRabbitHoleNodeStatus } from "@/lib/rabbit-holes/load-node-status";
 import { cn } from "@/lib/utils";
 
 export const RABBIT_HOLE_OPEN_NODE_EVENT = "rabbit-hole:open-node";
@@ -357,7 +357,7 @@ export const OrganicToolCallPresence = memo(function OrganicToolCallPresence({
         className={className}
         input={input}
         isPinned={isPinned}
-        loadKeyPoints={loadRabbitHoleKeyPoints}
+        loadNodeStatus={loadRabbitHoleNodeStatus}
         output={output}
         showToolDetails={showToolDetails}
         state={state}

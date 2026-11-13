@@ -53,16 +53,38 @@ and the explorer:
 | Drawer tools | The node as a single dot row, status, "View article" | — |
 
 The branch creation output carries `parentTitle` and `sessionTitle`. These are display fields
-added by the tool, which already has the session loaded. The card makes no on-mount reads.
-Key points load from one node's `key_takeaways` only when the disclosure opens
-(`lib/rabbit-holes/key-points.ts`: one column, RLS-scoped). An unwritten article says so
-quietly, and reopening retries. Branch suggestions belong inside the rabbit hole, not on chat
-cards.
+added by the tool, which already has the session loaded. Branch suggestions belong inside the
+rabbit hole, not on chat cards.
+
+## Live status on creation cards
+
+The creation card stays true to its rabbit hole: "finding sources", then "writing the article",
+then "article ready · suggesting branches" (the article exists; only branch ideas remain), then
+"article ready". The node row's ring and its "writing"/"ready" label follow the same state.
+Owner direction, 2026-11-13: no poller of the card's own.
+
+- **The shared activity poll.** `/api/chats/activity` (the sidebar's feed) also returns
+  `rabbitHoles`: generating sessions by session id, including those Arcadia creates from chat,
+  which have no chat thread. The card subscribes through `useRabbitHoleGeneration`
+  (`hooks/use-sidebar-activity.ts`), which uses the same SWR key and config, so the sidebar and
+  any number of cards share one request. That poll runs every `SESSION_ACTIVITY_POLL_WORKING_MS`
+  only while something is working, and stops otherwise.
+- **One status read when it ends.** When the card's node is no longer generating, one narrow
+  read (`lib/rabbit-holes/node-status-action.ts`) says how it ended and brings the key points.
+  It reads the session's generation columns and the node's `key_takeaways` in parallel, never
+  the article. That read waits until the card is on screen, so a long history does not fan out.
+  Opening Key points uses the same read.
+- **Truthful states** (`lib/rabbit-holes/node-status.ts`): a node still marked generating past
+  `SESSION_WORKING_STALE_MS` is *stalled* ("article stalled"), the same threshold the sidebar
+  uses, so the two never disagree. Unreadable, or finished without key points, drops the
+  progress claim and shows plain "Rabbit hole created". Before the feed arrives, the tool's
+  own snapshot shows, so the server render and the first client render match.
+- While working, the meta line carries the sidebar's rabbit-hole glyph with the real step
+  (its `grow` idiom). Settled cards never animate.
 
 ## Rules
 
-- These are transcript snapshots, not live job monitors. In-flight cards show the sidebar's
-  rabbit-hole glyph (its `grow` idiom); completed cards never animate.
+- Search, session, article and section results are snapshots of what the tool read.
 - Failed outputs (`ok: false`) never show success, key points or links. Malformed creation
   output never claims a creation.
 - Height comes from the data: no eyebrows, art blocks or chrome rows. Lists grow in place

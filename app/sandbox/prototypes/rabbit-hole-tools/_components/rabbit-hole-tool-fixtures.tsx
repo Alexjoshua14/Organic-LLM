@@ -1,6 +1,10 @@
 "use client";
 
 import type { ComponentProps } from "react";
+import type { RabbitHoleGenerationFeed } from "@/hooks/use-sidebar-activity";
+import type { RabbitHoleStep } from "@/lib/sidebar/session-signal";
+
+import { useEffect, useState } from "react";
 
 import { RabbitHoleToolPresence } from "@/components/chat/rabbit-hole-tool-presence";
 
@@ -168,11 +172,45 @@ const FIXTURES: Array<{ id: string; fixture: Fixture }> = [
   },
 ];
 
-const stubKeyPoints = async () => [
-  "Durable facts are extracted after the turn, not during it.",
+const KEY_POINTS = [
+  "Extraction timing: durable facts are extracted after the turn, not during it.",
   "The persona is a retrieval prior, re-read every turn.",
-  "Conflicting memories resolve by recency and source.",
+  "Conflicts: memories resolve by recency, then by source.",
 ];
+
+/** A simulated generation, so the page shows the line moving: sources, article, branches, done. */
+const SIMULATED_STEPS: Array<RabbitHoleStep | null> = [
+  "sources",
+  "article",
+  "article",
+  "branch_suggestions",
+  null,
+];
+const SIMULATED_STEP_MS = 3_000;
+
+function useSimulatedFeed(sessionId: string | null): RabbitHoleGenerationFeed {
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    if (!sessionId) return;
+    const timer = setInterval(
+      () => setIndex((value) => Math.min(value + 1, SIMULATED_STEPS.length - 1)),
+      SIMULATED_STEP_MS
+    );
+
+    return () => clearInterval(timer);
+  }, [sessionId]);
+
+  const step = SIMULATED_STEPS[index];
+  const nodeId = sessionId === SESSION ? (index < 3 ? "root" : "tone") : "tone";
+
+  return {
+    loaded: true,
+    entry: sessionId && step !== null ? { sessionId, nodeId, step: step ?? null } : null,
+  };
+}
+
+const stubStatus = async () => ({ state: "ready" as const, keyPoints: KEY_POINTS });
 
 /** Every rabbit-hole tool shape, stacked as it would appear down a thread. */
 export function RabbitHoleToolFixtures() {
@@ -182,7 +220,8 @@ export function RabbitHoleToolFixtures() {
         <RabbitHoleToolPresence
           key={id}
           {...fixture}
-          loadKeyPoints={stubKeyPoints}
+          loadNodeStatus={stubStatus}
+          useGenerationFeed={useSimulatedFeed}
           showToolDetails={false}
           onOpenNode={() => {}}
         />

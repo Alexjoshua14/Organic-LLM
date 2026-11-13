@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { SidebarThreadActivity } from "@/lib/sidebar/session-signal";
+import type { GeneratingRabbitHole, SidebarThreadActivity } from "@/lib/sidebar/session-signal";
 import type { Result, SimpleResult } from "@/types";
 
 import { createLogger } from "@/lib/logger";
@@ -144,6 +144,36 @@ async function getThreadAttentionFromTables(
   }
 
   return { data: [...byId.values()], error: null };
+}
+
+/**
+ * Rabbit holes generating a node right now, by session. Sessions without a chat thread (those
+ * Arcadia creates from chat) are included, unlike the per-thread attention rows. Same staleness
+ * rule. One small indexed read, overlapped with `getThreadAttention` by the activity route.
+ */
+export async function getGeneratingRabbitHoles(params: {
+  ownerId: string;
+  staleAfterMs: number;
+}): Promise<Result<GeneratingRabbitHole[]>> {
+  const cutoff = new Date(Date.now() - params.staleAfterMs).toISOString();
+  const sb = await supabaseServer();
+  const { data, error } = await sb
+    .from("rabbit_hole_sessions")
+    .select("session_id, generating_node_id, generation_step")
+    .eq("owner_id", params.ownerId)
+    .not("generating_node_id", "is", null)
+    .gt("updated_at", cutoff);
+
+  if (error) return { data: null, error: new Error(error.message) };
+
+  return {
+    data: (data ?? []).map((row) => ({
+      sessionId: String(row.session_id),
+      nodeId: String(row.generating_node_id),
+      step: isRabbitHoleStep(row.generation_step) ? row.generation_step : null,
+    })),
+    error: null,
+  };
 }
 
 /**
