@@ -321,25 +321,49 @@ export function getLatestContextBudgetFromMessages(
   return null;
 }
 
-type MessageTokenMemo = { text: number; tool: number };
+/**
+ * Token counts cached per message object. `useChat` replaces a message with a new snapshot when
+ * it changes, so an unchanged message keeps its object and its counts. Each count is computed on
+ * first use, so the Arcadia selector's text-only pass never serializes tool output it won't pack.
+ */
+type MessageTokenMemo = { text?: number; tool?: number };
 
 const messageTokenMemo = new WeakMap<UIMessage, MessageTokenMemo>();
 
-function getMemoizedMessageTokens(message: UIMessage): MessageTokenMemo {
-  const cached = messageTokenMemo.get(message);
+function messageTokenMemoFor(message: UIMessage): MessageTokenMemo {
+  let memo = messageTokenMemo.get(message);
 
-  if (cached) return cached;
+  if (!memo) {
+    memo = {};
+    messageTokenMemo.set(message, memo);
+  }
 
-  const text = getMessageTextForTokenEstimate(message);
-  const toolSerialized = getMessageToolPartsForTokenEstimate(message);
-  const next: MessageTokenMemo = {
-    text: text ? estimateTokenCountSync(text) : 0,
-    tool: toolSerialized ? estimateTokenCountSync(toolSerialized) : 0,
-  };
+  return memo;
+}
 
-  messageTokenMemo.set(message, next);
+/** Same count as the Arcadia selector's default counter. */
+function memoizedMessageTextTokens(message: UIMessage): number {
+  const memo = messageTokenMemoFor(message);
 
-  return next;
+  if (memo.text === undefined) {
+    const text = getMessageTextForTokenEstimate(message);
+
+    memo.text = text ? estimateTokenCountSync(text) : 0;
+  }
+
+  return memo.text;
+}
+
+function memoizedMessageToolTokens(message: UIMessage): number {
+  const memo = messageTokenMemoFor(message);
+
+  if (memo.tool === undefined) {
+    const toolSerialized = getMessageToolPartsForTokenEstimate(message);
+
+    memo.tool = toolSerialized ? estimateTokenCountSync(toolSerialized) : 0;
+  }
+
+  return memo.tool;
 }
 
 export type ComposeContextBudgetParams = {
@@ -376,7 +400,8 @@ export function composeContextBudget(params: ComposeContextBudgetParams): Contex
   const limit = scaffold.contextMessageLimit;
   const packedMessages =
     experience === "arcadia"
-      ? selectArcadiaContextMessages(threadMessages).contextMessages
+      ? selectArcadiaContextMessages(threadMessages, { countTokens: memoizedMessageTextTokens })
+          .contextMessages
       : limit == null || limit <= 0
         ? threadMessages
         : threadMessages.slice(-limit);
@@ -385,10 +410,8 @@ export function composeContextBudget(params: ComposeContextBudgetParams): Contex
   let toolOutputTokens = 0;
 
   for (const message of packedMessages) {
-    const counts = getMemoizedMessageTokens(message);
-
-    messagesTokens += counts.text;
-    toolOutputTokens += counts.tool;
+    messagesTokens += memoizedMessageTextTokens(message);
+    toolOutputTokens += memoizedMessageToolTokens(message);
   }
 
   const draftTokens = estimateDraftTokens(draftText);

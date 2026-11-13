@@ -77,6 +77,26 @@ describe("selectArcadiaContextMessages", () => {
     expect(selection.pinnedTokens).toBeLessThanOrEqual(200);
     expect(selection.recentCount).toBeGreaterThanOrEqual(2);
   });
+
+  test("counts each message once per call", () => {
+    const pinned = userMessage("pin", "pinned note", true);
+    const messages = [
+      pinned,
+      ...Array.from({ length: 8 }, (_, index) => userMessage(`m${index}`, `turn ${index}`)),
+    ];
+    const calls = new Map<string, number>();
+    const countTokens = (message: UIMessage) => {
+      calls.set(message.id, (calls.get(message.id) ?? 0) + 1);
+
+      return sumMessagesTokens([message]);
+    };
+
+    const counted = selectArcadiaContextMessages(messages, { tokenBudget: 1_000, countTokens });
+
+    expect([...calls.values()].every((count) => count === 1)).toBe(true);
+    expect(calls.size).toBe(messages.length);
+    expect(counted).toEqual(selectArcadiaContextMessages(messages, { tokenBudget: 1_000 }));
+  });
 });
 
 describe("llm input hard cap", () => {

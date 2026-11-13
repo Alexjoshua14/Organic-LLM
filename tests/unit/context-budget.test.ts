@@ -4,6 +4,7 @@ import type { UIMessage } from "ai";
 import { encodingForModel } from "js-tiktoken";
 
 import { resolveChatModelId } from "@/lib/api/resolve-chat-model";
+import { selectArcadiaContextMessages, sumMessagesTokens } from "@/lib/chat/arcadia-token-context";
 import {
   composeContextBudget,
   computeContextBudget,
@@ -253,6 +254,66 @@ describe("composeContextBudget", () => {
     });
 
     expect(composed.lastTurn).toEqual(lastTurn);
+  });
+
+  test("Arcadia compose packs the same window as the send path", () => {
+    // ~8k tokens each, so the 50k window keeps only the newest turns.
+    const thread = Array.from({ length: 9 }, (_, i) =>
+      userMessage(`${"word ".repeat(8_000)} ${i}`, `long-${i}`)
+    );
+    const expected = selectArcadiaContextMessages(thread).contextMessages;
+
+    const composed = composeContextBudget({
+      scaffold: fixtureScaffold({}),
+      threadMessages: thread,
+      draftText: "",
+      modelId: "openai/gpt-6-sol",
+      experience: "arcadia",
+    });
+
+    expect(expected.length).toBeLessThan(thread.length);
+    expect(composed.packedMessageCount).toBe(expected.length);
+    expect(composed.segments.find((s) => s.id === "messages")?.tokens).toBe(
+      sumMessagesTokens(expected)
+    );
+  });
+
+  test("Arcadia compose reads only new messages' text on the next chunk", () => {
+    const reads = new Map<string, number>();
+    const countedMessage = (id: string, text: string): UIMessage => ({
+      id,
+      role: "user",
+      parts: [
+        {
+          type: "text",
+          get text() {
+            reads.set(id, (reads.get(id) ?? 0) + 1);
+
+            return text;
+          },
+        },
+      ],
+    });
+    const thread = Array.from({ length: 30 }, (_, i) => countedMessage(`m${i}`, `Turn ${i}`));
+    const compose = (threadMessages: UIMessage[]) =>
+      composeContextBudget({
+        scaffold: fixtureScaffold({}),
+        threadMessages,
+        draftText: "",
+        modelId: "openai/gpt-6-sol",
+        experience: "arcadia",
+      });
+
+    compose(thread);
+    const afterFirst = new Map(reads);
+
+    // A streamed chunk: the same message objects plus one new one.
+    compose([...thread, countedMessage("reply", "Partial reply")]);
+
+    for (const message of thread) {
+      expect(reads.get(message.id)).toBe(afterFirst.get(message.id));
+    }
+    expect(reads.get("reply")).toBe(1);
   });
 });
 

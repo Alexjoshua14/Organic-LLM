@@ -704,6 +704,15 @@ export const Chat: React.FC<ChatProps> = ({
     setContextBudgetRefreshKey(0);
   }
 
+  // The composer's next-send estimate tokenizes the thread. While a reply is in flight it gets
+  // the messages from when the turn started, so it doesn't re-count the reply on every chunk.
+  const replyInFlight = status === "submitted" || status === "streaming";
+  const [budgetMessages, setBudgetMessages] = useState({ threadId: id, messages });
+
+  if (budgetMessages.messages !== messages && (!replyInFlight || budgetMessages.threadId !== id)) {
+    setBudgetMessages({ threadId: id, messages });
+  }
+
   // Send initial message if provided
   useEffect(() => {
     if (
@@ -939,7 +948,7 @@ export const Chat: React.FC<ChatProps> = ({
                   useWebSearchRef={useWebSearchRef}
                   streamContextBudget={streamContextBudget}
                   contextBudgetRefreshKey={contextBudgetRefreshKey}
-                  threadMessages={messages}
+                  threadMessages={budgetMessages.messages}
                   experience={experience as ChatExperience | undefined}
                   chatStyle={experience === "arcadia" && id ? getChatStyle(id) : undefined}
                   onErrorCleared={() => setChatError(undefined)}
