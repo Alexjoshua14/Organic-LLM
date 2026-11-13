@@ -503,9 +503,9 @@ export const ContextBudgetIndicator: React.FC<ContextBudgetIndicatorProps> = ({
     enabled: Boolean(chatId),
   });
   // Counted here, not read from the budget: the budget's draft segment is debounced and
-  // absent before a thread exists, and this should track every keystroke. A draft restored on
-  // open is approximated until the tokenizer is built, so building it never blocks the open.
-  const tokenizerReady = useTokenizerReady();
+  // absent before a thread exists, and this should track every keystroke. A draft is
+  // approximated until the tokenizer is built, so building it never blocks a keystroke or the open.
+  const tokenizerReady = useTokenizerReady(draftText.trim() !== "");
   const draftTokens = useMemo(
     () => (tokenizerReady ? estimateDraftTokens(draftText) : approximateDraftTokens(draftText)),
     [draftText, tokenizerReady]

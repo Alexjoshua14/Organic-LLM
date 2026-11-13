@@ -16,15 +16,28 @@ afterEach(() => {
   Reflect.deleteProperty(window, "cancelIdleCallback");
 });
 
-describe("useTokenizerReady", () => {
-  test("is false until the browser is idle, then true", () => {
-    window.requestIdleCallback = ((callback: IdleRequestCallback) =>
-      idleQueue.push(callback)) as typeof window.requestIdleCallback;
-    window.cancelIdleCallback = () => {};
+function installManualIdle() {
+  window.requestIdleCallback = ((callback: IdleRequestCallback) =>
+    idleQueue.push(callback)) as typeof window.requestIdleCallback;
+  window.cancelIdleCallback = () => {};
+}
 
-    const { result } = renderHook(() => useTokenizerReady());
+describe("useTokenizerReady", () => {
+  test("does nothing until a count needs it", () => {
+    installManualIdle();
+
+    const { result } = renderHook(() => useTokenizerReady(false));
 
     expect(result.current).toBe(false);
+    expect(idleQueue.length).toBe(0);
+  });
+
+  test("once needed, is ready after the browser is idle", () => {
+    installManualIdle();
+
+    const { result } = renderHook(() => useTokenizerReady(true));
+
+    expect(idleQueue.length).toBe(1);
 
     act(() => {
       for (const callback of idleQueue.splice(0)) {
