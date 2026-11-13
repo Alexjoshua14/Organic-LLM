@@ -31,7 +31,7 @@ and the explorer:
 
 | Tool | Shown at a glance | Folded |
 |------|-------------------|--------|
-| `create_rabbit_hole` | Title as a heading, the question asked, "Rabbit hole created · writing the article" | Key points (lazy) |
+| `create_rabbit_hole` | Title as a heading, then its first article as a node (the question it answers, ringed while writing), "Rabbit hole created · writing the article" | Key points (lazy) |
 | `create_rabbit_hole_node` | The exploration's title, then a tree: parent → new branch | Key points (lazy) |
 | `search_rabbit_holes` | Query plus count; top 3 explorations, each with its title, description, matched articles as a tree, and "N articles · date"; matched terms marked | The rest, as compact rows |
 | `list_rabbit_holes` | Top 3 explorations, as for search | The rest |

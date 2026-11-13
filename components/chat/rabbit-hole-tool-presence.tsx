@@ -484,7 +484,18 @@ function CreateView({
           <ExplorationTitle href={href} label={`Open rabbit hole: ${title}`}>
             {title}
           </ExplorationTitle>
-          {question && question !== title && <p className={styles.question}>{question}</p>}
+          <NodeTree
+            label="The new rabbit hole"
+            rows={[
+              {
+                id: "root",
+                title: question && question !== title ? question : "First article",
+                depth: 0,
+                tone: writing ? "generating" : "new",
+                meta: writing ? "writing" : "new",
+              },
+            ]}
+          />
         </>
       ) : (
         <>

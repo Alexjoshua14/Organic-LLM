@@ -45,7 +45,7 @@
   opacity: 1;
 }
 .card[data-tool-state="error"] {
-  border-color: color-mix(in oklch, var(--destructive) 40%, var(--border));
+  border-color: color-mix(in oklab, var(--destructive) 40%, var(--border));
 }
 
 /* ── Type ─────────────────────────────────────────────────────────────── */

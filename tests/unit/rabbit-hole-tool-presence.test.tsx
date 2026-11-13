@@ -76,6 +76,12 @@ describe("Rabbit hole tool presence", () => {
 
     expect(status(view)).toBe("Rabbit hole created · writing the article");
     expect(view.getByText("Why do black holes have a geometry?")).toBeTruthy();
+    expect(
+      view
+        .getByRole("list", { name: "The new rabbit hole" })
+        .querySelector("li")
+        ?.getAttribute("data-tone")
+    ).toBe("generating");
     const link = view.getByRole("link", { name: `Open rabbit hole: ${output.title}` });
 
     expect(link.textContent).toBe(output.title);
