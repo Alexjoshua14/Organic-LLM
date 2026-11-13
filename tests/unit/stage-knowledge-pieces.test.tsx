@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import type { StageOperation, StageWidget } from "@/lib/stage/schema";
 
 import { StageCollection, StageRecall } from "@/components/stage/stage-knowledge";
+import { StagePieces } from "@/components/stage/stage-pieces";
 
 afterEach(cleanup);
 const AT = "2026-11-13T08:00:00.000Z";
@@ -51,4 +52,23 @@ test("recall shows what memory surfaced, or says nothing matched", () => {
   expect(view.getByText("Wants one place to think")).toBeTruthy();
   view.rerender(<StageRecall widget={{ ...recall, items: [] }} />);
   expect(view.getByText("Nothing earlier matched this yet.")).toBeTruthy();
+});
+
+test("curating in a piece view saves the stored placement, not the view-local one", async () => {
+  const onChange = mock(async (_operations: StageOperation[]) => true);
+  const shownRect = { x: 8, y: 4, w: 24, h: 18 };
+  const view = render(
+    <StagePieces
+      widgets={[collection]}
+      visible={[{ widget: { ...collection, rect: shownRect }, rect: shownRect }]}
+      selectedId={null}
+      onArrange={() => undefined}
+      onChange={onChange}
+    />
+  );
+
+  fireEvent.click(view.getByRole("button", { name: "Mark “Recall on its own” done" }));
+  await waitFor(() => expect(onChange).toHaveBeenCalledTimes(1));
+  const [operation] = onChange.mock.calls[0][0];
+  expect(operation.type === "upsert" && operation.widget.rect).toEqual(collection.rect);
 });
