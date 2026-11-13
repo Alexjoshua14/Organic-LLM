@@ -18,6 +18,7 @@ import {
 } from "./store";
 import { stageNavigation, resolveStageView } from "./views";
 
+import { compileContinuity } from "@/lib/continuity/sources";
 import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
 import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
 
@@ -88,10 +89,21 @@ export async function runStageTurn(
     const limited = await checkLlmMessageLimit(id.ownerId);
 
     if (!limited.success) throw new StageTurnError(limited.error ?? "Too many messages", 429);
+    // Freeze the selected reference/revision for this accepted turn; later selection changes
+    // cannot alter this model input or its canonical message attribution.
+    const addedContext = settings?.continuity
+      ? await compileContinuity(id.ownerId, settings.continuity, "stage")
+      : null;
     let result;
 
     try {
-      result = await generateStageTurn({ ...id, state: base, message, settings });
+      result = await generateStageTurn({
+        ...id,
+        state: base,
+        message,
+        settings,
+        addedContext: addedContext?.text,
+      });
     } catch (error) {
       if (error instanceof StageGenerationError) {
         await mutateStage(
@@ -194,8 +206,14 @@ export async function runStageTurn(
             ...(selectedView ? { viewCommand: { id: requestId, target: selectedView } } : {}),
             messages: [
               ...current.messages,
-              { id: requestId, role: "user" as const, text: message },
               {
+                id: requestId,
+                role: "user" as const,
+                text: message,
+                ...(addedContext ? { contextBinding: addedContext.binding } : {}),
+              },
+              {
+                ...(addedContext ? { contextBinding: addedContext.binding } : {}),
                 id: assistantId,
                 role: "assistant" as const,
                 text: `${reply}${delegationNote}`.slice(0, 8000),

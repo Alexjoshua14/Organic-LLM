@@ -36,7 +36,8 @@ export type EncryptionFieldName =
   | "persona_sessions.state"
   | "persona_sessions.log"
   | "persona_sessions.photo"
-  | "stage.events";
+  | "stage.events"
+  | "continuity.interaction";
 
 export type EncryptionContext = {
   userId: string;

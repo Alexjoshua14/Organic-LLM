@@ -73,7 +73,7 @@ export async function persistSpeakVoiceTurns(
   for (const turn of ordered) {
     const result = await deps.upsertMessages({
       chatId: threadId,
-      messages: [voiceTurnToUIMessage(turn, session.sessionId)],
+      messages: [voiceTurnToUIMessage(turn, session.sessionId, session.contextBinding)],
     });
 
     if (!result.ok) {

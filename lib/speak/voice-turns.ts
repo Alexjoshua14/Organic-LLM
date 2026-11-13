@@ -25,11 +25,21 @@ export type SpeakVoiceTurnMetadata = {
   source: typeof SPEAK_TURN_SOURCE;
   sessionId: string;
   at: number;
+  contextBinding?: import("@/lib/continuity/schema").ContinuityBinding;
 };
 
 /** Voice turns are stored in the same `ui_message` envelope chat uses, so `loadChat` renders them. */
-export function voiceTurnToUIMessage(turn: SpeakVoiceTurn, sessionId: string): UIMessage {
-  const metadata: SpeakVoiceTurnMetadata = { source: SPEAK_TURN_SOURCE, sessionId, at: turn.at };
+export function voiceTurnToUIMessage(
+  turn: SpeakVoiceTurn,
+  sessionId: string,
+  contextBinding?: import("@/lib/continuity/schema").ContinuityBinding
+): UIMessage {
+  const metadata: SpeakVoiceTurnMetadata = {
+    source: SPEAK_TURN_SOURCE,
+    sessionId,
+    at: turn.at,
+    ...(contextBinding ? { contextBinding } : {}),
+  };
 
   return {
     id: turn.id,
