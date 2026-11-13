@@ -12,7 +12,6 @@ import { Loader2, MessageSquareText, Mic, MicOff, Phone, PhoneOff, Plus, X } fro
 import { KaraokeCaption } from "./KaraokeCaption";
 import { SpeakModeSwitch } from "./SpeakModeSwitch";
 import { SpeakBudgetMeter } from "./SpeakBudgetMeter";
-import { OrganicActivityMark } from "@/components/agents/organic-activity-mark";
 import { SpeakTranscript } from "./SpeakTranscript";
 import {
   SPEAK_PANEL_ENTER_MS,
@@ -22,6 +21,7 @@ import {
   SPEAK_STATUS_EXIT_MS,
 } from "./speak-stage-timing";
 
+import { OrganicActivityMark } from "@/components/agents/organic-activity-mark";
 import { glass } from "@/components/design-system/primitives";
 import { VoiceElapsed } from "@/components/voice/voice-elapsed";
 import { SPEAK_PRIMARY_ACTION_LABEL } from "@/lib/speak/speak-stage-view";
@@ -149,6 +149,7 @@ export function SpeakStage(props: SpeakStageProps) {
           <div className="my-auto flex shrink-0 flex-col items-center gap-stack-lg sm:gap-stack-2xl">
             {presence ?? (
               <OrganicActivityMark
+                relativeBlur
                 className="!size-[clamp(7rem,24dvh,13rem)] !rounded-3xl"
                 label="Organic voice companion"
                 seed="organic-speak"
