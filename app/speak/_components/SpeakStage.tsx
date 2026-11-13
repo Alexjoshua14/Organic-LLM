@@ -12,7 +12,7 @@ import { Loader2, MessageSquareText, Mic, MicOff, Phone, PhoneOff, Plus, X } fro
 import { KaraokeCaption } from "./KaraokeCaption";
 import { SpeakModeSwitch } from "./SpeakModeSwitch";
 import { SpeakBudgetMeter } from "./SpeakBudgetMeter";
-import { SpeakOrb } from "./SpeakOrb";
+import { OrganicActivityMark } from "@/components/agents/organic-activity-mark";
 import { SpeakTranscript } from "./SpeakTranscript";
 import {
   SPEAK_PANEL_ENTER_MS,
@@ -61,7 +61,7 @@ export type SpeakStageProps = {
   localStream: MediaStream | null;
   remoteStream: MediaStream | null;
 
-  /** Replaces the orb, e.g. the persona Spark. */
+  /** Replaces the Organic agent mark, e.g. the persona Spark. */
   presence?: ReactNode;
   /** Persona turn label, starters and similar, under the status. */
   statusExtra?: ReactNode;
@@ -74,7 +74,7 @@ export type SpeakStageProps = {
  * The Speak stage. Presentational: every value arrives as a prop, so the sandbox lab renders
  * this exact component in each state without a microphone or a paid session.
  *
- * Layout, top to bottom: header (mode, allowance, settings), presence (orb + one status word +
+ * Layout, top to bottom: header (mode, allowance, settings), presence (Organic agent + one status word +
  * one sentence), live caption, and a thumb-reach dock with exactly three controls. The
  * transcript and visuals live in a side panel on wide screens and a sheet on phones.
  */
@@ -98,8 +98,6 @@ export function SpeakStage(props: SpeakStageProps) {
     panelOpen,
     onPanelOpenChange,
     visuals,
-    localStream,
-    remoteStream,
     presence,
     statusExtra,
     personaChip,
@@ -111,15 +109,15 @@ export function SpeakStage(props: SpeakStageProps) {
 
   return (
     <div className="relative flex h-full min-h-0 w-full flex-col">
-      <header className="relative z-20 flex shrink-0 items-center justify-between gap-inline-sm px-inset-lg pt-[max(env(safe-area-inset-top,0px),1rem)]">
-        <div className="flex min-w-0 items-center gap-inline-sm">
+      <header className="relative z-20 flex shrink-0 flex-wrap items-center justify-between gap-inline-sm px-inset-md sm:px-inset-lg pt-[max(env(safe-area-inset-top,0px),1rem)]">
+        <div className="flex min-w-0 flex-wrap items-center gap-inline-sm">
           {onSwitchToReadAloud ? (
             <SpeakModeSwitch mode="live" onChange={onSwitchToReadAloud} />
           ) : null}
           {personaChip}
         </div>
-        <div className="flex items-center gap-inline-sm">
-          <SpeakBudgetMeter budget={budget} className="hidden sm:flex" />
+        <div className="flex w-full shrink-0 items-center justify-end gap-inline-sm sm:w-auto">
+          <SpeakBudgetMeter budget={budget} className="flex" />
           {hasPanel ? (
             <button
               aria-expanded={panelOpen}
@@ -144,16 +142,27 @@ export function SpeakStage(props: SpeakStageProps) {
       <div className="relative flex min-h-0 flex-1">
         <section
           aria-label="Voice call"
-          className="relative flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center px-inset-lg"
+          className="relative flex min-h-0 min-w-0 flex-1 flex-col items-center justify-start overflow-y-auto overscroll-contain px-inset-md py-stack-lg sm:px-inset-lg"
         >
           <LivePill live={live} startedAt={startedAt} />
 
-          <div className="flex flex-col items-center gap-stack-2xl">
+          <div className="my-auto flex shrink-0 flex-col items-center gap-stack-lg sm:gap-stack-2xl">
             {presence ?? (
-              <SpeakOrb
-                localStream={localStream}
-                remoteStream={remoteStream}
-                status={status.kind}
+              <OrganicActivityMark
+                className="!size-[clamp(7rem,24dvh,13rem)] !rounded-3xl"
+                label="Organic voice companion"
+                seed="organic-speak"
+                state={
+                  status.kind === "thinking" ||
+                  status.kind === "speaking" ||
+                  status.kind === "connecting"
+                    ? "working"
+                    : status.kind === "error"
+                      ? "blocked"
+                      : status.kind === "listening"
+                        ? "waiting"
+                        : "idle"
+                }
               />
             )}
 
@@ -193,7 +202,7 @@ export function SpeakStage(props: SpeakStageProps) {
           </div>
 
           {caption && caption.text ? (
-            <div className="mt-stack-2xl w-full max-w-2xl">
+            <div className="mt-stack-lg w-full max-w-2xl shrink-0">
               <KaraokeCaption interim={caption.interim} role={caption.role} text={caption.text} />
             </div>
           ) : null}
@@ -249,7 +258,7 @@ export function SpeakStage(props: SpeakStageProps) {
 
 function LivePill({ live, startedAt }: { live: boolean; startedAt: number | null }) {
   return (
-    <div className="mb-stack-2xl flex h-7 items-center">
+    <div className="mb-stack-md flex h-7 shrink-0 items-center">
       {live && startedAt ? (
         <span
           className={cn(
