@@ -211,6 +211,7 @@ export function LiveVoiceStage({ onExit }: { onExit?: () => void }) {
       presence={
         personaActive ? (
           <PersonaSpark
+            interactive
             pulseKey={turn && (turn.state === "heard" || turn.state === "held") ? turn.at : null}
             size={200}
             state={sparkState}
