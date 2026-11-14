@@ -27,6 +27,27 @@ describe("resolveRabbitHoleNodeStatus", () => {
     ).toEqual({ state: "working", step: "branch_suggestions", keyPoints: ["a"] });
   });
 
+  test("scheduling placeholders are not key points, so a failed node never reads as ready", () => {
+    const placeholders = { key_takeaways: ["Generating…", "…", "…"] };
+
+    expect(
+      resolveRabbitHoleNodeStatus(
+        "n",
+        { generating_node_id: "n", generation_step: "article", updated_at: recent },
+        placeholders,
+        NOW
+      )
+    ).toEqual({ state: "working", step: "article", keyPoints: [] });
+    expect(
+      resolveRabbitHoleNodeStatus(
+        "n",
+        { generating_node_id: null, generation_step: null, updated_at: recent },
+        placeholders,
+        NOW
+      )
+    ).toEqual({ state: "unknown" });
+  });
+
   test("a generation that has not moved past the sidebar's stale threshold is stalled", () => {
     expect(
       resolveRabbitHoleNodeStatus(

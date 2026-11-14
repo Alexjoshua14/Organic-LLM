@@ -6,6 +6,12 @@ import { SESSION_WORKING_STALE_MS } from "@/lib/sidebar/session-signal-timing";
 const MAX_KEY_POINTS = 6;
 
 /**
+ * Scheduling stores these on a node before its article exists (scheduleNodeGeneration pads key
+ * takeaways to satisfy the session schema). They are not key points.
+ */
+const PLACEHOLDER_KEY_POINTS = new Set(["Generating…", "…"]);
+
+/**
  * Where one rabbit-hole node's generation stands, for the chat card that created it.
  *
  * - `working`: this node is being generated. `branch_suggestions` means the article is
@@ -36,7 +42,10 @@ export function resolveRabbitHoleNodeStatus(
 ): RabbitHoleNodeStatus {
   const keyPoints = Array.isArray(node.key_takeaways)
     ? node.key_takeaways
-        .filter((point): point is string => typeof point === "string" && !!point.trim())
+        .filter(
+          (point): point is string =>
+            typeof point === "string" && !!point.trim() && !PLACEHOLDER_KEY_POINTS.has(point.trim())
+        )
         .slice(0, MAX_KEY_POINTS)
     : [];
 
