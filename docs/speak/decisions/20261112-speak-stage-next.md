@@ -50,3 +50,18 @@ motion is allowed. It writes `transform` and `opacity` directly and never sets R
 The redesign has not been exercised in a live call. Check on a phone and a desktop before
 merging: real audio response, the mute behaviour against idle pause, and the sheet over the
 dock at small heights.
+
+## Follow-up: chrome clearance and a solid agent mark (2026-11-14)
+
+- **Header clearance.** The app's own chrome is absolutely positioned over the page: on phones a
+  3.5rem bar with the sidebar toggle at the left and the control cluster at the right; on wider
+  screens the toggle floats at the top-left (open or collapsed) and the cluster takes the top-right.
+  The Speak header sat under both, which hid the mode switch and persona chip on the left and,
+  on desktop, the allowance, transcript and **Call settings** buttons on the right. Those
+  settings are where the voice's abilities (captions, cards, web pages, memory) are toggled, so
+  they looked missing. `app/speak/_components/speak-chrome-clearance.ts` starts the header below the
+  phone bar and, from `md`, leaves room for the toggle and the cluster. If the chrome's size
+  changes, change it there. Read aloud uses the same clearance.
+- **Agent mark.** See [the mark's design doc](../../design/subagent-identity-mark.md): the hero
+  mark's blur kept about a quarter of the dots' ink, and the idle cover washed it to near-invisible.
+  Speak now uses `dotWeight` 1.4 and a lighter cover. Modelled, not yet seen live.

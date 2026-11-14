@@ -54,7 +54,7 @@ export function deriveSpeakStageStatus(state: SpeakStageConnection): SpeakStageS
     return {
       kind: "connecting",
       label: "Connecting",
-      detail: "Opening a secure voice line…",
+      detail: "",
       live: false,
     };
   }
@@ -74,21 +74,21 @@ export function deriveSpeakStageStatus(state: SpeakStageConnection): SpeakStageS
         return {
           kind: "speaking",
           label: "Speaking",
-          detail: "Just start talking to interrupt.",
+          detail: "",
           live: true,
         };
       case "thinking":
         return {
           kind: "thinking",
           label: "Thinking",
-          detail: "Working on a reply.",
+          detail: "",
           live: true,
         };
       default:
         return {
           kind: "listening",
           label: "Listening",
-          detail: "Speak naturally. Pause when you're done.",
+          detail: "",
           live: true,
         };
     }
@@ -106,7 +106,7 @@ export function deriveSpeakStageStatus(state: SpeakStageConnection): SpeakStageS
   return {
     kind: "ready",
     label: "Ready when you are",
-    detail: "Start a call and talk. Your last Speak conversation picks up where it ended.",
+    detail: "",
     live: false,
   };
 }
