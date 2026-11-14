@@ -25,6 +25,11 @@ export type OrganicActivityMarkProps = {
    * than washed out. Dot spacing and the blur are unchanged.
    */
   dotWeight?: number;
+  /**
+   * Blur radius (px) of a frosted layer under everything else: it blurs whatever is behind the
+   * mark. 0 (default) adds no layer, so other marks are unchanged.
+   */
+  underlayBlur?: number;
   state?: AgentDotState;
   size?: "sm" | "md" | "lg";
   seed?: string;
@@ -54,6 +59,7 @@ const SIZE_CLASS = { sm: "size-8", md: "size-10", lg: "size-14" } as const;
 export function OrganicActivityMark({
   relativeBlur = false,
   dotWeight = 1,
+  underlayBlur = 0,
   state = "idle",
   size = "md",
   seed,
@@ -97,6 +103,18 @@ export function OrganicActivityMark({
       style={relativeBlur ? { containerType: "inline-size" } : undefined}
       role={label ? "img" : undefined}
     >
+      {underlayBlur > 0 ? (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 rounded-[inherit]"
+          data-activity-layer="underlay"
+          style={{
+            zIndex: 0,
+            backdropFilter: `blur(${underlayBlur}px)`,
+            WebkitBackdropFilter: `blur(${underlayBlur}px)`,
+          }}
+        />
+      ) : null}
       <div
         ref={backdropRef}
         className="organic-activity-backdrop pointer-events-none absolute inset-0"

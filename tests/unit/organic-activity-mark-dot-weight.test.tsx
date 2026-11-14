@@ -52,3 +52,15 @@ test("Speak's glass overrides change only opacity and brightness, and lighten th
   // Listening is the state the page sits in longest; it must no longer be the most washed-out.
   expect(activityGlassForState("waiting", { waiting: SPEAK_AGENT_GLASS.waiting }).opacity).toBe(0.15);
 });
+
+test("underlayBlur adds a frosted layer beneath the dots only when asked", () => {
+  const off = renderToString(<OrganicActivityMark renderer="v0" />);
+  const on = renderToString(<OrganicActivityMark renderer="v0" underlayBlur={12} />);
+
+  expect(off).not.toContain('data-activity-layer="underlay"');
+  expect(on).toContain('data-activity-layer="underlay"');
+  expect(on).toContain("blur(12px)");
+  expect(on.indexOf('data-activity-layer="underlay"')).toBeLessThan(
+    on.indexOf('data-activity-layer="backdrop"')
+  );
+});

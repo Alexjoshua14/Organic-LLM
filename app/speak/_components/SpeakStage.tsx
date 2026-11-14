@@ -16,6 +16,7 @@ import { SpeakBudgetMeter } from "./SpeakBudgetMeter";
 import { SpeakTranscript } from "./SpeakTranscript";
 import {
   SPEAK_AGENT_DOT_WEIGHT,
+  SPEAK_AGENT_UNDERLAY_BLUR,
   SPEAK_AGENT_GLASS,
   SPEAK_PANEL_ENTER_MS,
   SPEAK_PANEL_EXIT_MS,
@@ -160,6 +161,7 @@ export function SpeakStage(props: SpeakStageProps) {
                 relativeBlur
                 className="!size-[clamp(7rem,24dvh,13rem)] !rounded-3xl"
                 dotWeight={SPEAK_AGENT_DOT_WEIGHT}
+                underlayBlur={SPEAK_AGENT_UNDERLAY_BLUR}
                 glassByState={SPEAK_AGENT_GLASS}
                 label="Organic voice companion"
                 seed="organic-speak"
