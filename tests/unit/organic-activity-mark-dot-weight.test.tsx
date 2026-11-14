@@ -50,5 +50,5 @@ test("Speak's glass overrides change only opacity and brightness, and lighten th
     expect(speak.brightness).toBeLessThanOrEqual(base.brightness);
   }
   // Listening is the state the page sits in longest; it must no longer be the most washed-out.
-  expect(activityGlassForState("waiting", { waiting: SPEAK_AGENT_GLASS.waiting }).opacity).toBe(0.3);
+  expect(activityGlassForState("waiting", { waiting: SPEAK_AGENT_GLASS.waiting }).opacity).toBe(0.15);
 });

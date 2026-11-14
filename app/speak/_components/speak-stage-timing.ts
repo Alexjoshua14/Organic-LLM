@@ -44,14 +44,14 @@ export const SPEAK_PANEL_EXIT_MS = 180;
  * 11% contrast. The tile then read as empty glass with the page showing through.
  *
  * Speak keeps the blur as is and instead gives the dots more weight before it, and lets the
- * cover lighten less. Modelled, this lifts idle contrast to about 0.3. Material values are
+ * cover lighten less. Dot weight 1.8 with a 10–15% cover (inkier pass; judged by eye, not yet rendered). Material values are
  * Speak-only overrides (`glassByState`); the shared defaults in `activity-mark-glass.ts` stay put.
  */
-export const SPEAK_AGENT_DOT_WEIGHT = 1.4;
+export const SPEAK_AGENT_DOT_WEIGHT = 1.8;
 export const SPEAK_AGENT_GLASS = {
-  idle: { opacity: 0.25, brightness: 1 },
-  working: { opacity: 0.2, brightness: 1.1 },
-  waiting: { opacity: 0.3, brightness: 1 },
-  blocked: { opacity: 0.15, brightness: 1.1 },
-  complete: { opacity: 0.2, brightness: 1 },
+  idle: { opacity: 0.12, brightness: 1 },
+  working: { opacity: 0.12, brightness: 1.1 },
+  waiting: { opacity: 0.15, brightness: 1 },
+  blocked: { opacity: 0.1, brightness: 1.1 },
+  complete: { opacity: 0.12, brightness: 1 },
 } as const;
