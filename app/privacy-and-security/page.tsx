@@ -12,6 +12,8 @@ import { PrivacyFeatureCard } from "@/components/privacy/PrivacyFeatureCard";
 import { ScrollOutDisappear } from "@/components/privacy/ScrollOutDisappear";
 import { glass } from "@/components/design-system/primitives";
 import { PROSE_CLASS } from "@/components/blog/blog-prose";
+import { PERF_DISCLOSURE } from "@/lib/perf/events";
+import { PERF_CODE_LINKS } from "@/lib/perf/disclosure-links";
 import { cn } from "@/lib/utils";
 
 const onThisPageCardClass = cn(
@@ -148,6 +150,62 @@ export default function PrivacyAndSecurityPage() {
               until you remove it separately; editing or deleting the original memory does not
               change that copy or remove its feedback.
             </p>
+          </section>
+
+          <section id="performance-metrics">
+            <h2 className="text-foreground">Anonymous performance metrics</h2>
+            <p className="text-foreground">
+              When you are signed in, Organic LLM measures how long things take, like opening a chat
+              or the ⌘K launcher, so I can find what is slow and fix it. Nothing here is used for
+              advertising, profiling, or anything other than making the app faster, and only admins
+              can see the results, as totals.
+            </p>
+            <p className="mt-2 text-foreground">
+              Every stored measurement has exactly these fields and nothing else. This list is
+              generated from the same schema the server validates against, so it cannot say less
+              than what is stored:
+            </p>
+            <ul className="mt-2 space-y-1">
+              {PERF_DISCLOSURE.map((entry) => (
+                <li key={entry.field} className="text-foreground">
+                  <span className="font-medium">{entry.label}</span>{" "}
+                  <span className="text-muted-foreground">
+                    (<code>{entry.field}</code>, for example {entry.example})
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-foreground">
+              To say <em>where</em> time goes, a measurement can also be how long a kind of work
+              took: waiting for the server, loading fonts or scripts, requests to the app&apos;s own
+              API, or the browser being busy. These are named by category only (for example
+              &ldquo;fonts&rdquo;), never by address, so no URL, query or id is stored. A visit
+              where the tab was in the background is discarded, because its timings would be
+              misleading.
+            </p>
+            <p className="mt-2 text-foreground">
+              Not recorded, and not possible to record with this code: your account or any user id,
+              chat or message content, chat IDs, page addresses, your IP address, your browser or
+              device model, or an exact time. A measurement has no account column, so it cannot be
+              linked back to you.
+            </p>
+            <p className="mt-2 text-foreground">
+              Your choice is saved on your account and enforced by the server. Turn it off in
+              Settings → Privacy and no new measurements are collected from you on any device.
+              Numbers already collected carry nothing that says whose they were, so they cannot be
+              found or removed individually; they are deleted automatically after 90 days.
+            </p>
+            <p className="mt-2 text-foreground">Read the code that does this:</p>
+            <ul className="mt-1 space-y-1">
+              {PERF_CODE_LINKS.map((item) => (
+                <li key={item.href} className="text-foreground">
+                  <a href={item.href} rel="noreferrer" target="_blank">
+                    {item.label}
+                  </a>{" "}
+                  <span className="text-muted-foreground">— {item.description}</span>
+                </li>
+              ))}
+            </ul>
           </section>
 
           <section id="third-parties">

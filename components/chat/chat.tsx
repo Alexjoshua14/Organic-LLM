@@ -241,7 +241,7 @@ export const Chat: React.FC<ChatProps> = ({
 
   useEffect(() => {
     const id = requestAnimationFrame(() => {
-      completeForJourney(["to-chat", "to-arcadia"], PERF_PHASES.chatReady, {
+      completeForJourney(["load", "to-chat", "to-arcadia", "thread-switch"], PERF_PHASES.chatReady, {
         experience: experience ?? "chat",
       });
     });
