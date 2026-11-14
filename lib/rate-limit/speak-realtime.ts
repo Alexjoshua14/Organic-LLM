@@ -9,6 +9,7 @@ import { Duration, Ratelimit } from "@upstash/ratelimit";
 
 import { fetchLlmUsageEvents } from "@/data/supabase/llm-usage";
 import { createLogger } from "@/lib/logger";
+import { encryptForStorage, decryptFromStorage } from "@/lib/crypto/message-encryption";
 import { getPlanBudgetForUser } from "@/lib/plans/plan-budget";
 import { canStartRealtimeGivenPlanBudget } from "@/lib/speak/weave-policy";
 import {
@@ -70,6 +71,7 @@ const monthlyCostLimiter = new Ratelimit({
 });
 
 export type SpeakRealtimeSessionRecord = {
+  contextBinding?: import("@/lib/continuity/schema").ContinuityBinding;
   sessionId: string;
   userId: string;
   model: string;
@@ -114,7 +116,9 @@ const SESSION_TTL_SECONDS = 60 * 60; // 1h hard TTL
 export async function getSpeakRealtimeSession(
   sessionId: string
 ): Promise<SpeakRealtimeSessionRecord | null> {
-  const raw = await redis.get<SpeakRealtimeSessionRecord>(sessionKey(sessionId));
+  const raw = await redis.get<SpeakRealtimeSessionRecord & { encryptedContextBinding?: string }>(
+    sessionKey(sessionId)
+  );
 
   if (!raw) return null;
 
@@ -122,6 +126,15 @@ export async function getSpeakRealtimeSession(
   // resume-after-reload lack the continuity anchor and are their own origin.
   return {
     ...raw,
+    contextBinding: raw.encryptedContextBinding
+      ? JSON.parse(
+          decryptFromStorage(raw.encryptedContextBinding, {
+            userId: raw.userId,
+            threadId: `speak:${sessionId}:v1`,
+            fieldName: "continuity.interaction",
+          })
+        )
+      : undefined,
     lastMeteredAt: raw.lastMeteredAt ?? raw.startedAt,
     expiresAt: raw.expiresAt ?? raw.startedAt + getSpeakSessionMaxMinutes() * 60_000,
     continuityStartedAt: raw.continuityStartedAt ?? raw.startedAt,
@@ -129,7 +142,21 @@ export async function getSpeakRealtimeSession(
 }
 
 async function saveSpeakRealtimeSession(record: SpeakRealtimeSessionRecord): Promise<void> {
-  await redis.set(sessionKey(record.sessionId), record, { ex: SESSION_TTL_SECONDS });
+  const { contextBinding, ...stored } = record;
+  await redis.set(
+    sessionKey(record.sessionId),
+    {
+      ...stored,
+      encryptedContextBinding: contextBinding
+        ? encryptForStorage(JSON.stringify(contextBinding), {
+            userId: record.userId,
+            threadId: `speak:${record.sessionId}:v1`,
+            fieldName: "continuity.interaction",
+          })
+        : undefined,
+    },
+    { ex: SESSION_TTL_SECONDS }
+  );
 }
 
 async function closeSpeakRealtimeSession(record: SpeakRealtimeSessionRecord): Promise<void> {
@@ -382,6 +409,7 @@ export async function registerSpeakRealtimeSession(args: {
   memoryEnabled?: boolean;
   stage?: boolean;
   stageSettings?: StageTurnSettings;
+  contextBinding?: import("@/lib/continuity/schema").ContinuityBinding;
   continuity?: SpeakSessionContinuity | null;
 }): Promise<SpeakRealtimeSessionRecord> {
   const startedAt = Date.now();
@@ -394,6 +422,7 @@ export async function registerSpeakRealtimeSession(args: {
     memoryEnabled: args.memoryEnabled === true,
     stage: args.stage === true,
     stageSettings: args.stageSettings,
+    contextBinding: args.contextBinding,
     startedAt,
     continuityStartedAt: args.continuity?.continuityStartedAt ?? startedAt,
     lastMeteredAt: startedAt,
