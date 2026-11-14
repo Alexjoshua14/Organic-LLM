@@ -9,6 +9,7 @@ import {
   stageKnowledgeContext,
 } from "@/lib/stage/knowledge";
 import { applyStageOperations, validateStageLayouts } from "@/lib/stage/layout";
+import { buildStageRead, stagePiecePreview } from "@/lib/stage/voice-read";
 import {
   emptyStageState,
   STAGE_MAX_COLLECTION_ITEMS,
@@ -148,4 +149,21 @@ describe("stage recall", () => {
   test("captures keep a strict-output compatible provider schema", () => {
     expect(JSON.stringify(z.toJSONSchema(StageCaptureSchema))).not.toContain('"oneOf"');
   });
+});
+
+test("voice can read collections and Recall", async () => {
+  const filed = fileStageCaptures(emptyStageState(), [capture("Stage is the thinking surface")]);
+  const state = placeStageRecall(filed.state, "second brain", [
+    { text: "Wants one place to think", at: AT },
+  ]);
+  const result = await buildStageRead(
+    { ownerId: "owner", state, read: { pieces: ["Ideas", "Recall"] } },
+    { getThreadScreen: async () => ({ data: null, error: "unused" }) as never }
+  );
+
+  expect(result.pieces).toMatchObject([
+    { kind: "collection", items: [{ text: "Stage is the thinking surface" }] },
+    { kind: "recall", query: "second brain", memories: ["Wants one place to think"] },
+  ]);
+  expect(stagePiecePreview(state.widgets[0], 80)).toBe("Stage is the thinking surface");
 });
