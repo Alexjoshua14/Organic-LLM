@@ -106,7 +106,7 @@ export function deriveSpeakStageStatus(state: SpeakStageConnection): SpeakStageS
   return {
     kind: "ready",
     label: "Ready when you are",
-    detail: "Start a call and talk. Your last Speak conversation picks up where it ended.",
+    detail: "",
     live: false,
   };
 }
