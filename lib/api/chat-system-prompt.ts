@@ -110,6 +110,8 @@ export type AppendMainChatPostToolSystemFragmentsParams = {
   delphiDisplay?: DelphiDisplayInput;
   drawerDisplay?: DrawerChatDisplayInput;
   arcadiaStarterPriming?: string;
+  /** Arcadia Jev mode: what Jev decided for this turn (`buildJevSystemFragment`). */
+  jevSystemFragment?: string;
 };
 
 /** Tool Instructions block + speech-friendly + Arcadia length/style guidance. */
@@ -126,6 +128,7 @@ export function appendMainChatPostToolSystemFragments(
     delphiDisplay,
     drawerDisplay,
     arcadiaStarterPriming,
+    jevSystemFragment,
   } = params;
 
   let out = systemPromptForRequest;
@@ -149,6 +152,11 @@ export function appendMainChatPostToolSystemFragments(
 
     if (priming) {
       out += `\n\n[Arcadia starter prompt]\n${priming}`;
+    }
+
+    // Last in the Arcadia block: its voice and tool-result rules override the length guidance.
+    if (chatStyle === "jev" && jevSystemFragment) {
+      out += jevSystemFragment;
     }
   }
 

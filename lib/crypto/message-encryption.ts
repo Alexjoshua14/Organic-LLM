@@ -36,6 +36,7 @@ export type EncryptionFieldName =
   | "persona_sessions.state"
   | "persona_sessions.log"
   | "persona_sessions.photo"
+  | "ergon_documents.content"
   | "stage.events";
 
 export type EncryptionContext = {

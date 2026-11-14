@@ -1,3 +1,7 @@
+import {
+  JEV_INPUT_TOO_LARGE_MESSAGE,
+  JEV_OVERRIDE_STALE_MESSAGE,
+} from "@/lib/arcadia/jev/constants";
 import { formatResetCountdown } from "@/lib/plans/budget-cycle";
 
 /**
@@ -9,6 +13,7 @@ export const CHAT_ERROR_MESSAGES: Partial<Record<number, string>> = {
   400: "Invalid request. Please try again.",
   401: "Please sign in to continue.",
   404: "Account setup incomplete. Please refresh or sign out and back in.",
+  413: JEV_INPUT_TOO_LARGE_MESSAGE,
   429: "Rate limit reached. Please wait a moment before sending again.",
   503: "Chat is temporarily unavailable. Please try again in a moment.",
 };
@@ -23,6 +28,7 @@ const CHAT_ERROR_CODE_MESSAGES: Partial<Record<string, string>> = {
   thread_busy: "This chat is still replying. Wait for it to finish, then send again.",
   thread_not_found: "This chat no longer exists. Start a new chat to continue.",
   plan_unavailable: "Usage limits can't be checked right now. Please try again in a moment.",
+  jev_override_stale: JEV_OVERRIDE_STALE_MESSAGE,
 };
 
 const FALLBACK_MESSAGE = "Something went wrong. Please try again.";
@@ -38,6 +44,12 @@ const MESSAGE_PATTERNS: { patterns: string[]; status: number }[] = [
   { patterns: ["Unauthorized"], status: 401 },
   { patterns: ["User not found in supabase"], status: 404 },
   { patterns: ["Invalid request body"], status: 400 },
+  // The hosting platform rejects oversized bodies before the route runs, so these arrive as its
+  // plain-text error page rather than our JSON.
+  {
+    patterns: ["FUNCTION_PAYLOAD_TOO_LARGE", "Request Entity Too Large", "Payload Too Large"],
+    status: 413,
+  },
 ];
 
 /**

@@ -93,9 +93,22 @@ export function installTestJsdom(): void {
     value: TestResizeObserver,
   });
   setGlobalProperty("getComputedStyle", dom.window.getComputedStyle.bind(dom.window));
-  setGlobalProperty("requestAnimationFrame", (cb: FrameRequestCallback) => {
-    return setTimeout(() => cb(Date.now()), 0) as unknown as number;
+  const requestFrame = (cb: FrameRequestCallback) =>
+    setTimeout(() => cb(Date.now()), 0) as unknown as number;
+  const cancelFrame = (id: number) => clearTimeout(id);
+
+  setGlobalProperty("requestAnimationFrame", requestFrame);
+  setGlobalProperty("cancelAnimationFrame", cancelFrame);
+  // Libraries that read them off `window` rather than the global need them there too.
+  Object.defineProperty(dom.window, "requestAnimationFrame", {
+    configurable: true,
+    writable: true,
+    value: requestFrame,
   });
-  setGlobalProperty("cancelAnimationFrame", (id: number) => clearTimeout(id));
+  Object.defineProperty(dom.window, "cancelAnimationFrame", {
+    configurable: true,
+    writable: true,
+    value: cancelFrame,
+  });
   setGlobalProperty("IS_REACT_ACT_ENVIRONMENT", true);
 }

@@ -26,6 +26,15 @@ describe("ChatRequestSchema chatStyle", () => {
     if (parsed.success) expect(parsed.data.chatStyle).toBe("remy");
   });
 
+  test("accepts the Jev style and normalizes its casing", () => {
+    for (const chatStyle of ["jev", "JEV", " Jev "]) {
+      const parsed = ChatRequestSchema.safeParse({ ...baseBody(), chatStyle });
+
+      expect(parsed.success).toBe(true);
+      if (parsed.success) expect(parsed.data.chatStyle).toBe("jev");
+    }
+  });
+
   test("drops unknown styles to undefined rather than failing the request", () => {
     const parsed = ChatRequestSchema.safeParse({ ...baseBody(), chatStyle: "nonsense" });
 

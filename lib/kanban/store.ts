@@ -1,11 +1,16 @@
 "use client";
 
-import type { KanbanCommand, KanbanItem } from "@/lib/schemas/kanban";
+import type { KanbanChannelCommand, KanbanItem } from "@/lib/schemas/kanban";
+import type { ErgonDocumentSummary } from "@/lib/schemas/ergon-documents";
 
 import { createPersistentStore } from "@/lib/client-store/persistent-store";
 
 /** Item as held in the store: schema item plus a monotonic update marker for "recent" sorts. */
-export type StoredKanbanItem = KanbanItem & { updatedAt: number };
+export type StoredKanbanItem = KanbanItem & {
+  updatedAt: number;
+  /** Linked durable documents (client channel only; not part of KanbanItemSchema). */
+  documents?: ErgonDocumentSummary[];
+};
 
 export type KanbanBoardMeta = {
   id: string;
@@ -88,8 +93,33 @@ function upsertItem(board: KanbanBoardState, item: KanbanItem, tick: number): vo
  */
 export function reduceBoard(
   prev: KanbanBoardState | undefined,
-  command: KanbanCommand
+  command: KanbanChannelCommand
 ): KanbanBoardState {
+  if (command.type === "LINK_DOCUMENT") {
+    if (!prev || !prev.items[command.itemId]) {
+      return prev ?? createBoard({ id: "board", title: "Board" });
+    }
+
+    const board: KanbanBoardState = { ...prev, items: { ...prev.items }, tick: prev.tick + 1 };
+    const existing = board.items[command.itemId];
+    const docs = [...(existing.documents ?? [])];
+    const idx = docs.findIndex((d) => d.id === command.document.id);
+
+    if (idx >= 0) {
+      docs[idx] = command.document;
+    } else {
+      docs.push(command.document);
+    }
+
+    board.items[command.itemId] = {
+      ...existing,
+      documents: docs,
+      updatedAt: board.tick,
+    };
+
+    return board;
+  }
+
   switch (command.type) {
     case "INITIATE_KANBAN": {
       const board = createBoard({
@@ -173,7 +203,7 @@ export function reduceBoard(
   }
 }
 
-export function applyKanbanCommand(threadId: string, command: KanbanCommand): void {
+export function applyKanbanCommand(threadId: string, command: KanbanChannelCommand): void {
   store.setState((prev) => {
     const next = reduceBoard(prev.boards[threadId], command);
 

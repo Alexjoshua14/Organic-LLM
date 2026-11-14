@@ -62,6 +62,55 @@ describe("reduceBoard", () => {
     expect(board.activeViewId).toBe(FIXTURE_SHOW_ACTIVE_VIEW.view.id);
   });
 
+  test("LINK_DOCUMENT attaches summary to item", () => {
+    const board = reduceBoard(hydrated(), {
+      type: "LINK_DOCUMENT",
+      version: 1,
+      itemId: "i1",
+      document: {
+        id: "550e8400-e29b-41d4-a716-446655440000",
+        title: "Spec",
+        itemId: "i1",
+        version: 1,
+        updatedAt: "2026-09-01T00:00:00.000Z",
+      },
+    });
+
+    expect(board.items.i1.documents).toHaveLength(1);
+    expect(board.items.i1.documents?.[0]?.title).toBe("Spec");
+  });
+
+  test("LINK_DOCUMENT updates existing doc title", () => {
+    const linked = reduceBoard(hydrated(), {
+      type: "LINK_DOCUMENT",
+      version: 1,
+      itemId: "i1",
+      document: {
+        id: "550e8400-e29b-41d4-a716-446655440000",
+        title: "Old",
+        itemId: "i1",
+        version: 1,
+        updatedAt: "2026-09-01T00:00:00.000Z",
+      },
+    });
+    const updated = reduceBoard(linked, {
+      type: "LINK_DOCUMENT",
+      version: 1,
+      itemId: "i1",
+      document: {
+        id: "550e8400-e29b-41d4-a716-446655440000",
+        title: "New",
+        itemId: "i1",
+        version: 2,
+        updatedAt: "2026-09-02T00:00:00.000Z",
+      },
+    });
+
+    expect(updated.items.i1.documents).toHaveLength(1);
+    expect(updated.items.i1.documents?.[0]?.title).toBe("New");
+    expect(updated.items.i1.documents?.[0]?.version).toBe(2);
+  });
+
   test("mutation on missing board is a no-op-ish empty board", () => {
     const board = reduceBoard(undefined, {
       type: "UPDATE_ITEM",

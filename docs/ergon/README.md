@@ -54,3 +54,6 @@ credential.
 
 See [connected ticket tools](./decisions/20261016-connected-ticket-tools.md) and
 [chat tools](../chat-tools.md).
+
+Ergon chat style's in-thread kanban board and its durable linked documents are a separate,
+Organic-only feature: see [Ergon linked documents](./linked-documents.md).

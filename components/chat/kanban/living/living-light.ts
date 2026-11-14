@@ -2,7 +2,7 @@ import type { KanbanBoardState } from "@/lib/kanban/store";
 
 import { LIVING_SPARK_S } from "./living-board-timing";
 
-import { KANBAN_STATUS_LABELS, type KanbanCommand } from "@/lib/schemas/kanban";
+import { KANBAN_STATUS_LABELS, type KanbanChannelCommand } from "@/lib/schemas/kanban";
 
 export type LivingLight = "trace" | "field" | "presence";
 
@@ -68,13 +68,13 @@ export const LIGHT_BEHAVIOR: Record<LivingLight, LightBehavior> = {
 /** Live signal from the chat stream: the model is mid tool call. */
 export type KanbanActivity =
   | { phase: "idle" }
-  | { phase: "working"; command: KanbanCommand; targetId?: string };
+  | { phase: "working"; command: KanbanChannelCommand; targetId?: string };
 
 export const IDLE_ACTIVITY: KanbanActivity = { phase: "idle" };
 
 /** Plain-language line for what the model is doing to the board. */
 export function describeKanbanCommand(
-  command: KanbanCommand,
+  command: KanbanChannelCommand,
   board: KanbanBoardState | undefined
 ): string {
   const titleOf = (id: string) => {
@@ -105,5 +105,7 @@ export function describeKanbanCommand(
       return `Removing ${titleOf(command.id)}`;
     case "SHOW_VIEW":
       return `Pulling up ${command.view.title}`;
+    case "LINK_DOCUMENT":
+      return `Linking “${command.document.title}” to ${titleOf(command.itemId)}`;
   }
 }

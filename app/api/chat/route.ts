@@ -22,7 +22,8 @@ import { createLogger } from "@/lib/logger";
 import { getLastUserMessageText } from "@/lib/arcadia/help-response";
 import { augmentUserMessageWithDiagramLinks } from "@/lib/mermaid/augment-message";
 import { selectChatModel } from "@/lib/api/select-chat-model";
-import { ChatRequestSchema } from "@/lib/schemas/chat";
+import { AUTO_CHAT_MODEL_ID, ChatModels, ChatRequestSchema } from "@/lib/schemas/chat";
+import { isAdminUser } from "@/data/supabase/profiles";
 import { ChatUIMessage, ChatAIActionEnum } from "@/types/ai";
 import { tryArcadiaChatHelpShortcut } from "@/lib/api/arcadia-chat-help-shortcut";
 import { respondWithShellHelpReflex, startShellHelpReflex } from "@/lib/api/subagent-help-reflex";
@@ -55,6 +56,16 @@ import {
 import { resolveChatStarterPromptByKey } from "@/lib/chat/chat-style-starters";
 import { compileChatTools } from "@/lib/llm/compile-chat-tools";
 import { runLLMChatStream } from "@/lib/api/run-llm-chat-stream";
+import {
+  arcadiaJevPreflight,
+  decideArcadiaJevTurn,
+  startArcadiaJevWork,
+  type ArcadiaJevDecision,
+  type ArcadiaJevPreflight,
+} from "@/lib/api/arcadia-jev-turn";
+import { writeJevAcknowledgement } from "@/lib/arcadia/jev/acknowledge";
+import { JEV_DATA_PART_TYPE } from "@/lib/arcadia/jev/types";
+import { VOICE_REPLY_TOOL_NAME } from "@/lib/schemas/jev-tools";
 import {
   prepareArcadiaMultitaskTurn,
   prepareRabbitHoleMultitaskTurn,
@@ -147,6 +158,7 @@ export async function POST(req: Request) {
     drawerDisplay,
     rabbitHoleSessionId,
     diagramNodeLinks,
+    jevOverride,
     customSystemPromptOverride,
     multitaskSendTarget,
     personaSessionId,
@@ -182,10 +194,33 @@ export async function POST(req: Request) {
     const message = incomingMessage as UIMessage;
     const messageForLlm = augmentUserMessageWithDiagramLinks(message, diagramNodeLinks);
     const memoryEnabled = resolveMemoryEnabledForExperience(experience, requestedMemory);
+    /** Arcadia Jev mode: Jev reads the message before the LLM (see lib/api/arcadia-jev-turn.ts). */
+    const isJevTurn = experience === "arcadia" && chatStyle === "jev";
 
     // Zero Data Retention Policy is in regards to external LLMs, not Organic LLM at this time
     // If enabled, we only use LLMs that have ZDR compatibility
     const isZeroDataRetention = zeroDataRetention === true;
+
+    // Jev mode: refuse oversized input and settle a "Respond anyway" override before anything is
+    // saved. Both answer with a JSON error (with a `code`) the composer shows as a toast.
+    let jevPreflight: ArcadiaJevPreflight | null = null;
+
+    if (isJevTurn) {
+      const preflight = await arcadiaJevPreflight({
+        chatId: id,
+        message,
+        overrideMessageId: jevOverride?.messageId,
+        logger,
+      });
+
+      if (preflight.error != null) {
+        await release();
+
+        return preflight.error;
+      }
+
+      jevPreflight = preflight.data;
+    }
 
     // Start fetching thread title status early; result is only needed in onFinish (non-blocking).
     // We rely on DB state here to avoid false positives from stale client hints.
@@ -227,7 +262,10 @@ export async function POST(req: Request) {
         // Transient status also works for persona turns that will be held without a reply.
         writer.write({
           type: "data-aiAction",
-          data: { action: ChatAIActionEnum.Processing, message: "Gathering context" },
+          data: {
+            action: ChatAIActionEnum.Processing,
+            message: isJevTurn ? "Jev is reading your message" : "Gathering context",
+          },
           transient: true,
         });
         // Measures server enqueue latency; client receipt also includes transport buffering.
@@ -282,9 +320,11 @@ export async function POST(req: Request) {
           return { store, session };
         };
         const [
-          { selectedModel, requestedModelId },
+          { selectedModel: resolvedModel, requestedModelId },
           { store: personaStore, session: personaSession },
         ] = await Promise.all([resolveModel(), loadPersona()]);
+        // Jev's Auto routing may replace the pick once its answers land (see below).
+        let selectedModel = resolvedModel;
 
         logger.log("timing", "Model and persona setup completed", {
           chatId: id,
@@ -336,6 +376,25 @@ export async function POST(req: Request) {
 
         // Identify the response before data parts can create a client-side message during replay.
         writer.write({ type: "start", messageId: assistantMessageId });
+
+        const starterKeyPromise = experience === "arcadia" ? getThreadArcadiaStarterKey(id) : null;
+
+        // Jev runs alongside multitask prep and context loading, so on most turns it adds no wait.
+        const jevWork = jevPreflight
+          ? startArcadiaJevWork({
+              chatId: id,
+              message,
+              preflight: jevPreflight,
+              starterPriming: (starterKeyPromise ?? Promise.resolve(null)).then((result) =>
+                result?.data ? resolveChatStarterPromptByKey(result.data) : undefined
+              ),
+              autoRouting:
+                requestedModelId === AUTO_CHAT_MODEL_ID
+                  ? { fallbackModel: selectedModel, zeroDataRetention: isZeroDataRetention }
+                  : null,
+              logger,
+            })
+          : null;
 
         // Arcadia & Rabbit Hole multitask: subagents run in their own threads after this response,
         // so the orchestrator frees CoreInput / Drawer as soon as its reply ends.
@@ -425,6 +484,11 @@ export async function POST(req: Request) {
                   experience,
                 });
 
+        const [turnContextResult, jevAnalysis, jevRouted] = await Promise.all([
+          loadTurnContext(),
+          jevWork?.analysis ?? null,
+          jevWork?.routed ?? null,
+        ]);
         let {
           validatedMessages,
           systemPromptForRequest: afterContext,
@@ -435,7 +499,25 @@ export async function POST(req: Request) {
           memoriesInjected,
           memoryContext,
           activatedMemories,
-        } = await loadTurnContext();
+        } = turnContextResult;
+
+        // Shadow mode only logs what Jev would have picked; the existing Auto pick stays.
+        if (jevRouted?.route.mode === "on" && jevRouted.model.id !== selectedModel.id) {
+          const routedAdminOnly = ChatModels.find((m) => m.id === jevRouted.model.id)?.adminOnly;
+
+          if (routedAdminOnly && !(await isAdminUser(clerkUserId))) {
+            logger.warn(
+              "POST",
+              `Jev routed to admin-only ${jevRouted.model.id}; keeping Auto pick`
+            );
+          } else {
+            logger.log(
+              "POST",
+              `Model selection branch: jev_routed (${jevRouted.route.tier ?? "none"}) -> ${jevRouted.model.id}`
+            );
+            selectedModel = jevRouted.model;
+          }
+        }
 
         validatedMessages = await stampTurnWithActivatedMemories({
           chatId: id,
@@ -548,6 +630,48 @@ export async function POST(req: Request) {
           return;
         }
 
+        let jevDecision: ArcadiaJevDecision | null = null;
+
+        if (jevPreflight && jevAnalysis) {
+          jevDecision = decideArcadiaJevTurn({
+            analysis: jevAnalysis,
+            route: jevRouted?.route,
+            permissions: {
+              webSearch: parseResult.data.webSearch ?? false,
+              memory: parseResult.data.memory ?? false,
+              messageSearch: messageSearch ?? true,
+            },
+            override: jevPreflight.override !== null,
+          });
+
+          logger.log("POST", "Jev decision", {
+            outcome: jevDecision.turnData.outcome,
+            source: jevAnalysis.source,
+            intent: jevAnalysis.intent?.choice ?? null,
+            format: jevDecision.plan.responseFormat,
+            tools: jevDecision.plan.tools,
+            passes: jevAnalysis.passes,
+            override: jevDecision.plan.override,
+          });
+
+          if (!jevDecision.plan.respond) {
+            await writeJevAcknowledgement({
+              writer,
+              chatId: id,
+              sbUserId,
+              userMessage: message,
+              assistantMessageId,
+              turnData: jevDecision.turnData,
+              logger,
+            });
+
+            return;
+          }
+
+          // Shows on the reply as it streams; runLLMChatStream saves it with the message.
+          writer.write({ type: JEV_DATA_PART_TYPE, data: jevDecision.turnData });
+        }
+
         writer.write({
           type: "data-notification",
           data: { message: `Using ${selectedModel.name}`, level: "info" },
@@ -597,6 +721,12 @@ export async function POST(req: Request) {
           writer,
           rabbitHoleSessionId,
           rabbitHoleActiveNodeId,
+          jev: jevDecision
+            ? {
+                tools: jevDecision.plan.tools,
+                voiceReply: jevDecision.plan.responseFormat === "voice",
+              }
+            : undefined,
           rabbitHoleRootNodeId,
           rabbitHoleNodes,
           multitaskOrchestrator: experience === "rabbit_hole" ? orchestratorToolsConfig : undefined,
@@ -627,8 +757,8 @@ export async function POST(req: Request) {
 
         let arcadiaStarterPriming: string | undefined;
 
-        if (experience === "arcadia") {
-          const starterKeyResult = await getThreadArcadiaStarterKey(id);
+        if (starterKeyPromise) {
+          const starterKeyResult = await starterKeyPromise;
 
           if (starterKeyResult.error) {
             logger.error("POST", "Failed to load Arcadia starter key", {
@@ -654,6 +784,7 @@ export async function POST(req: Request) {
           delphiDisplay,
           drawerDisplay,
           arcadiaStarterPriming,
+          jevSystemFragment: jevDecision?.systemFragment,
         });
         if (requestedExperience === "aion" && !shellAgent) {
           systemPromptForRequest += `\n\n${AION_SANDBOX_INSTRUCTIONS}`;
@@ -760,6 +891,11 @@ export async function POST(req: Request) {
           experience,
           userMessage: message,
           threadHasTitlePromise,
+          persistedAssistantParts: jevDecision
+            ? [{ type: JEV_DATA_PART_TYPE, data: jevDecision.turnData }]
+            : undefined,
+          stopAfterToolNames:
+            jevDecision?.plan.responseFormat === "voice" ? [VOICE_REPLY_TOOL_NAME] : undefined,
           onAssistantMessage:
             personaSession && personaStore
               ? (text) => {

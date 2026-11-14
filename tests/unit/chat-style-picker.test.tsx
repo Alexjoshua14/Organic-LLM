@@ -3,6 +3,7 @@ import { cleanup, fireEvent, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 
 import { ChatStylePicker } from "@/components/chat/chat-style-picker";
+import { CHAT_STYLES } from "@/lib/chat/chat-style";
 import { getChatStyle, setChatStyle } from "@/lib/chat/chat-style-store";
 import { FeatureHintRegistryProvider } from "@/lib/onboarding/feature-hint-context";
 import { render } from "../helpers/render";
@@ -40,7 +41,28 @@ describe("ChatStylePicker", () => {
     const { getByText } = renderPicker(<ChatStylePicker chatId={THREAD_UUID} />);
     expect(getByText("Standard")).toBeTruthy();
     expect(getByText("Ergon board")).toBeTruthy();
+    expect(getByText("Remy")).toBeTruthy();
     expect(getByText("Scribe")).toBeTruthy();
+    expect(getByText("Jev")).toBeTruthy();
+  });
+
+  test("renders one radio per chat style, in order", () => {
+    const { getAllByRole } = renderPicker(<ChatStylePicker chatId={THREAD_UUID} />);
+    const radios = getAllByRole("radio");
+
+    expect(radios).toHaveLength(CHAT_STYLES.length);
+    CHAT_STYLES.forEach((style, index) => {
+      expect(radios[index]!.textContent).toContain(style.label);
+    });
+  });
+
+  test("grid fits five cards on one lg row and spans an odd last card when narrow", () => {
+    const { getByRole } = renderPicker(<ChatStylePicker chatId={THREAD_UUID} />);
+    const grid = getByRole("radiogroup", { name: "Chat style" });
+
+    expect(grid.className).toContain("grid-cols-2");
+    expect(grid.className).toContain("lg:grid-cols-5");
+    expect(grid.className).toContain("max-lg:[&>*:last-child:nth-child(odd)]:col-span-2");
   });
 
   test("selecting Ergon updates the chat-style store", () => {
@@ -55,6 +77,28 @@ describe("ChatStylePicker", () => {
     expect(getChatStyle(THREAD_UUID)).toBe("scribe");
   });
 
+  test("selecting Jev updates the chat-style store and shows Jev starters", () => {
+    const { getByText, getByRole } = renderPicker(<ChatStylePicker chatId={THREAD_UUID} />);
+    fireEvent.click(getByText("Jev"));
+
+    expect(getChatStyle(THREAD_UUID)).toBe("jev");
+    expect(getByRole("radio", { name: /Jev/i }).getAttribute("aria-checked")).toBe("true");
+    expect(getByText("I'm away from the screen — answer out loud when you can.")).toBeTruthy();
+    expect(getByText("Show me, don't tell me — diagrams and boards over prose.")).toBeTruthy();
+    expect(getByText("I'm thinking out loud — only reply when I ask for something.")).toBeTruthy();
+  });
+
+  test("arrow keys wrap between Standard and Jev", () => {
+    const { getByRole } = renderPicker(<ChatStylePicker chatId={THREAD_UUID} />);
+    const grid = getByRole("radiogroup", { name: "Chat style" });
+
+    fireEvent.keyDown(grid, { key: "ArrowLeft" });
+    expect(getChatStyle(THREAD_UUID)).toBe("jev");
+
+    fireEvent.keyDown(grid, { key: "ArrowRight" });
+    expect(getChatStyle(THREAD_UUID)).toBe("default");
+  });
+
   test("default style is selected initially", () => {
     const { getByRole } = renderPicker(<ChatStylePicker chatId={THREAD_UUID} />);
     const standard = getByRole("radio", { name: /Standard/i });
@@ -65,7 +109,7 @@ describe("ChatStylePicker", () => {
     const { getAllByRole } = renderPicker(<ChatStylePicker chatId={THREAD_UUID} />);
 
     const styleTabs = getAllByRole("radio").map((node) => node.getAttribute("tabindex"));
-    expect(styleTabs).toEqual(["0", "0", "0", "0"]);
+    expect(styleTabs).toEqual(CHAT_STYLES.map(() => "0"));
 
     const starterButtons = getAllByRole("button").filter((node) =>
       node.hasAttribute("aria-pressed")
@@ -129,5 +173,21 @@ describe("ChatStylePicker", () => {
     fireEvent.click(getByText("Stitch This Together"));
 
     await waitFor(() => expect(changes).toContain("scribe:stitch-this-together"));
+  });
+
+  test("Jev starter selects stable jev key", async () => {
+    const changes: (string | null)[] = [];
+    const { getByText } = renderPicker(
+      <ChatStylePicker
+        chatId={THREAD_UUID}
+        starterKey={null}
+        onStarterKeyChange={(key) => changes.push(key)}
+      />
+    );
+
+    fireEvent.click(getByText("Jev"));
+    fireEvent.click(getByText("I'm thinking out loud — only reply when I ask for something."));
+
+    await waitFor(() => expect(changes).toContain("jev:thinking-out-loud"));
   });
 });

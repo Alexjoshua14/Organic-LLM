@@ -6,7 +6,7 @@ import {
   KanbanCommandSchema,
   toKanbanToolOutput,
   type KanbanBoardToolOutput,
-  type KanbanCommand,
+  type KanbanChannelCommand,
 } from "@/lib/schemas/kanban";
 
 const logger = createLogger("lib/llm/kanban-tool.ts");
@@ -16,9 +16,10 @@ export const KANBAN_BOARD_TOOL_NAME = "kanban_board";
 /**
  * Minimal writer for the Ergon puppet channel. The runtime writer is the full
  * `ChatUIMessage` stream writer; this narrow type keeps the tool decoupled.
+ * Accepts LLM kanban commands plus client-channel-only `LINK_DOCUMENT`.
  */
 export type KanbanStreamWriter = {
-  write: (part: { type: "data-kanban"; data: KanbanCommand; transient?: boolean }) => void;
+  write: (part: { type: "data-kanban"; data: KanbanChannelCommand; transient?: boolean }) => void;
 };
 
 /**

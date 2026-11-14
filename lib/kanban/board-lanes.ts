@@ -3,7 +3,7 @@ import type { StoredKanbanItem } from "./store";
 import {
   KANBAN_STATUS_LABELS,
   KANBAN_STATUSES,
-  type KanbanCommand,
+  type KanbanChannelCommand,
   type KanbanPriority,
   type KanbanStatus,
   type KanbanView,
@@ -123,7 +123,7 @@ export function countStatuses(items: Iterable<StoredKanbanItem>): Record<KanbanS
 }
 
 /** Item ids a command touches, in payload order. */
-export function kanbanCommandTargets(command: KanbanCommand): string[] {
+export function kanbanCommandTargets(command: KanbanChannelCommand): string[] {
   switch (command.type) {
     case "INITIATE_KANBAN":
       return (command.seedItems ?? []).map((item) => item.id);
@@ -135,6 +135,8 @@ export function kanbanCommandTargets(command: KanbanCommand): string[] {
       return [command.id];
     case "SHOW_VIEW":
       return [];
+    case "LINK_DOCUMENT":
+      return [command.itemId];
   }
 }
 
