@@ -12,6 +12,16 @@ const logger = createLogger("app/api/ai/speak/realtime/end/route.ts");
 
 const EndSchema = z.object({
   sessionId: z.string().min(1),
+  usage: z
+    .object({
+      inputTokens: z.number().nonnegative().optional(),
+      outputTokens: z.number().nonnegative().optional(),
+      cachedInputTokens: z.number().nonnegative().optional(),
+      cachedAudioInputTokens: z.number().nonnegative().optional(),
+      audioInputTokens: z.number().nonnegative().optional(),
+      audioOutputTokens: z.number().nonnegative().optional(),
+    })
+    .optional(),
   /** Set when the SDP exchange failed. It runs in the browser, so this is the server's only report. */
   connectFailure: z
     .object({
@@ -55,6 +65,7 @@ export async function POST(req: Request) {
   const session = await endSpeakRealtimeSession({
     sessionId: parsed.data.sessionId,
     userId: sbUserIdResult.data,
+    usage: parsed.data.usage,
   });
 
   return NextResponse.json({ ok: true, session });

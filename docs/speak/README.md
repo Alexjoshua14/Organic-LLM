@@ -85,8 +85,10 @@ Verified against the session route and hook on 2026-09-17. Design rationale is i
 2. **Instructions.** `buildSpeakRealtimeInstructions(modalities, { memoryEnabled, sessionContext,
    resumed })`. On resume, `loadSpeakSessionContext` gathers the thread summary, memories seeded
    from it, and the last four turns; `formatSpeakSessionContext` renders them into the prompt
-   under a ~1.8k-token cap. The session runs `truncation: retention_ratio` so the preamble is
-   never evicted.
+   under a ~1.8k-token cap. The session runs `truncation: retention_ratio` with an 8,000-token
+   post-instructions window and 0.8 retention: old conversation items are dropped in batches
+   while the instructions remain. Older details may fall out of the live model's context;
+   persisted transcripts are unaffected. See [cost controls](./decisions/20261112-realtime-cost-controls.md).
 3. **Tools.** `compileSpeakRealtimeTools(modalities, { memoryEnabled })` — modality-gated
    presentation tools, `search_memories` when the Memory toggle is on, and the two nanobots.
 4. **Persistence.** The hook buffers completed transcript turns and posts them to
@@ -94,8 +96,12 @@ Verified against the session route and hook on 2026-09-17. Design rationale is i
    `persistSpeakVoiceTurns` writes them as ordinary `ui_message` rows tagged
    `metadata.source = "speak-realtime"`, then refreshes title and summary and ingests complete
    exchanges into memory when the session opted in.
-5. **Usage.** `response.done.usage` is accumulated and sent with the next heartbeat, so metering
-   bills provider tokens rather than only wall-clock minutes.
+5. **Usage.** `response.done.usage` is accumulated and sent with the next heartbeat and on end,
+   with separate cached text/audio rates. Quiet intervals explicitly report zero tokens rather
+   than invoking the server's fallback speech estimate. Abandoned sessions still use that
+   estimate. Input transcription is separately billed by OpenAI and is not yet in this meter.
+   The daily time allowance counts connected elapsed time, rounding cumulative session minutes
+   rather than each heartbeat.
 6. **Transport** is OpenAI Realtime over WebRTC, behind the `VoiceTransport` interface so a
    server-side relay can replace it without the hook or UI changing.
 7. **Continuity across navigation** is structural: the session lives in the root layout, so it

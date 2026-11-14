@@ -267,7 +267,12 @@ export async function POST(req: Request) {
         max_output_tokens: 800,
         // The resumed-thread preamble lives in `instructions`. Retention-ratio truncation drops
         // old conversation items when the context fills but never the instructions themselves.
-        truncation: { type: "retention_ratio", retention_ratio: 0.8 },
+        truncation: {
+          type: "retention_ratio",
+          retention_ratio: 0.8,
+          // Bound repeated history costs; drop in batches to preserve cache hits between trims.
+          token_limits: { post_instructions: 8_000 },
+        },
         audio: {
           input: {
             // With a persona, the client's gate decides which turns get a reply.

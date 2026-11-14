@@ -17,6 +17,7 @@ import { DEFAULT_SPEAK_THREAD_POLICY } from "@/lib/schemas/speak-thread";
 import { isAmbientClientEvent } from "@/lib/speak/ambient-item";
 import {
   classifyRealtimeEvent,
+  emptyRealtimeUsage,
   sumRealtimeUsage,
   type RealtimeUsage,
 } from "@/lib/speak/realtime-events";
@@ -423,10 +424,13 @@ export function useRealtimeVoice({
       }
 
       if (opts?.notifyServer !== false && sid) {
+        const usage = pendingUsageRef.current ?? emptyRealtimeUsage();
+
+        pendingUsageRef.current = null;
         void fetch("/api/ai/speak/realtime/end", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sessionId: sid, connectFailure: opts?.connectFailure }),
+          body: JSON.stringify({ sessionId: sid, usage, connectFailure: opts?.connectFailure }),
         }).catch(() => undefined);
       }
 
@@ -469,7 +473,8 @@ export function useRealtimeVoice({
       const res = await fetch("/api/ai/speak/realtime/heartbeat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: sid, usage: usage ?? undefined }),
+        // A quiet interval has zero usage; omitting it invokes the server's fallback estimate.
+        body: JSON.stringify({ sessionId: sid, usage: usage ?? emptyRealtimeUsage() }),
       });
       const data = (await res.json()) as HeartbeatResponse;
 

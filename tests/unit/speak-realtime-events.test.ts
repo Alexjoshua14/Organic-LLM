@@ -76,7 +76,12 @@ describe("classifyRealtimeEvent tool calls and errors", () => {
         name: "search_memories",
         arguments: '{"query":"coffee"}',
       })
-    ).toEqual({ kind: "tool_call", callId: "c1", name: "search_memories", args: '{"query":"coffee"}' });
+    ).toEqual({
+      kind: "tool_call",
+      callId: "c1",
+      name: "search_memories",
+      args: '{"query":"coffee"}',
+    });
 
     expect(
       classifyRealtimeEvent({ type: "response.function_call_arguments.done", name: "x" }).kind
@@ -113,6 +118,27 @@ describe("classifyRealtimeEvent tool calls and errors", () => {
 });
 
 describe("usageFromResponseDone", () => {
+  test("separates cached text and audio instead of discounting audio as text", () => {
+    const usage = usageFromResponseDone({
+      response: {
+        usage: {
+          input_tokens: 1500,
+          output_tokens: 100,
+          input_token_details: {
+            text_tokens: 500,
+            audio_tokens: 1000,
+            cached_tokens: 1100,
+            cached_tokens_details: { text_tokens: 200, audio_tokens: 900 },
+          },
+        },
+      },
+    });
+
+    expect(usage?.cachedInputTokens).toBe(200);
+    expect(usage?.cachedAudioInputTokens).toBe(900);
+    expect(sumRealtimeUsage(usage, usage)?.cachedAudioInputTokens).toBe(1800);
+  });
+
   test("splits text and audio tokens and reads cached input", () => {
     const usage = usageFromResponseDone({
       type: "response.done",

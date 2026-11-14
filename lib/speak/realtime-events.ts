@@ -12,6 +12,7 @@ export type RealtimeUsage = {
   inputTokens: number;
   outputTokens: number;
   cachedInputTokens: number;
+  cachedAudioInputTokens?: number;
   audioInputTokens: number;
   audioOutputTokens: number;
 };
@@ -77,11 +78,14 @@ export function usageFromResponseDone(event: Record<string, unknown>): RealtimeU
   const audioOut = num(outDetails.audio_tokens);
   const textIn = num(inDetails.text_tokens) || Math.max(0, num(u.input_tokens) - audioIn);
   const textOut = num(outDetails.text_tokens) || Math.max(0, num(u.output_tokens) - audioOut);
+  const cached = inDetails.cached_tokens_details as Record<string, unknown> | undefined;
 
   const result: RealtimeUsage = {
     inputTokens: textIn,
     outputTokens: textOut,
-    cachedInputTokens: num(inDetails.cached_tokens),
+    // Without a modality breakdown, only discount tokens known to be text.
+    cachedInputTokens: Math.min(textIn, num(cached?.text_tokens ?? inDetails.cached_tokens)),
+    ...(cached ? { cachedAudioInputTokens: Math.min(audioIn, num(cached.audio_tokens)) } : {}),
     audioInputTokens: audioIn,
     audioOutputTokens: audioOut,
   };
@@ -103,6 +107,11 @@ export function sumRealtimeUsage(
     inputTokens: a.inputTokens + b.inputTokens,
     outputTokens: a.outputTokens + b.outputTokens,
     cachedInputTokens: a.cachedInputTokens + b.cachedInputTokens,
+    ...(a.cachedAudioInputTokens !== undefined || b.cachedAudioInputTokens !== undefined
+      ? {
+          cachedAudioInputTokens: (a.cachedAudioInputTokens ?? 0) + (b.cachedAudioInputTokens ?? 0),
+        }
+      : {}),
     audioInputTokens: a.audioInputTokens + b.audioInputTokens,
     audioOutputTokens: a.audioOutputTokens + b.audioOutputTokens,
   };

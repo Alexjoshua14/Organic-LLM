@@ -11,6 +11,7 @@ import { fetchLlmUsageEvents } from "@/data/supabase/llm-usage";
 import { createLogger } from "@/lib/logger";
 import { getPlanBudgetForUser } from "@/lib/plans/plan-budget";
 import { canStartRealtimeGivenPlanBudget } from "@/lib/speak/weave-policy";
+import { voiceMinuteUnits } from "@/lib/speak/voice-minute-meter";
 import {
   computeCost,
   computeUsageCostUsd,
@@ -173,9 +174,9 @@ async function recordSpeakUsage(args: {
   const modelId = normalizeRealtimeModelId(session.model);
   const incrementalCost = incrementalCostUsd(session, minutesDelta, usage);
 
-  if (minutesDelta > 0) {
-    const minuteUnits = Math.max(1, Math.ceil(minutesDelta));
+  const minuteUnits = voiceMinuteUnits(session.minutesUsed, minutesDelta);
 
+  if (minuteUnits > 0) {
     await runLimiter("recordSpeakDailyMinutes", () =>
       dailyMinuteLimiter.limit(session.userId, { rate: minuteUnits })
     );
@@ -192,6 +193,7 @@ async function recordSpeakUsage(args: {
       inputTokens: usage?.inputTokens ?? 0,
       outputTokens: usage?.outputTokens ?? 0,
       cachedInputTokens: usage?.cachedInputTokens ?? 0,
+      cachedAudioInputTokens: usage?.cachedAudioInputTokens,
       audioInputTokens: usage?.audioInputTokens,
       audioOutputTokens: usage?.audioOutputTokens,
     });
