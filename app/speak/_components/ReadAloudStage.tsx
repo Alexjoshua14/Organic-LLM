@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Loader2, Play, Square, Volume2 } from "lucide-react";
+import { Loader2, Play, Square } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 
 import { KaraokeCaption } from "./KaraokeCaption";
+import { SpeakModeSwitch } from "./SpeakModeSwitch";
 
 import { useTTS } from "@/hooks/use-tts";
 import { chunkTextForSpeak } from "@/lib/speak/chunk-text";
@@ -95,6 +96,12 @@ export function ReadAloudStage({ onExit }: { onExit?: () => void }) {
     <div className="relative flex h-full min-h-0 w-full flex-col">
       {/* eslint-disable-next-line jsx-a11y/media-has-caption -- hidden TTS playback; text shown as karaoke caption */}
       <audio ref={audioRef} className="hidden" />
+
+      {onExit ? (
+        <header className="relative z-20 flex shrink-0 items-center px-inset-lg pt-[max(env(safe-area-inset-top,0px),1rem)]">
+          <SpeakModeSwitch mode="read" onChange={onExit} />
+        </header>
+      ) : null}
 
       <div className="flex flex-1 flex-col items-center justify-center px-6 py-8">
         <AnimatePresence mode="wait">
@@ -192,17 +199,6 @@ export function ReadAloudStage({ onExit }: { onExit?: () => void }) {
             Read aloud
           </button>
         )}
-
-        {onExit ? (
-          <button
-            className="inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground"
-            type="button"
-            onClick={onExit}
-          >
-            <Volume2 className="size-4" />
-            Live voice
-          </button>
-        ) : null}
       </div>
     </div>
   );

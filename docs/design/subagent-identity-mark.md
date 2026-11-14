@@ -285,3 +285,12 @@ GPU/rendering cost still requires isolating a variant with browser profiling.
 The bench follows the existing LLM-states catalog's production-component fixtures,
 the glass lab's paired comparison pattern, and the design backbone's reserved-space
 and reduced-motion rules. Its quiet background keeps attention on the mark itself.
+
+## Large standalone marks
+
+`relativeBlur` opts a mark into container-relative background blur. It establishes an inline-size
+container and expresses blur in `cqw`, calibrated to the existing 40px mark: 4.25px at 40px becomes
+10.625cqw (about 22.1px at 208px). The state spring still operates on the existing material values;
+only the rendered background filter scales. The dot field and grain are filtered together once.
+Default small marks retain pixel blur. Speak opts in so its responsive hero retains the same
+proportional softness without a resize observer or a second animation loop.
