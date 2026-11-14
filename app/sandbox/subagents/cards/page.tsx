@@ -15,11 +15,11 @@ export default function SubagentCardLabPage() {
     <Page className="items-stretch justify-start overflow-hidden">
       <div className="h-full min-h-0 w-full overflow-y-auto pb-stack-2xl">
         <PageContentFrame maxWidth="7xl">
-          <PageNavBack className="mb-stack-md" href="/sandbox/subagents">
+          <PageNavBack className="mb-stack-sm sm:mb-stack-md" href="/sandbox/subagents">
             ← Subagent lab
           </PageNavBack>
-          <header className="mb-stack-lg">
-            <h1 className="text-2xl font-semibold tracking-tight">Subagent cards</h1>
+          <header className="mb-stack-md sm:mb-stack-lg">
+            <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Subagent cards</h1>
           </header>
           <SubagentCardLab />
         </PageContentFrame>

@@ -18,7 +18,11 @@ test("lab controls keep both versions and device previews in the same agent stat
 
   for (const version of ["Current", "Next"]) {
     for (const device of ["desktop", "mobile"]) {
-      const sample = app.getByRole("region", { name: `${version} ${device} card` });
+      // Mobile samples are `hidden sm:block` so phones keep a single readable card in 100vh.
+      const sample = app.getByRole("region", {
+        name: `${version} ${device} card`,
+        hidden: device === "mobile",
+      });
 
       expect(sample.querySelector('[data-activity-state="blocked"]')).not.toBeNull();
       expect(within(sample).getByText("Lyra")).toBeTruthy();
@@ -37,7 +41,7 @@ test("lab controls keep both versions and device previews in the same agent stat
 
   fireEvent.click(app.getByRole("switch", { name: "Call active" }));
   expect(app.queryByRole("button", { name: "End voice session" })).toBeNull();
-  expect(app.getAllByRole("button", { name: "Speak to Lyra" })).toHaveLength(4);
+  expect(app.getAllByRole("button", { name: "Speak to Lyra", hidden: true })).toHaveLength(4);
 });
 
 test("state selector supports arrow-key selection and wraps focus", () => {
