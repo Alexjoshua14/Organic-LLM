@@ -49,7 +49,7 @@ export const SPEAK_PANEL_EXIT_MS = 180;
  */
 export const SPEAK_AGENT_DOT_WEIGHT = 1.8;
 /** Frosted underlay (px) that blurs the page behind the Speak agent mark. */
-export const SPEAK_AGENT_UNDERLAY_BLUR = 12;
+export const SPEAK_AGENT_UNDERLAY_BLUR = 28;
 export const SPEAK_AGENT_GLASS = {
   idle: { opacity: 0.12, brightness: 1 },
   working: { opacity: 0.12, brightness: 1.1 },
