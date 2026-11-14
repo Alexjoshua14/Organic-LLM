@@ -18,6 +18,7 @@ import { TTSProvider } from "@/lib/context/tts-context";
 import { FontProvider } from "@/components/FontProvider";
 import { OnboardingHost } from "@/components/onboarding/onboarding-host";
 import { PerfHudGate } from "@/components/perf/perf-hud-gate";
+import { PerfMetricsNotice } from "@/components/perf/metrics-notice";
 import { VoiceLiveBarPageAnchor } from "@/components/voice/voice-live-bar-page-anchor";
 import { PersonaSessionProvider } from "@/components/personas/persona-session-provider";
 import { VoiceSessionProvider } from "@/components/voice/voice-session-provider";
@@ -69,6 +70,7 @@ export async function SessionShell({ children }: { children: React.ReactNode }) 
                             {children}
                             <AionLauncherSurface />
                             <PerfHudGate />
+                            <PerfMetricsNotice />
                             <Analytics />
                           </main>
                         </OnboardingHost>

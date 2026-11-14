@@ -82,6 +82,22 @@ function TraceRow({
               })}
             </div>
           ) : null}
+          {(trace.durations?.length ?? 0) > 0 ? (
+            <div>
+              <p className="mb-1 font-medium text-muted-foreground uppercase tracking-wide">
+                Time spent{trace.tainted ? " (not reported: tab was hidden or stale)" : ""}
+              </p>
+              {[...(trace.durations ?? [])]
+                .sort((a, b) => b.ms - a.ms)
+                .map((d) => (
+                  <p key={d.name} className="break-all">
+                    <span className="text-muted-foreground">{fmtMs(d.ms)} ms</span>
+                    {" · "}
+                    {phaseLabel(d.name)}
+                  </p>
+                ))}
+            </div>
+          ) : null}
           {trace.serverPhases.length > 0 ? (
             <div>
               <p className="mb-1 font-medium text-muted-foreground uppercase tracking-wide">

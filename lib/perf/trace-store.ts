@@ -2,7 +2,9 @@
 
 import type { PerfJourneyId } from "./journeys";
 
-import { isPerfEnabled } from "./enabled";
+import { isPerfCollecting, isPerfEnabled } from "./enabled";
+import { collectJourneyDurations, type PerfDurationValue } from "./measure";
+import { reportPerfTrace } from "./report";
 
 import { createLogger } from "@/lib/logger";
 
@@ -10,6 +12,14 @@ const logger = createLogger("lib/perf/trace-store.ts");
 
 const TRACES_STORAGE_KEY = "ol:perf-traces";
 const MAX_TRACES = 20;
+/**
+ * An interaction that takes longer than this was almost certainly not the interaction: the click
+ * landed on the page already open, or the tab was parked. Such a journey is kept locally for the
+ * HUD but never reported. (Cold loads are exempt: a slow network can genuinely take this long.)
+ */
+const STALE_JOURNEY_MS = 30_000;
+/** Journeys that finish on a different page than they started on. */
+const NAVIGATION_JOURNEYS: readonly PerfJourneyId[] = ["to-chat", "to-arcadia", "thread-switch"];
 
 export type PerfTraceStatus = "active" | "complete" | "abandoned";
 
@@ -33,10 +43,17 @@ export type PerfTrace = {
   pathAtStart: string;
   marks: PerfClientMark[];
   serverPhases: PerfServerPhase[];
+  /** Spans (ms) computed from the browser's timing entries when the journey completed. */
+  durations?: PerfDurationValue[];
   headlineMs: number | null;
   headlinePhase: string | null;
   status: PerfTraceStatus;
   completedAt: number | null;
+  /**
+   * Set when something makes the number untrustworthy: the tab was hidden during the journey
+   * (browsers throttle background tabs) or the journey went stale. Never reported.
+   */
+  tainted?: boolean;
 };
 
 type Listener = () => void;
@@ -57,6 +74,17 @@ function refreshSnapshot(): void {
 
 function now(): number {
   return performance.now();
+}
+
+let visibilityWatched = false;
+
+/** A journey that ran while the tab was hidden measures the browser's throttling, not the app. */
+function watchVisibility(): void {
+  if (visibilityWatched || typeof document === "undefined") return;
+  visibilityWatched = true;
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden" && activeTrace) activeTrace.tainted = true;
+  });
 }
 
 function traceId(): string {
@@ -95,6 +123,9 @@ function emitUserTimingMeasure(trace: PerfTrace): void {
 }
 
 function logCompletion(trace: PerfTrace): void {
+  // The console line carries the raw path, so it stays behind the local debug flag.
+  if (!isPerfEnabled()) return;
+
   logger.log(
     "complete",
     JSON.stringify({
@@ -112,7 +143,7 @@ function logCompletion(trace: PerfTrace): void {
 }
 
 function persistTraces(): void {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined" || !isPerfEnabled()) return;
 
   try {
     sessionStorage.setItem(TRACES_STORAGE_KEY, JSON.stringify(traceRing));
@@ -122,7 +153,7 @@ function persistTraces(): void {
 }
 
 function loadTracesFromStorage(): void {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined" || !isPerfEnabled()) return;
 
   try {
     const raw = sessionStorage.getItem(TRACES_STORAGE_KEY);
@@ -208,7 +239,7 @@ export function startJourney(
   trigger: string,
   options?: { startedAt?: number }
 ): void {
-  if (!isPerfEnabled()) return;
+  if (!isPerfCollecting()) return;
 
   if (activeTrace) {
     finalizeActive("abandoned");
@@ -224,11 +255,17 @@ export function startJourney(
     pathAtStart: pathAtStart(),
     marks: [],
     serverPhases: [],
+    durations: [],
     headlineMs: null,
     headlinePhase: null,
     status: "active",
     completedAt: null,
   };
+
+  watchVisibility();
+  if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+    activeTrace.tainted = true;
+  }
 
   emitUserTimingMark(journey, "start");
   notify();
@@ -242,7 +279,7 @@ function resolveMarkTarget(): PerfTrace | null {
 }
 
 export function mark(name: string, detail?: Record<string, unknown>): void {
-  if (!isPerfEnabled()) return;
+  if (!isPerfCollecting()) return;
 
   const target = resolveMarkTarget();
 
@@ -257,7 +294,7 @@ export function mark(name: string, detail?: Record<string, unknown>): void {
 
 /** Record a mark at an absolute performance.now() offset from navigation start. */
 export function markAt(name: string, absoluteMs: number, detail?: Record<string, unknown>): void {
-  if (!isPerfEnabled()) return;
+  if (!isPerfCollecting()) return;
 
   const target = resolveMarkTarget();
 
@@ -275,17 +312,26 @@ export function completeForJourney(
   name: string,
   detail?: Record<string, unknown>
 ): void {
-  if (!isPerfEnabled() || !activeTrace) return;
+  if (!isPerfCollecting() || !activeTrace) return;
 
   const allowed = Array.isArray(expected) ? expected : [expected];
 
   if (!allowed.includes(activeTrace.journey)) return;
+  // A navigation that finishes where it started never navigated (a click on the thread that is
+  // already open): whatever mounts next is not its destination, so it must not close the journey.
+  if (
+    NAVIGATION_JOURNEYS.includes(activeTrace.journey) &&
+    typeof window !== "undefined" &&
+    window.location.pathname === activeTrace.pathAtStart
+  ) {
+    return;
+  }
 
   complete(name, detail);
 }
 
 export function complete(name: string, detail?: Record<string, unknown>): void {
-  if (!isPerfEnabled() || !activeTrace) return;
+  if (!isPerfCollecting() || !activeTrace) return;
 
   const t = now() - activeTrace.startedAt;
 
@@ -294,10 +340,19 @@ export function complete(name: string, detail?: Record<string, unknown>): void {
   activeTrace.headlinePhase = name;
   activeTrace.status = "complete";
   activeTrace.completedAt = now();
+  if (activeTrace.journey !== "load" && t > STALE_JOURNEY_MS) activeTrace.tainted = true;
+  activeTrace.durations = collectJourneyDurations({
+    journey: activeTrace.journey,
+    startedAt: activeTrace.startedAt,
+    headlineMs: t,
+    marks: activeTrace.marks,
+  });
 
   emitUserTimingMark(activeTrace.journey, name);
   emitUserTimingMeasure(activeTrace);
   logCompletion(activeTrace);
+  // Snapshot at completion: marks that arrive late must not change what is reported.
+  reportPerfTrace(activeTrace);
 
   traceRing = [activeTrace, ...traceRing.filter((tr) => tr.id !== activeTrace!.id)].slice(
     0,
@@ -309,7 +364,7 @@ export function complete(name: string, detail?: Record<string, unknown>): void {
 }
 
 export function addServerPhases(phases: Array<{ name: string; ms: number }>): void {
-  if (!isPerfEnabled() || phases.length === 0) return;
+  if (!isPerfCollecting() || phases.length === 0) return;
 
   const target = activeTrace ?? traceRing[0];
 
