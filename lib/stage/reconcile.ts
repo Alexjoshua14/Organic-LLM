@@ -1,5 +1,5 @@
 import type { DesignPlan } from "./agent";
-import type { StageRect, StageState, StageWidget } from "./schema";
+import { STAGE_CONTENT_RECT, type StageRect, type StageState, type StageWidget } from "./schema";
 
 import {
   findStagePlacement,
@@ -10,22 +10,30 @@ import {
   validateStageLayout,
 } from "./layout";
 import { STAGE_OVERVIEW, placeStageWidget, stageViewWidgets, stageWidgetRect } from "./placements";
+import { parseDesignerBlock } from "./block-shapes";
+import { isEmbeddableStageUrl } from "./web-url";
 import type { StageView } from "./view-schema";
 
 type Upsert = Extract<DesignPlan["operations"][number], { operation: "upsert" }>;
+/** The content fields shared by designer upserts and specialist pieces. */
+export type StagePieceContent = Pick<
+  Upsert,
+  "kind" | "title" | "text" | "code" | "ingredients" | "steps" | "block" | "url"
+>;
 
 function dimensions(kind: StageWidget["kind"]) {
   return kind === "chat"
     ? ([11, 16] as const)
-    : kind === "recipe"
+    : kind === "recipe" || kind === "block" || kind === "web"
       ? ([11, 16] as const)
       : kind === "mermaid"
         ? ([11, 16] as const)
         : ([11, 12] as const);
 }
 
-function proposedWidget(
-  item: Upsert,
+/** The one place a flat piece (designer or specialist output) becomes a validated widget. */
+export function stageWidgetFromPiece(
+  item: StagePieceContent,
   rect: StageRect,
   threadId?: string,
   widgetId = crypto.randomUUID()
@@ -56,6 +64,18 @@ function proposedWidget(
           steps: item.steps,
         },
       };
+    case "web":
+      if (!item.url || !isEmbeddableStageUrl(item.url))
+        throw new StageLayoutError("A public https page URL is required");
+
+      return { ...base, kind: "web", url: item.url };
+    case "block": {
+      const parsed = parseDesignerBlock(item.block);
+
+      if (!parsed.ok) throw new StageLayoutError(parsed.reason);
+
+      return { ...base, kind: "block", block: parsed.block };
+    }
     case "chat":
       if (!threadId) throw new StageLayoutError("Chat thread is required");
 
@@ -118,7 +138,7 @@ export function mergeStageDesignPlan(
         widgets[target.index] = { ...placed, title: operation.title };
       } else {
         widgets[target.index] = {
-          ...proposedWidget(operation, placed.rect),
+          ...stageWidgetFromPiece(operation, placed.rect),
           id: target.original.id,
           ...(placed.layouts ? { layouts: placed.layouts } : {}),
           ...(target.original.source ? { source: target.original.source } : {}),
@@ -130,7 +150,7 @@ export function mergeStageDesignPlan(
     const rect = operation.rect ?? findStagePlacement(widgets, w, h, stageReservedRects(current));
 
     if (!rect) throw new StageLayoutError("No free space for the requested widget");
-    widgets.push(proposedWidget(operation, rect, chatIds.get(index), widgetIds.get(index)));
+    widgets.push(stageWidgetFromPiece(operation, rect, chatIds.get(index), widgetIds.get(index)));
   }
   try {
     validateStageLayout(widgets, stageReservedRects(current));
@@ -145,4 +165,34 @@ export function mergeStageDesignPlan(
 
     return widgets.map((widget) => repaired.widgets.find((piece) => piece.id === widget.id)!);
   }
+}
+
+/** Why one upsert's content can't become a piece, or null when it can. */
+export function invalidUpsertReason(item: Upsert): string | null {
+  try {
+    stageWidgetFromPiece(item, STAGE_CONTENT_RECT, "00000000-0000-4000-8000-000000000000");
+
+    return null;
+  } catch (error) {
+    if (error instanceof StageLayoutError) return error.message;
+    throw error;
+  }
+}
+
+/**
+ * Keeps the operations that can be applied and reports why the rest can't. One malformed block
+ * or URL costs that piece, not the whole arrangement.
+ */
+export function sanitizeDesignPlan(plan: DesignPlan): { plan: DesignPlan; dropped: string[] } {
+  const dropped: string[] = [];
+  const operations = plan.operations.filter((operation) => {
+    if (operation.operation !== "upsert" || operation.kind === "chat") return true;
+    const reason = invalidUpsertReason(operation);
+
+    if (reason) dropped.push(`${operation.title}: ${reason}`);
+
+    return !reason;
+  });
+
+  return { plan: { operations }, dropped };
 }

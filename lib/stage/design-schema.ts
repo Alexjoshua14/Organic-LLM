@@ -5,13 +5,17 @@ import { StageViewSchema } from "./view-schema";
 
 const DESIGN_UPSERT = z.object({
   operation: z.literal("upsert"),
-  kind: z.enum(["note", "mermaid", "recipe", "chat"]),
+  kind: z.enum(["note", "mermaid", "recipe", "block", "web", "chat"]),
   title: z.string().min(1).max(100),
   targetId: z.string().uuid().nullable(),
   rect: StageRectSchema.nullable(),
   view: StageViewSchema.nullable().optional(),
   text: z.string().max(4000).nullable(),
   code: z.string().max(8000).nullable(),
+  // JSON of one gen-ui block (research-report, answer-card, decision-matrix, plan-timeline, shopping-list, restaurant-card, code-diff…); kind "block" only.
+  block: z.string().max(12000).nullable().optional(),
+  // Public https page to frame in the grid; kind "web" only.
+  url: z.string().max(2000).nullable().optional(),
   ingredients: z.array(z.string().max(200)).max(40).nullable(),
   steps: z.array(z.string().max(1000)).max(30).nullable(),
 });

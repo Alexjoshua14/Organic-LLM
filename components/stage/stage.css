@@ -277,6 +277,22 @@
 .stage-piece[hidden] {
   display: none;
 }
+/* Arrival: a piece fades up when it mounts or comes out of hiding (a designer result, a tab or
+   scene change). Same entrance timing as the grid; opacity and transform only. */
+@keyframes stage-piece-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+.stage-piece:not([hidden]) {
+  animation: stage-piece-in var(--stage-grid-enter, 220ms) ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .stage-piece:not([hidden]) {
+    animation: none;
+  }
+}
 .stage-piece[data-selected="true"] {
   outline: 1px solid var(--stage-rule);
   outline-offset: 8px;
@@ -387,6 +403,9 @@
   .stage-collection-remove {
     transition: none;
   }
+}
+.stage-piece[data-kind="block"] .stage-piece-content > div {
+  container-type: inline-size;
 }
 .stage-piece[data-kind="note"] .stage-prose {
   max-width: 72ch;
@@ -986,4 +1005,38 @@
     line-height: 16px;
     height: 48px;
   }
+}
+.stage-web-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color-scheme: light dark;
+}
+.stage-web-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 6px;
+  height: 100%;
+  padding: 0 4px;
+}
+.stage-web-card p {
+  margin: 0;
+}
+.stage-web-card-host {
+  font-size: 12px;
+  color: var(--stage-muted);
+}
+.stage-web-card-title {
+  font-size: 20px;
+  line-height: 1.3;
+  letter-spacing: -0.03em;
+}
+.stage-web-card a {
+  font-size: 13px;
+  text-decoration: underline;
 }

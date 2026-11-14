@@ -1,6 +1,7 @@
 import type { StageWorkerPiece } from "./worker-output";
 
 import { findStagePlacement, initializeStageViewLayouts, stageReservedRects } from "./layout";
+import { stageWidgetFromPiece } from "./reconcile";
 import { STAGE_MAX_WIDGETS, type StageState, type StageWidget } from "./schema";
 
 export function stageDiagramSources(text: string): string[] {
@@ -70,33 +71,23 @@ export function placeStageWorkerPieces(
       findStagePlacement(
         next.widgets,
         11,
-        piece.kind === "recipe" ? 16 : 12,
+        piece.kind === "note" ? 12 : 16,
         stageReservedRects(next)
       ) ??
       findStagePlacement(next.widgets, 7, 6, stageReservedRects(next)) ??
       findStagePlacement(next.widgets, 1, 1, stageReservedRects(next));
 
     if (!rect) continue;
-    const base = { id: crypto.randomUUID(), title: piece.title, rect, source };
     let widget: StageWidget;
 
-    if (piece.kind === "mermaid" && piece.code)
-      widget = { ...base, kind: "mermaid", code: piece.code };
-    else if (piece.kind === "recipe" && piece.ingredients?.length && piece.steps?.length)
+    try {
       widget = {
-        ...base,
-        kind: "recipe",
-        recipe: {
-          type: "recipe-card",
-          version: 1,
-          title: piece.title,
-          ingredients: piece.ingredients.map((name) => ({ name })),
-          steps: piece.steps,
-        },
-      };
-    else if (piece.kind === "note" && piece.text?.trim())
-      widget = { ...base, kind: "note", text: piece.text };
-    else continue;
+        ...stageWidgetFromPiece(piece, rect, undefined, crypto.randomUUID()),
+        source,
+      } as StageWidget;
+    } catch {
+      continue;
+    }
     next = { ...next, widgets: [...next.widgets, widget] };
   }
 

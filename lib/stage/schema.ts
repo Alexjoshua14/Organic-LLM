@@ -1,9 +1,11 @@
 import { z } from "zod";
 
+import { isEmbeddableStageUrl } from "./web-url";
 import { StagePresentationSchema, StageViewCommandSchema } from "./view-schema";
 
 import { ContinuitySelectionSchema, ContinuitySourceSchema } from "@/lib/continuity/schema";
 import { ChatEffortLevelSchema } from "@/lib/schemas/chat-effort";
+import { GenUIBlockSchema } from "@/lib/schemas/gen-ui";
 import { RecipeCardBlockSchema } from "@/lib/schemas/gen-ui/recipe-card";
 
 export const STAGE_SIZE = 32;
@@ -66,6 +68,15 @@ export const StageWidgetSchema = z.discriminatedUnion("kind", [
   z.object({ ...base, kind: z.literal("note"), text: z.string().max(4000) }).strict(),
   z.object({ ...base, kind: z.literal("mermaid"), code: z.string().max(8000) }).strict(),
   z.object({ ...base, kind: z.literal("recipe"), recipe: RecipeCardBlockSchema }).strict(),
+  // Any chat gen-ui block (research, answer, comparison, plan, audio, shopping, restaurant, diff…).
+  z.object({ ...base, kind: z.literal("block"), block: GenUIBlockSchema }).strict(),
+  z
+    .object({
+      ...base,
+      kind: z.literal("web"),
+      url: z.string().max(2000).refine(isEmbeddableStageUrl, "A public https URL is required"),
+    })
+    .strict(),
   z.object({ ...base, kind: z.literal("chat"), threadId: z.string().uuid() }).strict(),
   z
     .object({

@@ -7,9 +7,11 @@ import { Component, memo, type ReactNode } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { ArrowUpRight, Move } from "lucide-react";
 
+import { StageWeb } from "./stage-web";
 import { StageChat } from "./stage-chat";
 import { StageCollection, StageRecall } from "./stage-knowledge";
 
+import { GenUIRenderer } from "@/components/chat/gen-ui/GenUIRenderer";
 import { RecipeCard } from "@/components/chat/gen-ui/blocks/RecipeCard";
 import { ChatMessageMarkdown } from "@/components/chat/chat-message-markdown";
 import { stageCellStyle } from "@/lib/stage/frame";
@@ -63,6 +65,8 @@ const PieceContent = memo(
           />
         )}
         {widget.kind === "recipe" && <RecipeCard block={widget.recipe} />}
+        {widget.kind === "web" && <StageWeb url={widget.url} title={widget.title} />}
+        {widget.kind === "block" && <GenUIRenderer data={widget.block} messageId={widget.id} />}
         {widget.kind === "chat" && <StageChat threadId={widget.threadId} widgetId={widget.id} />}
         {widget.kind === "collection" && <StageCollection widget={widget} onChange={onChange} />}
         {widget.kind === "recall" && <StageRecall widget={widget} />}
@@ -117,6 +121,17 @@ export const StageWidget = memo(function StageWidget({
         >
           <Move size={14} />
         </button>
+        {widget.kind === "web" && (
+          <a
+            className="stage-icon-button"
+            aria-label={`Open ${widget.title} in a new tab`}
+            href={widget.url}
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            <ArrowUpRight size={14} />
+          </a>
+        )}
         {widget.kind === "chat" && (
           <a
             className="stage-icon-button"

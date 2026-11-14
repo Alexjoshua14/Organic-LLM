@@ -20,6 +20,15 @@ JavaScript animation-frame callbacks. Paints occurred at transition boundaries, 
 throughout the transition. This verifies the mechanism in that fixture, not every
 browser/GPU combination.
 
+## Piece arrival
+
+A piece fades up (opacity and a 6px translate) when it mounts or comes out of hiding, over
+the grid's entrance time (`--stage-grid-enter`, 220ms). That covers a designer result, a
+tab change and a demo scene switch, so arrangements settle in instead of popping. Pieces
+that leave the view are tucked away with `hidden` and have no exit animation yet; an exit
+would need `transition-behavior: allow-discrete` or a retained-element pass, and should be
+faster than the entrance (100–160ms). Reduced motion disables the arrival.
+
 ## Viewport ownership
 
 Stage is one 32×32 top-level grid. Navigation, Organic and its active children,
