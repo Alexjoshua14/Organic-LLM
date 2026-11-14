@@ -255,6 +255,11 @@ export const ChatRequestSchema = z.object({
   drawerDisplay: DrawerChatDisplayRequestSchema.optional(),
   /** Rabbit hole session id when experience is rabbit_hole. */
   rabbitHoleSessionId: z.string().uuid().optional(),
+  /**
+   * Arcadia Jev mode: "Respond anyway" on an acknowledgement. The server re-reads the stored Jev
+   * analysis from that message (never from the client) and replaces it with an LLM reply.
+   */
+  jevOverride: z.object({ messageId: z.string().min(1).max(200) }).optional(),
   /** Diagram node reference chips from the composer (cap 10). */
   diagramNodeLinks: z
     .array(

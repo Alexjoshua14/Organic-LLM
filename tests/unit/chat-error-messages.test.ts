@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
 
+import {
+  JEV_INPUT_TOO_LARGE_MESSAGE,
+  JEV_OVERRIDE_STALE_MESSAGE,
+} from "@/lib/arcadia/jev/constants";
 import { getChatErrorMessage } from "@/lib/chat/error-messages";
 
 const body = (value: Record<string, unknown>) => new Error(JSON.stringify(value));
@@ -45,6 +49,40 @@ describe("getChatErrorMessage", () => {
     for (const message of [unmappedClient, noStatus]) {
       expect(message).toBe("Something went wrong. Please try again.");
     }
+  });
+
+  test("413 from the chat route shows the too-large copy", () => {
+    expect(
+      getChatErrorMessage(
+        body({ error: JEV_INPUT_TOO_LARGE_MESSAGE, status: 413, code: "input_too_large" })
+      )
+    ).toBe(JEV_INPUT_TOO_LARGE_MESSAGE);
+    // The status alone is enough; the copy does not depend on the server's wording.
+    expect(getChatErrorMessage(body({ error: "Too big", status: 413 }))).toBe(
+      JEV_INPUT_TOO_LARGE_MESSAGE
+    );
+  });
+
+  test("platform payload rejections map to the too-large copy", () => {
+    const vercelPage =
+      "Request Entity Too Large\n\nFUNCTION_PAYLOAD_TOO_LARGE\n\niad1::abcde-1700000000000-0123456789ab";
+
+    expect(getChatErrorMessage(new Error(vercelPage))).toBe(JEV_INPUT_TOO_LARGE_MESSAGE);
+    expect(getChatErrorMessage("FUNCTION_PAYLOAD_TOO_LARGE")).toBe(JEV_INPUT_TOO_LARGE_MESSAGE);
+    expect(
+      getChatErrorMessage(
+        new Error("<html><head><title>413 Request Entity Too Large</title></head></html>")
+      )
+    ).toBe(JEV_INPUT_TOO_LARGE_MESSAGE);
+    expect(getChatErrorMessage(new Error("413 Payload Too Large"))).toBe(
+      JEV_INPUT_TOO_LARGE_MESSAGE
+    );
+  });
+
+  test("a stale Jev override shows its own copy, not the shared 409 fallback", () => {
+    expect(
+      getChatErrorMessage(body({ status: 409, code: "jev_override_stale", error: "x" }))
+    ).toBe(JEV_OVERRIDE_STALE_MESSAGE);
   });
 
   test("plain-text errors keep their existing behavior", () => {

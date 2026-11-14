@@ -36,6 +36,13 @@ export const CHAT_STYLES = [
     guide:
       "Rewrites and structures what you provide — no web search or invented facts. Best for drafts you already have.",
   },
+  {
+    id: "jev",
+    label: "Jev",
+    description: "Jev reads each message first, then picks tools, model, and text or voice.",
+    guide:
+      "Jev reads every message before the model does: it picks the intent, the tools, and whether you want text, voice, or just the result. Messages that need no reply get a quick acknowledgement you can override.",
+  },
 ] as const;
 
 export type ChatStyle = (typeof CHAT_STYLES)[number]["id"];

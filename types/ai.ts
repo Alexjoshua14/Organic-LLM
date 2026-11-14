@@ -1,6 +1,7 @@
 import type { KanbanChannelCommand } from "@/lib/schemas/kanban";
 import type { IntrospectionGuidedState } from "@/lib/schemas/introspection";
 import type { ContextBudgetEstimate } from "@/lib/chat/context-budget";
+import type { JevTurnData } from "@/lib/arcadia/jev/types";
 import type { ActivityTrailMetadata } from "@/lib/chat/activity-trail";
 import type { PersonaReceipt } from "@/lib/personas/unified/session";
 
@@ -37,6 +38,8 @@ export type ChatUIMessage = UIMessage<
     "introspection-view"?: IntrospectionGuidedState;
     /** Server-measured context budget for the assembled turn. */
     "context-budget"?: ContextBudgetEstimate;
+    /** Arcadia Jev mode: what Jev decided for this turn. Persisted with the assistant message. */
+    jev?: JevTurnData;
     /** Unified persona: the respond-or-hold receipt for the user's message. */
     "persona-receipt"?: PersonaReceipt;
     /**
