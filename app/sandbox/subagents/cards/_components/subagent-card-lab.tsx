@@ -1,6 +1,7 @@
 "use client";
 
 import type { ComponentType, ReactNode } from "react";
+import type { ArcadiaSpeakSessionPhase } from "@/lib/arcadia/multitask/speak-session";
 import type { ArcadiaSubagent } from "@/lib/arcadia/multitask/types";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -123,7 +124,7 @@ export function SubagentCardLab() {
   const [calling, setCalling] = useState(false);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const agent = { ...AGENT, status };
-  const phase = calling ? "live" : "idle";
+  const phase: ArcadiaSpeakSessionPhase = calling ? "live" : "idle";
   const endCall = () => {
     setCalling(false);
     setStartedAt(null);
@@ -132,14 +133,14 @@ export function SubagentCardLab() {
     setStartedAt(Date.now());
     setCalling(true);
   };
-  const cardProps = {
+  const cardProps: Parameters<typeof SubagentCard>[0] = {
     agent,
     localStream: null,
     remoteStream: null,
     selected,
     speakPhase: phase,
     startedAt,
-    voicePhase: "idle" as const,
+    voicePhase: "idle",
     onEndSpeak: endCall,
     onSelect: () => setSelected((value) => !value),
     onSpeakTo: startCall,
