@@ -377,10 +377,11 @@
   flex-direction: column;
 }
 .stage-response {
+  flex: 1;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   width: 100%;
-  height: 100%;
   min-height: 0;
 }
 .stage-response-authors {
@@ -847,4 +848,69 @@
 }
 .stage-piece-picker button[aria-pressed="true"] {
   font-weight: 550;
+}
+
+/* Phone chrome uses the same grid reservations, with readable independent scroll regions. */
+@media (max-width: 699px) {
+  .stage-topbar {
+    gap: 4px;
+  }
+  .stage-wordmark {
+    font-size: 13px;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .stage-tools {
+    min-width: 0;
+    gap: 0;
+  }
+  .stage-tools summary {
+    padding-inline: 6px;
+    font-size: 11px;
+  }
+  .stage-tool {
+    min-width: 36px;
+    min-height: 44px;
+    padding-inline: 6px;
+  }
+  .stage-response-authors {
+    flex: 0 0 auto;
+    min-height: 44px;
+    gap: 8px;
+  }
+  .stage-response-author-tabs {
+    flex: 1;
+    gap: 16px;
+    min-height: 44px;
+  }
+  .stage-response-author {
+    min-height: 44px;
+    font-size: 12px !important;
+  }
+  .stage-response-actions .stage-icon-button {
+    min-width: 40px;
+    min-height: 44px;
+  }
+  .stage-design-error {
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    font-size: 12px;
+  }
+  .stage-design-error p {
+    flex-basis: 100%;
+  }
+  .stage-design-error button {
+    min-height: 44px;
+  }
+  .stage-response-copy {
+    padding-block: 8px;
+  }
+  .stage-prose {
+    font-size: 14px;
+  }
+  .stage-agent-status {
+    font-size: 11px;
+    line-height: 16px;
+    height: 48px;
+  }
 }

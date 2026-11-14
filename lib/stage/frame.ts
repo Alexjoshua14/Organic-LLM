@@ -54,7 +54,16 @@ export function resolveStageFrame(state: StageState, options: StageFrameOptions)
     STAGE_RESPONSE_RECT.h -
     STAGE_COMPOSER_RECT.h;
   const available = height - headerPixels - composerPixels - gap * gapRows;
-  const minimumReply = state.design?.status === "failed" ? 68 : 36;
+  const mobile = width < 700;
+  // Mobile response navigation and failure recovery each need their own height. Keep saved
+  // piece coordinates intact; only the existing response/content track sizes change.
+  const minimumReply = mobile
+    ? state.design?.status === "failed"
+      ? 208
+      : 144
+    : state.design?.status === "failed"
+      ? 68
+      : 36;
   const replyPixels = Math.max(
     minimumReply,
     Math.min(
@@ -108,9 +117,9 @@ export function resolveStageFrame(state: StageState, options: StageFrameOptions)
   );
   const parent: StageRect = centered
     ? {
-        x: 12,
-        y: activeChildren ? 4 : 4 + Math.floor((18 - parentHeight) / 2),
-        w: 8,
+        x: mobile ? 8 : 12,
+        y: activeChildren ? 4 : 4 + Math.floor((18 - parentHeight) / (mobile ? 3 : 2)),
+        w: mobile ? 16 : 8,
         h: parentHeight,
       }
     : STAGE_AGENT_RECT;
@@ -123,7 +132,11 @@ export function resolveStageFrame(state: StageState, options: StageFrameOptions)
       }))
     : STAGE_CHILD_RECTS;
   const readingWork = reading || (!home && !candidates.length && author !== "organic");
-  const reply: StageRect = readingWork ? { x: 8, y: 4, w: 24, h: 24 } : STAGE_RESPONSE_RECT;
+  const reply: StageRect = readingWork
+    ? { x: 8, y: 4, w: 24, h: 24 }
+    : mobile
+      ? { ...STAGE_RESPONSE_RECT, x: 0, w: 32 }
+      : STAGE_RESPONSE_RECT;
 
   return {
     width,

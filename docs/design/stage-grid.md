@@ -103,3 +103,12 @@ Stage's CoreInput row removes the base textarea's vertical margins and centers
 its controls. Its submit affordance is a quiet circular arrow with a disabled
 state and busy indicator; the prototype glass/idle glyph remains scoped to other
 opt-in uses. These adjustments are specific to Stage beta.
+
+## Phone response space
+
+Below 700px, the existing response reservation spans the full width and reserves at least
+144px (208px when designer recovery is present). The reply, navigation and recovery action
+share that space without a 100%-height response pushing recovery outside it. Response content
+scrolls independently, and phone navigation reserves its actual 44px control height. Organic's
+home identity uses wider chrome cells and sits slightly higher; saved artifact placements are
+unchanged. Desktop reservations and artifact tab geometry retain their existing behavior.
