@@ -12,9 +12,9 @@ import { KanbanLoadingShell } from "./KanbanLoadingShell";
 
 import { ChatThinking } from "@/components/chat/chat-loading";
 import { kanbanCommandTargets } from "@/lib/kanban/board-lanes";
-import { safeParseKanbanCommand, type KanbanCommand } from "@/lib/schemas/kanban";
+import { safeParseKanbanCommand, type KanbanChannelCommand } from "@/lib/schemas/kanban";
 
-function commandFromInput(input: unknown): KanbanCommand | undefined {
+function commandFromInput(input: unknown): KanbanChannelCommand | undefined {
   if (!input || typeof input !== "object") return undefined;
   const raw = (input as { command?: unknown }).command;
   const parsed = safeParseKanbanCommand(raw);

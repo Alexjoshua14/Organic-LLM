@@ -23,6 +23,7 @@ import { Conversation, ConversationScrollButton } from "../third-party/ai-elemen
 
 import { ChatThread, MEMORY_PANEL_RESERVE_PADDING } from "./chat-thread";
 import { ArcadiaChatSettingsDialog } from "./arcadia-chat-settings-dialog";
+import { ErgonDocumentOpenProvider } from "./ergon-documents/ErgonDocumentOpenProvider";
 import { CoreInput } from "./core-input";
 import { ChatStylePicker } from "./chat-style-picker";
 import { ChatThreadStyleOverlay } from "./chat-thread-style-overlay";
@@ -806,167 +807,169 @@ export const Chat: React.FC<ChatProps> = ({
   }, [messages]);
 
   return (
-    <DiagramNodeLinksProvider linksRef={diagramNodeLinksRef}>
-      <DiagramTakeoverProvider>
-        <div
-          data-arcadia-chat-root
-          className={[
-            "w-full",
-            "min-w-0",
-            conversationHidden ? "h-auto" : "h-full",
-            confineInMultitaskDashboard ? "max-h-none" : "sm:max-h-[calc(100dvh-2rem)]",
-            "flex",
-            "flex-col",
-            "overflow-x-hidden",
-          ].join(" ")}
-        >
-          <Conversation
-            aria-hidden={conversationHidden || undefined}
-            inert={conversationHidden || undefined}
-            className={[
-              "flex-1",
-              "min-h-0",
-              "w-full",
-              "relative",
-              conversationHidden ? "hidden" : "flex",
-              "flex-col",
-              "items-center",
-              "overflow-x-hidden",
-              "overscroll-x-none",
-            ].join(" ")}
-          >
-            {experience === "arcadia" && id && !confineInMultitaskDashboard ? (
-              <ChatThreadStyleOverlay threadId={id} visible={messages.length > 0} />
-            ) : null}
-            <ChatThread
-              aiActionPayload={aiAction}
-              chatId={id}
-              status={status}
-              contentClassName={persona === "remy" ? MEMORY_PANEL_RESERVE_PADDING : undefined}
-              heardMarks={heardMarks}
-              messages={messages}
-              renderEmptyState={
-                personaActive && !confineInMultitaskDashboard
-                  ? () => <PersonaStarters />
-                  : experience === "arcadia" && !confineInMultitaskDashboard
-                    ? () => (
-                        <ChatStylePicker
-                          chatId={id}
-                          showStartersHint={messages.length === 0}
-                          starterKey={arcadiaStarterKey}
-                          onStarterKeyChange={setArcadiaStarterKey}
-                        />
-                      )
-                    : undefined
-              }
-            />
-            {persona === "remy" && (
-              <MemoryEphemeralCards
-                overlay
-                added={mem0Added}
-                autoClearMs={12000}
-                retrieved={mem0Retrieved}
-              />
-            )}
-            <ConversationScrollButton className="bottom-14" />
-          </Conversation>
+    <ErgonDocumentOpenProvider chatId={id} setMessages={setMessages} status={status}>
+      <DiagramNodeLinksProvider linksRef={diagramNodeLinksRef}>
+        <DiagramTakeoverProvider>
           <div
+            data-arcadia-chat-root
             className={[
-              "shrink-0 px-4 sm:px-7 pb-1 md:pb-4 w-full flex flex-col gap-2",
-              conversationHidden ? "" : "-mt-10",
+              "w-full",
+              "min-w-0",
+              conversationHidden ? "h-auto" : "h-full",
+              confineInMultitaskDashboard ? "max-h-none" : "sm:max-h-[calc(100dvh-2rem)]",
+              "flex",
+              "flex-col",
+              "overflow-x-hidden",
             ].join(" ")}
           >
-            <div className="relative mx-auto flex w-full max-w-4xl flex-col gap-2">
+            <Conversation
+              aria-hidden={conversationHidden || undefined}
+              inert={conversationHidden || undefined}
+              className={[
+                "flex-1",
+                "min-h-0",
+                "w-full",
+                "relative",
+                conversationHidden ? "hidden" : "flex",
+                "flex-col",
+                "items-center",
+                "overflow-x-hidden",
+                "overscroll-x-none",
+              ].join(" ")}
+            >
+              {experience === "arcadia" && id && !confineInMultitaskDashboard ? (
+                <ChatThreadStyleOverlay threadId={id} visible={messages.length > 0} />
+              ) : null}
+              <ChatThread
+                aiActionPayload={aiAction}
+                chatId={id}
+                status={status}
+                contentClassName={persona === "remy" ? MEMORY_PANEL_RESERVE_PADDING : undefined}
+                heardMarks={heardMarks}
+                messages={messages}
+                renderEmptyState={
+                  personaActive && !confineInMultitaskDashboard
+                    ? () => <PersonaStarters />
+                    : experience === "arcadia" && !confineInMultitaskDashboard
+                      ? () => (
+                          <ChatStylePicker
+                            chatId={id}
+                            showStartersHint={messages.length === 0}
+                            starterKey={arcadiaStarterKey}
+                            onStarterKeyChange={setArcadiaStarterKey}
+                          />
+                        )
+                      : undefined
+                }
+              />
               {persona === "remy" && (
-                <Sheet>
-                  <SheetTrigger asChild>
-                    <button
-                      className="flex items-center gap-2 text-xs text-muted-foreground hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors"
-                      type="button"
-                    >
-                      <BrainCircuit className="size-3.5" />
-                      View persisted memory
-                    </button>
-                  </SheetTrigger>
-                  <SheetContent
-                    overlayPriority
-                    className="w-full sm:max-w-md overflow-y-auto flex flex-col top-0 bottom-20 right-0 h-auto border-t-0"
-                    side="right"
-                  >
-                    <SheetHeader>
-                      <SheetTitle className="sr-only">Persisted memory</SheetTitle>
-                    </SheetHeader>
-                    <MemoryLens className="flex-1 min-h-0" variant="sheet" />
-                  </SheetContent>
-                </Sheet>
-              )}
-              <AnimatePresence initial={false}>
-                {btw.isOpen ? (
-                  <BtwPanel
-                    key={btw.sessionId}
-                    className="absolute inset-x-0 bottom-full z-30 mb-2"
-                    error={btw.error}
-                    messages={btw.messages}
-                    status={btw.status}
-                    onClose={btw.close}
-                  />
-                ) : null}
-              </AnimatePresence>
-              {composerSlot}
-              <div ref={composerAnchorRef}>
-                {/* While a /btw side thread is open it owns the composer: sends, status,
-                    and settings all switch to it, then snap back when it closes. */}
-                <CoreInput
-                  initialSettings={initialComposerSettings}
-                  chatId={chatData?.thread.id}
-                  clearError={btw.isOpen ? btw.clearError : clearError}
-                  disabled={btw.isOpen ? false : isCheckingStream}
-                  composerInject={composerInject}
-                  enableMarkdownInputPreview={
-                    experience === "arcadia" && experimentalArcadiaMarkdownPreview
-                  }
-                  error={btw.isOpen ? btw.error : (error ?? chatError)}
-                  featureHints={!(experience === "arcadia" && messages.length === 0)}
-                  hideWebMemorySpeechToggles={
-                    experience === "strata_page" && Boolean(assistantSession)
-                  }
-                  initialDraft={initialDraft}
-                  isBlankChat={messages.length === 0 && persona !== "strata"}
-                  modelRef={selectedModelRef}
-                  effortRef={selectedEffortRef}
-                  personaEnabled={personaHost && !btw.isOpen}
-                  sendMessage={btw.isOpen ? btw.sendMessage : sendMessageIfIdle}
-                  status={btw.isOpen ? btw.status : status}
-                  stop={btw.isOpen ? btw.stop : handleStop}
-                  snapshotScope={btw.isOpen ? btwScope : threadScope}
-                  contextEffortRef={contextEffortRef}
-                  slashCommands={slashCommands}
-                  sideThreadKey={btw.sessionId}
-                  placeholder={btw.isOpen ? "Ask a side question…" : undefined}
-                  useMemoriesRef={useMemoriesRef}
-                  useSpeechFriendlyRef={useSpeechFriendlyRef}
-                  useWebSearchRef={useWebSearchRef}
-                  streamContextBudget={streamContextBudget}
-                  contextBudgetRefreshKey={contextBudgetRefreshKey}
-                  threadMessages={budgetMessages.messages}
-                  experience={experience as ChatExperience | undefined}
-                  chatStyle={experience === "arcadia" && id ? getChatStyle(id) : undefined}
-                  onErrorCleared={() => setChatError(undefined)}
+                <MemoryEphemeralCards
+                  overlay
+                  added={mem0Added}
+                  autoClearMs={12000}
+                  retrieved={mem0Retrieved}
                 />
+              )}
+              <ConversationScrollButton className="bottom-14" />
+            </Conversation>
+            <div
+              className={[
+                "shrink-0 px-4 sm:px-7 pb-1 md:pb-4 w-full flex flex-col gap-2",
+                conversationHidden ? "" : "-mt-10",
+              ].join(" ")}
+            >
+              <div className="relative mx-auto flex w-full max-w-4xl flex-col gap-2">
+                {persona === "remy" && (
+                  <Sheet>
+                    <SheetTrigger asChild>
+                      <button
+                        className="flex items-center gap-2 text-xs text-muted-foreground hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors"
+                        type="button"
+                      >
+                        <BrainCircuit className="size-3.5" />
+                        View persisted memory
+                      </button>
+                    </SheetTrigger>
+                    <SheetContent
+                      overlayPriority
+                      className="w-full sm:max-w-md overflow-y-auto flex flex-col top-0 bottom-20 right-0 h-auto border-t-0"
+                      side="right"
+                    >
+                      <SheetHeader>
+                        <SheetTitle className="sr-only">Persisted memory</SheetTitle>
+                      </SheetHeader>
+                      <MemoryLens className="flex-1 min-h-0" variant="sheet" />
+                    </SheetContent>
+                  </Sheet>
+                )}
+                <AnimatePresence initial={false}>
+                  {btw.isOpen ? (
+                    <BtwPanel
+                      key={btw.sessionId}
+                      className="absolute inset-x-0 bottom-full z-30 mb-2"
+                      error={btw.error}
+                      messages={btw.messages}
+                      status={btw.status}
+                      onClose={btw.close}
+                    />
+                  ) : null}
+                </AnimatePresence>
+                {composerSlot}
+                <div ref={composerAnchorRef}>
+                  {/* While a /btw side thread is open it owns the composer: sends, status,
+                    and settings all switch to it, then snap back when it closes. */}
+                  <CoreInput
+                    initialSettings={initialComposerSettings}
+                    chatId={chatData?.thread.id}
+                    clearError={btw.isOpen ? btw.clearError : clearError}
+                    disabled={btw.isOpen ? false : isCheckingStream}
+                    composerInject={composerInject}
+                    enableMarkdownInputPreview={
+                      experience === "arcadia" && experimentalArcadiaMarkdownPreview
+                    }
+                    error={btw.isOpen ? btw.error : (error ?? chatError)}
+                    featureHints={!(experience === "arcadia" && messages.length === 0)}
+                    hideWebMemorySpeechToggles={
+                      experience === "strata_page" && Boolean(assistantSession)
+                    }
+                    initialDraft={initialDraft}
+                    isBlankChat={messages.length === 0 && persona !== "strata"}
+                    modelRef={selectedModelRef}
+                    effortRef={selectedEffortRef}
+                    personaEnabled={personaHost && !btw.isOpen}
+                    sendMessage={btw.isOpen ? btw.sendMessage : sendMessageIfIdle}
+                    status={btw.isOpen ? btw.status : status}
+                    stop={btw.isOpen ? btw.stop : handleStop}
+                    snapshotScope={btw.isOpen ? btwScope : threadScope}
+                    contextEffortRef={contextEffortRef}
+                    slashCommands={slashCommands}
+                    sideThreadKey={btw.sessionId}
+                    placeholder={btw.isOpen ? "Ask a side question…" : undefined}
+                    useMemoriesRef={useMemoriesRef}
+                    useSpeechFriendlyRef={useSpeechFriendlyRef}
+                    useWebSearchRef={useWebSearchRef}
+                    streamContextBudget={streamContextBudget}
+                    contextBudgetRefreshKey={contextBudgetRefreshKey}
+                    threadMessages={budgetMessages.messages}
+                    experience={experience as ChatExperience | undefined}
+                    chatStyle={experience === "arcadia" && id ? getChatStyle(id) : undefined}
+                    onErrorCleared={() => setChatError(undefined)}
+                  />
+                </div>
               </div>
             </div>
+            <DiagramTakeoverShell />
+            {experience === "arcadia" && id ? (
+              <ArcadiaChatSettingsDialog
+                chatId={id}
+                initialTitle={chatData?.thread.title}
+                open={arcadiaSettingsOpen}
+                onOpenChange={setArcadiaSettingsOpen}
+              />
+            ) : null}
           </div>
-          <DiagramTakeoverShell />
-          {experience === "arcadia" && id ? (
-            <ArcadiaChatSettingsDialog
-              chatId={id}
-              initialTitle={chatData?.thread.title}
-              open={arcadiaSettingsOpen}
-              onOpenChange={setArcadiaSettingsOpen}
-            />
-          ) : null}
-        </div>
-      </DiagramTakeoverProvider>
-    </DiagramNodeLinksProvider>
+        </DiagramTakeoverProvider>
+      </DiagramNodeLinksProvider>
+    </ErgonDocumentOpenProvider>
   );
 };
