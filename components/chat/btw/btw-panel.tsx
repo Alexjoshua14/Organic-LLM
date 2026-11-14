@@ -11,7 +11,7 @@ import { ChatMessageMarkdown } from "../chat-message-markdown";
 import ShinyText from "@/components/ShinyText";
 import { glass } from "@/components/design-system/primitives";
 import { getChatErrorMessage } from "@/lib/chat/error-messages";
-import { messagePlainText } from "@/lib/chat/btw-context";
+import { messagePlainText } from "@/lib/chat/btw-message-text";
 import { cn } from "@/lib/utils";
 
 /** Entrance settles; exit clears faster (design backbone principle 2). */

@@ -14,6 +14,7 @@ import {
   selectArcadiaContextMessages,
 } from "@/lib/chat/arcadia-token-context";
 import { getContext } from "@/lib/chat/chat-store";
+import { messageTextTokenCountSync } from "@/lib/chat/token-count";
 import { SYSTEM_PROMPT } from "@/lib/system-prompt/prompt-v0";
 
 export type LoadArcadiaChatTurnContextParams = {
@@ -61,7 +62,9 @@ export async function loadArcadiaChatTurnContext(
     }
 
     const allMessages = allMessagesResult.data;
-    const selection = selectArcadiaContextMessages(allMessages);
+    const selection = selectArcadiaContextMessages(allMessages, {
+      countTokens: messageTextTokenCountSync,
+    });
 
     scheduleBackgroundCondensation =
       selection.needsCondensation && selection.messagesToCondense.length > 0;

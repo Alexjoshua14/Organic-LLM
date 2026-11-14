@@ -1,6 +1,6 @@
 import type { ModelMessage, PrepareStepFunction, ToolSet } from "ai";
 
-import { estimateTokenCountSync } from "@/lib/chat/context-budget";
+import { estimateTokenCountSync } from "@/lib/chat/tokenizer";
 import { AGENT_MODEL } from "@/lib/llm/helpers";
 import { computeUsageCostUsd } from "@/lib/rate-limit/llm-cost";
 import { models } from "@/lib/schemas/chat-models";

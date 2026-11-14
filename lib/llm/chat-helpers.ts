@@ -8,7 +8,6 @@ import {
   ModelMessage,
   type UIMessage,
 } from "ai";
-import { encodingForModel } from "js-tiktoken";
 
 import { supabaseServer } from "../supabase/server";
 import { Message, ThreadSummarySchema } from "../schemas/chat";
@@ -21,6 +20,7 @@ import {
   convertToolCallsToTextForSummarizer,
 } from "@/lib/llm/summarizer-message-format";
 import { createLogger } from "@/lib/logger";
+import { getTokenEncoder } from "@/lib/chat/tokenizer";
 import { convertMessageToUIMessage } from "@/lib/chat/message-transform";
 import {
   getMessages,
@@ -194,24 +194,15 @@ function getMessageTextForTokenEstimate(message: UIMessage): string {
 /**
  * Trim messages to fit within a token budget, keeping the most recent (relevant for title).
  * Chronological order = oldest first; we keep the tail that fits.
- * Uses tiktoken (cl100k_base) for token counting.
+ * Counts with the shared o200k encoder (`lib/chat/tokenizer`).
  */
-let sharedCl100kEncoding: ReturnType<typeof encodingForModel> | null = null;
-
-function getCl100kEncoding() {
-  if (!sharedCl100kEncoding) {
-    sharedCl100kEncoding = encodingForModel("gpt-5");
-  }
-
-  return sharedCl100kEncoding;
-}
 
 function trimMessagesToTokenBudget(
   chronologicalMessages: UIMessage[],
   maxTokens: number
 ): UIMessage[] {
   if (chronologicalMessages.length === 0) return [];
-  const encoding = getCl100kEncoding();
+  const encoding = getTokenEncoder();
   let total = 0;
   let startIndex = chronologicalMessages.length;
 
@@ -1073,8 +1064,8 @@ export async function regenerateChatSummary(chatId: string): Promise<Result<stri
 export const estimateTokenCount = async (text: string): Promise<number | null> => {
   // TODO: CLEAN UP THIS FUNCTION TO ENSURE IT'S ACCURACY
   try {
-    // Reuse one cl100k_base encoder (via gpt-5) — constructing per call is expensive.
-    return getCl100kEncoding().encode(text).length;
+    // Reuse the shared o200k encoder; constructing one per call is expensive.
+    return getTokenEncoder().encode(text).length;
   } catch (error) {
     logger.error("estimateTokenCount", `Error counting tokens: ${error}`);
 

@@ -1,6 +1,7 @@
 import type { UIMessage } from "ai";
 
-import { estimateTokenCountSync } from "@/lib/chat/context-budget";
+import { messagePlainText } from "@/lib/chat/btw-message-text";
+import { estimateTokenCountSync } from "@/lib/chat/tokenizer";
 
 /**
  * `/btw` context: a compact, text-only view of the thread a side question was asked in.
@@ -25,14 +26,6 @@ export type BtwContextSnapshot = {
   includedMessages: number;
   totalMessages: number;
 };
-
-/** Visible prose only: tool calls, reasoning, and data parts stay out of a side question. */
-export function messagePlainText(message: UIMessage): string {
-  return message.parts
-    .flatMap((part) => (part.type === "text" ? [part.text] : []))
-    .join("\n")
-    .trim();
-}
 
 function capTokens(text: string, cap: number): string {
   if (estimateTokenCountSync(text) <= cap) return text;
