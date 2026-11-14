@@ -4,9 +4,11 @@ import type { AgentDotState } from "@/components/agents/agent-dot-grid-motion";
 import type { StageRect } from "@/lib/stage/schema";
 
 import { OrganicActivityMark } from "@/components/agents/organic-activity-mark";
+import { ORGANIC_HERO_MARK } from "@/components/agents/organic-hero-mark";
 import { STAGE_AGENT_RECT } from "@/lib/stage/schema";
 import { stageCellStyle } from "@/lib/stage/frame";
 
+// Subagents keep this preset; the Organic mark itself matches the Speak page.
 // Stage uses larger identities against open paper. Keep the native mark legible
 // in both themes without changing the shared agent component's material presets.
 export const STAGE_AGENT_GLASS = {
@@ -37,10 +39,10 @@ export function StageAgent({
         onClick={onFocus}
       >
         <OrganicActivityMark
+          {...ORGANIC_HERO_MARK}
           className="stage-agent-mark"
-          seed="organic-stage"
+          seed="organic-speak"
           state={state}
-          glassByState={STAGE_AGENT_GLASS}
         />
       </button>
       <h1>Organic</h1>

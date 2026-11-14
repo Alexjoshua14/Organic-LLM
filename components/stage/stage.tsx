@@ -41,6 +41,8 @@ import {
 import { coreInputScopes } from "@/lib/core-input/scopes";
 
 const STAGE_COMPOSER_SCOPE = coreInputScopes.area("stage");
+// In memory only, so demo drafts and settings never reach the real Stage composer.
+const SCRIPTED_COMPOSER_SCOPE = { ...coreInputScopes.area("stage-demo"), ephemeral: true };
 
 const STARTERS = [
   {
@@ -59,8 +61,29 @@ const STARTERS = [
   { label: "Make something", prompt: "Let’s make something together. Ask me what I have in mind." },
 ];
 
+/** Everything the Stage view reads and does. The live Stage backs it with the API; the demo scripts it. */
+export type StageController = ReturnType<typeof useStage>;
+
 export function Stage() {
   const voice = useVoiceSessionOptional();
+
+  return (
+    <StageView
+      stage={useStage({ voiceActive: !!voice && (voice.connected || voice.connecting) })}
+    />
+  );
+}
+
+export function StageView({
+  stage,
+  scripted = false,
+}: {
+  stage: StageController;
+  /** A scripted stage has no real threads, calls, or voice session to attach to. */
+  scripted?: boolean;
+}) {
+  const liveVoice = useVoiceSessionOptional();
+  const voice = scripted ? null : liveVoice;
   const voiceActive = !!voice && (voice.connected || voice.connecting || voice.paused);
   const {
     state,
@@ -73,9 +96,7 @@ export function Stage() {
     refresh,
     retryDesign,
     cancelSubagent,
-  } = useStage({
-    voiceActive: !!voice && (voice.connected || voice.connecting),
-  });
+  } = stage;
   const modelRef = useRef<ChatModel>(DEFAULT_COMPOSER_MODEL);
   const effortRef = useRef<ChatEffortLevel>("auto");
   const searchRef = useRef(false);
@@ -184,7 +205,7 @@ export function Stage() {
     return () => window.removeEventListener(STAGE_VIEW_EVENT, receiveView);
   }, [state, selectView, refresh]);
   useVoiceScreenContext(
-    state
+    state && !scripted
       ? {
           kind: "stage",
           revision: String(state.revision),
@@ -272,12 +293,14 @@ export function Stage() {
           <span>stage</span>
         </div>
         <nav aria-label="Stage controls" className="stage-tools">
-          <ContextPicker
-            compact
-            surface="stage"
-            disabled={sending || Boolean(voice?.connected || voice?.connecting)}
-            onChange={setContinuity}
-          />
+          {!scripted && (
+            <ContextPicker
+              compact
+              surface="stage"
+              disabled={sending || Boolean(voice?.connected || voice?.connecting)}
+              onChange={setContinuity}
+            />
+          )}
           <button
             aria-label="Show grid"
             aria-pressed={showGrid}
@@ -299,16 +322,18 @@ export function Stage() {
             <MessageCircle size={15} />
             <span>Conversation</span>
           </button>
-          <button
-            aria-label="Activity"
-            aria-expanded={panel === "activity"}
-            className="stage-tool"
-            type="button"
-            onClick={() => togglePanel("activity")}
-          >
-            <History size={15} />
-            <span>Activity</span>
-          </button>
+          {!scripted && (
+            <button
+              aria-label="Activity"
+              aria-expanded={panel === "activity"}
+              className="stage-tool"
+              type="button"
+              onClick={() => togglePanel("activity")}
+            >
+              <History size={15} />
+              <span>Activity</span>
+            </button>
+          )}
         </nav>
       </header>
 
@@ -431,7 +456,7 @@ export function Stage() {
             <div className="stage-core-input" data-voice-active={voiceActive}>
               <CoreInput
                 variant="stage-beta"
-                snapshotScope={STAGE_COMPOSER_SCOPE}
+                snapshotScope={scripted ? SCRIPTED_COMPOSER_SCOPE : STAGE_COMPOSER_SCOPE}
                 modelRef={modelRef}
                 effortRef={effortRef}
                 useWebSearchRef={searchRef}
