@@ -294,3 +294,13 @@ container and expresses blur in `cqw`, calibrated to the existing 40px mark: 4.2
 only the rendered background filter scales. The dot field and grain are filtered together once.
 Default small marks retain pixel blur. Speak opts in so its responsive hero retains the same
 proportional softness without a resize observer or a second animation loop.
+
+`dotWeight` (default 1) multiplies each dot's radius, and its glass bead, before the background
+is blurred. Blur removes ink: at the calibrated 4.25px / 10.625cqw, a field of 18 dots keeps only
+about a quarter of its ink at its darkest point, and the default idle cover (50% tint, 115%
+brightness) washes that to roughly 11% contrast. That is acceptable at 40px, where the mark is a
+small texture, but a hero-size mark then reads as empty glass. A weight above 1 raises the ink
+without changing the blur or the spacing. Speak uses 1.4 with a lighter cover (25% idle, 30%
+listening, brightness 1), which models to about 0.3 contrast. Those cover values are per-state
+`glassByState` overrides in `app/speak/_components/speak-stage-timing.ts`; the shared defaults
+in the table above are unchanged.

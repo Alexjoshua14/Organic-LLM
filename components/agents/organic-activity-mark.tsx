@@ -19,6 +19,12 @@ import { cn } from "@/lib/utils";
 export type OrganicActivityMarkProps = {
   /** Scale blur with width, calibrated to the existing 40px mark. */
   relativeBlur?: boolean;
+  /**
+   * Multiplies each dot's radius before the background is blurred. 1 keeps the original dots;
+   * larger values leave more ink in the blurred field, so a big mark reads as solid rather
+   * than washed out. Dot spacing and the blur are unchanged.
+   */
+  dotWeight?: number;
   state?: AgentDotState;
   size?: "sm" | "md" | "lg";
   seed?: string;
@@ -47,6 +53,7 @@ const SIZE_CLASS = { sm: "size-8", md: "size-10", lg: "size-14" } as const;
 /** Owns the local stack and all layer behavior; callers only supply state and dimensions. */
 export function OrganicActivityMark({
   relativeBlur = false,
+  dotWeight = 1,
   state = "idle",
   size = "md",
   seed,
@@ -109,9 +116,15 @@ export function OrganicActivityMark({
             // eslint-disable-next-line @next/next/no-img-element -- may be file://, data:, or remote
             <img alt="" className="size-full object-cover" src={imageUrl} />
           ) : renderer === "v0" ? (
-            <AgentDotGrid intensity={normalizedIntensity} seed={seed} state={state} />
+            <AgentDotGrid
+              dotWeight={dotWeight}
+              intensity={normalizedIntensity}
+              seed={seed}
+              state={state}
+            />
           ) : (
             <AdaptiveAgentDotGrid
+              dotWeight={dotWeight}
               intensity={normalizedIntensity}
               performanceId={performanceId}
               seed={seed}

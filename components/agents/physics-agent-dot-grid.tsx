@@ -23,6 +23,7 @@ function PhysicsDot({
   scheduler,
   performanceId,
   intensity,
+  dotWeight = 1,
 }: {
   state: AgentDotState;
   seed: string;
@@ -31,6 +32,7 @@ function PhysicsDot({
   scheduler: DotPhysicsScheduler;
   performanceId?: string;
   intensity?: number;
+  dotWeight?: number;
 }) {
   const ref = useRef<SVGGElement>(null);
   const physics = useRef<DotMorphPhysics | null>(null);
@@ -71,8 +73,13 @@ function PhysicsDot({
           opacity: dotOpacity(restScale),
         }}
       >
-        <circle fill="currentColor" r="2" />
-        <foreignObject height="4" width="4" x="-2" y="-2">
+        <circle fill="currentColor" r={2 * dotWeight} />
+        <foreignObject
+          height={4 * dotWeight}
+          width={4 * dotWeight}
+          x={-2 * dotWeight}
+          y={-2 * dotWeight}
+        >
           <div className={cn(glass(), "size-full rounded-full")} />
         </foreignObject>
       </g>
@@ -87,6 +94,7 @@ export function PhysicsAgentDotGrid({
   scheduler = dotPhysicsScheduler,
   performanceId,
   intensity,
+  dotWeight,
 }: {
   state?: AgentDotState;
   seed?: string;
@@ -94,6 +102,7 @@ export function PhysicsAgentDotGrid({
   scheduler?: DotPhysicsScheduler;
   performanceId?: string;
   intensity?: number;
+  dotWeight?: number;
 }) {
   const ref = useRef<SVGSVGElement>(null);
   const [active, setActive] = useState(false);
@@ -130,6 +139,7 @@ export function PhysicsAgentDotGrid({
         <PhysicsDot
           key={`${seed}:${index}`}
           active={active}
+          dotWeight={dotWeight}
           index={index}
           intensity={intensity}
           scheduler={scheduler}

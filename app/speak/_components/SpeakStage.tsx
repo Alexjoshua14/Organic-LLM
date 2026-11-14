@@ -11,9 +11,12 @@ import { Loader2, MessageSquareText, Mic, MicOff, Phone, PhoneOff, Plus, X } fro
 
 import { KaraokeCaption } from "./KaraokeCaption";
 import { SpeakModeSwitch } from "./SpeakModeSwitch";
+import { SPEAK_HEADER_CLEARANCE } from "./speak-chrome-clearance";
 import { SpeakBudgetMeter } from "./SpeakBudgetMeter";
 import { SpeakTranscript } from "./SpeakTranscript";
 import {
+  SPEAK_AGENT_DOT_WEIGHT,
+  SPEAK_AGENT_GLASS,
   SPEAK_PANEL_ENTER_MS,
   SPEAK_PANEL_EXIT_MS,
   SPEAK_STAGE_EASE,
@@ -109,7 +112,12 @@ export function SpeakStage(props: SpeakStageProps) {
 
   return (
     <div className="relative flex h-full min-h-0 w-full flex-col">
-      <header className="relative z-20 flex shrink-0 flex-wrap items-center justify-between gap-inline-sm px-inset-md sm:px-inset-lg pt-[max(env(safe-area-inset-top,0px),1rem)]">
+      <header
+        className={cn(
+          "relative z-20 flex shrink-0 flex-wrap items-center justify-between gap-inline-sm",
+          SPEAK_HEADER_CLEARANCE
+        )}
+      >
         <div className="flex min-w-0 flex-wrap items-center gap-inline-sm">
           {onSwitchToReadAloud ? (
             <SpeakModeSwitch mode="live" onChange={onSwitchToReadAloud} />
@@ -151,6 +159,8 @@ export function SpeakStage(props: SpeakStageProps) {
               <OrganicActivityMark
                 relativeBlur
                 className="!size-[clamp(7rem,24dvh,13rem)] !rounded-3xl"
+                dotWeight={SPEAK_AGENT_DOT_WEIGHT}
+                glassByState={SPEAK_AGENT_GLASS}
                 label="Organic voice companion"
                 seed="organic-speak"
                 state={

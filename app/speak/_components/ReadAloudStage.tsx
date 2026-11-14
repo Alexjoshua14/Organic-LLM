@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 
 import { KaraokeCaption } from "./KaraokeCaption";
 import { SpeakModeSwitch } from "./SpeakModeSwitch";
+import { SPEAK_HEADER_CLEARANCE } from "./speak-chrome-clearance";
 
 import { useTTS } from "@/hooks/use-tts";
 import { chunkTextForSpeak } from "@/lib/speak/chunk-text";
@@ -98,7 +99,7 @@ export function ReadAloudStage({ onExit }: { onExit?: () => void }) {
       <audio ref={audioRef} className="hidden" />
 
       {onExit ? (
-        <header className="relative z-20 flex shrink-0 items-center px-inset-lg pt-[max(env(safe-area-inset-top,0px),1rem)]">
+        <header className={cn("relative z-20 flex shrink-0 items-center", SPEAK_HEADER_CLEARANCE)}>
           <SpeakModeSwitch mode="read" onChange={onExit} />
         </header>
       ) : null}
