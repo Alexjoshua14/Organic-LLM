@@ -105,9 +105,16 @@ describe("perf trace store", () => {
 
   test("a journey during which the tab was hidden is kept for the HUD but marked not reportable", () => {
     startJourney("to-chat", "lets-chat");
-    Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
-    document.dispatchEvent(new Event("visibilitychange"));
-    Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
+    try {
+      Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+    } finally {
+      // Put the real property back and tell every listener the tab is visible again. Other code in
+      // this process (animation, polling) listens for the same event and would otherwise stay
+      // latched on "hidden" for every test file that runs after this one.
+      Reflect.deleteProperty(document, "visibilityState");
+      document.dispatchEvent(new Event("visibilitychange"));
+    }
     complete("chat:ready");
 
     expect(getPerfSnapshot().traces[0]?.tainted).toBe(true);
