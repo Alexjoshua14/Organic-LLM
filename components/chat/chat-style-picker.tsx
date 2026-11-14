@@ -1,6 +1,6 @@
 "use client";
 
-import { ChefHat, LayoutGrid, MessagesSquare, NotebookPen } from "lucide-react";
+import { ChefHat, LayoutGrid, MessagesSquare, NotebookPen, Waypoints } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useRef } from "react";
 import { toast } from "sonner";
@@ -27,6 +27,7 @@ const STYLE_ICONS: Record<ChatStyle, React.ReactNode> = {
   ergon: <LayoutGrid className="size-4" />,
   remy: <ChefHat className="size-4" />,
   scribe: <NotebookPen className="size-4" />,
+  jev: <Waypoints className="size-4" />,
 };
 
 const PROMPT_MOTION = { duration: 0.24, ease: [0.25, 0.46, 0.45, 0.94] as const };
@@ -143,9 +144,11 @@ export function ChatStylePicker({
   return (
     <FeatureHint id="arcadia-starters" showWhen={showStartersHint}>
       <div className="mx-auto flex w-full max-w-4xl flex-col items-center gap-4 px-1 sm:gap-5 pt-12">
+        {/* Five cards: one row on lg; below that, an odd last card spans both columns
+            instead of sitting alone in half a row. */}
         <div
           aria-label="Chat style"
-          className="grid w-full min-w-0 grid-cols-2 lg:grid-cols-4 gap-1.5 place-items-center sm:gap-2.5 [&>*]:min-w-0"
+          className="grid w-full min-w-0 grid-cols-2 lg:grid-cols-5 gap-1.5 place-items-center sm:gap-2.5 [&>*]:min-w-0 max-lg:[&>*:last-child:nth-child(odd)]:col-span-2"
           role="radiogroup"
           onKeyDown={handleStyleRadiogroupKeyDown}
         >

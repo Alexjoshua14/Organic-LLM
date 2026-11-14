@@ -23,6 +23,7 @@ import { Conversation, ConversationScrollButton } from "../third-party/ai-elemen
 
 import { ChatThread, MEMORY_PANEL_RESERVE_PADDING } from "./chat-thread";
 import { ArcadiaChatSettingsDialog } from "./arcadia-chat-settings-dialog";
+import { ErgonDocumentOpenProvider } from "./ergon-documents/ErgonDocumentOpenProvider";
 import { CoreInput } from "./core-input";
 import { ChatStylePicker } from "./chat-style-picker";
 import { ChatThreadStyleOverlay } from "./chat-thread-style-overlay";
@@ -308,266 +309,273 @@ export const Chat: React.FC<ChatProps> = ({
   // Temporary
   const stop = () => logger.log("chat", "stop called but functionality is currently disabled");
 
-  const { messages, sendMessage, id, status, setMessages, addToolOutput, error, clearError } =
-    useChat({
-      id: chatData?.thread.id ?? "",
-      messages: chatData?.messages ?? [],
-      // Navigation can reuse stale thread metadata; the resume endpoint checks current state.
-      resume: true,
-      onToolCall: clientTools
-        ? async ({ toolCall }) => {
-            const execute = clientTools[toolCall.toolName];
+  const {
+    messages,
+    sendMessage,
+    regenerate,
+    id,
+    status,
+    setMessages,
+    addToolOutput,
+    error,
+    clearError,
+  } = useChat({
+    id: chatData?.thread.id ?? "",
+    messages: chatData?.messages ?? [],
+    // Navigation can reuse stale thread metadata; the resume endpoint checks current state.
+    resume: true,
+    onToolCall: clientTools
+      ? async ({ toolCall }) => {
+          const execute = clientTools[toolCall.toolName];
 
-            if (!execute) return;
-            try {
-              addToolOutput({
-                tool: toolCall.toolName,
-                toolCallId: toolCall.toolCallId,
-                output: await execute(toolCall.input),
-              });
-            } catch {
-              addToolOutput({
-                tool: toolCall.toolName,
-                toolCallId: toolCall.toolCallId,
-                state: "output-error",
-                errorText: "Could not update the surface. Please try again.",
-              });
-            }
+          if (!execute) return;
+          try {
+            addToolOutput({
+              tool: toolCall.toolName,
+              toolCallId: toolCall.toolCallId,
+              output: await execute(toolCall.input),
+            });
+          } catch {
+            addToolOutput({
+              tool: toolCall.toolName,
+              toolCallId: toolCall.toolCallId,
+              state: "output-error",
+              errorText: "Could not update the surface. Please try again.",
+            });
           }
-        : undefined,
-      ...(clientTools
-        ? { sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls }
-        : {}),
-      transport: createChatTransport({
-        api:
-          requestedExperience === "aion"
-            ? "/api/chat"
-            : persona === "aion"
-              ? "/api/ai/aion"
-              : persona === "remy"
-                ? "/api/ai/remy"
-                : persona === "strata"
-                  ? "/api/chat"
-                  : (endpoint ?? (persona ? `/api/chat/${persona}` : "/api/chat")),
-        prepareSendMessagesRequest({ messages, id }) {
-          const lastMessage = messages[messages.length - 1];
-          const message = isClientPIIRedactionEnabled()
-            ? redactUIMessages([lastMessage])[0]
-            : lastMessage;
-          const sess = assistantSessionRef.current;
-          const strataPageTools =
-            experience === "strata_page" && sess
-              ? {
-                  webSearch: sess.tools.toolWebSearch,
-                  memory: sess.tools.toolMemory,
-                  messageSearch: sess.tools.toolMessageSearch,
-                  knowledgeSearch: sess.tools.toolKnowledgeSearch,
-                  strataAssistantPersona: sess.personaId,
-                }
-              : {
-                  webSearch: useWebSearchRef.current,
-                  memory: useMemoriesRef.current,
-                  messageSearch: true as const,
-                  knowledgeSearch: false as const,
-                };
-
-          const settings = getSettings();
-          const contextEffort = contextEffortForRequest({
-            experience,
-            memoryEnabled: strataPageTools.memory,
-            experimentalContextEffort: settings.experimentalContextEffort,
-            contextEffortLevel: contextEffortRef.current,
-          });
-
-          const req = {
-            body: {
-              message,
-              id,
-              model: selectedModelRef.current,
-              effort: selectedEffortRef.current,
-              ...strataPageTools,
-              speechFriendly: useSpeechFriendlyRef.current,
-              ...(personaHost && unifiedPersonaRef.current?.session
-                ? { personaSessionId: unifiedPersonaRef.current.session.id }
-                : {}),
-              experience: requestedExperience,
-              ...(experience === "arcadia" ? { chatStyle: getChatStyle(id) } : {}),
-              ...(strataPageId ? { strataPageId } : {}),
-              zeroDataRetention: settings.zeroDataRetention,
-              coalescenceMode: settings.coalescenceMode,
-              experimentalKnowledgeCapsuleTitles: settings.experimentalKnowledgeCapsuleTitles,
-              ...(contextEffort ? { contextEffort } : {}),
-              // Arcadia multitask dashboard: explicit orchestrator vs subagent destination.
-              // Sent only while Multiagent is enabled; the server checks the saved thread flag.
-              ...(experience === "arcadia" && multitaskSendTargetRef.current
-                ? { multitaskSendTarget: multitaskSendTargetRef.current }
-                : {}),
-              // Only include persistedSchemas in payload if true
-              ...(usePersistedSchemas.current ? { persistedSchemas: true } : {}),
-              ...(diagramNodeLinksRef.current.length > 0
-                ? { diagramNodeLinks: diagramNodeLinksRef.current }
-                : {}),
-            },
-          };
-
-          logger.log("chat", `Request being sent: ${JSON.stringify(req, null, 2)}`);
-
-          return req;
-        },
-        onResumeCheck(threadId) {
-          const check = { threadId, pending: true };
-
-          setResumeCheck(check);
-
-          return () =>
-            setResumeCheck((current) =>
-              current === check ? { threadId, pending: false } : current
-            );
-        },
-      }),
-      onData: (data) => {
-        /** Side channel for UI events */
-        logger.log("chat", JSON.stringify(data, null, 2));
-
-        if (data.type === "data-persona-receipt") {
-          const parsed = PersonaReceiptSchema.safeParse(data.data);
-
-          if (parsed.success) unifiedPersonaRef.current?.recordReceipt(parsed.data);
-        } else if (data.type === "data-kanban") {
-          const parsed = safeParseKanbanCommand(data.data);
-
-          if (parsed.ok && id) {
-            applyKanbanCommand(id, parsed.command);
-          }
-        } else if (data.type === "data-mise") {
-          const parsed = safeParseMiseCommand(data.data);
-
-          if (parsed.ok && id) {
-            applyMiseCommand(id, parsed.command);
-          }
-        } else if (data.type === "data-mem0-get") {
-          const payload = data.data as { memories?: { memory: string }[] };
-
-          setMem0Retrieved(payload.memories ?? []);
-          setMem0Added([]);
-        } else if (data.type === "data-mem0-update") {
-          const payload = data.data as { memories?: { memory: string }[] };
-
-          setMem0Added(payload.memories ?? []);
-        } else if (data.type === "data-notification") {
-          logger.log("chat", `DATA_NOTIFICATION ${JSON.stringify(data.data, null, 2)}`);
-          const dataObject = data.data as { message?: string };
-
-          if (dataObject.message === "chat-title-generated") {
-            refreshSidebarChats();
-          }
-        } else if (data.type === "data-aiAction") {
-          logger.log("chat", `DATA_AIACTION ${JSON.stringify(data.data, null, 2)}`);
-
-          const dataObject = data.data as {
-            action: ChatAIActionEnum;
-            message?: string;
-            sources?: ExaSearchResultSource[];
-            /** Emitted by memory search tool progress (server stream). */
-            query?: string;
-          };
-
-          switch (dataObject.action) {
-            case ChatAIActionEnum.Reasoning:
-              setAiAction({
-                action: ChatAIActionEnum.Reasoning,
-                message: dataObject.message,
-              });
-              break;
-            case ChatAIActionEnum.Tool:
-              let toolName = undefined;
-
-              if (dataObject.message) {
-                toolName = dataObject.message.split(": ")[1];
-              }
-              switch (toolName) {
-                case "web_search":
-                  setAiAction((prev) => {
-                    let sources: ExaSearchResultSource[] | undefined = undefined;
-
-                    if (prev && prev.action === ChatAIActionEnum.Search) {
-                      sources = [...(prev.sources ?? []), ...(dataObject.sources ?? [])];
-                      // Make sources unique based on id
-                      sources = sources.filter(
-                        (source, index, self) => index === self.findIndex((t) => t.id === source.id)
-                      );
-                    } else {
-                      sources = dataObject.sources;
-                    }
-
-                    return {
-                      action: ChatAIActionEnum.Search,
-                      message: dataObject.message,
-                      sources: sources,
-                    };
-                  });
-                  break;
-                case "memory_search":
-                  setAiAction({
-                    action: ChatAIActionEnum.Memory,
-                    message: dataObject.message,
-                  });
-                  break;
-                default:
-                  setAiAction({
-                    action: ChatAIActionEnum.Tool,
-                    message: dataObject.message,
-                  });
-                  break;
-              }
-              break;
-            case ChatAIActionEnum.Memory: {
-              const q = dataObject.query?.trim();
-
-              setAiAction({
-                action: ChatAIActionEnum.Memory,
-                message:
-                  q && q.length > 0
-                    ? `Searching memories for "${q.length > 56 ? `${q.slice(0, 56)}…` : q}"`
-                    : (dataObject.message ?? "Searching memories..."),
-              });
-              break;
-            }
-            default:
-              setAiAction({
-                action: dataObject.action,
-                message: dataObject.message,
-                sources: dataObject.sources,
-              });
-              break;
-          }
-        } else if (data.type === "data-context-budget") {
-          setStreamContextBudget(withLastTurnSnapshot(data.data as ContextBudgetEstimate));
-        } else if (data.type === "data-multitask-routing") {
-          applyInboundDispatchRef.current?.(
-            data.data as import("@/lib/schemas/thought-routing").MultitaskInboundDispatch
-          );
-        } else if (data.type === "data-multitask-worker") {
-          applyAwarenessEventRef.current?.(
-            data.data as import("@/lib/schemas/subagent-runtime").WorkerAwarenessEvent
-          );
         }
-      },
-      onError: (error) => {
-        logger.error("chat", `ERROR ${JSON.stringify(error, null, 2)}`);
-        setAiAction({ action: ChatAIActionEnum.Errored, message: undefined });
-        errorRef.current = error;
-        setChatError(error);
-        const errorMessage = getChatErrorMessage(error);
+      : undefined,
+    ...(clientTools ? { sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls } : {}),
+    transport: createChatTransport({
+      api:
+        requestedExperience === "aion"
+          ? "/api/chat"
+          : persona === "aion"
+            ? "/api/ai/aion"
+            : persona === "remy"
+              ? "/api/ai/remy"
+              : persona === "strata"
+                ? "/api/chat"
+                : (endpoint ?? (persona ? `/api/chat/${persona}` : "/api/chat")),
+      prepareSendMessagesRequest({ messages, id, body }) {
+        const lastMessage = messages[messages.length - 1];
+        const message = isClientPIIRedactionEnabled()
+          ? redactUIMessages([lastMessage])[0]
+          : lastMessage;
+        const sess = assistantSessionRef.current;
+        const strataPageTools =
+          experience === "strata_page" && sess
+            ? {
+                webSearch: sess.tools.toolWebSearch,
+                memory: sess.tools.toolMemory,
+                messageSearch: sess.tools.toolMessageSearch,
+                knowledgeSearch: sess.tools.toolKnowledgeSearch,
+                strataAssistantPersona: sess.personaId,
+              }
+            : {
+                webSearch: useWebSearchRef.current,
+                memory: useMemoriesRef.current,
+                messageSearch: true as const,
+                knowledgeSearch: false as const,
+              };
 
-        toast.error(errorMessage);
-        logger.error("chat", `Chat onError: ${errorMessage}`);
+        const settings = getSettings();
+        const contextEffort = contextEffortForRequest({
+          experience,
+          memoryEnabled: strataPageTools.memory,
+          experimentalContextEffort: settings.experimentalContextEffort,
+          contextEffortLevel: contextEffortRef.current,
+        });
+
+        const req = {
+          body: {
+            message,
+            id,
+            model: selectedModelRef.current,
+            effort: selectedEffortRef.current,
+            ...strataPageTools,
+            speechFriendly: useSpeechFriendlyRef.current,
+            ...(personaHost && unifiedPersonaRef.current?.session
+              ? { personaSessionId: unifiedPersonaRef.current.session.id }
+              : {}),
+            experience: requestedExperience,
+            ...(experience === "arcadia" ? { chatStyle: getChatStyle(id) } : {}),
+            // Arcadia Jev "Respond anyway" (passed through `regenerate({ body })`).
+            ...(body?.jevOverride ? { jevOverride: body.jevOverride } : {}),
+            ...(strataPageId ? { strataPageId } : {}),
+            zeroDataRetention: settings.zeroDataRetention,
+            coalescenceMode: settings.coalescenceMode,
+            experimentalKnowledgeCapsuleTitles: settings.experimentalKnowledgeCapsuleTitles,
+            ...(contextEffort ? { contextEffort } : {}),
+            // Arcadia multitask dashboard: explicit orchestrator vs subagent destination.
+            // Sent only while Multiagent is enabled; the server checks the saved thread flag.
+            ...(experience === "arcadia" && multitaskSendTargetRef.current
+              ? { multitaskSendTarget: multitaskSendTargetRef.current }
+              : {}),
+            // Only include persistedSchemas in payload if true
+            ...(usePersistedSchemas.current ? { persistedSchemas: true } : {}),
+            ...(diagramNodeLinksRef.current.length > 0
+              ? { diagramNodeLinks: diagramNodeLinksRef.current }
+              : {}),
+          },
+        };
+
+        logger.log("chat", `Request being sent: ${JSON.stringify(req, null, 2)}`);
+
+        return req;
       },
-      onFinish: () => {
-        setAiAction(undefined);
-        setContextBudgetRefreshKey((key) => key + 1);
+      onResumeCheck(threadId) {
+        const check = { threadId, pending: true };
+
+        setResumeCheck(check);
+
+        return () =>
+          setResumeCheck((current) => (current === check ? { threadId, pending: false } : current));
       },
-    });
+    }),
+    onData: (data) => {
+      /** Side channel for UI events */
+      logger.log("chat", JSON.stringify(data, null, 2));
+
+      if (data.type === "data-persona-receipt") {
+        const parsed = PersonaReceiptSchema.safeParse(data.data);
+
+        if (parsed.success) unifiedPersonaRef.current?.recordReceipt(parsed.data);
+      } else if (data.type === "data-kanban") {
+        const parsed = safeParseKanbanCommand(data.data);
+
+        if (parsed.ok && id) {
+          applyKanbanCommand(id, parsed.command);
+        }
+      } else if (data.type === "data-mise") {
+        const parsed = safeParseMiseCommand(data.data);
+
+        if (parsed.ok && id) {
+          applyMiseCommand(id, parsed.command);
+        }
+      } else if (data.type === "data-mem0-get") {
+        const payload = data.data as { memories?: { memory: string }[] };
+
+        setMem0Retrieved(payload.memories ?? []);
+        setMem0Added([]);
+      } else if (data.type === "data-mem0-update") {
+        const payload = data.data as { memories?: { memory: string }[] };
+
+        setMem0Added(payload.memories ?? []);
+      } else if (data.type === "data-notification") {
+        logger.log("chat", `DATA_NOTIFICATION ${JSON.stringify(data.data, null, 2)}`);
+        const dataObject = data.data as { message?: string };
+
+        if (dataObject.message === "chat-title-generated") {
+          refreshSidebarChats();
+        }
+      } else if (data.type === "data-aiAction") {
+        logger.log("chat", `DATA_AIACTION ${JSON.stringify(data.data, null, 2)}`);
+
+        const dataObject = data.data as {
+          action: ChatAIActionEnum;
+          message?: string;
+          sources?: ExaSearchResultSource[];
+          /** Emitted by memory search tool progress (server stream). */
+          query?: string;
+        };
+
+        switch (dataObject.action) {
+          case ChatAIActionEnum.Reasoning:
+            setAiAction({
+              action: ChatAIActionEnum.Reasoning,
+              message: dataObject.message,
+            });
+            break;
+          case ChatAIActionEnum.Tool:
+            let toolName = undefined;
+
+            if (dataObject.message) {
+              toolName = dataObject.message.split(": ")[1];
+            }
+            switch (toolName) {
+              case "web_search":
+                setAiAction((prev) => {
+                  let sources: ExaSearchResultSource[] | undefined = undefined;
+
+                  if (prev && prev.action === ChatAIActionEnum.Search) {
+                    sources = [...(prev.sources ?? []), ...(dataObject.sources ?? [])];
+                    // Make sources unique based on id
+                    sources = sources.filter(
+                      (source, index, self) => index === self.findIndex((t) => t.id === source.id)
+                    );
+                  } else {
+                    sources = dataObject.sources;
+                  }
+
+                  return {
+                    action: ChatAIActionEnum.Search,
+                    message: dataObject.message,
+                    sources: sources,
+                  };
+                });
+                break;
+              case "memory_search":
+                setAiAction({
+                  action: ChatAIActionEnum.Memory,
+                  message: dataObject.message,
+                });
+                break;
+              default:
+                setAiAction({
+                  action: ChatAIActionEnum.Tool,
+                  message: dataObject.message,
+                });
+                break;
+            }
+            break;
+          case ChatAIActionEnum.Memory: {
+            const q = dataObject.query?.trim();
+
+            setAiAction({
+              action: ChatAIActionEnum.Memory,
+              message:
+                q && q.length > 0
+                  ? `Searching memories for "${q.length > 56 ? `${q.slice(0, 56)}…` : q}"`
+                  : (dataObject.message ?? "Searching memories..."),
+            });
+            break;
+          }
+          default:
+            setAiAction({
+              action: dataObject.action,
+              message: dataObject.message,
+              sources: dataObject.sources,
+            });
+            break;
+        }
+      } else if (data.type === "data-context-budget") {
+        setStreamContextBudget(withLastTurnSnapshot(data.data as ContextBudgetEstimate));
+      } else if (data.type === "data-multitask-routing") {
+        applyInboundDispatchRef.current?.(
+          data.data as import("@/lib/schemas/thought-routing").MultitaskInboundDispatch
+        );
+      } else if (data.type === "data-multitask-worker") {
+        applyAwarenessEventRef.current?.(
+          data.data as import("@/lib/schemas/subagent-runtime").WorkerAwarenessEvent
+        );
+      }
+    },
+    onError: (error) => {
+      logger.error("chat", `ERROR ${JSON.stringify(error, null, 2)}`);
+      setAiAction({ action: ChatAIActionEnum.Errored, message: undefined });
+      errorRef.current = error;
+      setChatError(error);
+      const errorMessage = getChatErrorMessage(error);
+
+      toast.error(errorMessage);
+      logger.error("chat", `Chat onError: ${errorMessage}`);
+    },
+    onFinish: () => {
+      setAiAction(undefined);
+      setContextBudgetRefreshKey((key) => key + 1);
+    },
+  });
 
   // Active on/off is bound to this thread only — not a user-wide sticky flag.
   usePersonaScope(personaHost && id ? chatPersonaScope(id) : null);
@@ -662,6 +670,29 @@ export const Chat: React.FC<ChatProps> = ({
       }
     },
     [sendMessageWithPersona]
+  );
+
+  /** Arcadia Jev mode: replace an acknowledgement with a real reply to the same user message. */
+  const handleJevRespondAnyway = useCallback(
+    (messageId: string) => {
+      const current = sendStateRef.current;
+
+      if (
+        current.isCheckingStream ||
+        current.status === "submitted" ||
+        current.status === "streaming" ||
+        pendingSendRef.current?.threadId === current.id
+      )
+        return;
+
+      const submission = { threadId: current.id };
+
+      pendingSendRef.current = submission;
+      void regenerate({ messageId, body: { jevOverride: { messageId } } }).finally(() => {
+        if (pendingSendRef.current === submission) pendingSendRef.current = null;
+      });
+    },
+    [regenerate]
   );
 
   useEffect(() => {
@@ -806,167 +837,170 @@ export const Chat: React.FC<ChatProps> = ({
   }, [messages]);
 
   return (
-    <DiagramNodeLinksProvider linksRef={diagramNodeLinksRef}>
-      <DiagramTakeoverProvider>
-        <div
-          data-arcadia-chat-root
-          className={[
-            "w-full",
-            "min-w-0",
-            conversationHidden ? "h-auto" : "h-full",
-            confineInMultitaskDashboard ? "max-h-none" : "sm:max-h-[calc(100dvh-2rem)]",
-            "flex",
-            "flex-col",
-            "overflow-x-hidden",
-          ].join(" ")}
-        >
-          <Conversation
-            aria-hidden={conversationHidden || undefined}
-            inert={conversationHidden || undefined}
-            className={[
-              "flex-1",
-              "min-h-0",
-              "w-full",
-              "relative",
-              conversationHidden ? "hidden" : "flex",
-              "flex-col",
-              "items-center",
-              "overflow-x-hidden",
-              "overscroll-x-none",
-            ].join(" ")}
-          >
-            {experience === "arcadia" && id && !confineInMultitaskDashboard ? (
-              <ChatThreadStyleOverlay threadId={id} visible={messages.length > 0} />
-            ) : null}
-            <ChatThread
-              aiActionPayload={aiAction}
-              chatId={id}
-              status={status}
-              contentClassName={persona === "remy" ? MEMORY_PANEL_RESERVE_PADDING : undefined}
-              heardMarks={heardMarks}
-              messages={messages}
-              renderEmptyState={
-                personaActive && !confineInMultitaskDashboard
-                  ? () => <PersonaStarters />
-                  : experience === "arcadia" && !confineInMultitaskDashboard
-                    ? () => (
-                        <ChatStylePicker
-                          chatId={id}
-                          showStartersHint={messages.length === 0}
-                          starterKey={arcadiaStarterKey}
-                          onStarterKeyChange={setArcadiaStarterKey}
-                        />
-                      )
-                    : undefined
-              }
-            />
-            {persona === "remy" && (
-              <MemoryEphemeralCards
-                overlay
-                added={mem0Added}
-                autoClearMs={12000}
-                retrieved={mem0Retrieved}
-              />
-            )}
-            <ConversationScrollButton className="bottom-14" />
-          </Conversation>
+    <ErgonDocumentOpenProvider chatId={id} setMessages={setMessages} status={status}>
+      <DiagramNodeLinksProvider linksRef={diagramNodeLinksRef}>
+        <DiagramTakeoverProvider>
           <div
+            data-arcadia-chat-root
             className={[
-              "shrink-0 px-4 sm:px-7 pb-1 md:pb-4 w-full flex flex-col gap-2",
-              conversationHidden ? "" : "-mt-10",
+              "w-full",
+              "min-w-0",
+              conversationHidden ? "h-auto" : "h-full",
+              confineInMultitaskDashboard ? "max-h-none" : "sm:max-h-[calc(100dvh-2rem)]",
+              "flex",
+              "flex-col",
+              "overflow-x-hidden",
             ].join(" ")}
           >
-            <div className="relative mx-auto flex w-full max-w-4xl flex-col gap-2">
+            <Conversation
+              aria-hidden={conversationHidden || undefined}
+              inert={conversationHidden || undefined}
+              className={[
+                "flex-1",
+                "min-h-0",
+                "w-full",
+                "relative",
+                conversationHidden ? "hidden" : "flex",
+                "flex-col",
+                "items-center",
+                "overflow-x-hidden",
+                "overscroll-x-none",
+              ].join(" ")}
+            >
+              {experience === "arcadia" && id && !confineInMultitaskDashboard ? (
+                <ChatThreadStyleOverlay threadId={id} visible={messages.length > 0} />
+              ) : null}
+              <ChatThread
+                aiActionPayload={aiAction}
+                chatId={id}
+                status={status}
+                contentClassName={persona === "remy" ? MEMORY_PANEL_RESERVE_PADDING : undefined}
+                heardMarks={heardMarks}
+                messages={messages}
+                onJevRespondAnyway={experience === "arcadia" ? handleJevRespondAnyway : undefined}
+                renderEmptyState={
+                  personaActive && !confineInMultitaskDashboard
+                    ? () => <PersonaStarters />
+                    : experience === "arcadia" && !confineInMultitaskDashboard
+                      ? () => (
+                          <ChatStylePicker
+                            chatId={id}
+                            showStartersHint={messages.length === 0}
+                            starterKey={arcadiaStarterKey}
+                            onStarterKeyChange={setArcadiaStarterKey}
+                          />
+                        )
+                      : undefined
+                }
+              />
               {persona === "remy" && (
-                <Sheet>
-                  <SheetTrigger asChild>
-                    <button
-                      className="flex items-center gap-2 text-xs text-muted-foreground hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors"
-                      type="button"
-                    >
-                      <BrainCircuit className="size-3.5" />
-                      View persisted memory
-                    </button>
-                  </SheetTrigger>
-                  <SheetContent
-                    overlayPriority
-                    className="w-full sm:max-w-md overflow-y-auto flex flex-col top-0 bottom-20 right-0 h-auto border-t-0"
-                    side="right"
-                  >
-                    <SheetHeader>
-                      <SheetTitle className="sr-only">Persisted memory</SheetTitle>
-                    </SheetHeader>
-                    <MemoryLens className="flex-1 min-h-0" variant="sheet" />
-                  </SheetContent>
-                </Sheet>
-              )}
-              <AnimatePresence initial={false}>
-                {btw.isOpen ? (
-                  <BtwPanel
-                    key={btw.sessionId}
-                    className="absolute inset-x-0 bottom-full z-30 mb-2"
-                    error={btw.error}
-                    messages={btw.messages}
-                    status={btw.status}
-                    onClose={btw.close}
-                  />
-                ) : null}
-              </AnimatePresence>
-              {composerSlot}
-              <div ref={composerAnchorRef}>
-                {/* While a /btw side thread is open it owns the composer: sends, status,
-                    and settings all switch to it, then snap back when it closes. */}
-                <CoreInput
-                  initialSettings={initialComposerSettings}
-                  chatId={chatData?.thread.id}
-                  clearError={btw.isOpen ? btw.clearError : clearError}
-                  disabled={btw.isOpen ? false : isCheckingStream}
-                  composerInject={composerInject}
-                  enableMarkdownInputPreview={
-                    experience === "arcadia" && experimentalArcadiaMarkdownPreview
-                  }
-                  error={btw.isOpen ? btw.error : (error ?? chatError)}
-                  featureHints={!(experience === "arcadia" && messages.length === 0)}
-                  hideWebMemorySpeechToggles={
-                    experience === "strata_page" && Boolean(assistantSession)
-                  }
-                  initialDraft={initialDraft}
-                  isBlankChat={messages.length === 0 && persona !== "strata"}
-                  modelRef={selectedModelRef}
-                  effortRef={selectedEffortRef}
-                  personaEnabled={personaHost && !btw.isOpen}
-                  sendMessage={btw.isOpen ? btw.sendMessage : sendMessageIfIdle}
-                  status={btw.isOpen ? btw.status : status}
-                  stop={btw.isOpen ? btw.stop : handleStop}
-                  snapshotScope={btw.isOpen ? btwScope : threadScope}
-                  contextEffortRef={contextEffortRef}
-                  slashCommands={slashCommands}
-                  sideThreadKey={btw.sessionId}
-                  placeholder={btw.isOpen ? "Ask a side question…" : undefined}
-                  useMemoriesRef={useMemoriesRef}
-                  useSpeechFriendlyRef={useSpeechFriendlyRef}
-                  useWebSearchRef={useWebSearchRef}
-                  streamContextBudget={streamContextBudget}
-                  contextBudgetRefreshKey={contextBudgetRefreshKey}
-                  threadMessages={budgetMessages.messages}
-                  experience={experience as ChatExperience | undefined}
-                  chatStyle={experience === "arcadia" && id ? getChatStyle(id) : undefined}
-                  onErrorCleared={() => setChatError(undefined)}
+                <MemoryEphemeralCards
+                  overlay
+                  added={mem0Added}
+                  autoClearMs={12000}
+                  retrieved={mem0Retrieved}
                 />
+              )}
+              <ConversationScrollButton className="bottom-14" />
+            </Conversation>
+            <div
+              className={[
+                "shrink-0 px-4 sm:px-7 pb-1 md:pb-4 w-full flex flex-col gap-2",
+                conversationHidden ? "" : "-mt-10",
+              ].join(" ")}
+            >
+              <div className="relative mx-auto flex w-full max-w-4xl flex-col gap-2">
+                {persona === "remy" && (
+                  <Sheet>
+                    <SheetTrigger asChild>
+                      <button
+                        className="flex items-center gap-2 text-xs text-muted-foreground hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors"
+                        type="button"
+                      >
+                        <BrainCircuit className="size-3.5" />
+                        View persisted memory
+                      </button>
+                    </SheetTrigger>
+                    <SheetContent
+                      overlayPriority
+                      className="w-full sm:max-w-md overflow-y-auto flex flex-col top-0 bottom-20 right-0 h-auto border-t-0"
+                      side="right"
+                    >
+                      <SheetHeader>
+                        <SheetTitle className="sr-only">Persisted memory</SheetTitle>
+                      </SheetHeader>
+                      <MemoryLens className="flex-1 min-h-0" variant="sheet" />
+                    </SheetContent>
+                  </Sheet>
+                )}
+                <AnimatePresence initial={false}>
+                  {btw.isOpen ? (
+                    <BtwPanel
+                      key={btw.sessionId}
+                      className="absolute inset-x-0 bottom-full z-30 mb-2"
+                      error={btw.error}
+                      messages={btw.messages}
+                      status={btw.status}
+                      onClose={btw.close}
+                    />
+                  ) : null}
+                </AnimatePresence>
+                {composerSlot}
+                <div ref={composerAnchorRef}>
+                  {/* While a /btw side thread is open it owns the composer: sends, status,
+                    and settings all switch to it, then snap back when it closes. */}
+                  <CoreInput
+                    initialSettings={initialComposerSettings}
+                    chatId={chatData?.thread.id}
+                    clearError={btw.isOpen ? btw.clearError : clearError}
+                    disabled={btw.isOpen ? false : isCheckingStream}
+                    composerInject={composerInject}
+                    enableMarkdownInputPreview={
+                      experience === "arcadia" && experimentalArcadiaMarkdownPreview
+                    }
+                    error={btw.isOpen ? btw.error : (error ?? chatError)}
+                    featureHints={!(experience === "arcadia" && messages.length === 0)}
+                    hideWebMemorySpeechToggles={
+                      experience === "strata_page" && Boolean(assistantSession)
+                    }
+                    initialDraft={initialDraft}
+                    isBlankChat={messages.length === 0 && persona !== "strata"}
+                    modelRef={selectedModelRef}
+                    effortRef={selectedEffortRef}
+                    personaEnabled={personaHost && !btw.isOpen}
+                    sendMessage={btw.isOpen ? btw.sendMessage : sendMessageIfIdle}
+                    status={btw.isOpen ? btw.status : status}
+                    stop={btw.isOpen ? btw.stop : handleStop}
+                    snapshotScope={btw.isOpen ? btwScope : threadScope}
+                    contextEffortRef={contextEffortRef}
+                    slashCommands={slashCommands}
+                    sideThreadKey={btw.sessionId}
+                    placeholder={btw.isOpen ? "Ask a side question…" : undefined}
+                    useMemoriesRef={useMemoriesRef}
+                    useSpeechFriendlyRef={useSpeechFriendlyRef}
+                    useWebSearchRef={useWebSearchRef}
+                    streamContextBudget={streamContextBudget}
+                    contextBudgetRefreshKey={contextBudgetRefreshKey}
+                    threadMessages={budgetMessages.messages}
+                    experience={experience as ChatExperience | undefined}
+                    chatStyle={experience === "arcadia" && id ? getChatStyle(id) : undefined}
+                    onErrorCleared={() => setChatError(undefined)}
+                  />
+                </div>
               </div>
             </div>
+            <DiagramTakeoverShell />
+            {experience === "arcadia" && id ? (
+              <ArcadiaChatSettingsDialog
+                chatId={id}
+                initialTitle={chatData?.thread.title}
+                open={arcadiaSettingsOpen}
+                onOpenChange={setArcadiaSettingsOpen}
+              />
+            ) : null}
           </div>
-          <DiagramTakeoverShell />
-          {experience === "arcadia" && id ? (
-            <ArcadiaChatSettingsDialog
-              chatId={id}
-              initialTitle={chatData?.thread.title}
-              open={arcadiaSettingsOpen}
-              onOpenChange={setArcadiaSettingsOpen}
-            />
-          ) : null}
-        </div>
-      </DiagramTakeoverProvider>
-    </DiagramNodeLinksProvider>
+        </DiagramTakeoverProvider>
+      </DiagramNodeLinksProvider>
+    </ErgonDocumentOpenProvider>
   );
 };

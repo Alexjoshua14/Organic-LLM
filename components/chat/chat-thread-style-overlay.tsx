@@ -1,6 +1,6 @@
 "use client";
 
-import { ChefHat, LayoutGrid, MessagesSquare, NotebookPen } from "lucide-react";
+import { ChefHat, LayoutGrid, MessagesSquare, NotebookPen, Waypoints } from "lucide-react";
 
 import { glass } from "@/components/design-system/primitives";
 import { type ChatStyle, resolveChatStyleMeta } from "@/lib/chat/chat-style";
@@ -12,6 +12,7 @@ const STYLE_ICONS: Record<ChatStyle, React.ReactNode> = {
   ergon: <LayoutGrid aria-hidden className="size-3.5 shrink-0" />,
   remy: <ChefHat aria-hidden className="size-3.5 shrink-0" />,
   scribe: <NotebookPen aria-hidden className="size-3.5 shrink-0" />,
+  jev: <Waypoints aria-hidden className="size-3.5 shrink-0" />,
 };
 
 type ChatThreadStyleOverlayProps = {
@@ -22,7 +23,7 @@ type ChatThreadStyleOverlayProps = {
 };
 
 /**
- * Floating Arcadia thread-style pill (Standard / Ergon / Scribe) so active threads
+ * Floating Arcadia thread-style pill (Standard / Ergon / Remy / Scribe / Jev) so active threads
  * stay identifiable after the empty-state picker scrolls away.
  */
 export function ChatThreadStyleOverlay({
