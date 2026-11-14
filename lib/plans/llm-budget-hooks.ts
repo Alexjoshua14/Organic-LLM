@@ -1,5 +1,6 @@
 import "server-only";
 
+import type { UsageSurface } from "@/lib/usage/surfaces";
 import type { LanguageModel, LanguageModelUsage } from "ai";
 import type { PlanBudgetSnapshot } from "@/lib/plans/plan-tags";
 
@@ -10,6 +11,7 @@ import { recordGatewayCallUsage } from "@/lib/usage/record-gateway-call";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 
 type BudgetHookInput = {
+  surface?: UsageSurface;
   ownerId: string;
   clerkUserId?: string;
   modelId: string;

@@ -36,6 +36,7 @@ export async function runQueuedSubagentTurn(item: MessageSendQueueRow, ownerId: 
   if (!assignment) return { ok: false as const, error: "Subagent assignment is unavailable" };
   const identity = resolveSubagentIdentity(link.agentId);
   const result = await runSubagentThreadTurn({
+    usageSurface: "arcadia",
     goal: { ...run, goal: subagentGoalBrief(assignment) },
     assignment,
     threadId,
@@ -58,6 +59,7 @@ export async function runQueuedSubagentTurn(item: MessageSendQueueRow, ownerId: 
       recordGatewayCallUsage({
         ...usage,
         ownerId,
+        surface: "arcadia",
         operation: "subagent_worker",
         route: "/api/chat/queue",
       }),

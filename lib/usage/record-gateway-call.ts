@@ -1,5 +1,6 @@
 import "server-only";
 
+import type { UsageSurface } from "@/lib/usage/surfaces";
 import type { LanguageModelUsage } from "ai";
 
 import { readGatewayBilledCostUsd } from "@/lib/usage/gateway-attribution";
@@ -10,6 +11,7 @@ import { insertLlmUsageEvent } from "@/data/supabase/llm-usage";
  * cost when the response carries it, otherwise the price-table estimate.
  */
 export async function recordGatewayCallUsage(args: {
+  surface?: UsageSurface;
   ownerId: string;
   modelId: string;
   usage?: LanguageModelUsage;
@@ -22,6 +24,7 @@ export async function recordGatewayCallUsage(args: {
   if (!args.usage && billedCost === undefined) return;
 
   await insertLlmUsageEvent({
+    surface: args.surface,
     ownerId: args.ownerId,
     modelId: args.modelId,
     inputTokens: args.usage?.inputTokens,

@@ -1,3 +1,4 @@
+import type { UsageSurface } from "@/lib/usage/surfaces";
 import type { GatewayProviderOptions } from "@ai-sdk/gateway";
 import type { LanguageModelUsage, ModelMessage, UIMessage } from "ai";
 import type { WorkerAwarenessEvent, WorkerGoal } from "@/lib/schemas/subagent-runtime";
@@ -51,6 +52,7 @@ export type SubagentThreadStore = {
 };
 
 export type SubagentTurnGenerate = (args: {
+  usageSurface?: UsageSurface;
   chatId: string;
   /** A locked subagent's tool policy; omitted flags use the worker defaults. */
   tools?: HardSetSubagent["tools"];
@@ -78,6 +80,7 @@ export type SubagentUsageRecorder = (args: {
 }) => void | Promise<void>;
 
 export type RunSubagentThreadTurnInput = {
+  usageSurface?: UsageSurface;
   goal: WorkerGoal;
   threadId: string;
   modelId: string;
@@ -168,6 +171,7 @@ const defaultGenerate: SubagentTurnGenerate = async (args) => {
   const budgetHooks = createLlmBudgetHooks({
     ownerId: sbUserId,
     modelId: options.model,
+    surface: args.usageSurface,
     operation: "subagent_worker",
     route: "/api/chat/queue",
   });
@@ -257,6 +261,7 @@ export async function runSubagentThreadTurn(
     }
 
     const result = await generate({
+      usageSurface: input.usageSurface,
       chatId: threadId,
       initialMessageCount: history.length + 1,
       assignment,

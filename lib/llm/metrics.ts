@@ -70,9 +70,7 @@ export function recordLlmCall(args: {
 
   const inputTokens = coerceCount(usage?.inputTokens);
   const outputTokens = coerceCount(usage?.outputTokens);
-  const cachedInputTokens = coerceCount(
-    usage?.inputTokenDetails?.cacheReadTokens ?? usage?.cachedInputTokens
-  );
+  const cachedInputTokens = usage?.inputTokenDetails?.cacheReadTokens ?? usage?.cachedInputTokens;
   const reasoningTokens = coerceCount(
     usage?.outputTokenDetails?.reasoningTokens ?? usage?.reasoningTokens
   );
