@@ -154,6 +154,18 @@ describe("sendScreenContext delivery", () => {
     hook.unmount();
   });
 
+  test("identical resolved text across revisions preserves the existing cached item", async () => {
+    useHarness(() => ({ body: "Same bounded screen description" }));
+    const hook = await liveCall();
+
+    await push(hook, chat("m2"));
+    await push(hook, chat("m4"));
+
+    expect(harness.callsTo("context")).toHaveLength(2);
+    expect(ambientTraffic(harness.transport)).toEqual(["add ambient_item_1"]);
+    hook.unmount();
+  });
+
   test("nothing to describe still replaces the old screen, with the cleared notice", async () => {
     useHarness((body) =>
       (body.surface as SpeakScreenSurface).kind === "chat"
