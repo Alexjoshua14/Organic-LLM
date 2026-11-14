@@ -67,6 +67,26 @@ function FitPreview({ width, children }: { width: number; children: ReactNode })
   );
 }
 
+function SampleCaption({ children }: { children: ReactNode }) {
+  return (
+    <p className="mb-stack-xs text-[10px] leading-tight text-muted-foreground/45">{children}</p>
+  );
+}
+
+function PreviewShell({ children }: { children: ReactNode }) {
+  return (
+    <div
+      onClickCapture={(event) => {
+        if ((event.target as HTMLElement).closest("a")) {
+          event.preventDefault();
+        }
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
 const AGENT: ArcadiaSubagent = {
   id: "card-lab-researcher",
   name: "Lyra",
@@ -112,6 +132,18 @@ export function SubagentCardLab() {
     setStartedAt(Date.now());
     setCalling(true);
   };
+  const cardProps = {
+    agent,
+    localStream: null,
+    remoteStream: null,
+    selected,
+    speakPhase: phase,
+    startedAt,
+    voicePhase: "idle" as const,
+    onEndSpeak: endCall,
+    onSelect: () => setSelected((value) => !value),
+    onSpeakTo: startCall,
+  };
 
   useEffect(() => {
     if (!autoCycle) return;
@@ -125,13 +157,13 @@ export function SubagentCardLab() {
   }, [autoCycle]);
 
   return (
-    <div className="grid min-w-0 grid-cols-2 gap-x-inline-lg gap-y-stack-lg">
+    <div className="grid min-w-0 grid-cols-1 gap-x-inline-lg gap-y-stack-md sm:grid-cols-2 sm:gap-y-stack-lg">
       <section
         aria-label="Preview controls"
-        className="col-span-full mx-auto flex w-2/3 flex-col items-center gap-stack-sm rounded-xl border border-border/50 bg-background/40 p-inset-md"
+        className="col-span-full mx-auto flex w-full max-w-xl flex-col items-center gap-stack-sm rounded-xl border border-border/50 bg-background/40 p-inset-md"
       >
         <StateSelector value={status} onChange={setStatus} />
-        <div className="grid w-full max-w-[360px] grid-cols-3 gap-inline-sm border-t border-border/40 pt-inset-md">
+        <div className="grid w-full grid-cols-3 gap-inline-sm border-t border-border/40 pt-inset-md">
           <Switch
             classNames={CONTROL_SWITCH_CLASSES}
             isSelected={autoCycle}
@@ -159,62 +191,33 @@ export function SubagentCardLab() {
 
       {VERSIONS.map(({ name, Card }) => (
         <section key={name} aria-label={`${name} version`} className="min-w-0">
-          <h2 className="mb-stack-sm text-lg font-semibold tracking-tight">{name}</h2>
-          <div className="space-y-stack-lg">
+          <h2 className="mb-stack-xs text-base font-semibold tracking-tight sm:mb-stack-sm sm:text-lg">
+            {name}
+          </h2>
+          <div className="space-y-stack-md sm:space-y-stack-lg">
             <section aria-label={`${name} desktop card`}>
-              <h3 className="mb-stack-sm text-xs uppercase tracking-wide text-muted-foreground">
-                Desktop · {MULTITASK_DESKTOP_AGENT_COL_MAX_PX}px card
-              </h3>
+              <SampleCaption>Desktop · {MULTITASK_DESKTOP_AGENT_COL_MAX_PX}px</SampleCaption>
               <FitPreview width={MULTITASK_DESKTOP_AGENT_COL_MAX_PX}>
-                <div
-                  onClickCapture={(event) => {
-                    if ((event.target as HTMLElement).closest("a")) {
-                      event.preventDefault();
-                    }
-                  }}
-                >
-                  <Card
-                    agent={agent}
-                    localStream={null}
-                    remoteStream={null}
-                    selected={selected}
-                    speakPhase={phase}
-                    startedAt={startedAt}
-                    voicePhase="idle"
-                    onEndSpeak={endCall}
-                    onSelect={() => setSelected((value) => !value)}
-                    onSpeakTo={startCall}
-                  />
-                </div>
+                <PreviewShell>
+                  <Card {...cardProps} />
+                </PreviewShell>
               </FitPreview>
             </section>
-            <section aria-label={`${name} mobile card`}>
-              <h3 className="mb-stack-sm text-xs uppercase tracking-wide text-muted-foreground">
-                Mobile · {MOBILE_SAMPLE_WIDTH_PX}px view
-              </h3>
+            {/*
+              On phones, Current/Next stack full-width so the organic agent stays readable inside
+              100vh. The 390px mobile sample is redundant there and is shown from sm up.
+            */}
+            <section aria-label={`${name} mobile card`} className="hidden sm:block">
+              <SampleCaption>Mobile · {MOBILE_SAMPLE_WIDTH_PX}px</SampleCaption>
               <FitPreview width={MOBILE_SAMPLE_WIDTH_PX}>
-                <div
-                  className="mx-auto rounded-2xl bg-background/30 px-inset-lg py-inset-md"
-                  style={{ width: MOBILE_SAMPLE_WIDTH_PX }}
-                  onClickCapture={(event) => {
-                    if ((event.target as HTMLElement).closest("a")) {
-                      event.preventDefault();
-                    }
-                  }}
-                >
-                  <Card
-                    agent={agent}
-                    localStream={null}
-                    remoteStream={null}
-                    selected={selected}
-                    speakPhase={phase}
-                    startedAt={startedAt}
-                    voicePhase="idle"
-                    onEndSpeak={endCall}
-                    onSelect={() => setSelected((value) => !value)}
-                    onSpeakTo={startCall}
-                  />
-                </div>
+                <PreviewShell>
+                  <div
+                    className="mx-auto rounded-2xl bg-background/30 px-inset-lg py-inset-md"
+                    style={{ width: MOBILE_SAMPLE_WIDTH_PX }}
+                  >
+                    <Card {...cardProps} />
+                  </div>
+                </PreviewShell>
               </FitPreview>
             </section>
           </div>
