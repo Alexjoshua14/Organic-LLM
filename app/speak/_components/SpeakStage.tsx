@@ -185,14 +185,9 @@ export function SpeakStage(props: SpeakStageProps) {
                   key={status.kind}
                   animate={{ opacity: 1, y: 0 }}
                   className={cn(
-                    "font-commissioner font-light tracking-tight",
-                    // Ready is the resting state: keep it quiet so the live states carry the weight.
-                    status.kind === "ready"
-                      ? "text-base text-muted-foreground sm:text-lg"
-                      : "text-2xl sm:text-3xl",
-                    status.kind === "error"
-                      ? "text-rose-300"
-                      : status.kind !== "ready" && "text-foreground"
+                    // Secondary text: the orb carries the state, the label only confirms it.
+                    "font-commissioner text-base font-light tracking-tight sm:text-lg",
+                    status.kind === "error" ? "text-rose-300" : "text-muted-foreground"
                   )}
                   exit={{
                     opacity: 0,
