@@ -1,0 +1,495 @@
+/*
+ * Rabbit-hole tool results speak the rabbit-hole app's language, not the generic tool pill's:
+ * Commissioner light titles and the path rail's stem-and-dot grammar for articles. Like the
+ * comparison block, there is no card: the content sits in the thread, structured by type,
+ * the tree and spacing. Height comes from the data's shape; nothing decorative takes a row.
+ */
+.inlineRow {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.card {
+  --rh-stem: color-mix(in oklch, var(--muted-foreground) 32%, transparent);
+  --rh-dot: color-mix(in oklch, var(--muted-foreground) 55%, transparent);
+  --rh-indent: 14px;
+  display: grid;
+  gap: var(--spacing-stack-sm);
+  width: min(100%, 34rem);
+  min-width: 0;
+  padding: 4px 0;
+  color: var(--foreground);
+}
+
+/* ── Type ─────────────────────────────────────────────────────────────── */
+
+.title {
+  display: block;
+  margin: 0;
+  min-width: 0;
+  font-family: var(--font-commissioner), sans-serif;
+  font-size: 1.1875rem; /* 19px */
+  font-weight: 300;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  color: var(--foreground);
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+.titleMd {
+  font-size: 0.9375rem; /* 15px */
+  font-weight: 400;
+  line-height: 1.35;
+}
+.question,
+.description {
+  margin: 0;
+  font-size: 0.8125rem; /* 13px */
+  line-height: 1.5;
+  color: var(--muted-foreground);
+  overflow-wrap: anywhere;
+}
+.description {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.excerpt {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  overflow: hidden;
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: var(--foreground);
+  opacity: 0.85;
+}
+/* Every result opens with this quiet line (what happened · counts), in the search label's style,
+   so the same kind of information sits in the same place on every card. */
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 0.6875rem; /* 11px */
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted-foreground);
+}
+/* The meta line labels what follows, so it sits close to it. */
+.meta + * {
+  margin-top: -4px;
+}
+.card[data-tool-state="error"] .meta {
+  color: var(--destructive);
+}
+.glyph {
+  color: var(--accent);
+}
+.error,
+.quiet {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+  overflow-wrap: anywhere;
+}
+.match {
+  padding: 0 1px;
+  border-radius: 2px;
+  background: color-mix(in oklch, var(--accent) 22%, transparent);
+  color: inherit;
+}
+
+/* ── Path-rail tree ───────────────────────────────────────────────────── */
+
+.tree {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.node {
+  --indent: calc(var(--depth, 0) * var(--rh-indent));
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacing-inline-sm);
+  min-height: 26px;
+  padding: 3px 0 3px calc(var(--indent) + 18px);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+/* Spine: one stem through the whole exploration; ends at the first and last dots. */
+.node::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--rh-stem);
+}
+.node:first-child::before {
+  top: 13px;
+}
+.node:last-child::before {
+  bottom: calc(100% - 13px);
+}
+.node:only-child::before {
+  display: none;
+}
+/* Dot: one per article. */
+.node::after {
+  content: "";
+  position: absolute;
+  left: calc(var(--indent));
+  top: 9px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--rh-dot);
+}
+.node[data-tone="root"]::after {
+  background: var(--foreground);
+}
+.node[data-tone="context"]::after {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--rh-dot);
+}
+.node[data-tone="new"]::after {
+  background: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--accent) 22%, transparent);
+}
+.node[data-tone="generating"]::after {
+  background: transparent;
+  box-shadow:
+    inset 0 0 0 1.5px var(--accent),
+    0 0 0 3px color-mix(in oklch, var(--accent) 16%, transparent);
+}
+/* Branch: a child article's connector from the spine to its dot. */
+.elbow {
+  position: absolute;
+  left: 3px;
+  top: 13px;
+  width: var(--indent);
+  height: 1px;
+  background: var(--rh-stem);
+}
+.nodeTitle {
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+.node[data-tone="context"] .nodeTitle {
+  color: var(--muted-foreground);
+}
+.node[data-tone="root"] .nodeTitle,
+.node[data-tone="new"] .nodeTitle {
+  color: var(--foreground);
+}
+.nodeMeta {
+  flex: none;
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted-foreground);
+}
+.node[data-tone="new"] .nodeMeta,
+.node[data-tone="generating"] .nodeMeta {
+  color: var(--accent);
+}
+
+/* ── Explorations (search, list) ──────────────────────────────────────── */
+
+/* The query is context, not content: one quiet line (query and count share a style), so the
+   results get the space. */
+.searchLabel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-inline-sm);
+  min-width: 0;
+  font-size: 0.6875rem; /* 11px */
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted-foreground);
+}
+.searchLabel > span:last-child {
+  flex: none;
+  white-space: nowrap;
+}
+.queryLine {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+.queryLine svg {
+  flex: none;
+}
+.queryText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Results start folded: one row each, opened one at a time by curiosity. */
+.entries {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.entry {
+  border-top: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
+}
+.entryRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--spacing-inline-sm);
+  width: 100%;
+  min-height: 44px;
+  padding: 6px 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.entryTitle {
+  overflow: hidden;
+  font-family: var(--font-commissioner), sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 400;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.entry[data-open] .entryTitle {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.entryMeta {
+  font-size: 0.6875rem;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--muted-foreground);
+}
+.entryChevron {
+  color: var(--muted-foreground);
+  transition: transform 150ms ease-out;
+}
+.entry[data-open] .entryChevron {
+  transform: rotate(180deg);
+}
+.entryRow:hover .entryTitle {
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklch, var(--muted-foreground) 50%, transparent);
+  text-underline-offset: 4px;
+}
+/* Extra results join the same list; one toggle at the foot shows more or fewer. */
+.moreToggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 40px;
+  margin-top: var(--spacing-stack-sm);
+  padding: 0;
+  border: 0;
+  border-top: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
+  background: none;
+  font-size: 0.6875rem;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+/* Under result rows the card's own gap is enough; under key points it needs the extra air. */
+.entries + .moreToggle {
+  margin-top: 0;
+}
+.moreToggle:hover {
+  color: var(--foreground);
+}
+.moreToggle svg {
+  transition: transform 150ms ease-out;
+}
+.moreToggle[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+.entryPanel {
+  display: grid;
+  gap: var(--spacing-stack-sm);
+  padding: 0 0 12px;
+}
+@media (max-width: 480px) {
+  .entryMeta {
+    display: none;
+  }
+}
+
+/* ── Key takeaways ────────────────────────────────────────────────────── */
+
+/* One idea per row: numerals in their own column, room between points, bold leads. */
+.takeaways {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.takeaways li {
+  display: grid;
+  grid-template-columns: 1.5rem minmax(0, 1fr);
+  align-items: baseline;
+}
+.takeawayIndex {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+}
+.takeawayText {
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+.takeawayText strong {
+  font-weight: 600;
+}
+.keyPointsPanel {
+  padding: 12px 0 2px;
+  border-top: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
+}
+
+/* ── Actions and disclosures ─────────────────────────────────────────── */
+
+/* The card's way in: the app's primary ink pill (as Button's default), not an accent tint. */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-inline-sm);
+  padding-top: 2px;
+}
+.openButton,
+.toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 2rem;
+  padding: 0 12px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color 150ms ease-out,
+    border-color 150ms ease-out;
+}
+/* 44px targets without taller pills. */
+.openButton::after,
+.toggle::after {
+  content: "";
+  position: absolute;
+  inset: -6px -2px;
+}
+.openButton {
+  border: 1px solid transparent;
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.openButton svg {
+  opacity: 0.7;
+}
+.openButton:hover {
+  background: color-mix(in oklab, var(--primary) 88%, var(--primary-foreground));
+}
+.toggle {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted-foreground);
+}
+.toggle:hover,
+.toggle[aria-expanded="true"] {
+  color: var(--foreground);
+  background: color-mix(in oklch, var(--foreground) 5%, transparent);
+}
+.toggle svg {
+  transition: transform 150ms ease-out;
+}
+.toggle[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+/* Disclosures are quiet rows under a hairline, inside the content column. */
+.disclosure {
+  border-top: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
+}
+.disclosure + .disclosure {
+  margin-top: calc(var(--spacing-stack-sm) * -1);
+}
+.disclosure summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0;
+  font-size: 0.6875rem;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  list-style: none;
+}
+.disclosure summary:hover {
+  color: var(--foreground);
+}
+.disclosure summary::-webkit-details-marker {
+  display: none;
+}
+.disclosure summary svg {
+  flex: none;
+  transition: transform 150ms ease-out;
+}
+.disclosure[open] summary svg {
+  transform: rotate(90deg);
+}
+.panel {
+  padding: 0 0 8px;
+}
+.raw {
+  max-height: 15rem;
+  overflow: auto;
+  margin: 0;
+  padding: 8px;
+  border-radius: 6px;
+  background: color-mix(in oklch, var(--background) 70%, transparent);
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+@media (max-width: 480px) {
+  .title {
+    font-size: 1.0625rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .openButton,
+  .toggle,
+  .toggle svg,
+  .entryChevron,
+  .moreToggle svg,
+  .disclosure summary svg {
+    transition: none;
+  }
+}

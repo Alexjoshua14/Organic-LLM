@@ -39,6 +39,17 @@ export type SidebarThreadActivity = {
   working: { step: RabbitHoleStep | null } | null;
 };
 
+/**
+ * A rabbit hole generating a node, keyed by session rather than chat thread: rabbit holes Arcadia
+ * creates from chat have no chat thread of their own, so the per-thread rows above miss them.
+ * The chat card that created the node watches this to know when its article is written.
+ */
+export type GeneratingRabbitHole = {
+  sessionId: string;
+  nodeId: string;
+  step: RabbitHoleStep | null;
+};
+
 /** The live Speak call, if any. `null` outside the voice provider. */
 export type VoiceSignalInput = {
   threadId: string | null;

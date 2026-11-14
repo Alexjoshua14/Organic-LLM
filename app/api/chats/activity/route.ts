@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 import { getSupabaseUserId } from "@/data/supabase/profiles";
-import { getThreadAttention } from "@/data/supabase/thread-attention";
+import { getGeneratingRabbitHoles, getThreadAttention } from "@/data/supabase/thread-attention";
 import { createLogger } from "@/lib/logger";
 import { checkChatsActivityLimit } from "@/lib/rate-limit/chats";
 import { SESSION_WORKING_STALE_MS } from "@/lib/sidebar/session-signal-timing";
@@ -14,7 +14,9 @@ const logger = createLogger("app/api/chats/activity/route.ts");
  *
  * Sidebar attention for the signed-in user: threads that are working (a reply streaming, a
  * rabbit-hole node generating) or hold unseen content. Threads with neither are omitted. Polled
- * by `useSidebarActivity` only while something is working. Contract:
+ * by `useSidebarActivity` only while something is working. `rabbitHoles` lists generating
+ * rabbit-hole sessions by session id (including those without a chat thread), for the chat cards
+ * that created them. Contract:
  * docs/thread-session-architecture.md.
  */
 export async function GET() {
@@ -41,10 +43,18 @@ export async function GET() {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
-  const result = await getThreadAttention({
-    ownerId: sbUserIdResult.data,
-    staleAfterMs: SESSION_WORKING_STALE_MS,
-  });
+  const params = { ownerId: sbUserIdResult.data, staleAfterMs: SESSION_WORKING_STALE_MS };
+  const [result, rabbitHoles] = await Promise.all([
+    getThreadAttention(params),
+    getGeneratingRabbitHoles(params),
+  ]);
+
+  if (rabbitHoles.error) {
+    // Additive: the sidebar's rows still return; creation cards fall back to one status read.
+    logger.warn("GET", "Failed to fetch generating rabbit holes", {
+      err: rabbitHoles.error.message,
+    });
+  }
 
   if (result.error) {
     logger.error("GET", "Failed to fetch thread activity", { err: result.error.message });
@@ -52,5 +62,5 @@ export async function GET() {
     return NextResponse.json({ error: "Failed to fetch activity" }, { status: 500 });
   }
 
-  return NextResponse.json({ data: result.data ?? [] });
+  return NextResponse.json({ data: result.data ?? [], rabbitHoles: rabbitHoles.data ?? [] });
 }

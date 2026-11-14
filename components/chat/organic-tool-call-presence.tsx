@@ -4,11 +4,14 @@ import { memo, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 
 import { ToolResultInlineRow, ToolResultPinButton } from "./tool-result-inline";
+import { RabbitHoleToolPresence, isRabbitHoleToolName } from "./rabbit-hole-tool-presence";
 
 import { OrganicActivityMark } from "@/components/chat/organic-activity-mark";
 import { glass } from "@/components/design-system/primitives";
 import { MermaidDiagram } from "@/components/blog/mermaid-diagram";
+import { SHOW_TOOL_DETAILS } from "@/lib/chat/tool-details-visibility";
 import { extractMermaidCode } from "@/lib/mermaid/source";
+import { loadRabbitHoleNodeStatus } from "@/lib/rabbit-holes/load-node-status";
 import { cn } from "@/lib/utils";
 
 export const RABBIT_HOLE_OPEN_NODE_EVENT = "rabbit-hole:open-node";
@@ -33,6 +36,8 @@ export type OrganicToolCallPresenceProps = {
   isPinned?: boolean;
   onTogglePin?: () => void;
   className?: string;
+  /** Raw output disclosure; defaults to dev instances only (see SHOW_TOOL_DETAILS). */
+  showToolDetails?: boolean;
 };
 
 type ToolVisualIdentity = {
@@ -222,72 +227,6 @@ export function resolveOrganicToolVisualIdentity(
     };
   }
 
-  if (
-    key === "generate_rabbit_hole_node" ||
-    key === "propose_rabbit_hole_node" ||
-    key === "create_rabbit_hole_node" ||
-    key === "branch_rabbit_hole_node"
-  ) {
-    const nodeTitle = firstNonEmptyString(
-      outputRec?.title,
-      outputRec?.nodeTitle,
-      inputRec?.label,
-      inputRec?.title,
-      inputRec?.topic,
-      inputRec?.question,
-      inputRec?.query
-    );
-
-    return {
-      seed: "tool-rabbit-hole-branch",
-      category: "Rabbit Hole",
-      inFlightTitle: inFlightLabelOverride ?? "Branching rabbit hole node…",
-      completedTitle: "Branching rabbit hole node",
-      subtitle: nodeTitle,
-      specialistName: null,
-      intensity: 0.74,
-    };
-  }
-
-  if (key === "navigate_rabbit_hole_node") {
-    const targetTitle = firstNonEmptyString(
-      outputRec?.title,
-      outputRec?.nodeTitle,
-      inputRec?.title,
-      inputRec?.label,
-      outputRec?.activeNodeId,
-      inputRec?.nodeId
-    );
-
-    return {
-      seed: "tool-rabbit-hole-nav",
-      category: "Rabbit Hole",
-      inFlightTitle: inFlightLabelOverride ?? "Navigating branch…",
-      completedTitle: "Navigating branch",
-      subtitle: targetTitle,
-      specialistName: null,
-      intensity: 0.52,
-    };
-  }
-
-  if (
-    key === "search_rabbit_hole_context" ||
-    key === "read_rabbit_hole_node" ||
-    key === "inspect_rabbit_hole_graph"
-  ) {
-    const query = firstNonEmptyString(inputRec?.query, inputRec?.nodeId, outputRec?.summary);
-
-    return {
-      seed: "tool-rabbit-hole-context",
-      category: "Rabbit Hole",
-      inFlightTitle: inFlightLabelOverride ?? "Reading rabbit hole graph…",
-      completedTitle: "Synthesized rabbit hole context",
-      subtitle: query,
-      specialistName: null,
-      intensity: 0.56,
-    };
-  }
-
   if (key === "web_search") {
     const query = firstNonEmptyString(inputRec?.query, inputRec?.q);
 
@@ -408,29 +347,38 @@ export const OrganicToolCallPresence = memo(function OrganicToolCallPresence({
   isPinned = false,
   onTogglePin,
   className,
+  showToolDetails = SHOW_TOOL_DETAILS,
 }: OrganicToolCallPresenceProps) {
   const [expanded, setExpanded] = useState(false);
+
+  if (isRabbitHoleToolName(toolName)) {
+    return (
+      <RabbitHoleToolPresence
+        className={className}
+        input={input}
+        isPinned={isPinned}
+        loadNodeStatus={loadRabbitHoleNodeStatus}
+        output={output}
+        showToolDetails={showToolDetails}
+        state={state}
+        toolName={toolName}
+        onOpenNode={dispatchRabbitHoleOpenNode}
+        onTogglePin={onTogglePin}
+      />
+    );
+  }
+
   const identity = resolveOrganicToolVisualIdentity(toolName, input, output, inFlightLabel);
   const isInFlight = state === "in-flight";
   const isError = state === "error";
   const markState = isInFlight ? "working" : isError ? "blocked" : "complete";
   const primaryLabel = isInFlight ? identity.inFlightTitle : identity.completedTitle;
 
-  const hasDetailPayload = !isInFlight && output !== undefined && output !== null;
-  const mermaid = hasDetailPayload ? extractMermaidCode(output) : null;
-  const formattedOutput = hasDetailPayload ? stableStringify(output) : null;
-
-  const outputRec = asRecord(output);
-  const inputRec = asRecord(input);
-  const normalizedToolName = toolName.toLowerCase();
-  const rabbitHoleTargetNodeId =
-    !isInFlight &&
-    !isError &&
-    (normalizedToolName === "generate_rabbit_hole_node" ||
-      normalizedToolName === "navigate_rabbit_hole_node") &&
-    outputRec?.ok !== false
-      ? firstNonEmptyString(outputRec?.nodeId, outputRec?.activeNodeId, inputRec?.nodeId)
-      : null;
+  const hasOutput = !isInFlight && output !== undefined && output !== null;
+  // A diagram is content and always expands; the raw payload is a dev-only debugging aid.
+  const mermaid = hasOutput ? extractMermaidCode(output) : null;
+  const formattedOutput = hasOutput && showToolDetails && expanded ? stableStringify(output) : null;
+  const hasDetailPayload = Boolean(mermaid) || (hasOutput && showToolDetails);
 
   const pillContent = (
     <div
@@ -443,7 +391,10 @@ export const OrganicToolCallPresence = memo(function OrganicToolCallPresence({
           ? "border-destructive/40 bg-destructive/5"
           : isInFlight
             ? "border-accent/35 bg-accent/5"
-            : "border-border/40 bg-background-secondary/25 hover:border-border/65 hover:bg-background-secondary/40",
+            : cn(
+                "border-border/40 bg-background-secondary/25",
+                hasDetailPayload && "hover:border-border/65 hover:bg-background-secondary/40"
+              ),
         className
       )}
     >
@@ -464,14 +415,7 @@ export const OrganicToolCallPresence = memo(function OrganicToolCallPresence({
               {identity.category}
             </span>
           </div>
-          {rabbitHoleTargetNodeId ? (
-            <p
-              data-rabbit-hole-open-node={rabbitHoleTargetNodeId}
-              className="mt-0.5 truncate text-[11px] font-medium text-foreground underline decoration-border/60 underline-offset-2"
-            >
-              {identity.subtitle ? `View article · ${identity.subtitle}` : "View article"}
-            </p>
-          ) : identity.subtitle ? (
+          {identity.subtitle ? (
             <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{identity.subtitle}</p>
           ) : null}
         </div>
@@ -511,6 +455,19 @@ export const OrganicToolCallPresence = memo(function OrganicToolCallPresence({
     return pillContent;
   }
 
+  if (!hasDetailPayload) {
+    return (
+      <ToolResultInlineRow
+        isPinned={isPinned}
+        pin={
+          onTogglePin ? <ToolResultPinButton isPinned={isPinned} onTogglePin={onTogglePin} /> : null
+        }
+      >
+        {pillContent}
+      </ToolResultInlineRow>
+    );
+  }
+
   return (
     <ToolResultInlineRow
       isPinned={isPinned}
@@ -523,10 +480,6 @@ export const OrganicToolCallPresence = memo(function OrganicToolCallPresence({
         className="not-prose max-w-full cursor-pointer text-left"
         type="button"
         onClick={() => {
-          if (rabbitHoleTargetNodeId) {
-            dispatchRabbitHoleOpenNode(rabbitHoleTargetNodeId);
-          }
-
           setExpanded((open) => !open);
         }}
       >

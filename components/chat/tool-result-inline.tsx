@@ -44,11 +44,23 @@ type ToolResultInlineRowProps = {
   isPinned?: boolean;
   pin?: ReactNode;
   children: ReactNode;
+  className?: string;
 };
 
-export function ToolResultInlineRow({ isPinned, pin, children }: ToolResultInlineRowProps) {
+export function ToolResultInlineRow({
+  isPinned,
+  pin,
+  children,
+  className,
+}: ToolResultInlineRowProps) {
   return (
-    <div className={cn("not-prose flex items-start gap-1.5", isPinned && "sticky top-20 z-30")}>
+    <div
+      className={cn(
+        "not-prose flex items-start gap-1.5",
+        isPinned && "sticky top-20 z-30",
+        className
+      )}
+    >
       {children}
       {pin}
     </div>

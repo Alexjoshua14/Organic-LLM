@@ -5,6 +5,7 @@ import { createMockAuth, createMockClerkUser } from "../helpers/mock-auth";
 const mockAuth = mock(createMockAuth());
 const mockGetSupabaseUserId = mock(async () => ({ data: "sb_test_user", error: null }));
 const mockGetThreadAttention = mock(async () => ({ data: [], error: null }));
+const mockGetGeneratingRabbitHoles = mock(async () => ({ data: [], error: null }));
 const mockMarkThreadSeen = mock(async () => ({ ok: true, error: null }));
 const mockCheckChatsActivityLimit = mock(async () => ({ success: true, remaining: 1800 }));
 
@@ -18,6 +19,7 @@ mock.module("@/data/supabase/profiles", () => ({
 
 mock.module("@/data/supabase/thread-attention", () => ({
   getThreadAttention: mockGetThreadAttention,
+  getGeneratingRabbitHoles: mockGetGeneratingRabbitHoles,
   markThreadSeen: mockMarkThreadSeen,
 }));
 
@@ -38,12 +40,14 @@ describe("sidebar activity routes", () => {
     mockAuth.mockReset();
     mockGetSupabaseUserId.mockReset();
     mockGetThreadAttention.mockReset();
+    mockGetGeneratingRabbitHoles.mockReset();
     mockMarkThreadSeen.mockReset();
     mockCheckChatsActivityLimit.mockReset();
 
     mockAuth.mockResolvedValue(createMockClerkUser());
     mockGetSupabaseUserId.mockResolvedValue({ data: "sb_test_user", error: null });
     mockGetThreadAttention.mockResolvedValue({ data: [], error: null });
+    mockGetGeneratingRabbitHoles.mockResolvedValue({ data: [], error: null });
     mockMarkThreadSeen.mockResolvedValue({ ok: true, error: null });
     mockCheckChatsActivityLimit.mockResolvedValue({ success: true, remaining: 1800 });
   });
@@ -61,11 +65,37 @@ describe("sidebar activity routes", () => {
       const body = await res.json();
 
       expect(res.status).toBe(200);
-      expect(body).toEqual({ data: rows });
+      expect(body).toEqual({ data: rows, rabbitHoles: [] });
       expect(mockGetThreadAttention).toHaveBeenCalledWith({
         ownerId: "sb_test_user",
         staleAfterMs: SESSION_WORKING_STALE_MS,
       });
+    });
+
+    test("adds generating rabbit holes by session, and keeps the rows if that lookup fails", async () => {
+      const generating = [{ sessionId: "s1", nodeId: "n1", step: "article" }];
+
+      mockGetGeneratingRabbitHoles.mockResolvedValueOnce({
+        data: generating,
+        error: null,
+      } as never);
+      let body = await (await GET()).json();
+
+      expect(body.rabbitHoles).toEqual(generating);
+      expect(mockGetGeneratingRabbitHoles).toHaveBeenCalledWith({
+        ownerId: "sb_test_user",
+        staleAfterMs: SESSION_WORKING_STALE_MS,
+      });
+
+      mockGetGeneratingRabbitHoles.mockResolvedValueOnce({
+        data: null,
+        error: new Error("db"),
+      } as never);
+      const res = await GET();
+
+      body = await res.json();
+      expect(res.status).toBe(200);
+      expect(body).toEqual({ data: [], rabbitHoles: [] });
     });
 
     test("returns 401 when the user is not authenticated", async () => {
@@ -91,7 +121,10 @@ describe("sidebar activity routes", () => {
     });
 
     test("returns 404 when the Clerk user has no Supabase profile", async () => {
-      mockGetSupabaseUserId.mockResolvedValueOnce({ data: null, error: new Error("missing") } as never);
+      mockGetSupabaseUserId.mockResolvedValueOnce({
+        data: null,
+        error: new Error("missing"),
+      } as never);
 
       const res = await GET();
 
