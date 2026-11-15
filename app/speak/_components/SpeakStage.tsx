@@ -22,8 +22,7 @@ import {
   SPEAK_STATUS_EXIT_MS,
 } from "./speak-stage-timing";
 
-import { OrganicActivityMark } from "@/components/agents/organic-activity-mark";
-import { ORGANIC_HERO_MARK } from "@/components/agents/organic-hero-mark";
+import { OrganicAgentMark } from "@/components/agents/organic-agent-mark";
 import { glass } from "@/components/design-system/primitives";
 import { VoiceElapsed } from "@/components/voice/voice-elapsed";
 import { SPEAK_PRIMARY_ACTION_LABEL } from "@/lib/speak/speak-stage-view";
@@ -155,9 +154,8 @@ export function SpeakStage(props: SpeakStageProps) {
 
           <div className="my-auto flex shrink-0 flex-col items-center gap-stack-lg sm:gap-stack-2xl">
             {presence ?? (
-              <OrganicActivityMark
-                {...ORGANIC_HERO_MARK}
-                className="!size-[clamp(7rem,24dvh,13rem)] !rounded-3xl"
+              <OrganicAgentMark
+                hero
                 label="Organic voice companion"
                 seed="organic-speak"
                 state={

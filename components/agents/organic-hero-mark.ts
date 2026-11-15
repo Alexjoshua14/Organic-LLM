@@ -19,7 +19,7 @@ export const ORGANIC_HERO_GLASS = {
   complete: { opacity: 0.12, brightness: 1 },
 } as const;
 
-/** Props that make `OrganicActivityMark` read as the hero mark, so Speak and Stage stay identical. */
+/** The one Organic agent material. Only `OrganicAgentMark` spreads it, so every agent on a page matches. */
 export const ORGANIC_HERO_MARK = {
   relativeBlur: true,
   dotWeight: ORGANIC_HERO_DOT_WEIGHT,
