@@ -9,9 +9,9 @@ import { ORGANIC_STAGE_VIEW } from "../view-schema";
 // layout engine and chrome. A cheap router model only picks which scene to show.
 
 const uid = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
-const LEFT = { x: 8, y: 4, w: 11, h: 17 } as const;
-const RIGHT = { x: 20, y: 4, w: 12, h: 17 } as const;
-const WIDE = { x: 8, y: 4, w: 24, h: 17 } as const;
+const LEFT = { x: 8, y: 4, w: 11, h: 18 } as const;
+const RIGHT = { x: 20, y: 4, w: 12, h: 18 } as const;
+const WIDE = { x: 8, y: 4, w: 24, h: 18 } as const;
 
 export type StageDemoScene = {
   id: string;
@@ -93,7 +93,6 @@ export const STAGE_DEMO_SCENES: StageDemoScene[] = [
             "Failed layouts retry without losing the chat",
             "Specialists can fill pieces in parallel",
           ],
-          footer: { confidence: "high", caveats: [] },
         },
       },
     ],
@@ -164,14 +163,14 @@ export const STAGE_DEMO_SCENES: StageDemoScene[] = [
         id: uid(7),
         kind: "web",
         title: "Spatial computing",
-        rect: { x: 8, y: 4, w: 15, h: 17 },
+        rect: { x: 8, y: 4, w: 17, h: 18 },
         url: "https://en.wikipedia.org/wiki/Spatial_computing",
       },
       {
         id: uid(8),
         kind: "block",
         title: "Reading plan",
-        rect: { x: 24, y: 4, w: 8, h: 17 },
+        rect: { x: 26, y: 4, w: 6, h: 18 },
         block: {
           type: "plan-timeline",
           version: 1,

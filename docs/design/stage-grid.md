@@ -29,6 +29,13 @@ that leave the view are tucked away with `hidden` and have no exit animation yet
 would need `transition-behavior: allow-discrete` or a retained-element pass, and should be
 faster than the entrance (100–160ms). Reduced motion disables the arrival.
 
+A framed web page keeps its heading and surface from the first paint and fades the page in
+over them (`--stage-enter`, 220ms) when it loads. Slow third-party resources can hold a
+page's load event for seconds, so it is shown after 1.2s regardless (`WEB_REVEAL_MS` in
+`components/stage/stage-web.tsx`). The page is laid out at least 920px wide and scaled to
+its cell (never below 0.7), so it keeps a desktop layout at the stage's reading size
+instead of collapsing to a phone layout in a narrow cell.
+
 ## Viewport ownership
 
 Stage is one 32×32 top-level grid. Navigation, Organic and its active children,
@@ -59,12 +66,16 @@ legacy layout is repaired before publication. Recovery also redistributes old
 miniature overview pieces once. Full worker results aren't recovered as duplicate
 notes when attributed pieces already exist.
 
-Piece navigation lives with the response controls, so it consumes no artifact
-cells. In specialist and individual-piece tabs, the response contracts to its controls and gives
-the artifact rows more height. The full reply remains available through the
-explicit response expansion or Conversation. Long content retains native scrolling
-inside its explicitly sized piece. To change reading space, save a validated
-placement in the intended tab; do not override it in the renderer.
+The latest response owns rows only on Organic's home view and while reading. In every
+view that shows pieces its rows are sized to zero and the artifact rows take the height,
+so the composer is the only thing under the pieces. Its cells stay reserved: the designer
+and the validator still keep pieces out of them. The full exchange stays in Conversation.
+The top bar's Pieces control switches between the home view and All pieces; there is no
+author or piece picker, and a specialist's view opens from its mark while it works. Send
+errors and designer recovery sit inside the composer's measured block, so the grid makes
+room for them only while one shows. Long content retains native scrolling inside its
+explicitly sized piece. To change reading space, save a validated placement in the
+intended tab; do not override it in the renderer.
 
 Organic's centered home and an explicitly expanded response hide pieces without
 changing their rectangles. Visited pieces stay mounted while hidden. The server
@@ -74,9 +85,14 @@ can judge the space available for a requested layout.
 
 Diagrams use the shared Mermaid renderer's `canvas` variant: no well, border,
 padding, type label, or repeated title. Recipes own their single heading. Piece
-arrangement controls appear on hover/focus and stay available on touch. Agent
-identity uses OrganicActivityMark with a Stage-local, more legible glass profile;
-names/status are secondary and reserve caption metrics.
+arrangement controls appear on hover/focus and stay available on touch. Organic and
+its specialists render `OrganicAgentMark` (`components/agents/organic-agent-mark.tsx`),
+the same material as Speak's center; no surface passes its own glass. The wordmark names
+Organic once, so the mark's own name is kept for assistive tech only; specialists keep
+visible names. On the home view the mark takes Speak's center size when its rows fit
+(`hero` in `lib/stage/frame.ts`). Docked, at 700px and up, Organic centers on the
+wordmark's axis (`--stage-rail`); its specialists keep their own cells and slide onto
+that axis, one either side of it.
 The child cancellation control reads **Stop**, separate from the identity button
 that opens its work. Its tooltip and accessible label name the affected child.
 
@@ -93,8 +109,9 @@ remain explicit saves.
 ## View selection
 
 Organic is the centered home view. It tucks pieces away, while specialist views
-show that author's work and Pieces exposes the workspace. The response and
-composer share the page center; reader actions sit at the trailing edge. Visited
+show that author's work and Pieces, in the top bar, exposes the workspace. On the home
+view the response sits under Organic at the page center, with one control that gives it
+the whole body. Visited
 pieces stay mounted while tucked away, preserving diagram SVGs, chat and scroll
 state. They render lazily on their first visit.
 
@@ -115,9 +132,7 @@ opt-in uses. These adjustments are specific to Stage beta.
 
 ## Phone response space
 
-Below 700px, the existing response reservation spans the full width and reserves at least
-144px (208px when designer recovery is present). The reply, navigation and recovery action
-share that space without a 100%-height response pushing recovery outside it. Response content
-scrolls independently, and phone navigation reserves its actual 44px control height. Organic's
-home identity uses wider chrome cells and sits slightly higher; saved artifact placements are
-unchanged. Desktop reservations and artifact tab geometry retain their existing behavior.
+Below 700px, the response reservation spans the full width on the home view and scrolls
+independently. Organic's home identity uses wider chrome cells and sits slightly higher;
+saved artifact placements are unchanged. Desktop reservations and artifact tab geometry
+retain their existing behavior.

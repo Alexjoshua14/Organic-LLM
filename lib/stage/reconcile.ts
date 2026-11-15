@@ -147,7 +147,12 @@ export function mergeStageDesignPlan(
       continue;
     }
     const [w, h] = dimensions(operation.kind);
-    const rect = operation.rect ?? findStagePlacement(widgets, w, h, stageReservedRects(current));
+    const reserved = stageReservedRects(current);
+    const rect =
+      operation.rect ??
+      // A framed page reads best wide: it takes the roomier cell whenever the stage has one.
+      (operation.kind === "web" ? findStagePlacement(widgets, 16, 18, reserved) : null) ??
+      findStagePlacement(widgets, w, h, reserved);
 
     if (!rect) throw new StageLayoutError("No free space for the requested widget");
     widgets.push(stageWidgetFromPiece(operation, rect, chatIds.get(index), widgetIds.get(index)));

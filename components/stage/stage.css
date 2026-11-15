@@ -10,6 +10,10 @@
   --stage-grid-enter: 220ms;
   --stage-grid-exit: 140ms;
   --stage-inset: clamp(16px, 2.6vw, 40px);
+  /* The wordmark's width, measured in use-stage-frame.ts (this is the value before the first
+     measure). Docked, Organic and its specialists center on this same rail. */
+  --stage-rail: 124px;
+  --stage-child-reach: 36px;
   position: relative;
   isolation: isolate;
   flex: 1;
@@ -172,14 +176,17 @@
   width: 76px;
   height: 76px;
 }
+/* The wordmark already names Organic once; the mark's own name is for assistive tech. */
 .stage-agent h1 {
-  font-size: 22px;
-  line-height: 1.3;
-  letter-spacing: -0.045em;
-  margin: 16px 0 0;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 .stage-agent-status {
-  margin: 8px 0 0;
+  margin: 12px 0 0;
   width: 100%;
   height: 30px;
   font-size: 10px;
@@ -243,12 +250,8 @@
   width: 52px;
   height: 52px;
 }
-.organic-stage[data-compact="true"] .stage-agent h1 {
-  font-size: 18px;
-  margin-top: 8px;
-}
 .organic-stage[data-compact="true"] .stage-agent-status {
-  margin-top: 4px;
+  margin-top: 6px;
   height: 26px;
   line-height: 13px;
 }
@@ -261,6 +264,52 @@
 }
 .organic-stage[data-compact="true"] .stage-subagent-name {
   margin-top: 4px;
+}
+/* Home, with room: the mark is Speak's center mark, and its status reads as Speak's does. */
+.organic-stage[data-hero="true"] .stage-agent-status {
+  margin-top: 20px;
+  height: auto;
+  min-height: 24px;
+  font-size: 16px;
+  font-weight: 300;
+  line-height: 24px;
+  letter-spacing: -0.02em;
+}
+/* Docked, Organic sits under the wordmark on the same axis. Each specialist keeps its own
+   cells and slides to that axis, one either side of it; a lone specialist sits on it. The
+   cells have no column gap, so slot 1's center is 183.333% of its own width from the edge. */
+@media (min-width: 700px) {
+  .organic-stage[data-docked="true"] .stage-agent {
+    justify-self: start;
+    width: var(--stage-rail);
+  }
+  /* Slid together, the two cells overlap: only their contents take the pointer, and a name
+     wraps inside its own half. */
+  .organic-stage[data-docked="true"] .stage-subagent {
+    pointer-events: none;
+  }
+  .organic-stage[data-docked="true"] .stage-subagent > * {
+    pointer-events: auto;
+  }
+  .organic-stage[data-docked="true"] .stage-subagent-identity {
+    max-width: calc(var(--stage-child-reach) * 2 - 6px);
+  }
+  .organic-stage[data-docked="true"] .stage-subagent[data-agent-slot="0"] {
+    translate: calc(var(--stage-rail) / 2 - var(--stage-child-reach) - 50%) 0;
+  }
+  .organic-stage[data-docked="true"] .stage-subagent[data-agent-slot="1"] {
+    translate: calc(var(--stage-rail) / 2 + var(--stage-child-reach) - 183.333%) 0;
+  }
+  .organic-stage[data-docked="true"]
+    .stage-subagent-tree[data-children="1"]
+    .stage-subagent[data-agent-slot="0"] {
+    translate: calc(var(--stage-rail) / 2 - 50%) 0;
+  }
+  .organic-stage[data-docked="true"]
+    .stage-subagent-tree[data-children="1"]
+    .stage-subagent[data-agent-slot="1"] {
+    translate: calc(var(--stage-rail) / 2 - 183.333%) 0;
+  }
 }
 .stage-piece {
   position: relative;
@@ -469,6 +518,7 @@
   flex-direction: column;
 }
 .stage-response {
+  position: relative;
   flex: 1;
   overflow: hidden;
   display: flex;
@@ -476,57 +526,34 @@
   width: 100%;
   min-height: 0;
 }
-.stage-response-authors {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  min-height: 32px;
-  flex: 0 0 32px;
-  white-space: nowrap;
-}
-.stage-response-author-tabs {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.stage-response-actions {
-  display: flex;
-  gap: 4px;
-  margin-left: auto;
-  flex-shrink: 0;
-}
-.stage-response-authors > .stage-icon-button:first-of-type {
-  margin-left: auto;
-}
-.stage-response-author {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-  min-height: 32px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--stage-muted);
-  font-size: 11px !important;
-}
-.stage-response-author[aria-pressed="true"] {
-  color: var(--stage-ink);
-}
-.stage-response-new {
-  color: var(--stage-focus);
-  font-size: 8px;
-}
+/* Short replies center under Organic as a block; long ones fill a readable column. */
 .stage-response-copy {
   flex: 1;
+  width: fit-content;
+  max-width: min(72ch, calc(100% - 80px));
   min-height: 0;
+  margin-inline: auto;
   overflow: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
   padding: 6px 0;
+}
+.stage-response-expand {
+  position: absolute;
+  top: 0;
+  right: 0;
+  opacity: 0;
+  transition: opacity var(--stage-feedback);
+}
+.stage-reply:hover .stage-response-expand,
+.stage-response-expand:focus-visible,
+.stage-response-expand[aria-pressed="true"] {
+  opacity: 1;
+}
+@media (hover: none) {
+  .stage-response-expand {
+    opacity: 1;
+  }
 }
 .stage-prose {
   font-size: 14px;
@@ -591,22 +618,11 @@
   position: relative;
   z-index: 40;
 }
-.stage-footer-caption {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 8px 0;
-  color: var(--stage-muted);
-  font-size: 9px;
-  line-height: 14px;
-}
-.stage-shortcut {
-  opacity: 0.7;
-}
 .stage-error {
   display: flex;
   gap: 12px;
   align-items: center;
+  padding: 0 8px 8px;
   font-size: 12px;
   line-height: 1.5;
 }
@@ -615,7 +631,6 @@
 }
 .stage-design-error {
   flex-shrink: 0;
-  margin-top: 4px;
   color: var(--stage-muted);
   font-size: 10px;
 }
@@ -765,8 +780,7 @@
   .stage-tool {
     padding: 0 8px;
   }
-  .stage-tool span,
-  .stage-shortcut {
+  .stage-tool span {
     display: none;
   }
   .stage-wordmark {
@@ -776,10 +790,6 @@
   .stage-agent-mark {
     width: 56px;
     height: 56px;
-  }
-  .stage-agent h1 {
-    font-size: 17px;
-    margin-top: 8px;
   }
   .stage-agent-status {
     font-size: 9px;
@@ -819,9 +829,6 @@
     right: auto;
     width: min(320px, calc(25% - var(--stage-inset)));
   }
-}
-.organic-stage[data-tiny="true"] .stage-agent h1 {
-  display: none;
 }
 .organic-stage[data-tiny="true"] .stage-agent-mark {
   width: 24px;
@@ -896,52 +903,6 @@
   }
 }
 
-.stage-piece-picker {
-  z-index: 60;
-  width: min(280px, calc(100vw - 32px));
-  max-height: min(360px, var(--radix-popover-content-available-height));
-  overflow: auto;
-  padding: 6px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--popover);
-  color: var(--popover-foreground);
-  box-shadow: 0 12px 32px -18px rgb(0 0 0 / 25%);
-  font-family: var(--font-commissioner), sans-serif;
-}
-.stage-piece-picker-trigger {
-  max-width: 180px;
-}
-.stage-piece-picker-trigger > span {
-  min-width: 0;
-  max-width: 160px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.stage-piece-picker-trigger > svg {
-  flex-shrink: 0;
-}
-.stage-piece-picker button {
-  display: block;
-  width: 100%;
-  padding: 8px 10px;
-  border: 0;
-  border-radius: 5px;
-  text-align: left;
-  background: none;
-  color: inherit;
-  font-size: 12px;
-  cursor: pointer;
-}
-.stage-piece-picker button:hover,
-.stage-piece-picker button:focus-visible {
-  background: var(--muted);
-}
-.stage-piece-picker button[aria-pressed="true"] {
-  font-weight: 550;
-}
-
 /* Phone chrome uses the same grid reservations, with readable independent scroll regions. */
 @media (max-width: 699px) {
   .stage-topbar {
@@ -965,21 +926,7 @@
     min-height: 44px;
     padding-inline: 6px;
   }
-  .stage-response-authors {
-    flex: 0 0 auto;
-    min-height: 44px;
-    gap: 8px;
-  }
-  .stage-response-author-tabs {
-    flex: 1;
-    gap: 16px;
-    min-height: 44px;
-  }
-  .stage-response-author {
-    min-height: 44px;
-    font-size: 12px !important;
-  }
-  .stage-response-actions .stage-icon-button {
+  .stage-response-expand {
     min-width: 40px;
     min-height: 44px;
   }
@@ -995,6 +942,7 @@
     min-height: 44px;
   }
   .stage-response-copy {
+    max-width: calc(100% - 48px);
     padding-block: 8px;
   }
   .stage-prose {
@@ -1006,37 +954,86 @@
     height: 48px;
   }
 }
-.stage-web-frame {
-  display: block;
-  width: 100%;
+/* A framed page is a piece like any other: one heading, then the page on a soft surface that
+   stays in place while the page loads. The page is laid out wider than its cell and scaled to
+   fit (--stage-web-scale, set by StageWeb), so it reads at the stage's scale, not a phone's. */
+.stage-piece[data-kind="web"] .stage-piece-content {
+  overflow: hidden;
+}
+.stage-web {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   height: 100%;
+  min-height: 0;
+}
+.stage-web-source {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  margin: 0 72px 0 0;
+  color: var(--stage-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.stage-web-source h2 {
+  overflow: hidden;
+  margin: 0;
+  color: var(--stage-ink);
+  font-size: 16px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+}
+.stage-web-viewport {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--stage-rule);
+  border-radius: 14px;
+  background: var(--stage-glass);
+}
+.stage-web-wait {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+}
+.stage-web-frame {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: calc(100% / var(--stage-web-scale, 1));
+  height: calc(100% / var(--stage-web-scale, 1));
   border: 0;
-  border-radius: inherit;
   background: transparent;
-  color-scheme: light dark;
+  transform: scale(var(--stage-web-scale, 1));
+  transform-origin: 0 0;
+  opacity: 0;
+  transition: opacity var(--stage-enter) ease-out;
+}
+.stage-web[data-state="ready"] .stage-web-frame {
+  opacity: 1;
 }
 .stage-web-card {
   display: flex;
+  flex: 1;
   flex-direction: column;
   align-items: flex-start;
   justify-content: center;
   gap: 6px;
-  height: 100%;
-  padding: 0 4px;
+  min-height: 0;
+  padding: 0 20px;
+  border: 1px solid var(--stage-rule);
+  border-radius: 14px;
 }
 .stage-web-card p {
   margin: 0;
 }
-.stage-web-card-host {
-  font-size: 12px;
-  color: var(--stage-muted);
-}
-.stage-web-card-title {
-  font-size: 20px;
-  line-height: 1.3;
-  letter-spacing: -0.03em;
-}
 .stage-web-card a {
   font-size: 13px;
   text-decoration: underline;
+  text-underline-offset: 3px;
 }

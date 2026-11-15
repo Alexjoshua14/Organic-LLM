@@ -7,7 +7,15 @@ import type { ChatEffortLevel } from "@/lib/schemas/chat-effort";
 import type { StageTurnSettings, StageRect } from "@/lib/stage/schema";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { AudioLines, Grid3X3, History, MessageCircle, ArrowUpRight, RotateCcw } from "lucide-react";
+import {
+  AudioLines,
+  Grid3X3,
+  History,
+  Layers,
+  MessageCircle,
+  ArrowUpRight,
+  RotateCcw,
+} from "lucide-react";
 
 import { useStage } from "./use-stage";
 import { StagePieces } from "./stage-pieces";
@@ -118,7 +126,7 @@ export function StageView({
   const [showGrid, setShowGrid] = useState(false);
   const [panel, setPanel] = useState<"conversation" | "activity" | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const { root, composer, size } = useStageMeasurements();
+  const { root, composer, wordmark, size } = useStageMeasurements();
   const [view, setView] = useState<StageView>(ORGANIC_STAGE_VIEW);
   const author = view.kind === "author" ? view.id! : "organic";
   const pieceId = view.kind === "piece" ? view.id : null;
@@ -281,13 +289,15 @@ export function StageView({
       }
       data-grid={showGrid || !!selected}
       data-empty={empty}
+      data-docked={!frame.centered}
+      data-hero={frame.hero}
       data-compact={frame.compact}
       data-tiny={frame.tiny}
       data-short-children={frame.shortChildren}
     >
       <div aria-hidden className="stage-grid-guide" />
       <header className="stage-topbar" style={stageCellStyle(frame.header)}>
-        <div className="stage-wordmark">
+        <div ref={wordmark} className="stage-wordmark">
           <span>organic</span>
           <span className="stage-wordmark-slash">/</span>
           <span>stage</span>
@@ -300,6 +310,23 @@ export function StageView({
               disabled={sending || Boolean(voice?.connected || voice?.connecting)}
               onChange={setContinuity}
             />
+          )}
+          {!!state?.widgets.length && (
+            <button
+              aria-label="Pieces"
+              aria-pressed={view.kind === "overview"}
+              className="stage-tool"
+              title={view.kind === "overview" ? "Back to Organic" : "Show every piece"}
+              type="button"
+              onClick={() =>
+                selectView(
+                  view.kind === "overview" ? ORGANIC_STAGE_VIEW : { kind: "overview", id: null }
+                )
+              }
+            >
+              <Layers size={15} />
+              <span>Pieces</span>
+            </button>
           )}
           <button
             aria-label="Show grid"
@@ -349,6 +376,7 @@ export function StageView({
               : status
           }
           rect={frame.parent}
+          hero={frame.hero}
           state={sending ? "working" : loading || activeSubagents > 0 ? "waiting" : "idle"}
           onFocus={() => {
             chooseAuthor("organic");
@@ -388,71 +416,70 @@ export function StageView({
       )}
 
       <footer className="stage-footer">
-        <div className="stage-reply" style={stageCellStyle(frame.reply)}>
-          {error || voice?.error ? (
-            <div className="stage-error">
-              <p role="alert">{error || voice?.error}</p>
-              {!state && (
-                <button className="stage-text-button" type="button" onClick={() => void refresh()}>
-                  <RotateCcw size={13} />
-                  Try again
-                </button>
-              )}
-            </div>
-          ) : latestReply ? (
-            <StageResponse
-              state={state!}
-              selectedAuthor={author}
-              organicActive={view.kind === "organic"}
-              overviewActive={view.kind === "overview"}
-              pieces={state!.widgets}
-              selectedPieceId={pieceId}
-              onSelectPiece={(id) => selectView({ kind: "piece", id })}
-              onShowPieces={
-                state?.widgets.length ? () => selectView({ kind: "overview", id: null }) : undefined
-              }
-              onSelectAuthor={chooseAuthor}
-              expanded={frame.reading}
-              compact={frame.replyCompact}
-              onToggleExpanded={() => setReading((v) => !v)}
-              onOpenConversation={() => togglePanel("conversation")}
-            />
-          ) : (
-            <div className="stage-starters">
-              {STARTERS.map((starter) => (
-                <button
-                  key={starter.label}
-                  className="stage-text-button"
-                  disabled={!state || (sending && !voiceActive)}
-                  type="button"
-                  onClick={() => {
-                    setComposerInject({ id: Date.now(), text: starter.prompt });
-                    composer.current?.querySelector("textarea")?.focus();
-                  }}
-                >
-                  {starter.label}
-                  <ArrowUpRight aria-hidden size={12} />
-                </button>
-              ))}
-            </div>
-          )}
-          {failed ? (
-            <div className="stage-error stage-design-error">
-              <p role="status">
-                {state?.design?.error ?? "The designer couldn’t finish this arrangement."}
-              </p>
-              <button
-                className="stage-text-button"
-                type="button"
-                onClick={() => void retryDesign()}
-              >
-                Try designer again
-              </button>
-            </div>
-          ) : null}
-        </div>
+        {/* Organic's words belong to the home view (and to reading). With pieces showing, the
+            pieces are the reply; the full exchange stays one tap away in Conversation. */}
+        {frame.showReply && (
+          <div className="stage-reply" style={stageCellStyle(frame.reply)}>
+            {latestReply ? (
+              <StageResponse
+                state={state!}
+                selectedAuthor={author}
+                expanded={frame.reading}
+                onToggleExpanded={() => setReading((v) => !v)}
+              />
+            ) : (
+              <div className="stage-starters">
+                {STARTERS.map((starter) => (
+                  <button
+                    key={starter.label}
+                    className="stage-text-button"
+                    disabled={!state || (sending && !voiceActive)}
+                    type="button"
+                    onClick={() => {
+                      setComposerInject({ id: Date.now(), text: starter.prompt });
+                      composer.current?.querySelector("textarea")?.focus();
+                    }}
+                  >
+                    {starter.label}
+                    <ArrowUpRight aria-hidden size={12} />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         <div className="stage-composer-slot" style={stageCellStyle(frame.composer)}>
+          {/* Notices sit inside the measured block, so the grid makes room only while one shows. */}
           <div ref={composer} className="stage-composer-measure">
+            {error || voice?.error ? (
+              <div className="stage-error">
+                <p role="alert">{error || voice?.error}</p>
+                {!state && (
+                  <button
+                    className="stage-text-button"
+                    type="button"
+                    onClick={() => void refresh()}
+                  >
+                    <RotateCcw size={13} />
+                    Try again
+                  </button>
+                )}
+              </div>
+            ) : null}
+            {failed ? (
+              <div className="stage-error stage-design-error">
+                <p role="status">
+                  {state?.design?.error ?? "The designer couldn’t finish this arrangement."}
+                </p>
+                <button
+                  className="stage-text-button"
+                  type="button"
+                  onClick={() => void retryDesign()}
+                >
+                  Try designer again
+                </button>
+              </div>
+            ) : null}
             <div className="stage-core-input" data-voice-active={voiceActive}>
               <CoreInput
                 variant="stage-beta"
@@ -512,14 +539,6 @@ export function StageView({
                   ) : null
                 }
               />
-            </div>
-            <div className="stage-footer-caption">
-              <span>
-                {working
-                  ? "The designer is working. Keep talking."
-                  : "A thought can become a place."}
-              </span>
-              <span className="stage-shortcut">⌘ / to focus</span>
             </div>
           </div>
         </div>

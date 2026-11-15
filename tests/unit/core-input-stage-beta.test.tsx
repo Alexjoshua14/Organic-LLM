@@ -1,5 +1,5 @@
 import { afterAll, afterEach, beforeEach, expect, mock, test } from "bun:test";
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { useRef } from "react";
 
 import { DEFAULT_COMPOSER_MODEL } from "@/lib/chat/composer-tool-defaults";
@@ -106,6 +106,16 @@ test("Stage returns to centered Organic, retains tucked pieces and applies serve
   const { emptyStageState } = await import("@/lib/stage/schema");
   const { stageNavigation } = await import("@/lib/stage/views");
   const source = { id: crypto.randomUUID(), name: "Prep Planner" };
+  // Author views have no tab: they open by asking, by voice, or from a working specialist's mark.
+  // The test drives the same view command those paths send.
+  const { STAGE_VIEW_EVENT } = await import("@/lib/stage/view-schema");
+  const showAuthor = () =>
+    fireEvent(
+      window,
+      new CustomEvent(STAGE_VIEW_EVENT, {
+        detail: { id: crypto.randomUUID(), target: { kind: "author", id: source.id } },
+      })
+    );
   let state: import("@/lib/stage/schema").StageState = {
     ...emptyStageState(),
     widgets: [
@@ -142,19 +152,19 @@ test("Stage returns to centered Organic, retains tucked pieces and applies serve
     return Response.json({ state });
   }) as typeof fetch;
   const app = render(<Stage />);
-  await waitFor(() =>
-    expect(Boolean(app.queryByRole("button", { name: /Prep Planner/ }))).toBe(true)
-  );
+  await waitFor(() => expect(Boolean(app.queryByRole("button", { name: "Pieces" }))).toBe(true));
+  // The view listener is a passive effect of the loaded state; let it attach before commanding.
+  await act(async () => {});
   expect(Boolean(app.queryByRole("article", { name: "Prep checklist" }))).toBe(false);
   expect(
     app.container.querySelector<HTMLElement>('[data-agent-id="organic"]')?.style.gridColumn
   ).toBe("13 / span 8");
-  fireEvent.click(app.getByRole("button", { name: /Prep Planner/ }));
+  showAuthor();
   const piece = app.getByRole("article", { name: "Prep checklist" });
-  fireEvent.click(app.getByRole("button", { name: "Organic", exact: true }));
+  fireEvent.click(app.getByRole("button", { name: "Talk to Organic" }));
   expect(piece.hasAttribute("hidden")).toBe(true);
   expect(piece.isConnected).toBe(true);
-  fireEvent.click(app.getByRole("button", { name: /Prep Planner/ }));
+  showAuthor();
   expect(app.getByRole("article", { name: "Prep checklist" }) === piece).toBe(true);
   fireEvent.change(app.getByRole("textbox", { name: "Message Organic" }), {
     target: { value: "show me Organic" },
@@ -166,16 +176,15 @@ test("Stage returns to centered Organic, retains tucked pieces and applies serve
   expect(
     app.container.querySelector<HTMLElement>('[data-agent-id="organic"]')?.style.gridColumn
   ).toBe("13 / span 8");
-  fireEvent.click(app.getByRole("button", { name: /Prep Planner/ }));
+  showAuthor();
   window.dispatchEvent(new Event("focus"));
   await new Promise((resolve) => setTimeout(resolve, 30));
   expect(piece.hasAttribute("hidden")).toBe(false);
   expect(requests).toHaveLength(1);
-  const { STAGE_VIEW_EVENT } = await import("@/lib/stage/view-schema");
   const command = { id: crypto.randomUUID(), target: { kind: "organic", id: null } };
   fireEvent(window, new CustomEvent(STAGE_VIEW_EVENT, { detail: command }));
   expect(piece.hasAttribute("hidden")).toBe(true);
-  fireEvent.click(app.getByRole("button", { name: /Prep Planner/ }));
+  showAuthor();
   fireEvent(window, new CustomEvent(STAGE_VIEW_EVENT, { detail: command }));
   expect(piece.hasAttribute("hidden")).toBe(false);
 });
@@ -184,6 +193,16 @@ test("saved placement is identical after closing inspection, hiding guides, swit
   const { emptyStageState } = await import("@/lib/stage/schema");
   const { applyStageOperations } = await import("@/lib/stage/layout");
   const source = { id: crypto.randomUUID(), name: "Prep Planner" };
+  // Author views have no tab: they open by asking, by voice, or from a working specialist's mark.
+  // The test drives the same view command those paths send.
+  const { STAGE_VIEW_EVENT } = await import("@/lib/stage/view-schema");
+  const showAuthor = () =>
+    fireEvent(
+      window,
+      new CustomEvent(STAGE_VIEW_EVENT, {
+        detail: { id: crypto.randomUUID(), target: { kind: "author", id: source.id } },
+      })
+    );
   let state: import("@/lib/stage/schema").StageState = {
     ...emptyStageState(),
     widgets: [
@@ -221,10 +240,10 @@ test("saved placement is identical after closing inspection, hiding guides, swit
     return Response.json({ state });
   }) as typeof fetch;
   const app = render(<Stage />);
-  await waitFor(() =>
-    expect(Boolean(app.queryByRole("button", { name: /Prep Planner/ }))).toBe(true)
-  );
-  fireEvent.click(app.getByRole("button", { name: /Prep Planner/ }));
+  await waitFor(() => expect(Boolean(app.queryByRole("button", { name: "Pieces" }))).toBe(true));
+  // The view listener is a passive effect of the loaded state; let it attach before commanding.
+  await act(async () => {});
+  showAuthor();
   fireEvent.click(app.getByRole("button", { name: "Show grid" }));
   fireEvent.click(app.getByRole("button", { name: "Arrange Prep checklist" }));
   fireEvent.change(app.getByLabelText("Column"), { target: { value: "16" } });
@@ -242,15 +261,16 @@ test("saved placement is identical after closing inspection, hiding guides, swit
   fireEvent.click(app.getByRole("button", { name: "Show grid" }));
   expect(piece.style.gridColumn).toBe("16 / span 11");
   expect(piece.style.gridRow).toBe("6 / span 16");
-  fireEvent.click(app.getByRole("button", { name: "Organic", exact: true }));
-  fireEvent.click(app.getByRole("button", { name: /Prep Planner/ }));
+  fireEvent.click(app.getByRole("button", { name: "Talk to Organic" }));
+  showAuthor();
   expect(piece.style.gridColumn).toBe("16 / span 11");
   app.unmount();
   const reloaded = render(<Stage />);
   await waitFor(() =>
-    expect(Boolean(reloaded.queryByRole("button", { name: /Prep Planner/ }))).toBe(true)
+    expect(Boolean(reloaded.queryByRole("button", { name: "Pieces" }))).toBe(true)
   );
-  fireEvent.click(reloaded.getByRole("button", { name: /Prep Planner/ }));
+  await act(async () => {});
+  showAuthor();
   const restored = reloaded.getByRole("article", { name: "Prep checklist" });
   expect(restored.style.gridColumn).toBe("16 / span 11");
   expect(restored.style.gridRow).toBe("6 / span 16");
