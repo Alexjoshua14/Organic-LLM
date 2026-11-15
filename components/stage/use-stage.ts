@@ -7,6 +7,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { stageSubagentActive } from "@/lib/stage/schema";
 
 const DESIGN_POLL_MS = 1_500;
+// A failing poll waits longer each time, up to this, and resets on the next success.
+const DESIGN_POLL_MAX_MS = 15_000;
 
 export async function stageRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
@@ -39,30 +41,51 @@ export function useStage({ voiceActive = false }: { voiceActive?: boolean } = {}
   const mounted = useRef(true);
   const retryTurn = useRef<{ message: string; requestId: string } | null>(null);
 
+  // Every saved change bumps the revision, so an equal one is the state already on screen.
+  // Re-rendering it would rebuild the frame and re-compare every piece for nothing.
   const accept = useCallback((next: StageState) => {
-    if (!mounted.current || (current.current && next.revision < current.current.revision)) return;
+    if (!mounted.current || (current.current && next.revision <= current.current.revision)) return;
     current.current = next;
     setState(next);
   }, []);
 
-  const refresh = useCallback(async () => {
-    try {
-      const data = await stageRequest<{ state: StageState }>("/api/stage");
+  /**
+   * Reads the stage. Once one is on screen, the server answers with its revision alone when
+   * nothing changed. A background read (polling, refocus) fails quietly and reports it to the
+   * caller; only a first load or an explicit retry shows the error.
+   */
+  const load = useCallback(
+    async (background: boolean) => {
+      const since = current.current?.revision;
 
-      accept(data.state);
-      if (mounted.current) setError(null);
-    } catch (cause) {
-      if (mounted.current)
-        setError(cause instanceof Error ? cause.message : "Couldn’t load your stage.");
-    } finally {
-      if (mounted.current) setLoading(false);
-    }
-  }, [accept]);
+      try {
+        const data = await stageRequest<{ state?: StageState; revision?: number }>(
+          since ? `/api/stage?since=${since}` : "/api/stage"
+        );
+
+        if (data.state) accept(data.state);
+        if (mounted.current) setError(null);
+
+        return true;
+      } catch (cause) {
+        if (mounted.current && (!background || !current.current))
+          setError(cause instanceof Error ? cause.message : "Couldn’t load your stage.");
+
+        return false;
+      } finally {
+        if (mounted.current) setLoading(false);
+      }
+    },
+    [accept]
+  );
+  const refresh = useCallback(async () => {
+    await load(false);
+  }, [load]);
 
   useEffect(() => {
     mounted.current = true;
-    void refresh();
-    const focus = () => void refresh();
+    void load(false);
+    const focus = () => void load(true);
 
     window.addEventListener("focus", focus);
 
@@ -70,7 +93,7 @@ export function useStage({ voiceActive = false }: { voiceActive?: boolean } = {}
       mounted.current = false;
       window.removeEventListener("focus", focus);
     };
-  }, [refresh]);
+  }, [load]);
 
   const subagentKey =
     state?.subagents
@@ -88,18 +111,20 @@ export function useStage({ voiceActive = false }: { voiceActive?: boolean } = {}
       return;
     let disposed = false;
     let timer: ReturnType<typeof setTimeout>;
+    let delay = DESIGN_POLL_MS;
     const poll = async () => {
-      if (document.visibilityState !== "hidden") await refresh();
-      if (!disposed) timer = setTimeout(poll, DESIGN_POLL_MS);
+      if (document.visibilityState !== "hidden")
+        delay = (await load(true)) ? DESIGN_POLL_MS : Math.min(delay * 2, DESIGN_POLL_MAX_MS);
+      if (!disposed) timer = setTimeout(poll, delay);
     };
 
-    timer = setTimeout(poll, DESIGN_POLL_MS);
+    timer = setTimeout(poll, delay);
 
     return () => {
       disposed = true;
       clearTimeout(timer);
     };
-  }, [state?.design?.id, state?.design?.status, subagentKey, voiceActive, refresh]);
+  }, [state?.design?.id, state?.design?.status, subagentKey, voiceActive, load]);
 
   const send = useCallback(
     async (message: string, settings?: StageTurnSettings) => {

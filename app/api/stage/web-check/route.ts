@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 import { getSupabaseUserIdCached } from "@/data/supabase/profile-id-cache";
-import { checkStageLimit } from "@/lib/stage/limit";
+import { checkStageWebLimit } from "@/lib/stage/limit";
 import { checkStageWeb } from "@/lib/stage/web-check";
 
 const headers = { "Cache-Control": "private, max-age=300" };
@@ -16,7 +16,7 @@ export async function GET(req: Request) {
 
   if (profile.error || !profile.data)
     return NextResponse.json({ error: "User not found" }, { status: 404 });
-  if (!(await checkStageLimit(profile.data)))
+  if (!(await checkStageWebLimit(profile.data)))
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   const url = new URL(req.url).searchParams.get("url") ?? "";
 

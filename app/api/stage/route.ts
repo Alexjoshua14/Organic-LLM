@@ -46,7 +46,11 @@ function errorStatus(error: unknown) {
   return json({ error: "Stage request failed" }, 500);
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  // The revision the caller already shows. When it is still current, the reply is that revision
+  // alone instead of a full stage, which runs to hundreds of KB.
+  const since = Number(new URL(req.url).searchParams.get("since"));
+
   try {
     const id = await identity();
 
@@ -83,7 +87,7 @@ export async function GET() {
     // Polling also resumes queued work after a prior invocation ended. The designer lease deduplicates workers.
     scheduleStageDesign(id, state);
 
-    return json({ state });
+    return json(since > 0 && state.revision === since ? { revision: since } : { state });
   } catch {
     return json({ error: "Could not load stage" }, 500);
   }

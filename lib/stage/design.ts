@@ -6,7 +6,15 @@ import { describeStageDesignFailure } from "./design-failure";
 import { generateStageDesign, StageGenerationError } from "./agent";
 import { availableStageChildSlot, repairStageLayout, StageLayoutError } from "./layout";
 import { mergeStageDesignPlan, sanitizeDesignPlan } from "./reconcile";
-import { acquireStageLease, mutateStage, readStage, releaseStageLease } from "./store";
+import {
+  acquireStageLease,
+  mutateStage,
+  readStage,
+  readStageRevision,
+  releaseStageLease,
+  renewStageLease,
+  StageLeaseLostError,
+} from "./store";
 
 import { createLogger } from "@/lib/logger";
 
@@ -14,6 +22,8 @@ const logger = createLogger("lib/stage/design.ts");
 
 // Covers two generation attempts (50s each) plus one layout-level regeneration.
 const DESIGN_TIMEOUT_MS = 240_000;
+// How often a running designer renews its lease and checks for a cancel or a newer job.
+const DESIGN_WATCH_MS = 750;
 const controllers = new Map<string, AbortController>();
 
 function releaseDesign(state: StageState): StageState {
@@ -60,16 +70,30 @@ export async function runStageDesign(args: {
   controllers.set(controllerKey, controller);
   let timer: ReturnType<typeof setTimeout> | undefined;
   let disposed = false;
+  let leaseLost = false;
+  let seenRevision = 0;
+  // Keeps the lease alive for as long as the run is, and stops the run on a cancel or a newer job.
+  // Only a changed revision is worth decoding the whole stage for.
   const poll = async () => {
     try {
-      const { state } = await readStage(args.ownerId);
-
-      if (state.design?.id !== args.jobId || state.design.status === "canceling")
+      if (!(await renewStageLease(args.ownerId, lease))) {
+        leaseLost = true;
         controller.abort();
+      } else {
+        const revision = await readStageRevision(args.ownerId);
+
+        if (revision !== seenRevision) {
+          seenRevision = revision;
+          const { state } = await readStage(args.ownerId);
+
+          if (state.design?.id !== args.jobId || state.design.status === "canceling")
+            controller.abort();
+        }
+      }
     } catch {
       controller.abort();
     }
-    if (!disposed && !controller.signal.aborted) timer = setTimeout(poll, 750);
+    if (!disposed && !controller.signal.aborted) timer = setTimeout(poll, DESIGN_WATCH_MS);
   };
 
   try {
@@ -93,9 +117,14 @@ export async function runStageDesign(args: {
 
         if (slot === null) return null;
 
+        // A worker taking over a job already under way keeps its start, so the stale-job timeout
+        // still bounds the job as a whole rather than restarting with every takeover.
+        const startedAt =
+          state.design.phase === "working" ? state.design.startedAt : new Date().toISOString();
+
         return repairStageLayout({
           ...state,
-          design: { ...state.design, phase: "working", slot, startedAt: new Date().toISOString() },
+          design: { ...state.design, phase: "working", slot, startedAt },
         });
       },
       { lease }
@@ -214,13 +243,17 @@ export async function runStageDesign(args: {
       usage = error.usage;
       model = error.model;
     }
-    const failure = describeStageDesignFailure(error);
+    if (error instanceof StageLeaseLostError) leaseLost = true;
+    const failure = describeStageDesignFailure(leaseLost ? new StageLeaseLostError() : error);
 
     logger.warn("runStageDesign", "design_failed", {
       jobId: args.jobId,
       model,
       code: failure.code,
     });
+    // Another worker may own the job now; failing it here would end that worker's run. If nobody
+    // does, the next read finds the job stale or schedules it again.
+    if (leaseLost) return;
     await mutateStage(
       args.ownerId,
       "design-failed",
