@@ -10,6 +10,16 @@ const DESIGN_POLL_MS = 1_500;
 // A failing poll waits longer each time, up to this, and resets on the next success.
 const DESIGN_POLL_MAX_MS = 15_000;
 
+/** A failed Stage request, with its HTTP status so callers can tell sign-in from a hiccup. */
+export class StageRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status: number
+  ) {
+    super(message);
+  }
+}
+
 export async function stageRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
     ...init,
@@ -19,10 +29,11 @@ export async function stageRequest<T>(path: string, init?: RequestInit): Promise
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
-    throw new Error(
+    throw new StageRequestError(
       response.status === 401
         ? "Sign in to open your stage."
-        : (data?.error ?? "Your stage couldn’t be reached. Try again.")
+        : (data?.error ?? "Your stage couldn’t be reached. Try again."),
+      response.status
     );
   }
 
@@ -52,10 +63,10 @@ export function useStage({ voiceActive = false }: { voiceActive?: boolean } = {}
   /**
    * Reads the stage. Once one is on screen, the server answers with its revision alone when
    * nothing changed. A background read (polling, refocus) fails quietly and reports it to the
-   * caller; only a first load or an explicit retry shows the error.
+   * caller, unless the session ended or the caller says the failures have gone on too long.
    */
   const load = useCallback(
-    async (background: boolean) => {
+    async (background: boolean, persistent = false) => {
       const since = current.current?.revision;
 
       try {
@@ -68,8 +79,16 @@ export function useStage({ voiceActive = false }: { voiceActive?: boolean } = {}
 
         return true;
       } catch (cause) {
-        if (mounted.current && (!background || !current.current))
-          setError(cause instanceof Error ? cause.message : "Couldn’t load your stage.");
+        const signedOut = cause instanceof StageRequestError && cause.status === 401;
+
+        if (mounted.current && (!background || !current.current || signedOut || persistent))
+          setError(
+            persistent && !signedOut
+              ? "Lost touch with your stage. Still trying…"
+              : cause instanceof Error
+                ? cause.message
+                : "Couldn’t load your stage."
+          );
 
         return false;
       } finally {
@@ -114,7 +133,9 @@ export function useStage({ voiceActive = false }: { voiceActive?: boolean } = {}
     let delay = DESIGN_POLL_MS;
     const poll = async () => {
       if (document.visibilityState !== "hidden")
-        delay = (await load(true)) ? DESIGN_POLL_MS : Math.min(delay * 2, DESIGN_POLL_MAX_MS);
+        delay = (await load(true, delay >= DESIGN_POLL_MAX_MS))
+          ? DESIGN_POLL_MS
+          : Math.min(delay * 2, DESIGN_POLL_MAX_MS);
       if (!disposed) timer = setTimeout(poll, delay);
     };
 

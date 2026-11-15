@@ -65,18 +65,6 @@ function encode(ownerId: string, event: StageEvent) {
   return `${event.revision}|${ciphertext}`;
 }
 
-/**
- * The head revision alone, from the envelope's plaintext prefix (`<revision>|<ciphertext>`). A
- * stored stage runs to hundreds of KB, so pollers that only need to know whether anything changed
- * read these few bytes instead of the whole snapshot. 0 means no stage yet.
- */
-export async function readStageRevision(ownerId: string): Promise<number> {
-  const prefix = (await redis.getrange(keys(ownerId).head, 0, 15)) ?? "";
-  const revision = Number(prefix.slice(0, prefix.indexOf("|")));
-
-  return Number.isSafeInteger(revision) && revision > 0 ? revision : 0;
-}
-
 export async function readStage(ownerId: string): Promise<{ state: StageState; raw: string }> {
   const raw = (await redis.get<string>(keys(ownerId).head)) ?? "";
   return { state: raw ? decode(ownerId, raw).bundle : emptyStageState(), raw };
@@ -196,16 +184,31 @@ export async function acquireStageLease(
   return result ? { scope, token } : null;
 }
 
-/** Extends a lease this worker still holds. False when it expired or another worker took it. */
-export async function renewStageLease(ownerId: string, lease: StageLease) {
+const RENEW_SCRIPT = `
+if redis.call('GET', KEYS[1]) ~= ARGV[1] then return 0 end
+redis.call('PEXPIRE', KEYS[1], ARGV[2])
+return redis.call('GETRANGE', KEYS[2], 0, 15)
+`;
+
+/**
+ * Extends a lease this worker still holds and, in the same command, reads the head revision from
+ * the envelope's plaintext prefix (`<revision>|<ciphertext>`), so a running worker learns whether
+ * anything changed without pulling the whole snapshot (hundreds of KB). Null when the lease
+ * expired or another worker took it; 0 when there is no stage yet.
+ */
+export async function renewStageLease(ownerId: string, lease: StageLease): Promise<number | null> {
   const pair = keys(ownerId);
   const key = lease.scope === "turn" ? pair.turnLease : pair.designLease;
-  const renewed = await redis.eval(
-    "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('PEXPIRE', KEYS[1], ARGV[2]) end return 0",
-    [key],
+  const head = await redis.eval<string[], string | number>(
+    RENEW_SCRIPT,
+    [key, pair.head],
     [lease.token, String(LEASE_MS[lease.scope])]
   );
-  return renewed === 1;
+
+  if (typeof head !== "string") return null;
+  const revision = Number(head.slice(0, head.indexOf("|")));
+
+  return Number.isSafeInteger(revision) && revision > 0 ? revision : 0;
 }
 
 export async function releaseStageLease(ownerId: string, lease: StageLease) {

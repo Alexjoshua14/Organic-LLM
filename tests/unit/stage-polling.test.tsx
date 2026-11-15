@@ -53,3 +53,22 @@ test("a failed background read stays quiet; an explicit retry shows the error", 
   await act(() => result.current.refresh());
   expect(result.current.error).toBe("Stage request failed");
 });
+
+test("a background read that finds the session ended says so", async () => {
+  let status = 200;
+
+  globalThis.fetch = (async () =>
+    status === 200
+      ? Response.json({ state: { ...emptyStageState(), revision: 1 } })
+      : Response.json({ error: "Unauthorized" }, { status })) as typeof fetch;
+  const { result } = renderHook(() => useStage());
+
+  await waitFor(() => expect(result.current.state?.revision).toBe(1));
+  status = 401;
+  await act(async () => {
+    window.dispatchEvent(new Event("focus"));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  });
+  expect(result.current.error).toBe("Sign in to open your stage.");
+});
+

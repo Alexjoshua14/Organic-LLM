@@ -10,7 +10,6 @@ import {
   acquireStageLease,
   mutateStage,
   readStage,
-  readStageRevision,
   releaseStageLease,
   renewStageLease,
   StageLeaseLostError,
@@ -24,6 +23,9 @@ const logger = createLogger("lib/stage/design.ts");
 const DESIGN_TIMEOUT_MS = 240_000;
 // How often a running designer renews its lease and checks for a cancel or a newer job.
 const DESIGN_WATCH_MS = 750;
+// A watch tick that errors (a Redis hiccup) is retried; the run only stops once renewals have
+// failed for this long, which stays under the 30s design lease.
+const DESIGN_LEASE_GRACE_MS = 20_000;
 const controllers = new Map<string, AbortController>();
 
 function releaseDesign(state: StageState): StageState {
@@ -72,26 +74,31 @@ export async function runStageDesign(args: {
   let disposed = false;
   let leaseLost = false;
   let seenRevision = 0;
+  let renewedAt = Date.now();
   // Keeps the lease alive for as long as the run is, and stops the run on a cancel or a newer job.
-  // Only a changed revision is worth decoding the whole stage for.
+  // One Redis command per tick; only a changed revision is worth decoding the whole stage for.
   const poll = async () => {
     try {
-      if (!(await renewStageLease(args.ownerId, lease))) {
+      const revision = await renewStageLease(args.ownerId, lease);
+
+      if (revision === null) {
         leaseLost = true;
         controller.abort();
       } else {
-        const revision = await readStageRevision(args.ownerId);
-
+        renewedAt = Date.now();
         if (revision !== seenRevision) {
-          seenRevision = revision;
           const { state } = await readStage(args.ownerId);
 
+          seenRevision = revision;
           if (state.design?.id !== args.jobId || state.design.status === "canceling")
             controller.abort();
         }
       }
     } catch {
-      controller.abort();
+      if (Date.now() - renewedAt > DESIGN_LEASE_GRACE_MS) {
+        leaseLost = true;
+        controller.abort();
+      }
     }
     if (!disposed && !controller.signal.aborted) timer = setTimeout(poll, DESIGN_WATCH_MS);
   };

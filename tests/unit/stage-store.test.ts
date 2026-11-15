@@ -19,9 +19,6 @@ const redisMock = {
     return "OK";
   }),
   hexists: mock(async (key: string, field: string) => Number(hashes.get(key)?.has(field) ?? false)),
-  getrange: mock(async (key: string, start: number, end: number) =>
-    (values.get(key) ?? "").slice(start, end + 1)
-  ),
   eval: mock(async (script: string, keys: string[], args: string[]) => {
     if (script.includes("local current = redis.call('GET', KEYS[1])")) {
       const [headKey, eventsKey, requestsKey, leaseKey] = keys;
@@ -53,7 +50,7 @@ const redisMock = {
     if (script.includes("PEXPIRE")) {
       if (values.get(keys[0]) !== args[0]) return 0;
       expiries.set(keys[0], Number(args[1]));
-      return 1;
+      return (values.get(keys[1]) ?? "").slice(0, 16);
     }
     if (script.includes("redis.call('GET', KEYS[1]) == ARGV[1]")) {
       if (values.get(keys[0]) === args[0]) {
@@ -115,7 +112,6 @@ beforeEach(() => {
     redisMock.get,
     redisMock.set,
     redisMock.hexists,
-    redisMock.getrange,
     redisMock.eval,
   ]) {
     operation.mockClear();
@@ -211,43 +207,42 @@ describe("stage event persistence", () => {
   });
 });
 
-describe("stage leases and revision peeks", () => {
-  test("the head revision is read from the envelope prefix without the snapshot", async () => {
-    const { appendStageEvent, readStage, readStageRevision } = await import("@/lib/stage/store");
-
-    expect(await readStageRevision(OWNER)).toBe(0);
-    expect(await appendStageEvent(OWNER, (await readStage(OWNER)).raw, makeEvent(1))).toBe(true);
-    expect(await appendStageEvent(OWNER, (await readStage(OWNER)).raw, makeEvent(2))).toBe(true);
-    redisMock.get.mockClear();
-    expect(await readStageRevision(OWNER)).toBe(2);
-    expect(redisMock.get).not.toHaveBeenCalled();
-  });
-
-  test("a renewed design lease keeps its saves; a lost one is refused and cannot renew", async () => {
-    const {
-      acquireStageLease,
-      appendStageEvent,
-      readStage,
-      renewStageLease,
-      StageLeaseLostError,
-    } = await import("@/lib/stage/store");
+describe("stage leases", () => {
+  test("renewal keeps the design lease and reports the head revision without the snapshot", async () => {
+    const { acquireStageLease, appendStageEvent, readStage, renewStageLease } = await import(
+      "@/lib/stage/store"
+    );
     const lease = (await acquireStageLease(OWNER, "design"))!;
     const leaseKey = [...expiries.keys()].find((key) => key.endsWith(":design-lease"))!;
 
     expect(expiries.get(leaseKey)).toBe(30_000);
-    expect(await renewStageLease(OWNER, lease)).toBe(true);
-    expect(
-      await appendStageEvent(OWNER, (await readStage(OWNER)).raw, makeEvent(1), { lease })
-    ).toBe(true);
+    expect(await renewStageLease(OWNER, lease)).toBe(0);
+    expect(await appendStageEvent(OWNER, (await readStage(OWNER)).raw, makeEvent(1), { lease })).toBe(
+      true
+    );
+    expect(await appendStageEvent(OWNER, (await readStage(OWNER)).raw, makeEvent(2), { lease })).toBe(
+      true
+    );
+    redisMock.get.mockClear();
+    expect(await renewStageLease(OWNER, lease)).toBe(2);
+    expect(redisMock.get).not.toHaveBeenCalled();
+  });
 
-    // The lease expires (or another worker takes it): renewal fails and the save is refused.
+  test("a lost lease cannot renew, and its save is refused", async () => {
+    const { acquireStageLease, appendStageEvent, readStage, renewStageLease, StageLeaseLostError } =
+      await import("@/lib/stage/store");
+    const lease = (await acquireStageLease(OWNER, "design"))!;
+    const leaseKey = [...expiries.keys()].find((key) => key.endsWith(":design-lease"))!;
+
+    // The lease expires: renewal fails and the save is refused.
     values.delete(leaseKey);
-    expect(await renewStageLease(OWNER, lease)).toBe(false);
-    expect(
-      appendStageEvent(OWNER, (await readStage(OWNER)).raw, makeEvent(2), { lease })
+    expect(await renewStageLease(OWNER, lease)).toBeNull();
+    await expect(
+      appendStageEvent(OWNER, (await readStage(OWNER)).raw, makeEvent(1), { lease })
     ).rejects.toBeInstanceOf(StageLeaseLostError);
+    expect((await readStage(OWNER)).state.revision).toBe(0);
+    // Another worker holds it now.
     values.set(leaseKey, "another-worker");
-    expect(await renewStageLease(OWNER, lease)).toBe(false);
+    expect(await renewStageLease(OWNER, lease)).toBeNull();
   });
 });
-
