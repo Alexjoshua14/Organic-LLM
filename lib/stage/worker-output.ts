@@ -11,11 +11,11 @@ export const StageWorkerPieceSchema = z
     code: z.string().max(8000).nullable(),
     ingredients: z.array(z.string().max(200)).max(40).nullable(),
     steps: z.array(z.string().max(1000)).max(30).nullable(),
-    block: z.string().max(12000).nullable().optional(),
-    url: z.string().max(2000).nullable().optional(),
+    block: z.string().max(12000).nullable(),
+    url: z.string().max(2000).nullable(),
   })
   .refine(
-    (piece) => !invalidUpsertReason({ ...piece, operation: "upsert", targetId: null, rect: null }),
+    (piece) => !invalidUpsertReason(piece),
     "A Stage piece needs content for its kind"
   );
 export const StageWorkerOutputSchema = z.object({

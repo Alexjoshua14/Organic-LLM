@@ -18,8 +18,10 @@ type Upsert = Extract<DesignPlan["operations"][number], { operation: "upsert" }>
 /** The content fields shared by designer upserts and specialist pieces. */
 export type StagePieceContent = Pick<
   Upsert,
-  "kind" | "title" | "text" | "code" | "ingredients" | "steps" | "block" | "url"
->;
+  "kind" | "title" | "text" | "code" | "ingredients" | "steps"
+> &
+  // Only block and web pieces carry these; other producers may leave them out.
+  Partial<Pick<Upsert, "block" | "url">>;
 
 function dimensions(kind: StageWidget["kind"]) {
   return kind === "chat"
@@ -173,7 +175,7 @@ export function mergeStageDesignPlan(
 }
 
 /** Why one upsert's content can't become a piece, or null when it can. */
-export function invalidUpsertReason(item: Upsert): string | null {
+export function invalidUpsertReason(item: StagePieceContent): string | null {
   try {
     stageWidgetFromPiece(item, STAGE_CONTENT_RECT, "00000000-0000-4000-8000-000000000000");
 
