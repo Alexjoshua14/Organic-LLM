@@ -19,7 +19,10 @@ import { createLogger } from "@/lib/logger";
 
 const logger = createLogger("lib/stage/design.ts");
 
-// Covers two generation attempts (50s each) plus one layout-level regeneration.
+// A job's work stops at its deadline, however many attempts it has made. A job still marked
+// working past the stale timeout (its worker died) is failed on the next read; the gap between
+// the two lets a worker at its deadline record its own failure first.
+const DESIGN_DEADLINE_MS = 180_000;
 const DESIGN_TIMEOUT_MS = 240_000;
 // How often a running designer renews its lease and checks for a cancel or a newer job.
 const DESIGN_WATCH_MS = 750;
@@ -68,6 +71,7 @@ export async function runStageDesign(args: {
   let model: string | null = null;
   const controller = new AbortController();
   const controllerKey = `${args.ownerId}:${args.jobId}`;
+  let deadline: AbortSignal = controller.signal;
 
   controllers.set(controllerKey, controller);
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -139,6 +143,7 @@ export async function runStageDesign(args: {
 
     if (!startBase) return;
     void poll();
+    deadline = AbortSignal.any([controller.signal, AbortSignal.timeout(DESIGN_DEADLINE_MS)]);
     let result: Awaited<ReturnType<typeof generateStageDesign>>;
     let feedback: string | undefined;
     let planBase = startBase;
@@ -156,10 +161,10 @@ export async function runStageDesign(args: {
         state: planBase,
         brief: args.brief,
         feedback,
-        signal: controller.signal,
+        signal: deadline,
       });
 
-      if (controller.signal.aborted) throw new DOMException("Designer stopped", "AbortError");
+      if (deadline.aborted) throw new DOMException("Designer stopped", "AbortError");
       const { plan: usable, dropped } = sanitizeDesignPlan(result.plan);
 
       // Unusable operations are dropped. Only a plan with nothing left is worth another attempt.

@@ -17,3 +17,13 @@ test("block parsing names the fields that failed", () => {
   expect(parseDesignerBlock("{nope").ok).toBe(false);
   expect(parseDesignerBlock(JSON.stringify({ type: "research-report" })).ok).toBe(false);
 });
+
+test("a map's value shape reaches the prompt, so decision-matrix scores are cells, not numbers", () => {
+  const matrix = designerBlockShapes()
+    .split("\n")
+    .find((line) => line.startsWith("decision-matrix:"))!;
+  const scores = JSON.parse(matrix.slice("decision-matrix: ".length)).properties.scores;
+
+  expect(scores.additionalProperties.additionalProperties.properties).toHaveProperty("value");
+  expect(matrix).not.toContain('"additionalProperties":false');
+});

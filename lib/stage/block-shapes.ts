@@ -35,8 +35,12 @@ export function designerBlockShapes(): string {
 
       delete json.$schema;
 
+      // Drop only noise. A record's value shape lives in `additionalProperties`, so stripping
+      // that key whole hid what a decision-matrix score is and every score came back wrong.
       return `${type}: ${JSON.stringify(json, (key, value) =>
-        key === "description" || key === "additionalProperties" ? undefined : value
+        key === "description" || (key === "additionalProperties" && value === false)
+          ? undefined
+          : value
       )}`;
     })
     .join("\n");
