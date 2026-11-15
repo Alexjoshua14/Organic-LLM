@@ -100,8 +100,9 @@ export function resolveStageFrame(state: StageState, options: StageFrameOptions)
   const bodyRow = contentPixels / STAGE_CONTENT_RECT.h;
   const childWidth = (width * (home ? 8 : STAGE_CHILD_RECTS[0].w)) / 32;
   const tiny = height < 430 || childWidth < 40 || bodyRow * 8 < 112;
+  // The full composer rests near 110px; it only squeezes the agents once a draft has grown it.
   const compact =
-    tiny || childWidth < 56 || bodyRow * 8 < 154 || height < 560 || composerHeight > 110;
+    tiny || childWidth < 56 || bodyRow * 8 < 154 || height < 560 || composerHeight > 180;
   const childMinimum = tiny ? 66 : compact ? 120 : 148;
   const parentMinimum = tiny ? 36 : compact ? (width < 700 ? 126 : 112) : 154;
   const activeChildren =

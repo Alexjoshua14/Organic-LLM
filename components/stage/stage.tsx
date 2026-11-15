@@ -523,7 +523,6 @@ export function StageView({
                             : "Start voice session"
                       }
                       aria-pressed={voiceActive}
-                      className="size-9 min-w-9 p-0"
                       engaged={voiceActive}
                       disabled={!state || (sending && !voiceActive)}
                       title={
@@ -534,7 +533,7 @@ export function StageView({
                       type="button"
                       onClick={toggleVoice}
                     >
-                      <AudioLines aria-hidden size={19} />
+                      <AudioLines aria-hidden className="size-4" />
                     </ComposerActionButton>
                   ) : null
                 }

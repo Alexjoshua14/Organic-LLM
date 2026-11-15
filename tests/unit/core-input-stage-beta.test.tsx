@@ -69,13 +69,19 @@ function Composer({ variant = "stage-beta" }: { variant?: "default" | "stage-bet
   );
 }
 
-test("beta sends a multiline draft through CoreInput while keeping voice and options available", async () => {
+test("Stage sends a multiline draft through the default CoreInput layout, with its voice control", async () => {
   send.mockClear();
   const app = render(<Composer />);
   const input = app.getByRole("textbox", { name: "Message Organic" });
   expect(input.getAttribute("aria-multiline")).toBe("true");
-  expect(app.getByRole("button", { name: "Composer options" })).toBeTruthy();
+  // The same full layout as Arcadia: settings on the toolbar, not behind the compact options.
+  expect(app.container.querySelector(".core-input-condensed")).toBeNull();
+  expect(app.queryByRole("button", { name: "Composer options" })).toBeNull();
+  expect(app.getByRole("combobox", { name: "Model" })).toBeTruthy();
+  // Stage has no files, and its voice session takes the dictation mic's place.
+  expect(app.queryByRole("button", { name: "Add files" })).toBeNull();
   expect(app.getByRole("button", { name: "Start voice session" })).toBeTruthy();
+  expect(app.queryByRole("button", { name: "Dictate message" })).toBeNull();
   const submit = app.getByRole("button", { name: "Send message" });
   expect(submit.querySelector("circle")).toBeNull();
   expect(submit.className).not.toContain("organic-glass-preview");
@@ -95,11 +101,13 @@ test("mounting Stage beta does not reset global composer preferences", () => {
   expect(localStorage.getItem("organic-llm-prefs-timestamp")).toBe("expired");
 });
 
-test("default CoreInput keeps its existing layout and never adds beta controls", () => {
+test("default CoreInput keeps its layout, and a passed voice control takes the mic's place", () => {
   const app = render(<Composer variant="default" />);
   expect(app.container.querySelector(".core-input-condensed")).toBeNull();
   expect(app.queryByRole("button", { name: "Composer options" })).toBeNull();
-  expect(app.queryByRole("button", { name: "Start voice session" })).toBeNull();
+  expect(app.getByRole("combobox", { name: "Model" })).toBeTruthy();
+  expect(app.getByRole("button", { name: "Start voice session" })).toBeTruthy();
+  expect(app.queryByRole("button", { name: "Dictate message" })).toBeNull();
 });
 
 test("Stage returns to centered Organic, retains tucked pieces and applies server navigation once", async () => {

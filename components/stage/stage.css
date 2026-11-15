@@ -37,24 +37,24 @@
   --stage-glass: rgb(36 43 49 / 72%);
   --stage-focus: #a6c4b8;
 }
-.organic-stage button,
-.organic-stage input,
-.organic-stage textarea {
+/* Stage's own controls. The composer is the shared CoreInput: it keeps its own type, disabled
+   and focus styles, so it reads on Stage exactly as it does in Arcadia. `:where()` leaves each
+   rule's specificity as it was. */
+.organic-stage button:not(:where(.stage-core-input *)),
+.organic-stage input:not(:where(.stage-core-input *)),
+.organic-stage textarea:not(:where(.stage-core-input *)) {
   font: inherit;
 }
-.organic-stage button {
+.organic-stage button:not(:where(.stage-core-input *)) {
   cursor: pointer;
 }
-.organic-stage button:disabled {
+.organic-stage button:disabled:not(:where(.stage-core-input *)) {
   cursor: default;
   opacity: 0.4;
 }
-.organic-stage :is(button, a, input, textarea):focus-visible {
+.organic-stage :is(button, a, input, textarea):focus-visible:not(:where(.stage-core-input *)) {
   outline: 2px solid var(--stage-focus);
   outline-offset: 3px;
-}
-.organic-stage .stage-core-input textarea:focus-visible {
-  outline: none;
 }
 /* All entities are siblings on the same grid. These wrappers own no second canvas. */
 .stage-surface,
@@ -605,8 +605,11 @@
   align-self: end;
   min-width: 0;
 }
+/* Arcadia's composer column (max-w-4xl), centered in the composer's cells. */
 .stage-composer-measure {
   width: 100%;
+  max-width: 56rem;
+  margin-inline: auto;
 }
 .stage-core-input {
   position: relative;

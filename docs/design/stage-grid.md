@@ -125,10 +125,15 @@ reported presentation. View commands have IDs and apply once, including voice's
 immediate client effect, so later polling does not undo a manual choice. Workers
 publish work without changing selection.
 
-Stage's CoreInput row removes the base textarea's vertical margins and centers
-its controls. Its submit affordance is a quiet circular arrow with a disabled
-state and busy indicator; the prototype glass/idle glyph remains scoped to other
-opt-in uses. These adjustments are specific to Stage beta.
+Stage's composer is the same CoreInput as Arcadia's, in the same layout: the full
+composer with its settings on the toolbar and the memory glow, in a column capped at
+Arcadia's width (56rem), and the shared compact row once its shell is narrower than
+600px. `variant="stage-beta"` changes behavior only: no file attachments, a send that
+never becomes a stop, Stage's own saved settings, at most three thread references, and
+the voice session control in the dictation mic's place. Stage's button, type and focus
+resets in `stage.css` skip the composer, so nothing Stage-local restyles it. The grid
+sizes the composer's rows from its measured height; the agents only compact once a
+draft has grown the composer past 180px.
 
 ## Phone response space
 
