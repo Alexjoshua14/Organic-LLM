@@ -76,11 +76,10 @@ export function buildMermaidGlassStyleMarkup(): string {
       stroke: color-mix(in srgb, var(--foreground, #20252b) 28%, transparent) !important;
       stroke-width: 1.2px !important;
     }
-    [data-organic-mermaid] :is(.cluster rect, .cluster polygon) {
-      fill: none !important;
+    [data-organic-mermaid] :is(.cluster > rect, .cluster > polygon) {
+      fill: color-mix(in srgb, var(--foreground, #20252b) 4%, transparent) !important;
       stroke: none !important;
     }
-    [data-organic-mermaid] :is(.cluster-label, .cluster text) { display: none !important; }
     [data-organic-mermaid] :is(text, tspan, .label, .nodeLabel, .edgeLabel, .cluster-label, foreignObject p, foreignObject span) {
       color: var(--foreground, #20252b) !important;
       fill: var(--foreground, #20252b) !important;
@@ -96,6 +95,13 @@ export function buildMermaidGlassStyleMarkup(): string {
     [data-organic-mermaid] :is(.edgeLabel rect, .labelBkg) { fill: var(--card, #ffffff) !important; }
     [data-organic-mermaid] .edgeLabel { background: var(--card, #ffffff) !important; }
     [data-organic-mermaid] foreignObject > div { background: transparent !important; }
+    [data-organic-mermaid] .cluster-label :is(text, tspan, span, p, div) {
+      color: var(--muted-foreground, #687480) !important;
+      fill: var(--muted-foreground, #687480) !important;
+      font-size: 11px !important;
+      letter-spacing: 0.02em;
+    }
+    [data-organic-mermaid] .cluster-label rect { fill: none !important; }
     [data-organic-mermaid] g.node[data-mermaid-highlighted="true"] :is(rect, polygon, circle, .node-bkg) { stroke: var(--foreground, #20252b) !important; stroke-width: 2px !important; }
     [data-organic-mermaid] g.node[data-mermaid-dimmed="true"] { opacity: 0.35; }
   `;
@@ -125,6 +131,7 @@ export function applyMermaidGlassStyles(
   styleEl.setAttribute("id", MERMAID_GLASS_STYLE_ID);
   styleEl.textContent = buildMermaidGlassStyleMarkup();
   svgEl.prepend(styleEl);
+  tuckGroupLabels(svgEl);
   // Mermaid can emit inline HTML label colors; put semantic ink above those declarations.
   svgEl
     .querySelectorAll<HTMLElement>(
@@ -143,4 +150,38 @@ export function applyMermaidGlassStyles(
     svgEl.style.maxWidth = fit ? "100%" : "none";
     svgEl.style.minWidth = fit ? `${Math.round(viewBox.width * MERMAID_MIN_FIT_SCALE)}px` : "";
   }
+}
+
+/** Room between a group's corner and its label, in SVG units. */
+const GROUP_LABEL_INSET = 8;
+/** Rounded corners for the tint behind a group. */
+const GROUP_RADIUS = 12;
+
+/**
+ * A group (subgraph) reads as a faint tint behind its nodes with a small label in its top-left
+ * corner. Mermaid centres the title on the top edge, where edges entering the group cross it;
+ * the corner keeps it out of their way. Runs after the theme styles apply, because the label's
+ * size depends on them.
+ */
+function tuckGroupLabels(svgEl: SVGSVGElement) {
+  svgEl.querySelectorAll<SVGGElement>("g.cluster").forEach((group) => {
+    const box = group.querySelector<SVGRectElement>(":scope > rect");
+    const label = group.querySelector<SVGGElement>(":scope > .cluster-label");
+
+    if (!box) return;
+    box.setAttribute("rx", String(GROUP_RADIUS));
+    box.setAttribute("ry", String(GROUP_RADIUS));
+    if (!label) return;
+    try {
+      const area = box.getBBox();
+      const own = label.getBBox();
+
+      label.setAttribute(
+        "transform",
+        `translate(${area.x + GROUP_LABEL_INSET - own.x}, ${area.y + GROUP_LABEL_INSET - own.y})`
+      );
+    } catch {
+      // Not laid out (e.g. a detached test DOM): keep Mermaid's centred title.
+    }
+  });
 }

@@ -4,7 +4,6 @@ import {
   annotateMermaidParseError,
   classifyMermaidValidationError,
   extractMermaidCode,
-  flattenMermaidSubgraphs,
   normalizeMermaidCode,
   parseMermaidDiagramPayload,
   repairCommonMermaidMistakes,
@@ -225,44 +224,5 @@ describe("classifyMermaidValidationError", () => {
     for (const msg of syntaxMessages) {
       expect(classifyMermaidValidationError(msg)).toBe("syntax");
     }
-  });
-});
-
-describe("flattenMermaidSubgraphs", () => {
-  test("draws a flowchart's subgraphs as plain nodes and edges", () => {
-    const src = [
-      "flowchart TD",
-      "  U --> D",
-      '  subgraph grid["Persistent 32×32 grid"]',
-      "    direction LR",
-      '    P["Pieces"] --> R["Reply"]',
-      "    subgraph inner",
-      "      R --> F",
-      "    end",
-      "  end",
-      "  P -.-> V",
-    ].join("\n");
-
-    expect(flattenMermaidSubgraphs(src)).toBe(
-      'flowchart TD\n  U --> D\n    P["Pieces"] --> R["Reply"]\n      R --> F\n  P -.-> V'
-    );
-  });
-
-  test("keeps a subgraph an edge points at, so its ID never becomes a stray node", () => {
-    const src = "flowchart TD\n  subgraph grid\n    P --> R\n  end\n  D --> grid";
-
-    expect(flattenMermaidSubgraphs(src)).toBe(src);
-  });
-
-  test("leaves other diagram types alone, where end closes loops and blocks", () => {
-    const src = "sequenceDiagram\n  loop Every minute\n    A->>B: ping\n  end";
-
-    expect(flattenMermaidSubgraphs(src)).toBe(src);
-  });
-
-  test("runs on the render path", () => {
-    expect(normalizeMermaidCode("graph LR\n  subgraph S\n    A --> B\n  end")).toBe(
-      "graph LR\n    A --> B"
-    );
   });
 });
