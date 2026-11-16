@@ -137,8 +137,15 @@ start jobs. Organic can also return a validated view action for requests that ne
 interpretation. Current selection, measured viewport and visible cells accompany
 typed requests and live voice screen context; worker context includes the last
 reported presentation. View commands have IDs and apply once, including voice's
-immediate client effect, so later polling does not undo a manual choice. Workers
-publish work without changing selection.
+immediate client effect, so later polling does not undo a manual choice. Specialists
+publish work without changing selection. A design the user asked for that lands while
+they are on Organic's home view (pieces tucked away) switches to All pieces, so the answer
+is seen; a specialist or single-piece view is left alone.
+
+The user watches the stage, not the transcript. Organic puts any substantive answer on the
+stage through the designer and keeps its reply to a sentence or two; if a turn still returns
+a long text-only reply (over 320 characters, no view or specialists), the server sends that
+reply to the designer itself (`STAGE_REPLY_ON_STAGE_CHARS` in `lib/stage/turn.ts`).
 
 Stage's composer is the same CoreInput as Arcadia's, in the same layout: the full
 composer with its settings on the toolbar and the memory glow, in a column capped at

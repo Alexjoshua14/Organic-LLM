@@ -6,6 +6,7 @@ import { describeStageDesignFailure } from "./design-failure";
 import { generateStageDesign, StageGenerationError } from "./agent";
 import { availableStageChildSlot, repairStageLayout, StageLayoutError } from "./layout";
 import { mergeStageDesignPlan, sanitizeDesignPlan } from "./reconcile";
+import { STAGE_OVERVIEW } from "./placements";
 import {
   acquireStageLease,
   mutateStage,
@@ -238,9 +239,18 @@ export async function runStageDesign(args: {
           return { ...state, lastModel: result.model };
         const [next, ...pendingDesigns] = state.pendingDesigns;
 
+        const showsPieces = result.plan.operations.some(
+          (operation) => operation.operation === "upsert"
+        );
+
         return {
           ...state,
           widgets: mergeStageDesignPlan(state, base, result.plan, chatIds, widgetIds),
+          // The user asked for this and is watching the stage: from the home view, where pieces
+          // are tucked away, show them as they land. A specialist or piece view is left alone.
+          ...(showsPieces && (state.presentation?.view.kind ?? "organic") === "organic"
+            ? { viewCommand: { id: crypto.randomUUID(), target: STAGE_OVERVIEW } }
+            : {}),
           lastModel: result.model,
           pendingDesigns,
           design: next

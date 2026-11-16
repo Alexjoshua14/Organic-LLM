@@ -176,3 +176,28 @@ test("memory switched off files to the stage without recall or long-term writes"
   expect(recall).not.toHaveBeenCalled();
   expect(deferred).toHaveLength(0);
 });
+
+test("a substantive answer written only as a reply still goes onto the stage", async () => {
+  const answer = "What I know about Aion: ".concat("it is a project with several parts. ".repeat(12));
+  const turn = (reply: string) => async () => ({
+    reply,
+    summary: "",
+    designBrief: null,
+    subagents: [],
+    nextTier: "fast",
+    view: null,
+    captures: [],
+    recall: null,
+    model: "test",
+    usage: { inputTokens: 0, outputTokens: 0 },
+  });
+
+  generate.mockImplementationOnce(turn(answer));
+  const placed = await runStageTurn(actor, "Show me what you know about Aion", crypto.randomUUID());
+  expect(placed.design?.brief).toContain("What I know about Aion");
+
+  state = { ...state, design: null };
+  generate.mockImplementationOnce(turn("Sure, what should we call it?"));
+  const chat = await runStageTurn(actor, "Let's name it", crypto.randomUUID());
+  expect(chat.design ?? null).toBeNull();
+});

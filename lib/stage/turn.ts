@@ -33,6 +33,9 @@ export class StageTurnError extends Error {
   }
 }
 
+// A reply longer than a couple of sentences is an answer, and answers belong on the stage.
+const STAGE_REPLY_ON_STAGE_CHARS = 320;
+
 export function scheduleStageDesign(
   id: { ownerId: string; clerkUserId: string },
   state: StageState
@@ -137,7 +140,14 @@ export async function runStageTurn(
       }
       throw error;
     }
-    const job = result.designBrief ? { id: crypto.randomUUID(), brief: result.designBrief } : null;
+    // The user watches the stage, not the transcript. A substantive answer the model kept to the
+    // reply still goes onto the stage, so it is never visible only in Conversation.
+    const brief =
+      result.designBrief ??
+      (!result.view && !result.subagents?.length && result.reply.length > STAGE_REPLY_ON_STAGE_CHARS
+        ? `Present this answer on the stage, as pieces that show it best (a new topic unless it continues the pieces already shown):\n${result.reply.slice(0, 1800)}`
+        : null);
+    const job = brief ? { id: crypto.randomUUID(), brief } : null;
     const selectedView = resolveStageView(base, result.view);
 
     if (result.view && !selectedView)
