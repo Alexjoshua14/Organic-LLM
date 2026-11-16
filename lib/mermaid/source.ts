@@ -96,14 +96,63 @@ export function repairCommonMermaidMistakes(source: string): string {
  * then apply the deterministic repair pass.
  */
 export function normalizeMermaidCode(raw: string): string {
-  return repairCommonMermaidMistakes(
-    stripMermaidSecurityInitDirectives(
-      raw
-        .replace(/^```(?:mermaid)?\s*/i, "")
-        .replace(/```$/i, "")
-        .trim()
+  return flattenMermaidSubgraphs(
+    repairCommonMermaidMistakes(
+      stripMermaidSecurityInitDirectives(
+        raw
+          .replace(/^```(?:mermaid)?\s*/i, "")
+          .replace(/```$/i, "")
+          .trim()
+      )
     )
   );
+}
+
+const FLOWCHART_HEADER = /^\s*(?:flowchart|graph)\b/;
+const SUBGRAPH_OPEN = /^\s*subgraph\b\s*([A-Za-z0-9_]+)?/;
+const SUBGRAPH_CLOSE = /^\s*end\s*;?\s*$/;
+const DIRECTION_LINE = /^\s*direction\s+(?:TB|TD|BT|RL|LR)\s*;?\s*$/;
+
+/**
+ * Draws a flowchart's subgraphs as plain nodes: no titled box around a group. A subgraph box
+ * reads as the diagram's frame, its title collides with edges entering it, and the grouping
+ * rarely says more than the edges do. The nodes and edges inside stay exactly as written.
+ *
+ * Left as is when an edge points at a subgraph itself (`A --> groupId`): flattening would turn
+ * that ID into a stray node. The theme then hides the box and title instead (presentation.ts).
+ */
+export function flattenMermaidSubgraphs(source: string): string {
+  const lines = source.split("\n");
+  const header = lines.find((line) => line.trim() && !line.trim().startsWith("%%"));
+
+  if (!header || !FLOWCHART_HEADER.test(header)) return source;
+
+  const ids: string[] = [];
+  let depth = 0;
+  const kept = lines.filter((line) => {
+    const open = line.match(SUBGRAPH_OPEN);
+
+    if (open) {
+      if (open[1]) ids.push(open[1]);
+      depth++;
+
+      return false;
+    }
+    if (depth > 0 && SUBGRAPH_CLOSE.test(line)) {
+      depth--;
+
+      return false;
+    }
+
+    return !(depth > 0 && DIRECTION_LINE.test(line));
+  });
+
+  if (!ids.length && kept.length === lines.length) return source;
+  const referenced = ids.some((id) =>
+    kept.some((line) => new RegExp(`(^|[^\\w"])${id}($|[^\\w"])`).test(line))
+  );
+
+  return referenced ? source : kept.join("\n");
 }
 
 /**

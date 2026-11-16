@@ -77,11 +77,10 @@ export function buildMermaidGlassStyleMarkup(): string {
       stroke-width: 1.2px !important;
     }
     [data-organic-mermaid] :is(.cluster rect, .cluster polygon) {
-      fill: transparent !important;
-      stroke: color-mix(in srgb, var(--foreground, #20252b) 18%, transparent) !important;
-      stroke-dasharray: 4 4;
-      rx: 10px;
+      fill: none !important;
+      stroke: none !important;
     }
+    [data-organic-mermaid] :is(.cluster-label, .cluster text) { display: none !important; }
     [data-organic-mermaid] :is(text, tspan, .label, .nodeLabel, .edgeLabel, .cluster-label, foreignObject p, foreignObject span) {
       color: var(--foreground, #20252b) !important;
       fill: var(--foreground, #20252b) !important;

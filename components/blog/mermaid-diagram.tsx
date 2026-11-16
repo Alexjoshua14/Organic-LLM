@@ -40,8 +40,6 @@ function initializeMermaidOnce() {
       nodeSpacing: 32,
       rankSpacing: 40,
       padding: 16,
-      // Keeps a subgraph's title clear of the edges entering it.
-      subGraphTitleMargin: { top: 6, bottom: 10 },
     },
     themeVariables: {
       fontSize: "14px",
