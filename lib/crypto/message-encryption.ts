@@ -28,6 +28,7 @@ export type EncryptionFieldName =
   | "threads.introspection_guided_state"
   | "threads.subagent_heartbeat_baseline"
   | "threads.subagent_worktable"
+  | "subscription_connection.state"
   | "user_connectors.profile"
   | "ergon_connection.token"
   | "ergon_connection.oauth"
