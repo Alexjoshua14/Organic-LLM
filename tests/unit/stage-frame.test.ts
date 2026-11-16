@@ -104,3 +104,31 @@ test("legacy repair retains all content and rendering uses the repaired rectangl
   const frame = resolveStageFrame(restored, { width: 1200, height: 700, composerHeight: 78 });
   expect(frame.pieces.map((p) => p.rect)).toEqual(restored.widgets.map((w) => w.rect));
 });
+
+test("phone response owns full width and enough height for navigation, text and recovery", () => {
+  const state = emptyStageState();
+  for (const width of [320, 375, 430]) {
+    const options = { width, height: 640, composerHeight: 80, home: true };
+    const frame = resolveStageFrame(state, options);
+    expect(frame.reply.x).toBe(0);
+    expect(frame.reply.w).toBe(32);
+    expect(Math.round(stageRectPixels(frame, frame.reply).h)).toBeGreaterThanOrEqual(144);
+    expect(stageRectPixels(frame, frame.parent).w).toBeGreaterThanOrEqual(160);
+    const failed = resolveStageFrame(
+      {
+        ...state,
+        design: {
+          id: crypto.randomUUID(),
+          status: "failed",
+          startedAt: new Date().toISOString(),
+          brief: "Arrange",
+          error: "Retry",
+        },
+      },
+      options
+    );
+    expect(Math.round(stageRectPixels(failed, failed.reply).h)).toBeGreaterThanOrEqual(208);
+    expect(failed.rowOffsets.at(-1)).toBeCloseTo(options.height);
+    expect(intersects(failed.reply, failed.composer)).toBe(false);
+  }
+});

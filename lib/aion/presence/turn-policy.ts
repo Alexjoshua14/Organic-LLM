@@ -56,6 +56,10 @@ export function decideAionTurnTier(
     return { tier: "none", coalesceKey, delayMs: 0, reason: "disabled" };
   }
 
+  if (settings.busy) {
+    return { tier: "none", coalesceKey, delayMs: 0, reason: "busy" };
+  }
+
   if (event.kind === "message") {
     return { tier: "full", coalesceKey, delayMs: 0, reason: "user-message" };
   }
@@ -73,10 +77,6 @@ export function decideAionTurnTier(
       delayMs: AION_EVENT_DEBOUNCE_MS,
       reason: "wake-from-dormant",
     };
-  }
-
-  if (settings.busy) {
-    return { tier: "none", coalesceKey, delayMs: 0, reason: "busy" };
   }
 
   if (

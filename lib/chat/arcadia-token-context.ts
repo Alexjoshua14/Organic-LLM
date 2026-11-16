@@ -1,7 +1,5 @@
 import type { UIMessage } from "ai";
 
-import { estimateTokenCountSync, getMessageTextForTokenEstimate } from "@/lib/chat/context-budget";
-
 /** Max tokens of thread message history sent to the model (Arcadia token-window prototype). */
 export const ARCADIA_MESSAGE_TOKEN_BUDGET = 50_000;
 
@@ -35,18 +33,15 @@ export function isPinnedContextMessage(message: UIMessage): boolean {
   return metadata?.pinned === true;
 }
 
-export function sumMessagesTokens(messages: UIMessage[]): number {
-  return messages.reduce((total, message) => {
-    const text = getMessageTextForTokenEstimate(message);
+/**
+ * Text tokens one message adds to the model's history. The server passes
+ * `messageTextTokenCountSync` (`lib/chat/token-count`); the composer passes its cached counts.
+ * This module imports no tokenizer, so client code can use it.
+ */
+export type MessageTokenCounter = (message: UIMessage) => number;
 
-    return total + (text ? estimateTokenCountSync(text) : 0);
-  }, 0);
-}
-
-function messageTokenCount(message: UIMessage): number {
-  const text = getMessageTextForTokenEstimate(message);
-
-  return text ? estimateTokenCountSync(text) : 0;
+export function sumMessagesTokens(messages: UIMessage[], countTokens: MessageTokenCounter): number {
+  return messages.reduce((total, message) => total + countTokens(message), 0);
 }
 
 /**
@@ -54,23 +49,35 @@ function messageTokenCount(message: UIMessage): number {
  * - pinned messages (newest-first trim, capped at 20% of budget)
  * - recent tail (at least {@link ARCADIA_MIN_RECENT_MESSAGES}, fills remaining budget)
  * - older non-kept messages are candidates for condensation
+ *
+ * Each message is counted once per call. The composer runs this on every message change, so it
+ * passes counts cached per message object.
  */
 export function selectArcadiaContextMessages(
   allMessages: UIMessage[],
-  options?: {
+  options: {
+    countTokens: MessageTokenCounter;
     tokenBudget?: number;
     pinnedBudgetRatio?: number;
     minRecentCount?: number;
   }
 ): ArcadiaMessageSelection {
-  const tokenBudget = options?.tokenBudget ?? ARCADIA_MESSAGE_TOKEN_BUDGET;
+  const tokenBudget = options.tokenBudget ?? ARCADIA_MESSAGE_TOKEN_BUDGET;
   const pinnedBudget = Math.floor(
-    tokenBudget * (options?.pinnedBudgetRatio ?? ARCADIA_PINNED_BUDGET_RATIO)
+    tokenBudget * (options.pinnedBudgetRatio ?? ARCADIA_PINNED_BUDGET_RATIO)
   );
-  const minRecentCount = options?.minRecentCount ?? ARCADIA_MIN_RECENT_MESSAGES;
+  const minRecentCount = options.minRecentCount ?? ARCADIA_MIN_RECENT_MESSAGES;
+
+  const { countTokens } = options;
+  const tokensByMessage = new Map<UIMessage, number>();
+
+  for (const message of allMessages) {
+    if (!tokensByMessage.has(message)) tokensByMessage.set(message, countTokens(message));
+  }
+  const tokensFor = (message: UIMessage) => tokensByMessage.get(message) ?? 0;
 
   const totalThreadMessages = allMessages.length;
-  const totalThreadTokens = sumMessagesTokens(allMessages);
+  const totalThreadTokens = allMessages.reduce((total, message) => total + tokensFor(message), 0);
 
   if (totalThreadMessages === 0) {
     return {
@@ -92,7 +99,7 @@ export function selectArcadiaContextMessages(
   let pinnedTokens = 0;
 
   for (const message of pinnedNewestFirst) {
-    const tokens = messageTokenCount(message);
+    const tokens = tokensFor(message);
 
     if (pinnedTokens + tokens > pinnedBudget && keptPinned.length > 0) {
       break;
@@ -117,7 +124,7 @@ export function selectArcadiaContextMessages(
 
   for (let index = nonPinned.length - 1; index >= 0; index -= 1) {
     const message = nonPinned[index]!;
-    const tokens = messageTokenCount(message);
+    const tokens = tokensFor(message);
     const isBelowMinRecent = recentTail.length < minRecentCount;
 
     if (!isBelowMinRecent && recentTokens + tokens > remainingBudget) {

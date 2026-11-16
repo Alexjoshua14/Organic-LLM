@@ -38,14 +38,24 @@ describe("resolveArcadiaMultitaskLayoutMode", () => {
 });
 
 describe("canToggleArcadiaMultitaskView", () => {
-  test("refuses while the thread has an active stream", () => {
-    expect(canToggleArcadiaMultitaskView({ activeStreamId: "stream-abc" })).toBe(false);
-    expect(canToggleArcadiaMultitaskView({ activeStreamId: "  " })).toBe(true);
+  test("refuses leaving while the thread has an active stream", () => {
+    expect(canToggleArcadiaMultitaskView({ activeStreamId: "stream-abc", nextEnabled: false })).toBe(
+      false
+    );
+    expect(canToggleArcadiaMultitaskView({ activeStreamId: "  ", nextEnabled: false })).toBe(true);
   });
 
-  test("allows when idle (null / undefined stream)", () => {
-    expect(canToggleArcadiaMultitaskView({ activeStreamId: null })).toBe(true);
-    expect(canToggleArcadiaMultitaskView({ activeStreamId: undefined })).toBe(true);
+  test("allows entering while the thread is streaming", () => {
+    expect(canToggleArcadiaMultitaskView({ activeStreamId: "stream-abc", nextEnabled: true })).toBe(
+      true
+    );
+  });
+
+  test("allows leaving when idle (null / undefined stream)", () => {
+    expect(canToggleArcadiaMultitaskView({ activeStreamId: null, nextEnabled: false })).toBe(true);
+    expect(canToggleArcadiaMultitaskView({ activeStreamId: undefined, nextEnabled: false })).toBe(
+      true
+    );
   });
 });
 

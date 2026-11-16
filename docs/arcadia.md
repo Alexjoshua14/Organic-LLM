@@ -77,7 +77,10 @@ the visible position and width across a window resize and the following breakpoi
 retargeting one spring if the user reverses direction. Focus and drafts survive; reduced
 motion settles immediately. See [CoreInput layout continuity](./design/motion-and-text-timing.md#coreinput-layout-continuity).
 
-**Toggle gate.** Flips are refused while `threads.active_stream_id` is set for that thread.
+**Toggle gate.** Leaving Multiagent is refused while `threads.active_stream_id` is set for that
+thread (the streaming turn may be dispatching to workers); entering is always allowed, because
+the server reads the flag once per turn at preparation, so a stream in flight stays a plain reply.
+The refusal notice clears itself after a few seconds.
 Local storage + BroadcastChannel sync same-browser tabs. Visible pages check other devices
 every 2.5s while Multiagent is enabled or workers exist, and every 30s in ordinary chat.
 Focus or returning to a visible tab triggers a check immediately. Column: `threads.arcadia_multitask_view`

@@ -16,7 +16,7 @@ import { SUBAGENT_MAX_INPUT_TOKENS, SUBAGENT_THREAD_CONTEXT_MESSAGES } from "./c
 import { compileChatTools } from "@/lib/llm/compile-chat-tools";
 import { CHRONOS_TOOL_INSTRUCTIONS } from "@/lib/llm/chronos-mcp-tools";
 import { ERGON_AGENT_INSTRUCTIONS } from "@/lib/llm/ergon-agent-tools";
-import { estimateTokenCountSync } from "@/lib/chat/context-budget";
+import { estimateTokenCountSync } from "@/lib/chat/tokenizer";
 import { computeUsageCostUsd } from "@/lib/rate-limit/llm-cost";
 import { buildLockedWorkerSystem } from "@/lib/llm/subagents/hard-set/shell";
 

@@ -26,6 +26,31 @@ describe("usage charge persistence", () => {
       output_tokens: 0,
     });
   });
+  test("distinguishes measured zero cache from absent, invalid and mixed audio counts", async () => {
+    const insert = mock(async () => ({ error: null }));
+    restore = spyOn(supabaseAdmin, "from").mockImplementation(() => ({ insert }) as never);
+    for (const [cachedInputTokens, audioInputTokens, expected] of [
+      [undefined, 0, false],
+      [0, 0, true],
+      [20, 0, true],
+      [200, 0, false],
+      [20, 50, false],
+    ] as const) {
+      await insertLlmUsageEvent({
+        ownerId: "owner",
+        modelId: "test",
+        inputTokens: 100,
+        cachedInputTokens,
+        audioInputTokens,
+        operation: "strataTitle-summary",
+      });
+      expect(insert.mock.calls.at(-1)?.[0]).toMatchObject({
+        cache_reported: expected,
+        surface: "stage",
+        audio_input_tokens: audioInputTokens,
+      });
+    }
+  });
   test("persistence errors propagate instead of silently reporting a recorded charge", async () => {
     restore = spyOn(supabaseAdmin, "from").mockImplementation(
       () => ({ insert: async () => ({ error: { message: "permission denied" } }) }) as never

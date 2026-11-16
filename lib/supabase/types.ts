@@ -95,6 +95,10 @@ export type Database = {
       };
       llm_usage_events: {
         Row: {
+          audio_input_tokens: number;
+          audio_output_tokens: number;
+          surface: string | null;
+          cache_reported: boolean | null;
           cached_input_tokens: number;
           cost_usd: number;
           created_at: string;
@@ -109,6 +113,10 @@ export type Database = {
           total_tokens: number;
         };
         Insert: {
+          audio_input_tokens?: number;
+          audio_output_tokens?: number;
+          surface?: string | null;
+          cache_reported?: boolean | null;
           cached_input_tokens?: number;
           cost_usd?: number;
           created_at?: string;
@@ -123,6 +131,10 @@ export type Database = {
           total_tokens?: number;
         };
         Update: {
+          audio_input_tokens?: number;
+          audio_output_tokens?: number;
+          surface?: string | null;
+          cache_reported?: boolean | null;
           cached_input_tokens?: number;
           cost_usd?: number;
           created_at?: string;
@@ -1749,6 +1761,21 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      admin_token_analytics: {
+        Args: { p_owner: string; p_since: string; p_until: string };
+        Returns: {
+          day: string;
+          surface: string;
+          model: string;
+          operation: string;
+          input: number;
+          cached: number;
+          uncached: number;
+          unknown: number;
+          output: number;
+          calls: number;
+        }[];
+      };
       clerk_sub: { Args: never; Returns: string };
       current_profile_id: { Args: never; Returns: string };
       delete_message_with_links: {

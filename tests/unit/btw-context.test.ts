@@ -7,9 +7,9 @@ import {
   BTW_RECENT_TOKEN_BUDGET,
   buildBtwSnapshotText,
   loadBtwContextSnapshot,
-  messagePlainText,
 } from "@/lib/chat/btw-context";
-import { estimateTokenCountSync } from "@/lib/chat/context-budget";
+import { messagePlainText } from "@/lib/chat/btw-message-text";
+import { estimateTokenCountSync } from "@/lib/chat/tokenizer";
 import { parseSlashCommand } from "@/lib/chat/slash-command";
 
 function message(id: string, role: "user" | "assistant", text: string): UIMessage {

@@ -407,8 +407,9 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
     });
 
   let dispatchesThisTurn = 0;
+  // Unset with a worktable: its store-level count is the only bound (callers outside prepare).
   let autonomousLeft = Math.min(
-    input.autonomousRemaining ?? 0,
+    input.autonomousRemaining ?? (input.worktable ? ORCHESTRATOR_MAX_AUTONOMOUS_DISPATCHES : 0),
     ORCHESTRATOR_MAX_AUTONOMOUS_DISPATCHES
   );
   let dispatchQueue: Promise<unknown> = Promise.resolve();
@@ -990,22 +991,24 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
       };
 
     if (input.autonomous) {
+      // This turn's allowance, which the spend ceiling can zero, gates both paths.
+      if (autonomousLeft <= 0) {
+        return {
+          success: false,
+          ok: false,
+          error:
+            "Automatic turns have used their dispatch allowance or spend ceiling until the user speaks again. Tell the user what you would send next instead.",
+        };
+      }
       if (input.worktable) {
+        // The store-level count also holds across concurrent automatic turns.
         const reserved = await input.worktable.mutate((table) =>
           reserveAutonomousDispatch(table, ORCHESTRATOR_MAX_AUTONOMOUS_DISPATCHES)
         );
 
         if (!reserved.ok) return { success: false, ok: false, error: reserved.error };
-      } else {
-        if (autonomousLeft <= 0) {
-          return {
-            success: false,
-            ok: false,
-            error: `Automatic turns may dispatch at most ${ORCHESTRATOR_MAX_AUTONOMOUS_DISPATCHES} times until the user speaks again. Tell the user what you would send next instead.`,
-          };
-        }
-        autonomousLeft -= 1;
       }
+      autonomousLeft -= 1;
     }
 
     const identity = resolveSubagentIdentity(agentId);

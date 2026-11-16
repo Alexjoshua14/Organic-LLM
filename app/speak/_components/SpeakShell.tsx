@@ -4,11 +4,10 @@ import { useState } from "react";
 
 import { LiveVoiceStage } from "./LiveVoiceStage";
 import { ReadAloudStage } from "./ReadAloudStage";
+import { type SpeakMode } from "./SpeakModeSwitch";
 
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
 import Page from "@/components/layout/page";
-
-export type SpeakMode = "live" | "read";
 
 export function SpeakShell() {
   const [mode, setMode] = useState<SpeakMode>("live");

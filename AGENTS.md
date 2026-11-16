@@ -56,7 +56,9 @@ bun run build               # Next.js production build (also builds morph-physic
 ```
 
 Run `bun run lint:check` and `bun run test:unit` before handing work back. CI runs tests on
-PRs to `main`; changes under `llm/morph-physics/` trigger a separate workflow.
+PRs to `main`; changes under `llm/morph-physics/` trigger a separate workflow. In a git worktree,
+run them through a `node_modules` symlink to the main checkout (see Boundaries). If the lockfiles
+differ, say the checks weren't run.
 
 Test scripts print failures and a summary only; console output from the code under test is
 silenced. When a failure shows no cause, rerun just that file with `--verbose`
@@ -76,6 +78,9 @@ run; `-t "name"` filters by test name.
 | `llm/` | Shippable packages (`@organic-llm/morph-physics`) |
 
 ## Style
+
+- Keyboard focus follows [Focus feedback](docs/design/focus-feedback.md): use Lumen or clear
+  surface/text feedback instead of default focus rings. Never remove focus visibility.
 
 - Match the surrounding file — its naming, comment density, and idioms — over any general
   convention. Read a neighbour before adding a pattern.
@@ -103,6 +108,12 @@ run; `-t "name"` filters by test name.
 - If Ergon is unavailable, continue safe local work and disclose what remains unsynced;
   never claim an update succeeded without confirmation.
 - When the user requests incremental PR delivery, follow [`pr-checkpoints`](.agents/skills/pr-checkpoints/SKILL.md) for working preview checkpoints, Ergon tracking, and the final demo/review handoff.
+- When creating or updating a PR whose work has a visual aspect (UI, layout, motion, copy the
+  user sees), attach screenshots to the PR description: before/after for changes, light and dark
+  or mobile and desktop where it matters. Refresh them when later pushes change the visuals.
+  Use synthetic content only — the repo is public, so no real user data, tokens, or private
+  URLs in an image. Capture from a server that is already running; if none is, ask before
+  starting one, or say the screenshots could not be taken.
 - Read [`docs/hub/README.md`](docs/hub/README.md) before product or feature-spec work, and
   follow its [maintenance protocol](docs/hub/maintenance-protocol.md) when you decide something.
 - Follow [`docs/design/README.md`](docs/design/README.md) for anything the user sees or feels.
@@ -137,6 +148,13 @@ run; `-t "name"` filters by test name.
 - Treat `docs/speak-page-architecture.md` or `docs/speak-page-workflow.md` as current — both
   describe the superseded pre-Realtime TTS pipeline.
 - Resolve an open question by assumption. Record it; close it with the user.
+- Build in a git worktree, or give one its own `node_modules` or `.next`, installed or copied.
+  Organic LLM builds only in the main checkout.
+  - Allowed: a `node_modules` symlink to the main checkout's, which takes no extra space, when
+    the worktree's `bun.lock` matches the main checkout's. Remove the link when you're done.
+  - Anything else needs an explicit, one-off approval from the owner for a named worktree and
+    task. It doesn't carry over to other worktrees or later tasks. Remove what it allowed when
+    that task is done.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

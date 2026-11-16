@@ -2,9 +2,15 @@
 
 import type { AudioSnippetBlock } from "@/lib/schemas/gen-ui";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
-import { AlertCircle, Loader2, Pause, Play } from "lucide-react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { AlertCircle, Check, Copy, Loader2, Pause, Play } from "lucide-react";
 
+import { formatAudioSnippetTime } from "./audio-progress";
+import { buildAudioSnippetMetaItems } from "./audio-snippet-meta";
+import { AudioSeekBar } from "./AudioSeekBar";
+
+import { copyTextToClipboard } from "@/lib/clipboard/copy";
+import { spacing } from "@/lib/design-tokens/spacing";
 import { getTTSCacheKey, getTTSFromCache, setTTSInCache } from "@/lib/tts/audio-cache";
 import { calculateTokenUsage, type TTSModel } from "@/lib/tts/token-calculator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/third-party/ui/tooltip";
@@ -30,6 +36,8 @@ const memoryBlobCache = new Map<string, Blob>();
 export function clearAudioSnippetMemoryCache(): void {
   memoryBlobCache.clear();
 }
+
+export { formatAudioSnippetTime };
 
 function decodeBase64ToBytes(base64: string): Uint8Array {
   if (typeof globalThis.atob === "function") {
@@ -99,14 +107,8 @@ function isIgnorablePlayError(err: unknown): boolean {
   return false;
 }
 
-export function formatAudioSnippetTime(seconds: number): string {
-  if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
-  const totalSeconds = Math.floor(seconds);
-  const mins = Math.floor(totalSeconds / 60);
-  const secs = totalSeconds % 60;
-
-  return `${mins}:${secs.toString().padStart(2, "0")}`;
-}
+const META_CONTROL_CLASS =
+  "rounded-sm text-[11px] text-muted-foreground transition-colors hover:text-foreground hover:underline hover:underline-offset-2 focus-visible:outline-none focus-visible:text-foreground focus-visible:underline focus-visible:underline-offset-2 motion-reduce:transition-none";
 
 type AudioSnippetProps = {
   block: AudioSnippetBlock;
@@ -114,6 +116,7 @@ type AudioSnippetProps = {
 };
 
 export function AudioSnippet({ block, partial }: AudioSnippetProps) {
+  const scriptPanelId = useId();
   const cost = useMemo(
     () => calculateTokenUsage(block.script, AUDIO_SNIPPET_TTS_MODEL),
     [block.script]
@@ -132,9 +135,20 @@ export function AudioSnippet({ block, partial }: AudioSnippetProps) {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isSynthesizing, setIsSynthesizing] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
+  const [scriptOpen, setScriptOpen] = useState(false);
+  const [scriptCopied, setScriptCopied] = useState(false);
+
+  const metaItems = useMemo(
+    () =>
+      buildAudioSnippetMetaItems({
+        duration: block.preview.duration,
+        tone: block.meta?.tone,
+        costLabel,
+      }),
+    [block.preview.duration, block.meta?.tone, costLabel]
+  );
 
   const revokeCurrentObjectUrl = useCallback(() => {
     if (
@@ -165,9 +179,10 @@ export function AudioSnippet({ block, partial }: AudioSnippetProps) {
     revokeCurrentObjectUrl();
     setAudioUrl(null);
     setIsPlaying(false);
-    setCurrentTime(0);
     setDuration(0);
     setError(null);
+    setScriptOpen(false);
+    setScriptCopied(false);
   }, [memoryCacheKey, revokeCurrentObjectUrl]);
 
   const attachBlobAndPlay = useCallback(
@@ -333,21 +348,6 @@ export function AudioSnippet({ block, partial }: AudioSnippetProps) {
       ? duration
       : Math.max(1, Math.round(cost.estimatedAudioDurationSec));
 
-  const handleSeek = useCallback(
-    (e: ChangeEvent<HTMLInputElement>) => {
-      const nextTime = Number(e.target.value);
-
-      if (!Number.isFinite(nextTime)) return;
-      const clamped = Math.max(0, Math.min(nextTime, effectiveDuration));
-
-      setCurrentTime(clamped);
-      if (audioRef.current) {
-        audioRef.current.currentTime = clamped;
-      }
-    },
-    [effectiveDuration]
-  );
-
   const handleLoadedMetadata = useCallback(() => {
     const el = audioRef.current;
 
@@ -356,18 +356,17 @@ export function AudioSnippet({ block, partial }: AudioSnippetProps) {
     }
   }, []);
 
-  const handleTimeUpdate = useCallback(() => {
-    const el = audioRef.current;
-
-    if (el && Number.isFinite(el.currentTime)) {
-      setCurrentTime(el.currentTime);
-    }
-  }, []);
-
   const handleEnded = useCallback(() => {
     setIsPlaying(false);
-    setCurrentTime(0);
   }, []);
+
+  const handleCopyScript = useCallback(async () => {
+    const ok = await copyTextToClipboard(block.script);
+
+    if (!ok) return;
+    setScriptCopied(true);
+    window.setTimeout(() => setScriptCopied(false), 1600);
+  }, [block.script]);
 
   const isButtonDisabled = isSynthesizing || Boolean(partial && !block.script?.trim());
   const buttonLabel = isSynthesizing
@@ -384,8 +383,8 @@ export function AudioSnippet({ block, partial }: AudioSnippetProps) {
         : "Generate & play with ElevenLabs";
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-start gap-3">
+    <div className={spacing.card.chrome}>
+      <div className="flex items-start gap-inline-md">
         <Tooltip>
           <TooltipTrigger asChild>
             <button
@@ -395,7 +394,8 @@ export function AudioSnippet({ block, partial }: AudioSnippetProps) {
               aria-label={buttonLabel}
               onClick={() => void handleTogglePlay()}
               className={cn(
-                "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border transition-colors",
+                "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border transition-colors motion-reduce:transition-none",
+                "focus-visible:outline-none focus-visible:border-foreground focus-visible:bg-foreground focus-visible:text-background",
                 isButtonDisabled
                   ? "border-border/50 bg-background-tertiary/40 text-muted-foreground cursor-not-allowed opacity-60"
                   : isPlaying
@@ -404,7 +404,7 @@ export function AudioSnippet({ block, partial }: AudioSnippetProps) {
               )}
             >
               {isSynthesizing ? (
-                <Loader2 className="size-4 animate-spin" />
+                <Loader2 className="size-4 animate-spin motion-reduce:animate-none" />
               ) : isPlaying ? (
                 <Pause className="size-4" />
               ) : (
@@ -415,68 +415,97 @@ export function AudioSnippet({ block, partial }: AudioSnippetProps) {
           <TooltipContent side="top">{tooltipLabel}</TooltipContent>
         </Tooltip>
 
-        <div className="min-w-0 flex-1 space-y-1">
+        <div className={cn("min-w-0 flex-1", spacing.card.labelStack)}>
           <p className="font-medium text-sm text-foreground">
             {partial && !block.preview.title ? (
-              <span className="inline-block h-4 w-48 rounded bg-muted/40 animate-pulse" />
+              <span className="inline-block h-4 w-48 rounded bg-muted/40 animate-pulse motion-reduce:animate-none" />
             ) : (
               block.preview.title
             )}
           </p>
           <p className="text-sm text-muted-foreground leading-snug">{block.preview.teaser}</p>
-          <div className="flex flex-wrap gap-2 text-[11px] text-muted-foreground">
-            {block.preview.duration ? <span>{block.preview.duration}</span> : null}
-            {block.meta?.tone ? <span>· {block.meta.tone}</span> : null}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="cursor-help underline decoration-dotted underline-offset-2">
-                  Est. cost {costLabel}
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-xs">
-                Based on script length ({cost.characterCount} chars) at ElevenLabs Flash v2.5 rates.
-                Synthesized on demand when you press Play.
-              </TooltipContent>
-            </Tooltip>
+
+          <div
+            className={cn(
+              "flex flex-wrap items-center gap-y-stack-xs text-[11px] text-muted-foreground",
+              spacing.gap.sm
+            )}
+          >
+            {metaItems.map((item) => (
+              <span
+                key={item.key}
+                className="inline-flex items-center gap-inline-sm whitespace-nowrap"
+              >
+                <span className={item.tabularNums ? "tabular-nums" : undefined}>{item.label}</span>
+                {/* Trailing sep keeps · off the next line start when the row wraps. */}
+                <span aria-hidden="true">·</span>
+              </span>
+            ))}
+            <button
+              type="button"
+              className={cn(META_CONTROL_CLASS, "whitespace-nowrap")}
+              aria-expanded={scriptOpen}
+              aria-controls={scriptPanelId}
+              onClick={() => setScriptOpen((open) => !open)}
+            >
+              Script
+            </button>
           </div>
 
           {isSynthesizing ? (
-            <p role="status" className="text-xs text-muted-foreground pt-1">
+            <p role="status" className="text-xs text-muted-foreground pt-stack-xs">
               Synthesizing audio with ElevenLabs…
             </p>
           ) : null}
 
           {audioUrl ? (
-            <div className="flex items-center gap-2 pt-1.5" data-testid="audio-snippet-player">
-              <input
-                type="range"
-                aria-label="Seek audio"
-                min={0}
-                max={effectiveDuration}
-                step={0.1}
-                value={Math.min(currentTime, effectiveDuration)}
-                onChange={handleSeek}
-                className="h-1.5 flex-1 cursor-pointer accent-foreground"
-              />
-              <span
-                className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground"
-                data-testid="audio-snippet-time"
-              >
-                {formatAudioSnippetTime(currentTime)} / {formatAudioSnippetTime(effectiveDuration)}
-              </span>
-            </div>
+            <AudioSeekBar
+              audioRef={audioRef}
+              isPlaying={isPlaying}
+              effectiveDuration={effectiveDuration}
+              resetKey={memoryCacheKey}
+            />
           ) : null}
 
           {error ? (
-            <div role="alert" className="flex items-start gap-1.5 pt-1 text-xs text-destructive">
+            <div
+              role="alert"
+              className="flex items-start gap-inline-sm pt-stack-xs text-xs text-destructive"
+            >
               <AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
               <span>{error}</span>
+            </div>
+          ) : null}
+
+          {scriptOpen ? (
+            <div id={scriptPanelId} className={cn("pt-stack-sm", spacing.card.labelStack)}>
+              <div className="flex items-center justify-between gap-inline-sm">
+                <p className="text-[11px] text-muted-foreground">Transcript</p>
+                <button
+                  type="button"
+                  className={cn(META_CONTROL_CLASS, "inline-flex items-center gap-1")}
+                  aria-label={scriptCopied ? "Script copied" : "Copy script"}
+                  onClick={() => void handleCopyScript()}
+                >
+                  {scriptCopied ? (
+                    <Check className="size-3" aria-hidden />
+                  ) : (
+                    <Copy className="size-3" aria-hidden />
+                  )}
+                  {scriptCopied ? "Copied" : "Copy"}
+                </button>
+              </div>
+              <div className="max-h-48 overflow-y-auto overscroll-contain">
+                <p className="max-w-prose whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground/90">
+                  {block.script}
+                </p>
+              </div>
             </div>
           ) : null}
         </div>
       </div>
 
-      {/* eslint-disable-next-line jsx-a11y/media-has-caption -- Generated TTS snippet; full script is provided below */}
+      {/* eslint-disable-next-line jsx-a11y/media-has-caption -- Generated TTS snippet; full script is provided in the Script panel */}
       <audio
         ref={audioRef}
         className="hidden"
@@ -487,17 +516,7 @@ export function AudioSnippet({ block, partial }: AudioSnippetProps) {
         onLoadedMetadata={handleLoadedMetadata}
         onPause={() => setIsPlaying(false)}
         onPlay={() => setIsPlaying(true)}
-        onTimeUpdate={handleTimeUpdate}
       />
-
-      <details className="rounded-lg border border-border/40 bg-background-tertiary/15 px-3 py-2 text-sm">
-        <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-          View script
-        </summary>
-        <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap text-xs text-foreground font-mono">
-          {block.script}
-        </pre>
-      </details>
     </div>
   );
 }

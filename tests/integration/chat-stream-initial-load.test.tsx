@@ -333,7 +333,13 @@ describe("Chat stream resumption on navigation", () => {
     await waitFor(() => expect(view.getByTestId("chat-status").textContent).toBe("ready"));
   });
 
-  test("leaving and returning to an active Arcadia thread reconnects with a cached null snapshot", async () => {
+  // The ⌘K launcher and the sidebar both switch threads by pushing the thread's path with no
+  // cached content, so this is the guarantee that switching away mid-stream and back loses
+  // nothing: the second visit reattaches to the live stream and replays what was missed.
+  test.each([
+    ["Chat", undefined],
+    ["Arcadia", "arcadia"],
+  ] as const)("leaving and returning to an active %s thread reconnects with a cached null snapshot", async (_label, experience) => {
     const first = liveStream("First part");
     const resumed = liveStream("First part, generated while away");
 
@@ -343,21 +349,21 @@ describe("Chat stream resumption on navigation", () => {
       .mockResolvedValueOnce(new Response(null, { status: 204 }))
       .mockResolvedValueOnce(resumed.response);
     const view = render(
-      <App threadId={OTHER_THREAD_ID} activeStreamId={null} experience="arcadia" />
+      <App threadId={OTHER_THREAD_ID} activeStreamId={null} experience={experience} />
     );
 
     await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
 
-    view.rerender(<App activeStreamId={null} experience="arcadia" />);
+    view.rerender(<App activeStreamId={null} experience={experience} />);
     await waitFor(() => expect(view.getByTestId("chat-messages").textContent).toBe("First part"));
     const firstSignal = fetchSpy.mock.calls[1]?.[1]?.signal;
 
-    view.rerender(<App threadId={OTHER_THREAD_ID} activeStreamId={null} experience="arcadia" />);
+    view.rerender(<App threadId={OTHER_THREAD_ID} activeStreamId={null} experience={experience} />);
     await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(3));
     expect(firstSignal?.aborted).toBe(true);
     expect(view.getByTestId("chat-messages").textContent).toBe("");
 
-    view.rerender(<App activeStreamId={null} experience="arcadia" />);
+    view.rerender(<App activeStreamId={null} experience={experience} />);
     await waitFor(() =>
       expect(view.getByTestId("chat-messages").textContent).toBe("First part, generated while away")
     );

@@ -14,7 +14,7 @@ export function createRenderGenUiTool() {
 
   return tool({
     description:
-      "Render a structured UI block in the chat thread. Use at most once per assistant turn when a structured block clearly helps. Pass the block as `block`. Types: answer-card (multi-point answers), decision-matrix (comparisons), plan-timeline (sequential plans), audio-snippet (listen/recap requests only), recipe-card, shopping-list, restaurant-card (use gather_restaurant first for verified venue data). Respect schema size caps.",
+      "Render a structured UI block in the chat thread. Use at most once per assistant turn when a structured block clearly helps. Pass the block as `block`. Types: answer-card (multi-point answers), decision-matrix (comparisons), plan-timeline (sequential plans), audio-snippet (listen/recap requests only), recipe-card, shopping-list, restaurant-card (use gather_restaurant first for verified venue data), code-diff (a change to existing code: pass unified-diff text per file; the app parses it). Respect schema size caps.",
     inputSchema: z.object({ block: GenUIBlockSchema }),
     execute: async ({ block }) => {
       callsThisTurn += 1;

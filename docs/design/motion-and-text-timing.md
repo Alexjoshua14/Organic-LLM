@@ -13,6 +13,9 @@ mapped to our production knobs.
 - Wrappers: `ChatThinking` / `ChatReasoning` / `ChatSearching` in [`components/chat/chat-loading.tsx`](../../components/chat/chat-loading.tsx)
 - Chat *route* loading (thread hydrate): [`lib/chat/chat-page-loading-timing.ts`](../../lib/chat/chat-page-loading-timing.ts) + [`styles/ChatPageLoading.css`](../../styles/ChatPageLoading.css) + [`components/chat/chat-page-loading.tsx`](../../components/chat/chat-page-loading.tsx)
 - Lab: `/sandbox/prototypes/llm-states` → **Processing burn (proto)**
+- App startup: `components/layout/startup-loading.tsx`; review alongside chat-route loading at `/sandbox/prototypes/loading-pages`.
+
+The app startup surface streams before root session/admin reads finish. It uses the existing liquid chrome SSR fill, then the adaptive background and a working `OrganicActivityMark`. The mark's standalone material uses 3px diffusion, 100% brightness, and 22% fill so its dots stay visible on light chrome. Its existing motion/reduced-motion behavior is retained. There is no entrance fade, exit hold, or minimum loader duration; resolving the session tree clears it immediately. A visible loader does not imply the composer is ready.
 
 ---
 

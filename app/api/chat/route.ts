@@ -45,7 +45,13 @@ import {
 } from "@/lib/api/chat-system-prompt";
 import { appendIntrospectionMainChatSystemFragments } from "@/lib/api/introspection-system-prompt";
 import { appendCurrentDate } from "@/lib/system-prompt/current-date";
-import { resolveMemoryEnabledForExperience } from "@/lib/chat/chat-experience";
+import { AION_SANDBOX_INSTRUCTIONS } from "@/lib/system-prompt/aion-sandbox";
+import { setArchetypeStateTool, viewArchetypeTool } from "@/lib/llm/archetype";
+import { showMemoriesTool } from "@/lib/llm/archetype/memory";
+import {
+  resolveChatRuntimeExperience,
+  resolveMemoryEnabledForExperience,
+} from "@/lib/chat/chat-experience";
 import { resolveChatStarterPromptByKey } from "@/lib/chat/chat-style-starters";
 import { compileChatTools } from "@/lib/llm/compile-chat-tools";
 import { runLLMChatStream } from "@/lib/api/run-llm-chat-stream";
@@ -127,7 +133,7 @@ export async function POST(req: Request) {
     zeroDataRetention,
     coalescenceMode,
     experimentalKnowledgeCapsuleTitles,
-    experience,
+    experience: requestedExperience,
     chatStyle,
     strataPageId,
     messageSearch,
@@ -145,6 +151,8 @@ export async function POST(req: Request) {
     multitaskSendTarget,
     personaSessionId,
   } = parseResult.data;
+
+  const experience = resolveChatRuntimeExperience(requestedExperience);
 
   /**
    * Authentication
@@ -465,8 +473,16 @@ export async function POST(req: Request) {
           experience,
           customSystemPromptOverride,
         });
-        for (const fragment of multitask?.systemFragments ?? []) {
-          systemPromptForRequest = `${systemPromptForRequest}\n\n${fragment}`;
+        // The orchestrator's board, worktable, and routing change every turn: send them after the
+        // conversation (see withTurnContext) so the system prompt stays cacheable. A subagent's
+        // fragments are its fixed identity and stay in the system prompt.
+        const turnContext =
+          multitask?.role === "orchestrator" ? multitask.systemFragments : ([] as string[]);
+
+        if (multitask && multitask.role !== "orchestrator") {
+          for (const fragment of multitask.systemFragments) {
+            systemPromptForRequest = `${systemPromptForRequest}\n\n${fragment}`;
+          }
         }
 
         logger.log(
@@ -590,6 +606,14 @@ export async function POST(req: Request) {
           orchestratorToolsConfig
         );
 
+        if (requestedExperience === "aion" && !shellAgent) {
+          Object.assign(tools, {
+            show_memories: { ...showMemoriesTool, execute: undefined },
+            set_state_archetype: setArchetypeStateTool,
+            view_archetype: viewArchetypeTool,
+          });
+        }
+
         const toolNames = Object.keys(tools);
 
         logger.debug("tools", "Compiled tools", {
@@ -631,6 +655,9 @@ export async function POST(req: Request) {
           drawerDisplay,
           arcadiaStarterPriming,
         });
+        if (requestedExperience === "aion" && !shellAgent) {
+          systemPromptForRequest += `\n\n${AION_SANDBOX_INSTRUCTIONS}`;
+        }
         if (personaSession) {
           systemPromptForRequest += buildPersonaInstructions(personaSession, { surface: "chat" });
         }
@@ -649,7 +676,7 @@ export async function POST(req: Request) {
         );
 
         const inputTokenEstimate = estimateLlmInputTokens({
-          systemPrompt: systemPromptWithLength,
+          systemPrompt: [systemPromptWithLength, ...turnContext].join("\n\n"),
           toolInstructions,
           messages: validatedMessages,
         });
@@ -690,7 +717,7 @@ export async function POST(req: Request) {
           draftMessage: message,
           validatedMessages,
           contextSystemPrompt: afterContext,
-          finalSystemPrompt: systemPromptWithLength,
+          finalSystemPrompt: [systemPromptWithLength, ...turnContext].join("\n\n"),
           toolInstructions,
           activeToolNames: toolNames,
           tokenBreakdown,
@@ -722,6 +749,7 @@ export async function POST(req: Request) {
           effort: requestedEffort,
           messages,
           systemPromptWithLength,
+          turnContext,
           tools,
           hasTools,
           maxSteps,

@@ -3,9 +3,15 @@ import { z } from "zod";
 /**
  * Background activity: how often in-view probes (e.g. the Arcadia subagent Jev heartbeat) run,
  * chosen by the user under Settings → AI. Every mode pauses probes for hidden tabs or locked
- * screens and idle clients; all modes also pause when low power is detected.
+ * screens and on low power; every mode but Realtime also pauses for idle clients.
  */
-export const BACKGROUND_ACTIVITY_MODES = ["default", "performance", "saver", "daily"] as const;
+export const BACKGROUND_ACTIVITY_MODES = [
+  "default",
+  "performance",
+  "realtime",
+  "saver",
+  "daily",
+] as const;
 
 export const BackgroundActivityModeSchema = z.enum(BACKGROUND_ACTIVITY_MODES);
 
@@ -15,6 +21,10 @@ export const DEFAULT_BACKGROUND_ACTIVITY_MODE: BackgroundActivityMode = "default
 
 /**
  * Probe cadence per mode.
+ * - Realtime 10s: for live multi-agent runs. A Jev check is about 2.5k input tokens at $0.04/M
+ *   (~$0.0001), so even a board that changes every tick costs under $0.90 a day; an unchanged
+ *   board never reaches Jev and costs only database reads. The orchestrator turn a notable change
+ *   triggers is the real cost, and the automatic-continuation caps bound that.
  * - Performance 30s: subagent results surface about as fast as the board's own poll.
  * - Default 60s: the owner's suggested once-a-minute heartbeat.
  * - Cost / battery saver 5m: a few Jev calls an hour at most; results still arrive in-session.
@@ -22,6 +32,7 @@ export const DEFAULT_BACKGROUND_ACTIVITY_MODE: BackgroundActivityMode = "default
  * Only a changed subagent board reaches Jev, so these are ceilings on spend, not a fixed cost.
  */
 export const BACKGROUND_ACTIVITY_INTERVAL_MS: Readonly<Record<BackgroundActivityMode, number>> = {
+  realtime: 10_000,
   performance: 30_000,
   default: 60_000,
   saver: 5 * 60_000,
@@ -31,8 +42,11 @@ export const BACKGROUND_ACTIVITY_INTERVAL_MS: Readonly<Record<BackgroundActivity
 /** No pointer, key, wheel, or touch input for this long and the client counts as idle. */
 export const BACKGROUND_ACTIVITY_IDLE_AFTER_MS = 5 * 60_000;
 
-/** How often the client re-checks whether a probe is due. Local only — no network. */
-export const BACKGROUND_ACTIVITY_CHECK_MS = 15_000;
+/**
+ * How often the client re-checks whether a probe is due. Local only — no network. Must stay well
+ * under the fastest cadence (Realtime, 10s) or it, not the mode, sets the real rate.
+ */
+export const BACKGROUND_ACTIVITY_CHECK_MS = 2_500;
 
 /** Battery at or below this, and not charging, counts as low power. */
 export const BACKGROUND_ACTIVITY_LOW_BATTERY_LEVEL = 0.2;
@@ -51,6 +65,12 @@ export const BACKGROUND_ACTIVITY_OPTIONS: ReadonlyArray<{
     value: "performance",
     label: "Performance",
     description: "Checks on background agents every 30 seconds.",
+  },
+  {
+    value: "realtime",
+    label: "Realtime",
+    description:
+      "Every 10 seconds, and keeps going while you step away. For live multi-agent runs.",
   },
   {
     value: "saver",
@@ -74,11 +94,12 @@ export type ProbeEnvironment = {
 export type ProbePauseReason = "hidden" | "idle" | "low-power";
 
 export function resolveProbePause(
-  _mode: BackgroundActivityMode,
+  mode: BackgroundActivityMode,
   env: ProbeEnvironment
 ): ProbePauseReason | null {
   if (env.hidden) return "hidden";
-  if (env.idleForMs >= BACKGROUND_ACTIVITY_IDLE_AFTER_MS) return "idle";
+  // Realtime keeps a multi-agent run alive while the user watches without touching input.
+  if (mode !== "realtime" && env.idleForMs >= BACKGROUND_ACTIVITY_IDLE_AFTER_MS) return "idle";
   if (env.lowPower) return "low-power";
 
   return null;

@@ -1,7 +1,6 @@
 import "server-only";
 
-import { encodingForModel } from "js-tiktoken";
-
+import { getTokenEncoder } from "@/lib/chat/tokenizer";
 import { models } from "@/lib/schemas/chat-models";
 
 /** Gateway model id for memory lens page summaries (cheap, high throughput). */
@@ -12,11 +11,11 @@ export const LENS_OVERVIEW_MEMORY_BLOB_MAX_TOKENS = 1000;
 
 /**
  * Builds a newline list of memory texts and trims from the end until the blob is at most
- * `LENS_OVERVIEW_MEMORY_BLOB_MAX_TOKENS` tokens (cl100k_base via gpt-5 encoding).
+ * `LENS_OVERVIEW_MEMORY_BLOB_MAX_TOKENS` tokens (the shared o200k encoder, as gpt-5 counts).
  */
 export function truncateMemoryBlobToTokenCap(orderedTexts: string[]): string {
   if (orderedTexts.length === 0) return "";
-  const encoding = encodingForModel("gpt-5");
+  const encoding = getTokenEncoder();
   const lines = orderedTexts
     .map((t) => `- ${t.replace(/\s+/g, " ").trim()}`)
     .filter((l) => l.length > 2);

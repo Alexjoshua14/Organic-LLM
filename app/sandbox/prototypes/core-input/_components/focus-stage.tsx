@@ -51,7 +51,8 @@ import {
   PromptInputTextarea,
   PromptInputTools,
 } from "@/components/third-party/ai-elements/prompt-input";
-import { estimateDraftTokens, formatTokenCount } from "@/lib/chat/context-budget";
+import { formatTokenCount } from "@/lib/chat/context-budget";
+import { useDraftTokenCount } from "@/hooks/use-draft-token-count";
 import { CONTEXT_EFFORT_BUDGETS } from "@/lib/memory/context-effort";
 import { AUTO_CHAT_MODEL, chatModelById, getSelectableChatModels } from "@/lib/schemas/chat";
 import { clampEffortForModel } from "@/lib/schemas/chat-effort";
@@ -427,16 +428,12 @@ function sendFromSurface(ctx: CardContext, text: string) {
 
 function ToolbarCard(ctx: CardContext) {
   const { value, chat, budget, state } = ctx;
+  const draftTokens = useDraftTokenCount(state.draftText);
 
   return (
     <StateCell label="Interactive · production footer">
       <MiniComposer
-        corner={
-          <ContextBudgetIndicatorView
-            budget={budget}
-            draftTokens={estimateDraftTokens(state.draftText)}
-          />
-        }
+        corner={<ContextBudgetIndicatorView budget={budget} draftTokens={draftTokens} />}
         footerSlot={
           <CoreInputFooter
             placement={labFooterPlacement(value)}
@@ -634,17 +631,14 @@ function ContextEffortCard({ value }: CardContext) {
 const LAB_DRAFT_TOKEN_SAMPLES = [12, 1_240, 9_999];
 
 function ContextBudgetCard({ state, value, budget }: CardContext) {
+  const draftTokens = useDraftTokenCount(state.draftText);
+
   return (
     <>
       <StateGrid>
         <StateCell label="Badge in the composer corner · hover for breakdown">
           <MiniComposer
-            corner={
-              <ContextBudgetIndicatorView
-                budget={budget}
-                draftTokens={estimateDraftTokens(state.draftText)}
-              />
-            }
+            corner={<ContextBudgetIndicatorView budget={budget} draftTokens={draftTokens} />}
             footer={
               <div className="ml-auto">
                 <PromptInputSubmit status="ready" stop={noop} />

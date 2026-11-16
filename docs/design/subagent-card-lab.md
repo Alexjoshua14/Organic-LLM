@@ -24,7 +24,9 @@ imports the live component; its Next column imports the `Next*` fork.
 - **Shared pieces need care.** `subagent-speak-glass-bar.tsx` and `components/voice/*` serve both
   versions. If Next needs different behaviour there, add an opt-in prop (see `fillHeight`) so
   Current is unchanged until promotion. Genuine bug fixes in shared code may land for both; say so.
-- **Never delete or reshape Next or the lab** unless told to. Keep the two-column layout.
+- **Never delete or reshape Next or the lab** unless told to. Keep Current and Next on the page.
+  From `sm` up they sit side by side with both device samples; on phones they stack so the organic
+  agent stays readable inside one viewport, and the 390px mobile sample is deferred to `sm+`.
 - Use the spacing token system ([spacing](./spacing.md)), not raw pixel values, for page layout.
 - Leave work uncommitted unless asked.
 

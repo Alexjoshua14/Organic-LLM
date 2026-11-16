@@ -3,128 +3,102 @@
 import type { AnswerCardBlock } from "@/lib/schemas/gen-ui";
 
 import { GenUIMarkdown } from "@/components/chat/gen-ui/GenUIMarkdown";
+import { spacing } from "@/lib/design-tokens/spacing";
 import { cn } from "@/lib/utils";
-
-/**
- * Confidence is a quiet meta-signal: a small dot + label in the footer.
- * It deliberately does NOT colour the answer surface — the summary always
- * carries the brand accent so the takeaway, not the metadata, leads the eye.
- */
-const CONFIDENCE_DOT: Record<NonNullable<AnswerCardBlock["footer"]>["confidence"], string> = {
-  high: "bg-accent",
-  medium: "bg-amber-500",
-  low: "bg-rose-500",
-};
 
 type AnswerCardProps = {
   block: AnswerCardBlock;
   partial?: boolean;
 };
 
-function KeyPoint({ children }: { children: React.ReactNode }) {
-  return (
-    <li className="relative pl-5 leading-relaxed">
-      <span className="absolute left-1 top-[0.6em] size-1.5 -translate-y-1/2 rounded-full bg-accent/60" />
-      {children}
-    </li>
-  );
-}
-
+/**
+ * Reads like the chat reply around it: one body size and colour, a heading, a lead paragraph,
+ * a plain bullet list, and headed sections that are always visible. No tinted boxes, eyebrow
+ * labels, or accordions: structure comes from type weight and spacing, as in markdown.
+ * Confidence, sources, and caveats are plain muted text after the answer.
+ */
 export function AnswerCard({ block, partial }: AnswerCardProps) {
-  const confidence = block.footer?.confidence;
+  const footer = block.footer;
+  const sources = footer?.sources ?? [];
 
   return (
-    <div className="space-y-4">
-      {/* Hero summary — the answer leads, in the brand accent, at a readable size. */}
+    <div
+      className={cn(
+        "text-base leading-snug text-foreground break-words sm:leading-normal",
+        spacing.card.section
+      )}
+    >
+      {typeof block.title === "string" && block.title ? (
+        <h3 className="text-balance text-lg font-semibold leading-snug">
+          <GenUIMarkdown inline>{block.title}</GenUIMarkdown>
+        </h3>
+      ) : null}
+
       {partial && !block.tldr ? (
-        <div className="h-16 rounded-xl bg-muted/40 animate-pulse" />
+        <div className="h-5 w-4/5 animate-pulse rounded bg-muted/40" />
       ) : (
-        <div className="relative rounded-xl border border-accent/15 bg-accent/[0.05] py-3 pl-5 pr-4">
-          <span className="absolute inset-y-3 left-0 w-[3px] rounded-full bg-accent/70" />
-          <span className="text-2xs font-semibold uppercase tracking-[0.12em] text-accent/90">
-            Summary
-          </span>
-          <p className="mt-1 text-[0.9375rem] leading-relaxed text-foreground">
-            <GenUIMarkdown inline>{block.tldr}</GenUIMarkdown>
-          </p>
-        </div>
+        <p className="text-pretty font-medium">
+          <GenUIMarkdown inline>{block.tldr}</GenUIMarkdown>
+        </p>
       )}
 
       {block.keyPoints.length > 0 ? (
-        <div>
-          <p className="mb-2 text-2xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-            Key points
-          </p>
-          {/* All points show: the schema caps them at 7, so the list never needs collapsing. */}
-          <ul className="space-y-2 text-sm text-foreground/90">
-            {block.keyPoints.map((p, i) => (
-              <KeyPoint key={i}>
-                <GenUIMarkdown inline>{p}</GenUIMarkdown>
-              </KeyPoint>
-            ))}
-          </ul>
-        </div>
+        // All points show: the schema caps them at 7, so the list never needs collapsing.
+        <ul
+          className={cn("list-disc pl-5 marker:text-muted-foreground/60", spacing.card.listItems)}
+        >
+          {block.keyPoints.map((p, i) => (
+            <li key={i} className="pl-0.5">
+              <GenUIMarkdown inline>{p}</GenUIMarkdown>
+            </li>
+          ))}
+        </ul>
       ) : partial ? (
         <div className="space-y-2">
-          <div className="h-3 w-full rounded bg-muted/40 animate-pulse" />
-          <div className="h-3 w-4/5 rounded bg-muted/40 animate-pulse" />
+          <div className="h-3 w-full animate-pulse rounded bg-muted/40" />
+          <div className="h-3 w-4/5 animate-pulse rounded bg-muted/40" />
         </div>
       ) : null}
 
       {block.sections?.map((section, i) => (
-        <details
-          key={i}
-          className="group rounded-xl border border-border/40 bg-background-tertiary/20 px-3.5 py-2.5"
-          open={section.defaultOpen}
-        >
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-sm font-medium text-foreground">
-            <span>
+        <section key={i} className={spacing.card.labelStack}>
+          {typeof section.heading === "string" && section.heading ? (
+            <h4 className="font-semibold">
               <GenUIMarkdown inline>{section.heading}</GenUIMarkdown>
-            </span>
-            <span className="text-muted-foreground transition-transform group-open:rotate-90">
-              ›
-            </span>
-          </summary>
-          <GenUIMarkdown className="mt-2.5 text-sm leading-relaxed text-muted-foreground">
-            {section.body}
-          </GenUIMarkdown>
-        </details>
+            </h4>
+          ) : null}
+          <GenUIMarkdown>{section.body}</GenUIMarkdown>
+        </section>
       ))}
 
-      {block.footer ? (
-        <footer className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-border/30 pt-3">
-          {confidence ? (
-            <span className="inline-flex items-center gap-1.5 text-2xs font-medium capitalize text-muted-foreground">
-              <span className={cn("size-1.5 rounded-full", CONFIDENCE_DOT[confidence])} />
-              {confidence} confidence
-            </span>
-          ) : null}
-          {block.footer.sources?.length ? (
-            <div className="flex flex-wrap items-center gap-1.5">
-              {block.footer.sources.map((src, i) =>
-                src.url ? (
+      {footer ? (
+        <footer className={cn("text-sm text-muted-foreground", spacing.card.labelStack)}>
+          <p>
+            {footer.confidence ? (
+              <span className="capitalize">{footer.confidence} confidence</span>
+            ) : null}
+            {footer.confidence && sources.length > 0 ? " · " : null}
+            {sources.length > 0 ? "Sources: " : null}
+            {sources.map((src, i) => (
+              <span key={i}>
+                {i > 0 ? ", " : null}
+                {src.url ? (
                   <a
-                    key={i}
                     href={src.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="rounded-full border border-border/50 px-2 py-0.5 text-2xs text-muted-foreground transition-colors hover:border-accent/40 hover:text-accent"
+                    className="text-accent underline-offset-2 hover:underline max-sm:underline max-sm:decoration-accent/40 pointer-coarse:inline-block pointer-coarse:py-1.5"
                   >
                     {src.label}
                   </a>
                 ) : (
-                  <span
-                    key={i}
-                    className="rounded-full border border-border/50 px-2 py-0.5 text-2xs text-muted-foreground"
-                  >
-                    {src.label}
-                  </span>
-                )
-              )}
-            </div>
-          ) : null}
-          {block.footer.caveats?.map((c, i) => (
-            <p key={i} className="w-full text-xs italic leading-relaxed text-muted-foreground">
+                  src.label
+                )}
+              </span>
+            ))}
+          </p>
+          {footer.caveats?.map((c, i) => (
+            <p key={i}>
               <GenUIMarkdown inline>{c}</GenUIMarkdown>
             </p>
           ))}

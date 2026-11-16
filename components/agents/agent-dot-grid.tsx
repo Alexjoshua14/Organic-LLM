@@ -14,6 +14,8 @@ type AgentDotGridProps = {
   className?: string;
   seed?: string;
   intensity?: number;
+  /** Multiplies every dot's radius before blur; 1 is the original size. */
+  dotWeight?: number;
 };
 
 /** Decorative SVG layer; owns motion while leaving stacking and sizing to its container. */
@@ -22,6 +24,7 @@ export function AgentDotGrid({
   className,
   seed = "organic-agent-dots",
   intensity,
+  dotWeight = 1,
 }: AgentDotGridProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const dotsRef = useRef<Array<SVGGElement | null>>([]);
@@ -144,9 +147,14 @@ export function AgentDotGrid({
               opacity: dotOpacity(restScales[index]!),
             }}
           >
-            <circle fill="currentColor" r="2" />
+            <circle fill="currentColor" r={2 * dotWeight} />
             {/* SVG circles cannot paint the HTML glass primitive's background/backdrop. */}
-            <foreignObject height="4" width="4" x="-2" y="-2">
+            <foreignObject
+              height={4 * dotWeight}
+              width={4 * dotWeight}
+              x={-2 * dotWeight}
+              y={-2 * dotWeight}
+            >
               <div className={cn(glass(), "size-full rounded-full")} />
             </foreignObject>
           </g>

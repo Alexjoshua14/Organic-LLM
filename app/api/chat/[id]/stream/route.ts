@@ -3,7 +3,7 @@ import { UI_MESSAGE_STREAM_HEADERS } from "ai";
 
 import { createChatResumableStreamContext } from "@/lib/chat/resumable-sse-stream";
 import { createLogger } from "@/lib/logger";
-import { readChat } from "@/lib/chat/chat-store";
+import { readThreadStreamState } from "@/lib/chat/thread-stream-state";
 
 const logger = createLogger("app/api/chat/[id]/stream/route.ts");
 const STREAM_HEADERS = { ...UI_MESSAGE_STREAM_HEADERS, "cache-control": "no-store" };
@@ -17,7 +17,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
 
   const { id } = await params;
 
-  const chatRes = await readChat(id);
+  const chatRes = await readThreadStreamState(id);
 
   if (chatRes.error) {
     logger.error("GET", "Error reading chat");
@@ -31,13 +31,13 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
 
   const chat = chatRes.data;
 
-  if (chat.thread.active_stream_id == null) {
+  if (chat.activeStreamId == null) {
     // no content response when there is no active stream
     return new Response(null, { status: 204, headers: STREAM_HEADERS });
   }
 
   const streamContext = await createChatResumableStreamContext();
-  const stream = await streamContext.resumeExistingStream(chat.thread.active_stream_id);
+  const stream = await streamContext.resumeExistingStream(chat.activeStreamId);
 
   if (!stream) {
     return new Response(null, { status: 204, headers: STREAM_HEADERS });

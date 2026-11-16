@@ -11,7 +11,7 @@ import { coreInputScopes } from "@/lib/core-input/scopes";
 import { Chat } from "@/components/chat/chat";
 import { PerfServerPhases } from "@/components/perf/perf-server-phases";
 import { loadChat } from "@/lib/chat/chat-store";
-import { PERF_PHASES } from "@/lib/perf/journeys";
+import { PERF_DURATIONS, PERF_PHASES } from "@/lib/perf/journeys";
 import {
   createRequestPhaseCollector,
   takeServerPhases,
@@ -41,11 +41,14 @@ export async function generateMetadata({
   if (res.error || res.data === null) {
     return tabTitleMetadata(null, "Arcadia");
   }
-  const primary = await resolveChatBrowserTabTitlePrimary({
-    experience: "arcadia",
-    thread: res.data.thread,
-    messages: res.data.messages,
-  });
+  const { thread, messages } = res.data;
+  const primary = await timeServerPhase(getPhaseCollector(), PERF_DURATIONS.srvTitle, () =>
+    resolveChatBrowserTabTitlePrimary({
+      experience: "arcadia",
+      thread,
+      messages,
+    })
+  );
 
   return tabTitleMetadata(primary, "Arcadia");
 }
@@ -84,8 +87,10 @@ export default async function ArcadiaChatPage({ params }: { params: Promise<{ sl
   const initialMultitaskView =
     parentView?.data?.enabled ?? chatData.thread.arcadia_multitask_view === true;
 
-  const initialComposerSettings = await readCoreInputInitialSettings(
-    coreInputScopes.thread("arcadia", id)
+  const initialComposerSettings = await timeServerPhase(
+    getPhaseCollector(),
+    PERF_DURATIONS.srvSettings,
+    () => readCoreInputInitialSettings(coreInputScopes.thread("arcadia", id))
   );
 
   return (

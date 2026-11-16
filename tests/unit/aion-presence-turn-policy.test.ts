@@ -27,7 +27,7 @@ const baseSettings = {
 };
 
 describe("decideAionTurnTier", () => {
-  test("user messages are always full turns", () => {
+  test("user messages are full turns when idle", () => {
     const decision = decideAionTurnTier(event({ kind: "message", label: "Hello" }), baseSettings);
 
     expect(decision.tier).toBe("full");
@@ -96,4 +96,16 @@ describe("decideAionTurnTier", () => {
     expect(decision.tier).toBe("none");
     expect(decision.reason).toBe("disabled");
   });
+});
+
+test("busy presence never starts overlapping full or dormant turns", () => {
+  for (const kind of ["message", "button"] as const) {
+    const decision = decideAionTurnTier(event({ kind }), {
+      ...baseSettings,
+      busy: true,
+      idleMs: AION_IDLE_DORMANT_MS,
+    });
+    expect(decision.tier).toBe("none");
+    expect(decision.reason).toBe("busy");
+  }
 });

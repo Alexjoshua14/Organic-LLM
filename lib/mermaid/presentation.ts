@@ -10,9 +10,14 @@ export const mermaidWellClass = cn(
   "overflow-hidden"
 );
 
+/**
+ * No `justify-center` on the scroller: centering a flex child that overflows clips its left
+ * edge beyond reach. The svg centers itself with auto margins (see applyMermaidGlassStyles), which
+ * fall back to the start edge when the diagram is wider than the well.
+ */
 export const mermaidWellInnerClass = cn(
-  "relative flex min-h-[4.5rem] justify-center overflow-x-auto px-3 py-4",
-  "[&_.mermaid]:my-0 [&_svg]:h-auto [&_svg]:max-w-none"
+  "relative flex min-h-[4.5rem] overflow-x-auto px-3 py-4",
+  "[&_.mermaid]:my-0 [&_svg]:h-auto"
 );
 
 /** Staged reveal on first paint (opacity only — no layout animation). */
@@ -25,11 +30,17 @@ export const mermaidRevealClass = cn(
 export const mermaidControlsClass = cn(
   "pointer-events-none absolute right-2 top-2 z-10 flex gap-1",
   "opacity-0 transition-opacity duration-200",
-  "group-hover/mermaid-well:opacity-100 group-focus-within/mermaid-well:opacity-100"
+  "group-hover/mermaid-well:opacity-100 group-focus-within/mermaid-well:opacity-100",
+  // No hover on a touch screen: the controls stay put.
+  "max-sm:opacity-100 pointer-coarse:opacity-100"
 );
+
+/** Room above the diagram for the always-visible phone controls, so they never sit on a node. */
+export const mermaidControlsGutterClass = "max-sm:pt-12";
 
 export const mermaidControlButtonClass = cn(
   "pointer-events-auto grid size-7 place-content-center rounded-md",
+  "max-sm:size-10 pointer-coarse:size-11",
   "border border-border/50 bg-background/80 text-muted-foreground backdrop-blur-sm",
   "hover:bg-background hover:text-foreground",
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -89,7 +100,22 @@ export function buildMermaidGlassStyleMarkup(): string {
   `;
 }
 
-export function applyMermaidGlassStyles(svgEl: SVGSVGElement): void {
+/**
+ * An inline diagram shrinks to fit a narrow well, but never below this share of its natural size:
+ * labels are 14px, and past about three quarters they stop being legible. Below it the well
+ * scrolls sideways instead.
+ */
+export const MERMAID_MIN_FIT_SCALE = 0.75;
+
+type GlassStyleOptions = {
+  /** Shrink to the well's width, down to MERMAID_MIN_FIT_SCALE. Off where the diagram is panned. */
+  fit?: boolean;
+};
+
+export function applyMermaidGlassStyles(
+  svgEl: SVGSVGElement,
+  { fit = false }: GlassStyleOptions = {}
+): void {
   svgEl.querySelector(`#${MERMAID_GLASS_STYLE_ID}`)?.remove();
 
   svgEl.setAttribute("data-organic-mermaid", "");
@@ -109,9 +135,11 @@ export function applyMermaidGlassStyles(svgEl: SVGSVGElement): void {
   const viewBox = svgEl.viewBox?.baseVal;
 
   if (viewBox?.width > 0) {
-    svgEl.style.width = `${viewBox.width}px`;
-    svgEl.style.maxWidth = "none";
+    svgEl.style.display = "block";
+    svgEl.style.marginInline = "auto";
     svgEl.style.height = "auto";
-    svgEl.style.flexShrink = "0";
+    svgEl.style.width = `${viewBox.width}px`;
+    svgEl.style.maxWidth = fit ? "100%" : "none";
+    svgEl.style.minWidth = fit ? `${Math.round(viewBox.width * MERMAID_MIN_FIT_SCALE)}px` : "";
   }
 }

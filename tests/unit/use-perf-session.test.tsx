@@ -201,13 +201,21 @@ describe("signed-in perf collection", () => {
     expect(observers.every((observer) => observer.disconnected)).toBe(true);
   });
 
-  test("direct loads outside home enable collection without starting a home load trace", () => {
-    window.history.replaceState(null, "", "/chat/example?perf=1");
+  test("direct loads of an unmeasured route enable collection without starting a load trace", () => {
+    window.history.replaceState(null, "", "/settings?perf=1");
     render(<App {...signedIn} />);
     paintComposer();
     expect(isPerfEnabled()).toBe(true);
     expect(getPerfSnapshot()).toEqual({ active: null, traces: [] });
     expect(observers).toHaveLength(0);
+  });
+
+  test("a direct load of a chat page is measured from document navigation", () => {
+    window.history.replaceState(null, "", "/chat/example?perf=1");
+    render(<App {...signedIn} />);
+    expect(getPerfSnapshot().active?.journey).toBe("load");
+    expect(getPerfSnapshot().active?.startedAt).toBe(0);
+    expect(observers).toHaveLength(1);
   });
 
   test("signed-in users still need the perf flag, and perf=0 overrides a sticky flag", () => {
