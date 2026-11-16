@@ -17,6 +17,8 @@ import {
   releaseStageLease,
 } from "./store";
 import { stageNavigation, resolveStageView } from "./views";
+import { fileStageCaptures, placeStageRecall, type StageCapture } from "./knowledge";
+import { recallStageMemories, rememberStageCaptures } from "./memory";
 
 import { compileContinuity } from "@/lib/continuity/sources";
 import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
@@ -31,6 +33,9 @@ export class StageTurnError extends Error {
   }
 }
 
+// A reply longer than a couple of sentences is an answer, and answers belong on the stage.
+const STAGE_REPLY_ON_STAGE_CHARS = 320;
+
 export function scheduleStageDesign(
   id: { ownerId: string; clerkUserId: string },
   state: StageState
@@ -39,6 +44,22 @@ export function scheduleStageDesign(
 
   if (job?.status === "working" || job?.status === "canceling")
     after(() => runStageDesign({ ...id, jobId: job.id, base: state, brief: job.brief }));
+}
+
+/** A full stage must not lose a thought: it stays readable in the reply instead. */
+function keepUnfiledInReply(state: StageState, messageId: string, unfiled: StageCapture[]) {
+  const note = `\n\nThere wasn’t room on the stage to file these yet:\n${unfiled
+    .map((capture) => `- ${capture.collection}: ${capture.text}`)
+    .join("\n")}`;
+
+  return {
+    ...state,
+    messages: state.messages.map((message) =>
+      message.id === messageId
+        ? { ...message, text: `${message.text}${note}`.slice(0, 8000) }
+        : message
+    ),
+  };
 }
 
 /** Text and voice share the same lease, idempotency, budget, history and designer queue. */
@@ -119,12 +140,23 @@ export async function runStageTurn(
       }
       throw error;
     }
-    const job = result.designBrief ? { id: crypto.randomUUID(), brief: result.designBrief } : null;
+    // The user watches the stage, not the transcript. A substantive answer the model kept to the
+    // reply still goes onto the stage, so it is never visible only in Conversation.
+    const brief =
+      result.designBrief ??
+      (!result.view && !result.subagents?.length && result.reply.length > STAGE_REPLY_ON_STAGE_CHARS
+        ? `Present this answer on the stage, as pieces that show it best (a new topic unless it continues the pieces already shown):\n${result.reply.slice(0, 1800)}`
+        : null);
+    const job = brief ? { id: crypto.randomUUID(), brief } : null;
     const selectedView = resolveStageView(base, result.view);
 
     if (result.view && !selectedView)
       throw new StageTurnError("The requested view is no longer available.", 409);
-    if (selectedView && !job && !result.subagents?.length) {
+    // Memory is opt-out on Stage: its job is to remember on the user's behalf.
+    const memoryEnabled = settings?.memory !== false;
+    const hasKnowledge = result.captures.length > 0 || (!!result.recall && memoryEnabled);
+
+    if (selectedView && !job && !result.subagents?.length && !hasKnowledge) {
       const navigated = await mutateStage(
         id.ownerId,
         "view",
@@ -154,6 +186,9 @@ export async function runStageTurn(
 
       return navigated ?? (await readStage(id.ownerId)).state;
     }
+    const recalled =
+      result.recall && memoryEnabled ? await recallStageMemories(id.ownerId, result.recall) : null;
+    let filedCaptures: StageCapture[] = [];
     const assistantId = crypto.randomUUID();
     const state = await mutateStage(
       id.ownerId,
@@ -191,7 +226,7 @@ export async function runStageTurn(
               }
             : current.design;
 
-        return placeStageArtifacts(
+        const placed = placeStageArtifacts(
           {
             ...assigned,
             ...(settings?.presentation
@@ -231,6 +266,17 @@ export async function runStageTurn(
           result.reply,
           "Organic"
         );
+        const filing = fileStageCaptures(placed, result.captures);
+
+        filedCaptures = filing.filed;
+        const organized =
+          recalled && result.recall
+            ? placeStageRecall(filing.state, result.recall, recalled)
+            : filing.state;
+
+        return filing.unfiled.length
+          ? keepUnfiledInReply(organized, assistantId, filing.unfiled)
+          : organized;
       },
       {
         requestId,
@@ -241,6 +287,12 @@ export async function runStageTurn(
       }
     );
     const latest = state ?? (await readStage(id.ownerId)).state;
+
+    if (state && memoryEnabled && filedCaptures.length) {
+      const captures = filedCaptures;
+
+      after(() => rememberStageCaptures(id.ownerId, captures));
+    }
 
     scheduleStageDesign(id, latest);
     scheduleStageSubagents(id, latest);

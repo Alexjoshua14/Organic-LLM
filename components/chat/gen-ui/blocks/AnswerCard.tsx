@@ -15,11 +15,14 @@ type AnswerCardProps = {
  * Reads like the chat reply around it: one body size and colour, a heading, a lead paragraph,
  * a plain bullet list, and headed sections that are always visible. No tinted boxes, eyebrow
  * labels, or accordions: structure comes from type weight and spacing, as in markdown.
- * Confidence, sources, and caveats are plain muted text after the answer.
+ * Sources and caveats are small muted text after the answer. Confidence is only stated when it
+ * is medium or low: "high confidence" tells the reader nothing the answer doesn't.
  */
 export function AnswerCard({ block, partial }: AnswerCardProps) {
   const footer = block.footer;
   const sources = footer?.sources ?? [];
+  const confidence = footer && footer.confidence !== "high" ? footer.confidence : null;
+  const hasFooter = Boolean(confidence || sources.length || footer?.caveats?.length);
 
   return (
     <div
@@ -71,13 +74,11 @@ export function AnswerCard({ block, partial }: AnswerCardProps) {
         </section>
       ))}
 
-      {footer ? (
-        <footer className={cn("text-sm text-muted-foreground", spacing.card.labelStack)}>
+      {footer && hasFooter ? (
+        <footer className={cn("text-xs text-muted-foreground", spacing.card.labelStack)}>
           <p>
-            {footer.confidence ? (
-              <span className="capitalize">{footer.confidence} confidence</span>
-            ) : null}
-            {footer.confidence && sources.length > 0 ? " · " : null}
+            {confidence ? <span className="capitalize">{confidence} confidence</span> : null}
+            {confidence && sources.length > 0 ? " · " : null}
             {sources.length > 0 ? "Sources: " : null}
             {sources.map((src, i) => (
               <span key={i}>

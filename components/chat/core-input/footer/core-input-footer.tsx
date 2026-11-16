@@ -52,6 +52,8 @@ export type CoreInputFooterProps = {
   steer?: SteerAction | null;
   /** Composer disabled or showing the sent shimmer; see `ComposerSteerButton`. */
   locked?: boolean;
+  /** A surface's realtime voice control (Stage). It takes the dictation mic's place. */
+  voiceControl?: ReactNode;
   /** The textarea dictation writes into. */
   textareaRef?: RefObject<HTMLTextAreaElement | null>;
   onDictation?: (text: string) => void;
@@ -80,7 +82,7 @@ function hinted(show: boolean, id: FeatureHintId, node: ReactNode, showWhen?: bo
  * Regions, left to right:
  *
  * - leading: persona, search + memory, speech, preview, model + effort, context effort
- * - trailing: add files, thread clipboard, mic, overflow menu
+ * - trailing: add files, thread clipboard, mic (or the surface's voice control), overflow menu
  * - submit: steer (desktop only; compact composers use the tab above), send
  *
  * Leading and trailing share the tools row (`toolsRef`); the submit cluster sits beside it.
@@ -96,6 +98,7 @@ export function CoreInputFooter({
   toolsRef,
   steer,
   locked = false,
+  voiceControl,
   textareaRef,
   onDictation,
   onThreadReference,
@@ -139,9 +142,10 @@ export function CoreInputFooter({
                 onThreadReference={inline("threadClipboard") ? onThreadReference : undefined}
               />
             ) : null}
-            {inline("mic") ? (
-              <ComposerMicButton textareaRef={textareaRef} onTranscriptionChange={onDictation} />
-            ) : null}
+            {voiceControl ??
+              (inline("mic") ? (
+                <ComposerMicButton textareaRef={textareaRef} onTranscriptionChange={onDictation} />
+              ) : null)}
             {/* Mounted only while it has items, so its open state resets when the footer
                 widens past the condensed breakpoint mid-open. */}
             {hasOverflowItems(placement) ? <ComposerOverflowMenu placement={placement} /> : null}

@@ -88,7 +88,8 @@ test("voice start, typed turns, screen refresh and end all stay on Stage", async
   harness.install();
   const voiceFetch = globalThis.fetch;
   globalThis.fetch = (async (url, init) => {
-    if (String(url) !== "/api/stage") return voiceFetch(url, init);
+    // Polls ask `?since=<revision>`; the mock always answers with the full stage.
+    if (String(url).split("?")[0] !== "/api/stage") return voiceFetch(url, init);
     if (init?.method === "POST") {
       const body = JSON.parse(String(init.body));
       server = {

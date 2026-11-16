@@ -1,8 +1,9 @@
 import type { DesignPlan } from "./agent";
-import type { StageRect, StageState, StageWidget } from "./schema";
+import { STAGE_CONTENT_RECT, type StageRect, type StageState, type StageWidget } from "./schema";
 
 import {
   findStagePlacement,
+  packedStageRect,
   initializeStageViewLayouts,
   repairStageLayout,
   stageReservedRects,
@@ -10,22 +11,32 @@ import {
   validateStageLayout,
 } from "./layout";
 import { STAGE_OVERVIEW, placeStageWidget, stageViewWidgets, stageWidgetRect } from "./placements";
+import { parseDesignerBlock } from "./block-shapes";
+import { isEmbeddableStageUrl } from "./web-url";
 import type { StageView } from "./view-schema";
 
 type Upsert = Extract<DesignPlan["operations"][number], { operation: "upsert" }>;
+/** The content fields shared by designer upserts and specialist pieces. */
+export type StagePieceContent = Pick<
+  Upsert,
+  "kind" | "title" | "text" | "code" | "ingredients" | "steps"
+> &
+  // Only block and web pieces carry these; other producers may leave them out.
+  Partial<Pick<Upsert, "block" | "url">>;
 
 function dimensions(kind: StageWidget["kind"]) {
   return kind === "chat"
     ? ([11, 16] as const)
-    : kind === "recipe"
+    : kind === "recipe" || kind === "block" || kind === "web"
       ? ([11, 16] as const)
       : kind === "mermaid"
         ? ([11, 16] as const)
         : ([11, 12] as const);
 }
 
-function proposedWidget(
-  item: Upsert,
+/** The one place a flat piece (designer or specialist output) becomes a validated widget. */
+export function stageWidgetFromPiece(
+  item: StagePieceContent,
   rect: StageRect,
   threadId?: string,
   widgetId = crypto.randomUUID()
@@ -56,6 +67,18 @@ function proposedWidget(
           steps: item.steps,
         },
       };
+    case "web":
+      if (!item.url || !isEmbeddableStageUrl(item.url))
+        throw new StageLayoutError("A public https page URL is required");
+
+      return { ...base, kind: "web", url: item.url };
+    case "block": {
+      const parsed = parseDesignerBlock(item.block);
+
+      if (!parsed.ok) throw new StageLayoutError(parsed.reason);
+
+      return { ...base, kind: "block", block: parsed.block };
+    }
     case "chat":
       if (!threadId) throw new StageLayoutError("Chat thread is required");
 
@@ -76,6 +99,34 @@ function unchangedTarget(current: StageWidget[], base: StageState, id: string) {
   return { original, index };
 }
 
+/**
+ * How many pieces the stage shows at once. More than this and each piece is too small to read;
+ * the stage becomes a pile of everything ever asked rather than the topic at hand.
+ */
+export const STAGE_MAX_PIECES = 4;
+
+/**
+ * Makes room for `incoming` new pieces by removing the oldest pieces nothing is about to change,
+ * so the stage holds at most STAGE_MAX_PIECES. Collections and Recall are the user's curated
+ * thoughts and are never removed here. Removed pieces stay in the stage's Activity history.
+ */
+export function makeRoomForPieces(
+  widgets: StageWidget[],
+  incoming: number,
+  touched: ReadonlySet<string> = new Set()
+): StageWidget[] {
+  const kept = [...widgets];
+
+  for (let index = 0; kept.length + incoming > STAGE_MAX_PIECES && index < kept.length; ) {
+    const widget = kept[index];
+
+    if (touched.has(widget.id) || widget.kind === "collection" || widget.kind === "recall") index++;
+    else kept.splice(index, 1);
+  }
+
+  return kept;
+}
+
 export function mergeStageDesignPlan(
   current: StageState,
   base: StageState,
@@ -83,7 +134,25 @@ export function mergeStageDesignPlan(
   chatIds: Map<number, string>,
   widgetIds: Map<number, string> = new Map()
 ) {
-  const widgets = [...current.widgets];
+  const touched = new Set(
+    plan.operations.flatMap((operation) => (operation.targetId ? [operation.targetId] : []))
+  );
+  const created = plan.operations.filter(
+    (operation) => operation.operation === "upsert" && !operation.targetId
+  ).length;
+  const removed = plan.operations.filter((operation) => operation.operation === "remove").length;
+  // A new topic clears what the plan leaves alone; otherwise older untouched pieces give way
+  // only as far as the cap needs, before new pieces look for space.
+  const kept = plan.fresh
+    ? current.widgets.filter(
+        (widget) =>
+          touched.has(widget.id) || widget.kind === "collection" || widget.kind === "recall"
+      )
+    : current.widgets;
+  const widgets = makeRoomForPieces(kept, created - removed, touched);
+  // Survivors keep cells sized for a crowded stage. Once pieces leave, or a new one finds no
+  // room, the whole stage is re-tiled evenly instead of failing or squeezing in a sliver.
+  let retile = widgets.length < current.widgets.length;
 
   for (const [index, operation] of plan.operations.entries()) {
     if (operation.operation === "remove") {
@@ -118,7 +187,7 @@ export function mergeStageDesignPlan(
         widgets[target.index] = { ...placed, title: operation.title };
       } else {
         widgets[target.index] = {
-          ...proposedWidget(operation, placed.rect),
+          ...stageWidgetFromPiece(operation, placed.rect),
           id: target.original.id,
           ...(placed.layouts ? { layouts: placed.layouts } : {}),
           ...(target.original.source ? { source: target.original.source } : {}),
@@ -127,11 +196,28 @@ export function mergeStageDesignPlan(
       continue;
     }
     const [w, h] = dimensions(operation.kind);
-    const rect = operation.rect ?? findStagePlacement(widgets, w, h, stageReservedRects(current));
+    const reserved = stageReservedRects(current);
+    const rect =
+      operation.rect ??
+      // A framed page reads best wide: it takes the roomier cell whenever the stage has one.
+      (operation.kind === "web" ? findStagePlacement(widgets, 16, 18, reserved) : null) ??
+      findStagePlacement(widgets, w, h, reserved);
 
-    if (!rect) throw new StageLayoutError("No free space for the requested widget");
-    widgets.push(proposedWidget(operation, rect, chatIds.get(index), widgetIds.get(index)));
+    if (!rect) retile = true;
+    widgets.push(
+      stageWidgetFromPiece(
+        operation,
+        rect ?? { ...STAGE_CONTENT_RECT },
+        chatIds.get(index),
+        widgetIds.get(index)
+      )
+    );
   }
+  if (retile)
+    return initializeStageViewLayouts(
+      widgets.map((widget, index) => ({ ...widget, rect: packedStageRect(index, widgets.length) })),
+      stageReservedRects(current)
+    );
   try {
     validateStageLayout(widgets, stageReservedRects(current));
 
@@ -145,4 +231,34 @@ export function mergeStageDesignPlan(
 
     return widgets.map((widget) => repaired.widgets.find((piece) => piece.id === widget.id)!);
   }
+}
+
+/** Why one upsert's content can't become a piece, or null when it can. */
+export function invalidUpsertReason(item: StagePieceContent): string | null {
+  try {
+    stageWidgetFromPiece(item, STAGE_CONTENT_RECT, "00000000-0000-4000-8000-000000000000");
+
+    return null;
+  } catch (error) {
+    if (error instanceof StageLayoutError) return error.message;
+    throw error;
+  }
+}
+
+/**
+ * Keeps the operations that can be applied and reports why the rest can't. One malformed block
+ * or URL costs that piece, not the whole arrangement.
+ */
+export function sanitizeDesignPlan(plan: DesignPlan): { plan: DesignPlan; dropped: string[] } {
+  const dropped: string[] = [];
+  const operations = plan.operations.filter((operation) => {
+    if (operation.operation !== "upsert" || operation.kind === "chat") return true;
+    const reason = invalidUpsertReason(operation);
+
+    if (reason) dropped.push(`${operation.title}: ${reason}`);
+
+    return !reason;
+  });
+
+  return { plan: { ...plan, operations }, dropped };
 }

@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ContextPicker } from "@/components/continuity/context-picker";
 import type { ContinuitySelection } from "@/lib/continuity/schema";
 
@@ -44,12 +44,14 @@ test("discovery is explicit and choosing a source does not mint a voice call", a
   expect(calls).toHaveLength(0);
   fireEvent.click(view.getByText("Add previous context"));
   expect(calls).toHaveLength(0);
-  fireEvent.change(view.getByPlaceholderText("e.g. Aion architecture"), {
+  // The panel renders at the document root, outside the picker's own container.
+  await waitFor(() => expect(screen.getByRole("dialog")).toBeDefined());
+  fireEvent.change(screen.getByPlaceholderText("e.g. Aion architecture"), {
     target: { value: "Aion" },
   });
-  fireEvent.submit(view.getByRole("button", { name: "Find context" }).closest("form")!);
-  await waitFor(() => expect(view.getByText("Aion architecture")).toBeDefined());
-  fireEvent.click(view.getByText("Aion architecture"));
+  fireEvent.submit(screen.getByRole("button", { name: "Find context" }).closest("form")!);
+  await waitFor(() => expect(screen.getByText("Aion architecture")).toBeDefined());
+  fireEvent.click(screen.getByText("Aion architecture"));
   await waitFor(() => expect(selection?.revision).toBe(1));
   expect(calls[1]!.body).toEqual({ action: "create", surface: "speak" });
   expect(calls[2]!.body?.source).toEqual(source);
@@ -73,9 +75,11 @@ test("expired selection clears client context and explains the failure", async (
     );
   };
   const view = render(<ContextPicker surface="stage" onChange={(value) => selected.push(value)} />);
-  fireEvent.submit(view.getByRole("button", { name: "Find context" }).closest("form")!);
-  await waitFor(() => expect(view.getByText("Old conversation")).toBeDefined());
-  fireEvent.click(view.getByText("Old conversation"));
-  await waitFor(() => expect(view.getByRole("alert").textContent).toContain("expired"));
+  fireEvent.click(view.getByText("Add previous context"));
+  await waitFor(() => expect(screen.getByRole("dialog")).toBeDefined());
+  fireEvent.submit(screen.getByRole("button", { name: "Find context" }).closest("form")!);
+  await waitFor(() => expect(screen.getByText("Old conversation")).toBeDefined());
+  fireEvent.click(screen.getByText("Old conversation"));
+  await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("expired"));
   expect(selected).toEqual([undefined]);
 });

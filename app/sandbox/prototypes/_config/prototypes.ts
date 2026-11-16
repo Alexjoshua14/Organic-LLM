@@ -417,6 +417,23 @@ export const prototypes: PrototypeEntry[] = [
       updatedAt: "2026-11-12",
     },
   },
+  {
+    slug: "stage-demo",
+    title: "Stage demo",
+    description:
+      "The real Stage, driven by prebuilt scenes. A cheap router model picks the scene that fits what you type.",
+    about: {
+      what: "The real Stage view and layout engine, fed scripted compositions (brain dump, diagram, dinner plan, web page beside notes, specialists at work) instead of the live Stage API. Nothing is read from or written to your real Stage.",
+      howToUse:
+        "Type into the composer and a small model chooses the closest scene, or pick one from the strip. Piece moves and edits work locally. Scenes live in lib/stage/demo/scenes.ts.",
+    },
+    ranking: {
+      importance: 7,
+      frequency: 3,
+      createdAt: "2026-11-14",
+      updatedAt: "2026-11-14",
+    },
+  },
 ];
 
 export type PrototypeTierId = "flagship" | "featured" | "library";

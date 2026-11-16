@@ -42,8 +42,20 @@ export function stagePiecePreview(widget: StageWidget, max: number): string | nu
 
       return clip(`${meta ? `${meta}; ` : ""}${ingredients}`, max);
     }
+    case "web":
+      return clip(new URL(widget.url).hostname, max);
+    case "block":
+      return clip(`${widget.block.type}: ${widget.title}`, max);
     case "chat":
       return null;
+    case "collection":
+      return widget.items.length
+        ? clip(widget.items.map((item) => item.text).join("; "), max)
+        : null;
+    case "recall":
+      return widget.items.length
+        ? clip(widget.items.map((item) => item.text).join("; "), max)
+        : null;
   }
 }
 
@@ -205,6 +217,24 @@ async function pieceContent(
         },
       };
     }
+    case "web":
+      return { ...base, url: widget.url };
+    case "block":
+      return { ...base, block: clip(JSON.stringify(widget.block), PIECE_MAX_CHARS) };
+    case "collection":
+      return {
+        ...base,
+        items: widget.items.map((item) => ({
+          text: clip(item.text, 240),
+          ...(item.done ? { done: true } : {}),
+        })),
+      };
+    case "recall":
+      return {
+        ...base,
+        query: widget.query,
+        memories: widget.items.map((item) => clip(item.text, 240)),
+      };
     case "chat": {
       // Ownership is checked by the read itself; a chat the user cannot see stays unseen.
       const screen = await deps

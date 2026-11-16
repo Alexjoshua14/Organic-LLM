@@ -167,12 +167,13 @@ type CoreInputProps = {
   secondarySubmitDisabled?: boolean;
   secondarySubmitPending?: boolean;
   /**
-   * Compact single-row layout with settings behind one options button. Narrow default
-   * composers use the same layout automatically. `stage-beta` keeps Stage-specific submit
-   * and preference behavior, but shares this layout, options, and glass with every surface.
+   * `compact` is a single-row layout with settings behind one options button; a narrow
+   * composer of any variant uses the same layout automatically. `stage-beta` changes behavior
+   * only (Stage's submit, its own saved preferences, no files). Its layout, controls and glass
+   * are the default composer's, so Stage and Arcadia show the same thing.
    */
   variant?: "default" | "compact" | "stage-beta";
-  /** Optional realtime start/stop control in the compact row. */
+  /** Optional realtime start/stop control. It takes the dictation mic's place. */
   voiceControl?: ReactNode;
   /** First-run coachmarks for composer tools (dismiss persists in localStorage). */
   featureHints?: boolean;
@@ -1098,7 +1099,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     return editBody;
   };
 
-  const useCondensedLayout = variant === "compact" || variant === "stage-beta" || isCondensed;
+  const useCondensedLayout = variant === "compact" || isCondensed;
   // Which footer controls render, and where. The rules live in footer/footer-placement.ts.
   const footerPlacement = resolveFooterPlacement({
     condensed: useCondensedLayout,
@@ -1216,7 +1217,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       {variant === "stage-beta" ? (
         // Stage never stops a send, so it shows only the arrow and the working ring.
         <SubmitGlyph
-          size={18}
+          size={useCondensedLayout ? 18 : undefined}
           state={
             composerStatus === "submitted" || composerStatus === "streaming" ? "working" : "arrow"
           }
@@ -1334,6 +1335,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
           submit={submitControl}
           textareaRef={textareaRef}
           toolsRef={toolsRef}
+          voiceControl={voiceControl}
           onDictation={setText}
           onThreadReference={addThreadReference}
         />
@@ -1347,10 +1349,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   const tabSteer = useCondensedLayout && footerPlacement.steer === "tab" ? steer : null;
 
   const shell = (
-    <HomeComposerLumenShell
-      className="core-input-memory-lumen"
-      enabled={useMemories && variant !== "stage-beta"}
-    >
+    <HomeComposerLumenShell className="core-input-memory-lumen" enabled={useMemories}>
       {composer}
     </HomeComposerLumenShell>
   );

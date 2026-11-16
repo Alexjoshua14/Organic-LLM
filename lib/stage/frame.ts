@@ -23,6 +23,15 @@ export type StageFrameOptions = {
   view?: StageView;
 };
 
+/**
+ * Pixels the home mark needs at Speak's center size: `OrganicAgentMark hero` is
+ * clamp(7rem, 24dvh, 13rem), plus its status line. Stage's height plus its own padding stands
+ * in for the viewport, so this reserves a little more than the mark draws, never less.
+ */
+function heroPixels(height: number) {
+  return Math.min(208, Math.max(112, (height + 80) * 0.24)) + 64;
+}
+
 export function stageCellStyle(rect: StageRect) {
   return {
     gridColumn: `${rect.x + 1} / span ${rect.w}`,
@@ -55,23 +64,14 @@ export function resolveStageFrame(state: StageState, options: StageFrameOptions)
     STAGE_COMPOSER_RECT.h;
   const available = height - headerPixels - composerPixels - gap * gapRows;
   const mobile = width < 700;
-  // Mobile response navigation and failure recovery each need their own height. Keep saved
-  // piece coordinates intact; only the existing response/content track sizes change.
-  const minimumReply = mobile
-    ? state.design?.status === "failed"
-      ? 208
-      : 144
-    : state.design?.status === "failed"
-      ? 68
-      : 36;
-  const replyPixels = Math.max(
-    minimumReply,
-    Math.min(
-      candidates.length && !reading && (view.kind === "author" || view.kind === "piece") ? 48 : 144,
-      height * 0.18,
-      available - Math.min(320, height * 0.5)
-    )
-  );
+  const readingWork = reading || (!home && !candidates.length && author !== "organic");
+  // Organic's words sit under it on the home view, or take the body while reading. Every other
+  // view gives those rows to the pieces, so the composer is the only thing below them. Saved
+  // piece coordinates stay intact; only the response/content track sizes change.
+  const showReply = home || readingWork;
+  const replyPixels = showReply
+    ? Math.max(36, Math.min(144, height * 0.18, available - Math.min(320, height * 0.5)))
+    : 0;
   const contentPixels = Math.max(0, available - replyPixels);
   const inRows = (row: number, rect: StageRect) => row >= rect.y && row < rect.y + rect.h;
   const rows = Array.from({ length: STAGE_SIZE }, (_, row) =>
@@ -100,20 +100,22 @@ export function resolveStageFrame(state: StageState, options: StageFrameOptions)
   const bodyRow = contentPixels / STAGE_CONTENT_RECT.h;
   const childWidth = (width * (home ? 8 : STAGE_CHILD_RECTS[0].w)) / 32;
   const tiny = height < 430 || childWidth < 40 || bodyRow * 8 < 112;
+  // The full composer rests near 110px; it only squeezes the agents once a draft has grown it.
   const compact =
-    tiny || childWidth < 56 || bodyRow * 8 < 154 || height < 560 || composerHeight > 110;
+    tiny || childWidth < 56 || bodyRow * 8 < 154 || height < 560 || composerHeight > 180;
   const childMinimum = tiny ? 66 : compact ? 120 : 148;
   const parentMinimum = tiny ? 36 : compact ? (width < 700 ? 126 : 112) : 154;
   const activeChildren =
     (!!state.design && state.design.status !== "failed" && state.design.phase !== "queued") ||
     state.subagents?.some((agent) => agent.status === "working" || agent.status === "canceling");
   const centered = home && !reading;
+  const parentLimit = centered && activeChildren ? 17 - Math.ceil(childMinimum / bodyRow) : 18;
+  // The centered mark takes Speak's center size when its rows fit (see heroPixels).
+  const heroRows = Math.ceil(heroPixels(height) / bodyRow);
+  const hero = centered && !compact && heroRows <= parentLimit;
   const parentHeight = Math.max(
     3,
-    Math.min(
-      Math.max(8, Math.ceil(parentMinimum / bodyRow)),
-      centered && activeChildren ? 17 - Math.ceil(childMinimum / bodyRow) : 18
-    )
+    Math.min(Math.max(8, hero ? heroRows : Math.ceil(parentMinimum / bodyRow)), parentLimit)
   );
   const parent: StageRect = centered
     ? {
@@ -131,7 +133,6 @@ export function resolveStageFrame(state: StageState, options: StageFrameOptions)
         h: Math.max(1, 22 - parent.y - parent.h - 1),
       }))
     : STAGE_CHILD_RECTS;
-  const readingWork = reading || (!home && !candidates.length && author !== "organic");
   const reply: StageRect = readingWork
     ? { x: 8, y: 4, w: 24, h: 24 }
     : mobile
@@ -162,8 +163,10 @@ export function resolveStageFrame(state: StageState, options: StageFrameOptions)
           }),
     compact,
     tiny,
+    centered,
+    hero,
     reading: readingWork,
-    replyCompact: !readingWork && replyPixels < 96,
+    showReply,
     showPieces: !home,
     shortChildren: !centered && bodyRow * STAGE_CHILD_RECTS[0].h < 80,
   };

@@ -38,3 +38,12 @@ test("does not expose unknown provider errors, credentials, or response bodies",
     "timeout"
   );
 });
+
+test("a lost lease is its own failure, not a model error", async () => {
+  const { StageLeaseLostError } = await import("@/lib/stage/lease-error");
+  const result = describeStageDesignFailure(new StageLeaseLostError());
+
+  expect(result.code).toBe("lease-lost");
+  expect(result.message).not.toContain("lease");
+});
+

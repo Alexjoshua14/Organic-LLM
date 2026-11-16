@@ -7,8 +7,12 @@ test("designer schema uses provider-compatible alternatives and still rejects in
   expect(JSON.stringify(schema)).not.toContain('"oneOf"');
   expect(JSON.stringify(schema)).toContain('"anyOf"');
   expect(
-    DESIGN_PLAN.safeParse({ operations: [{ operation: "remove", targetId: crypto.randomUUID() }] })
-      .success
+    DESIGN_PLAN.safeParse({
+      fresh: false,
+      operations: [{ operation: "remove", targetId: crypto.randomUUID() }],
+    }).success
   ).toBe(true);
-  expect(DESIGN_PLAN.safeParse({ operations: [{ operation: "remove" }] }).success).toBe(false);
+  expect(
+    DESIGN_PLAN.safeParse({ fresh: false, operations: [{ operation: "remove" }] }).success
+  ).toBe(false);
 });

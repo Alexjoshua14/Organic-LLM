@@ -13,6 +13,8 @@ key registry configuration.
   and reconciliation against the designer's original snapshot.
 - `lib/stage/agent.ts`, `design.ts`: separate central conversation and background designer.
 - `lib/stage/store.ts`: authenticated callers' owner-scoped encrypted snapshot log and head.
+- `lib/stage/knowledge.ts`, `memory.ts`: capture filing into collection pieces, the Recall piece,
+  and their Mem0 read/write.
 - `app/api/stage/`: state, mutation, conversation, event pagination, and chat hydration.
 
 ## Layout contract
@@ -52,6 +54,28 @@ The conversation selects its next model from the existing fast, balanced, and de
 The layout designer runs separately after the main response, using the balanced alias.
 Static instructions precede bounded context to keep a reusable prompt prefix. This does not
 guarantee a provider cache hit. Both paths use existing plan-budget accounting and ZDR.
+
+## Collections and recall
+
+Each central turn may return up to 12 `captures` and one `recall` query alongside its reply.
+Captures are filed in the same snapshot mutation as the reply, with no designer job. Filing
+targets an existing `collection` piece by ID, then by case-insensitive title. Otherwise it
+places a new 7 × 8 collection (7 × 6 fallback), at most three per turn. Duplicate text is
+skipped. A collection holds 40 items, and checked-off items leave first. Captures that find no
+free cells are appended to the reply rather than dropped.
+
+`recall` searches the owner's Mem0 memories (8 s bound, never fatal) and refreshes the single
+`recall` piece in place. The agent sees a bounded `knowledge` context of collection IDs, titles
+and recent items, so it files by ID instead of duplicating.
+
+Memory is on by default on Stage. When the turn's memory setting is not off, filed captures are
+also written to Mem0 (`metadata.source: "stage"`) after the snapshot commits. That write happens
+after the response and is non-fatal. With memory off, captures stay on the stage only and recall
+is skipped.
+
+Users curate collections in place, checking off or letting go of items through the ordinary
+`upsert` mutation. The designer may move or remove collection and recall pieces but cannot
+create or rewrite them; neither kind is in its upsert schema.
 
 ## Failure behavior
 

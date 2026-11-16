@@ -15,9 +15,6 @@ import { SPEAK_HEADER_CLEARANCE } from "./speak-chrome-clearance";
 import { SpeakBudgetMeter } from "./SpeakBudgetMeter";
 import { SpeakTranscript } from "./SpeakTranscript";
 import {
-  SPEAK_AGENT_DOT_WEIGHT,
-  SPEAK_AGENT_UNDERLAY_BLUR,
-  SPEAK_AGENT_GLASS,
   SPEAK_PANEL_ENTER_MS,
   SPEAK_PANEL_EXIT_MS,
   SPEAK_STAGE_EASE,
@@ -25,7 +22,7 @@ import {
   SPEAK_STATUS_EXIT_MS,
 } from "./speak-stage-timing";
 
-import { OrganicActivityMark } from "@/components/agents/organic-activity-mark";
+import { OrganicAgentMark } from "@/components/agents/organic-agent-mark";
 import { glass } from "@/components/design-system/primitives";
 import { VoiceElapsed } from "@/components/voice/voice-elapsed";
 import { SPEAK_PRIMARY_ACTION_LABEL } from "@/lib/speak/speak-stage-view";
@@ -157,12 +154,8 @@ export function SpeakStage(props: SpeakStageProps) {
 
           <div className="my-auto flex shrink-0 flex-col items-center gap-stack-lg sm:gap-stack-2xl">
             {presence ?? (
-              <OrganicActivityMark
-                relativeBlur
-                className="!size-[clamp(7rem,24dvh,13rem)] !rounded-3xl"
-                dotWeight={SPEAK_AGENT_DOT_WEIGHT}
-                underlayBlur={SPEAK_AGENT_UNDERLAY_BLUR}
-                glassByState={SPEAK_AGENT_GLASS}
+              <OrganicAgentMark
+                hero
                 label="Organic voice companion"
                 seed="organic-speak"
                 state={
