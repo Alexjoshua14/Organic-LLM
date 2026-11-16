@@ -75,6 +75,23 @@ describe("repairCommonMermaidMistakes", () => {
     expect(repairCommonMermaidMistakes(src)).toBe("flowchart TD\n  A --> B");
   });
 
+  test("drops authored colors so the app theme styles the diagram", () => {
+    const src = [
+      "flowchart TD",
+      '  subgraph grid["Grid"]',
+      "    A:::paper --> B",
+      "  end",
+      "  classDef paper fill:#f6f5ef,color:#222",
+      "  style grid fill:#0b0b0b",
+      "  linkStyle 0 stroke:#fff",
+      "  class B paper",
+    ].join("\n");
+
+    expect(repairCommonMermaidMistakes(src)).toBe(
+      'flowchart TD\n  subgraph grid["Grid"]\n    A:::paper --> B\n  end\n  class B paper'
+    );
+  });
+
   test("drops whole-line %%{...}%% directives but keeps normal comments", () => {
     const src = '%%{init: {"theme":"forest"}}%%\nflowchart TD\n  %% keep me\n  A --> B';
     const out = repairCommonMermaidMistakes(src);
