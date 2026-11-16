@@ -27,8 +27,10 @@ export async function subscriptionModels(accessToken: string, fetcher: typeof fe
     redirect: "error",
     cache: "no-store",
   });
+
   if (!response.ok)
     throw new SubscriptionError("ChatGPT models are unavailable. Reconnect or try again.", 502);
+
   return catalogSchema
     .parse(await response.json())
     .models.filter((model) => model.visibility === "list")
@@ -60,6 +62,7 @@ export async function* subscriptionTurn(
   });
   const stream = await client.responses.create(subscriptionResponseBody(input), { signal });
   let completed = false;
+
   for await (const event of stream) {
     if (event.type === "response.output_text.delta") yield { type: "delta", text: event.delta };
     if (

@@ -7,6 +7,7 @@
   },
   "scripts": {
     "dev": "next dev --turbopack",
+    "dev:subscriptions": "next dev --turbopack --hostname 127.0.0.1",
     "dev:full": "concurrently -k -n APP,WEBHOOK \"bun run dev\" \"bun run webhook:local\"",
     "prebuild": "cd llm/morph-physics && bun install && bun run build",
     "build": "next build",

@@ -12,15 +12,19 @@ export async function readSubscriptionStream(
   const consume = (line: string) => {
     if (!line.trim()) return;
     const event = JSON.parse(line) as SubscriptionEvent;
+
     if (event.type === "error") throw new Error(event.message);
     if (event.type === "completed") completed = true;
     onEvent(event);
   };
+
   try {
     while (true) {
       const { value, done } = await reader.read();
+
       buffer += decoder.decode(value, { stream: !done });
       let index: number;
+
       while ((index = buffer.indexOf("\n")) >= 0) {
         consume(buffer.slice(0, index));
         buffer = buffer.slice(index + 1);

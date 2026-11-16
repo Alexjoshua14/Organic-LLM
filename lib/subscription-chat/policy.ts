@@ -4,7 +4,7 @@ export const RESOURCE = "https://api.openai.com/v1";
 export const ISSUER = "https://auth.openai.com";
 export const PLAN_SCOPE = "chatgpt.tokens.use.direct";
 export const CALLBACK_PATH = "/api/subscription-chat/callback";
-export const LAB_PATH = "/sandbox/subscription-chat";
+export const LAB_PATH = "/settings/subscriptions";
 export const LOGIN_COOKIE = "organic_subscription_login";
 export const LOGIN_TTL_MS = 10 * 60_000;
 export const TURN_TIMEOUT_MS = 120_000;
@@ -19,10 +19,11 @@ export class SubscriptionError extends Error {
 }
 
 export function subscriptionConfig(env: NodeJS.ProcessEnv = process.env) {
-  if (env.ORGANIC_CHATGPT_ENABLED !== "true" || env.VERCEL || !env.ORGANIC_CHATGPT_OWNER_ID) {
+  if (env.ORGANIC_CHATGPT_ENABLED !== "true" || env.VERCEL) {
     throw new SubscriptionError("Subscription chat is not enabled on this installation.", 404);
   }
   const origin = new URL(env.ORGANIC_CHATGPT_ORIGIN ?? "http://127.0.0.1:3000");
+
   if (
     origin.protocol !== "http:" ||
     origin.hostname !== "127.0.0.1" ||
@@ -33,7 +34,8 @@ export function subscriptionConfig(env: NodeJS.ProcessEnv = process.env) {
     origin.hash
   )
     throw new SubscriptionError("Subscription chat requires an HTTP 127.0.0.1 origin.", 503);
-  return { origin: origin.origin, ownerId: env.ORGANIC_CHATGPT_OWNER_ID };
+
+  return { origin: origin.origin };
 }
 
 export function authorizeSubscriptionRequest(
@@ -42,15 +44,18 @@ export function authorizeSubscriptionRequest(
   env: NodeJS.ProcessEnv = process.env
 ) {
   const config = subscriptionConfig(env);
-  if (!userId || userId !== config.ownerId) throw new SubscriptionError("Not authorized.", 403);
+
+  if (!userId) throw new SubscriptionError("Not authorized.", 403);
   const url = new URL(request.url);
+
   if (url.origin !== config.origin || request.headers.get("host") !== new URL(config.origin).host) {
     throw new SubscriptionError("Open this lab on its configured loopback address.", 403);
   }
   if (request.method !== "GET" && request.headers.get("origin") !== config.origin) {
     throw new SubscriptionError("Request origin did not match.", 403);
   }
-  return config;
+
+  return { ...config, ownerId: userId };
 }
 
 export const chatInputSchema = z

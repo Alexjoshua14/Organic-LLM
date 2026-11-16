@@ -5,7 +5,10 @@ let userId: string | null = "owner";
 const release = mock(async () => {});
 const lease = mock(async () => release);
 const read = mock(async () => ({
-  registration: { email: "owner@example.com", tokens: { accessToken: "private-token" } },
+  registration: {
+    email: "owner@example.com",
+    tokens: { accessToken: "private-token", scopes: ["chatgpt.tokens.use.direct"] },
+  },
 }));
 const access = mock(async () => "private-token");
 const models = mock(async () => [{ id: "available", name: "Available" }]);
@@ -18,7 +21,12 @@ const turn = mock(async function* (_token: string, _input: unknown, signal: Abor
   yield { type: "delta", text: "Hello" };
   yield { type: "completed", inputTokens: 1, outputTokens: 1 };
 });
-mock.module("@clerk/nextjs/server", () => ({ auth: async () => ({ userId }) }));
+mock.module("@/lib/api/profile-actor", () => ({
+  requireProfileActor: async () =>
+    userId
+      ? { actor: { sbUserId: userId, clerkUserId: "clerk-" + userId }, error: null }
+      : { actor: null, error: Response.json({ error: "Unauthorized" }, { status: 401 }) },
+}));
 mock.module("next/headers", () => ({
   cookies: async () => ({ get: () => ({ value: "browser" }), set: cookieSet }),
 }));
@@ -45,7 +53,6 @@ const { GET, POST } = await import("@/app/api/subscription-chat/[action]/route")
 
 beforeEach(() => {
   process.env.ORGANIC_CHATGPT_ENABLED = "true";
-  process.env.ORGANIC_CHATGPT_OWNER_ID = "owner";
   process.env.ORGANIC_CHATGPT_ORIGIN = "http://127.0.0.1:3000";
   delete process.env.VERCEL;
   userId = "owner";
@@ -53,12 +60,7 @@ beforeEach(() => {
     fn.mockClear();
 });
 afterAll(() => {
-  for (const key of [
-    "ORGANIC_CHATGPT_ENABLED",
-    "ORGANIC_CHATGPT_OWNER_ID",
-    "ORGANIC_CHATGPT_ORIGIN",
-    "VERCEL",
-  ]) {
+  for (const key of ["ORGANIC_CHATGPT_ENABLED", "ORGANIC_CHATGPT_ORIGIN", "VERCEL"]) {
     if (originalEnv[key] === undefined) delete process.env[key];
     else process.env[key] = originalEnv[key];
   }
@@ -77,12 +79,14 @@ function request(action: string, body?: unknown) {
 }
 const input = { model: "available", messages: [{ role: "user", content: "Hello" }] };
 
-test("refuses other users and Vercel before touching local credentials", async () => {
-  userId = "other";
-  expect((await POST(request("chat", input), context("chat"))).status).toBe(403);
+test("refuses guests and reports hosted unavailability without touching credentials", async () => {
+  userId = null;
+  expect((await POST(request("chat", input), context("chat"))).status).toBe(401);
   userId = "owner";
   process.env.VERCEL = "1";
-  expect((await GET(request("status"), context("status"))).status).toBe(404);
+  expect(await (await GET(request("status"), context("status"))).json()).toMatchObject({
+    enabled: false,
+  });
   expect(lease).not.toHaveBeenCalled();
   expect(read).not.toHaveBeenCalled();
   expect(access).not.toHaveBeenCalled();
@@ -94,13 +98,15 @@ test("rejects cross-origin mutations before acquiring the runtime", async () => 
   expect(disconnect).not.toHaveBeenCalled();
   expect(lease).not.toHaveBeenCalled();
 });
-test("status returns only account and model display data", async () => {
+test("status returns safe metadata without provider refresh or discovery", async () => {
   const response = await GET(request("status"), context("status"));
   expect(response.headers.get("cache-control")).toBe("no-store");
   expect(await response.json()).toEqual({
+    enabled: true,
+    planAuthorized: true,
     connected: true,
     account: "owner@example.com",
-    models: [{ id: "available", name: "Available" }],
+    models: [],
   });
 });
 test("rejects invalid input and unavailable models without starting inference", async () => {
@@ -117,7 +123,7 @@ test("rejects invalid input and unavailable models without starting inference", 
     (await POST(request("chat", { ...input, model: "unavailable" }), context("chat"))).status
   ).toBe(400);
   expect(turn).not.toHaveBeenCalled();
-  expect(release).toHaveBeenCalledTimes(2);
+  expect(release).toHaveBeenCalledTimes(1);
 });
 test("streams only safe events and releases the turn lease", async () => {
   const response = await POST(request("chat", input), context("chat"));
@@ -146,4 +152,22 @@ test("disconnect communicates unconfirmed remote revocation and clears the corre
     path: "/api/subscription-chat",
     maxAge: 0,
   });
+});
+
+test("each authenticated profile scopes inference and disconnection to itself", async () => {
+  for (const owner of ["alice-profile", "bob-profile"]) {
+    userId = owner;
+    const response = await POST(request("chat", input), context("chat"));
+    await response.text();
+    expect(lease).toHaveBeenLastCalledWith(expect.anything(), owner);
+    expect(access).toHaveBeenLastCalledWith(owner);
+    await POST(request("disconnect", {}), context("disconnect"));
+    expect(disconnect).toHaveBeenLastCalledWith(owner);
+  }
+});
+test("client-supplied ownership is rejected before acquiring any lease", async () => {
+  expect(
+    (await POST(request("chat", { ...input, ownerId: "someone-else" }), context("chat"))).status
+  ).toBe(400);
+  expect(lease).not.toHaveBeenCalled();
 });

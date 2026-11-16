@@ -174,6 +174,9 @@ export default function SettingsPage() {
           </TabsContent>
 
           <TabsContent className="mt-0" value="connectors">
+            <Link href="/settings/subscriptions" className="text-sm underline underline-offset-4">
+              Manage AI subscriptions
+            </Link>
             <ConnectorsSettingsTab />
           </TabsContent>
 

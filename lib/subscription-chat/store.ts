@@ -1,19 +1,21 @@
 import "server-only";
 
-import { mkdir, readFile, rename, rm, writeFile, lstat } from "node:fs/promises";
-import { homedir } from "node:os";
-import { join } from "node:path";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
+
 import { z } from "zod";
 
 import { SubscriptionError } from "./policy";
+import { subscriptionRepository, type SubscriptionRepository } from "./repository";
+
+import { encryptForStorage, decryptFromStorage } from "@/lib/crypto/message-encryption";
 
 const tokensSchema = z.object({
   accessToken: z.string().min(1),
   refreshToken: z.string().min(1),
-  idToken: z.string().min(1),
   expiresAt: z.number(),
   scopes: z.array(z.string()),
+  refreshUncertain: z.boolean().optional(),
 });
 const stateSchema = z.object({
   hostId: z.string(),
@@ -38,91 +40,72 @@ const stateSchema = z.object({
     })
     .optional(),
 });
+
 export type SubscriptionState = z.infer<typeof stateSchema>;
 
-/** One owner and one selected registration per local installation for this first slice. */
-export class SubscriptionStore {
-  constructor(readonly directory = join(homedir(), ".config", "organic-llm", "chatgpt")) {}
+const context = (ownerId: string) => ({
+  userId: ownerId,
+  threadId: "chatgpt",
+  fieldName: "subscription_connection.state" as const,
+});
 
-  private async directoryReady() {
-    await mkdir(this.directory, { recursive: true, mode: 0o700 });
-    const stat = await lstat(this.directory);
-    if (!stat.isDirectory() || (stat.mode & 0o077) !== 0) {
-      throw new SubscriptionError(
-        "The subscription credential directory must be owner-only (0700).",
-        503
-      );
-    }
-  }
+/** Durable, tenant-bound ciphertext only. No plaintext fallback, including development. */
+export class SubscriptionStore {
+  private active = new AsyncLocalStorage<{ ownerId: string; lease: string }>();
+  constructor(
+    readonly repo: SubscriptionRepository = subscriptionRepository,
+    readonly encrypt = encryptForStorage,
+    readonly decrypt = decryptFromStorage
+  ) {}
 
   async read(ownerId: string): Promise<SubscriptionState> {
-    const path = join(this.directory, "connection.json");
-    try {
-      const stat = await lstat(path);
-      if (!stat.isFile() || (stat.mode & 0o077) !== 0) {
-        throw new SubscriptionError(
-          "The subscription credential file must be owner-only (0600).",
-          503
-        );
-      }
-      const state = stateSchema.parse(JSON.parse(await readFile(path, "utf8")));
-      if (state.ownerId !== ownerId)
-        throw new SubscriptionError(
-          "This subscription belongs to a different installation owner.",
-          403
-        );
-      return state;
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-      return { ownerId, hostId: `urn:uuid:${randomUUID()}` };
-    }
+    const ciphertext = await this.repo.read(ownerId);
+
+    if (!ciphertext) return { ownerId, hostId: `urn:uuid:${randomUUID()}` };
+    if (!ciphertext.startsWith("enc:"))
+      throw new SubscriptionError("Connection storage is unavailable.", 503);
+    const state = stateSchema.parse(JSON.parse(this.decrypt(ciphertext, context(ownerId))));
+
+    if (state.ownerId !== ownerId)
+      throw new SubscriptionError("Connection ownership did not match.", 403);
+
+    return state;
   }
 
   async write(state: SubscriptionState) {
-    const temporary = join(this.directory, `${randomUUID()}.tmp`);
-    try {
-      await writeFile(temporary, JSON.stringify(state), { mode: 0o600, flag: "wx" });
-      await rename(temporary, join(this.directory, "connection.json"));
-    } finally {
-      await rm(temporary, { force: true });
-    }
+    const active = this.active.getStore();
+
+    if (!active || active.ownerId !== state.ownerId)
+      throw new SubscriptionError("Connection write requires its owner lease.", 409);
+    const ciphertext = this.encrypt(
+      JSON.stringify(stateSchema.parse(state)),
+      context(state.ownerId)
+    );
+
+    if (!ciphertext.startsWith("enc:"))
+      throw new SubscriptionError("Credential encryption is required.", 503);
+    await this.repo.write(state.ownerId, active.lease, ciphertext);
   }
 
-  /** Cross-process lock serializes rotating refresh tokens. Never break a possibly-live lock. */
   async locked<T>(ownerId: string, fn: (state: SubscriptionState) => Promise<T>): Promise<T> {
-    await this.directoryReady();
-    const lock = join(this.directory, "connection.lock");
+    const lease = randomUUID();
+
+    if (!(await this.repo.acquire(ownerId, "connection", lease)))
+      throw new SubscriptionError("The subscription connection is busy. Try again shortly.", 409);
     try {
-      await mkdir(lock, { mode: 0o700 });
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "EEXIST") {
-        throw new SubscriptionError("The subscription connection is busy. Try again shortly.", 409);
-      }
-      throw error;
-    }
-    try {
-      return await fn(await this.read(ownerId));
+      return await this.active.run({ ownerId, lease }, async () => fn(await this.read(ownerId)));
     } finally {
-      await rm(lock, { recursive: true, force: true });
+      await this.repo.release(ownerId, "connection", lease);
     }
   }
 }
 export const subscriptionStore = new SubscriptionStore();
 
-/** A separate lease spans a streamed turn; sign-in/disconnect cannot replace its account mid-turn. */
 export async function acquireSubscriptionTurn(store: SubscriptionStore, ownerId: string) {
-  await store.locked(ownerId, async () => {});
-  const path = join(store.directory, "turn.lock");
-  try {
-    await mkdir(path, { mode: 0o700 });
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "EEXIST") {
-      throw new SubscriptionError(
-        "A subscription turn is still running. Stop it or wait before changing the connection.",
-        409
-      );
-    }
-    throw error;
-  }
-  return () => rm(path, { recursive: true, force: true });
+  const lease = randomUUID();
+
+  if (!(await store.repo.acquire(ownerId, "turn", lease)))
+    throw new SubscriptionError("A subscription turn is still running. Try again shortly.", 409);
+
+  return () => store.repo.release(ownerId, "turn", lease);
 }

@@ -1,9 +1,8 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { withServerGlobals } from "../helpers/server-globals";
 import { generateKeyPairSync, sign } from "node:crypto";
-import { mkdtemp, rm, stat, chmod } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { MemorySubscriptionRepository } from "../helpers/subscription-repository";
+import { createMessageEncryptionService } from "@/lib/crypto/message-encryption";
 
 import {
   authorizeSubscriptionRequest,
@@ -21,33 +20,31 @@ import { readSubscriptionStream } from "@/lib/subscription-chat/client-stream";
 
 const env = {
   ORGANIC_CHATGPT_ENABLED: "true",
-  ORGANIC_CHATGPT_OWNER_ID: "owner",
   ORGANIC_CHATGPT_ORIGIN: "http://127.0.0.1:3000",
 };
-const directories: string[] = [];
-afterEach(async () => {
-  await Promise.all(
-    directories.splice(0).map((path) => rm(path, { recursive: true, force: true }))
-  );
+const crypto = createMessageEncryptionService({
+  keyRegistry: { k1: "a".repeat(64) },
+  activeKeyId: "k1",
 });
 async function store() {
-  const directory = await mkdtemp(join(tmpdir(), "organic-subscription-test-"));
-  await chmod(directory, 0o700);
-  directories.push(directory);
-  return new SubscriptionStore(directory);
+  return new SubscriptionStore(
+    new MemorySubscriptionRepository(),
+    crypto.encryptForStorage,
+    crypto.decryptFromStorage
+  );
 }
 const fakeFetch = (fn: (url: string, init?: RequestInit) => Promise<Response>) =>
   fn as typeof fetch;
 const message = { role: "user" as const, content: "Hello" };
 
 describe("subscription isolation", () => {
-  test("requires opt-in, a single owner, loopback and a matching mutation origin", () => {
+  test("requires opt-in, an authenticated user, loopback and a matching mutation origin", () => {
     const request = new Request(`${env.ORGANIC_CHATGPT_ORIGIN}/api/subscription-chat/chat`, {
       method: "POST",
       headers: { host: "127.0.0.1:3000", origin: env.ORGANIC_CHATGPT_ORIGIN },
     });
     expect(authorizeSubscriptionRequest(request, "owner", env).ownerId).toBe("owner");
-    expect(() => authorizeSubscriptionRequest(request, "other", env)).toThrow("Not authorized");
+    expect(authorizeSubscriptionRequest(request, "other", env).ownerId).toBe("other");
     expect(() => authorizeSubscriptionRequest(request, null, env)).toThrow("Not authorized");
     expect(() => subscriptionConfig({ ...env, VERCEL: "1" })).toThrow("not enabled");
     expect(() => subscriptionConfig({ ...env, ORGANIC_CHATGPT_ENABLED: "false" })).toThrow(
@@ -98,7 +95,7 @@ describe("subscription isolation", () => {
   });
 });
 
-describe("protected local connection", () => {
+describe("encrypted per-user connection", () => {
   test("persists a stable host and issued client across reauthorization", async () => {
     const disk = await store();
     const connection = new SubscriptionConnection(disk);
@@ -118,8 +115,7 @@ describe("protected local connection", () => {
     expect(next.searchParams.get("client_id")).toBe("issued");
     expect(next.searchParams.has("agent_name_hint")).toBe(false);
     expect(next.searchParams.get("state")).not.toBe(firstUrl.searchParams.get("state"));
-    expect((await stat(join(disk.directory, "connection.json"))).mode & 0o777).toBe(0o600);
-    await expect(disk.read("other")).rejects.toThrow("different installation owner");
+    expect((await disk.read("other")).registration).toBeUndefined();
   });
   test("rejects mismatched browser/state and consumes denied callbacks once", async () => {
     const disk = await store();
@@ -212,7 +208,7 @@ describe("protected local connection", () => {
     await expect(connection.complete("owner", callback, login.browser)).rejects.toThrow("verified");
     expect(calls).toBe(1);
   });
-  test("does not store credentials when identity verification or scope fails", async () => {
+  test("rejects invalid identity but retains sign-in with plan permission disabled", async () => {
     for (const scope of [PLAN_SCOPE, "openid"]) {
       const disk = await store();
       const connection = new SubscriptionConnection(
@@ -234,14 +230,21 @@ describe("protected local connection", () => {
       );
       const login = await connection.start("owner", env.ORGANIC_CHATGPT_ORIGIN);
       const pending = (await disk.read("owner")).pending!;
-      await expect(
-        connection.complete(
-          "owner",
-          new URL(`${pending.redirectUri}?state=${pending.state}&code=code&client_id=issued`),
-          login.browser
-        )
-      ).rejects.toThrow();
-      expect((await disk.read("owner")).registration).toBeUndefined();
+      const completion = connection.complete(
+        "owner",
+        new URL(`${pending.redirectUri}?state=${pending.state}&code=code&client_id=issued`),
+        login.browser
+      );
+      if (scope === PLAN_SCOPE) {
+        await expect(completion).rejects.toThrow();
+        expect((await disk.read("owner")).registration).toBeUndefined();
+      } else {
+        await completion;
+        await expect(connection.access("owner")).rejects.toThrow("not authorized");
+        const retry = new URL((await connection.start("owner", env.ORGANIC_CHATGPT_ORIGIN)).url);
+        expect(retry.searchParams.get("client_id")).toBe("issued");
+        expect(retry.searchParams.get("prompt")).toBe("consent");
+      }
     }
   });
   test("disconnect clears all tokens but retains registration even if revocation fails", async () => {
@@ -253,7 +256,6 @@ describe("protected local connection", () => {
         tokens: {
           accessToken: "old",
           refreshToken: "refresh",
-          idToken: "id",
           expiresAt: Date.now() + 3600000,
           scopes: [PLAN_SCOPE],
         },
@@ -286,7 +288,6 @@ describe("protected local connection", () => {
         tokens: {
           accessToken: "old",
           refreshToken: "old-refresh",
-          idToken: "id",
           expiresAt: 0,
           scopes: [PLAN_SCOPE],
         },
@@ -324,7 +325,6 @@ describe("protected local connection", () => {
         tokens: {
           accessToken: "old",
           refreshToken: "refresh",
-          idToken: "id",
           expiresAt: 0,
           scopes: [PLAN_SCOPE],
         },
@@ -336,7 +336,7 @@ describe("protected local connection", () => {
       disk,
       fakeFetch(async () => {
         calls++;
-        return new Response("secret provider detail", { status: 401 });
+        return Response.json({ error: "invalid_grant" }, { status: 401 });
       })
     );
     await expect(connection.access("owner")).rejects.toThrow("Reconnect");
@@ -382,17 +382,19 @@ describe("OIDC identity", () => {
       { nbf: claims.exp },
       { aud: ["issued", "other"] },
     ]) {
-      await expect(verifySubscriptionJwt(jwt(changes), "issued", "nonce", [jwk], now)).rejects.toThrow(
-        "identity"
-      );
+      await expect(
+        verifySubscriptionJwt(jwt(changes), "issued", "nonce", [jwk], now)
+      ).rejects.toThrow("identity");
     }
-    await expect(verifySubscriptionJwt(jwt({}, "none"), "issued", "nonce", [jwk], now)).rejects.toThrow(
-      "identity"
-    );
+    await expect(
+      verifySubscriptionJwt(jwt({}, "none"), "issued", "nonce", [jwk], now)
+    ).rejects.toThrow("identity");
     await expect(
       verifySubscriptionJwt(jwt().slice(0, -8) + "AAAAAAAA", "issued", "nonce", [jwk], now)
     ).rejects.toThrow("identity");
-    await expect(verifySubscriptionJwt(jwt(), "issued", "nonce", [], now)).rejects.toThrow("identity");
+    await expect(verifySubscriptionJwt(jwt(), "issued", "nonce", [], now)).rejects.toThrow(
+      "identity"
+    );
   });
 });
 

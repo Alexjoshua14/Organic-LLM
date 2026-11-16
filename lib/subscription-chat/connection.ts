@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createHash, randomBytes } from "node:crypto";
+
 import { z } from "zod";
 
 import {
@@ -22,6 +23,17 @@ const tokenSchema = z.object({
   expires_in: z.number().positive().finite(),
   scope: z.string().optional(),
 });
+
+class TokenExchangeError extends SubscriptionError {
+  constructor(readonly terminal: boolean) {
+    super(
+      terminal
+        ? "ChatGPT session expired. Reconnect to continue."
+        : "ChatGPT authorization is temporarily unavailable. Try again later.",
+      terminal ? 401 : 503
+    );
+  }
+}
 const random = () => randomBytes(32).toString("base64url");
 const timeout = () => AbortSignal.timeout(15_000);
 
@@ -45,6 +57,7 @@ export class SubscriptionConnection {
         clientId: state.registration?.clientId,
       };
       const url = new URL(`${ISSUER}/api/accounts/authorize`);
+
       url.search = new URLSearchParams({
         client_id: pending.clientId ?? "dynamic_agent_client",
         ...(!pending.clientId ? { agent_name_hint: "Organic LLM" } : {}),
@@ -53,6 +66,9 @@ export class SubscriptionConnection {
         redirect_uri: pending.redirectUri,
         scope: `openid profile email offline_access resource.invoke ${PLAN_SCOPE}`,
         resource: RESOURCE,
+        ...(state.registration?.tokens && !state.registration.tokens.scopes.includes(PLAN_SCOPE)
+          ? { prompt: "consent" }
+          : {}),
         state: pending.state,
         nonce: pending.nonce,
         code_challenge_method: "S256",
@@ -61,6 +77,7 @@ export class SubscriptionConnection {
       // Omit optional ID-token hints so even the authorization URL contains no tokens.
       state.pending = pending;
       await this.store.write(state);
+
       return { url: url.toString(), browser: pending.browser };
     });
   }
@@ -74,17 +91,29 @@ export class SubscriptionConnection {
       redirect: "error",
       cache: "no-store",
     });
-    if (!response.ok)
-      throw new SubscriptionError(
-        "ChatGPT authorization expired or failed. Reconnect to continue.",
-        401
-      );
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => null);
+      const code = typeof data?.error === "string" ? data.error : data?.error?.code;
+      const terminal = [
+        "invalid_grant",
+        "invalid_refresh_token",
+        "token_expired",
+        "refresh_token_expired",
+        "refresh_token_invalidated",
+        "refresh_token_reused",
+      ].includes(code);
+
+      throw new TokenExchangeError(terminal);
+    }
+
     return tokenSchema.parse(await response.json());
   }
 
   async complete(ownerId: string, url: URL, browser: string | undefined) {
     return this.store.locked(ownerId, async (state) => {
       const pending = state.pending;
+
       if (
         !pending ||
         !browser ||
@@ -101,6 +130,7 @@ export class SubscriptionConnection {
         throw new SubscriptionError("ChatGPT sign-in was not completed.");
       const clientId = url.searchParams.get("client_id") ?? pending.clientId;
       const code = url.searchParams.get("code");
+
       if (
         !clientId ||
         clientId === "dynamic_agent_client" ||
@@ -119,15 +149,16 @@ export class SubscriptionConnection {
           resource: RESOURCE,
         })
       );
+
       if (!tokens.id_token || !tokens.refresh_token)
         throw new SubscriptionError("ChatGPT did not grant a renewable session.");
       const identity = await this.verifyIdentity(tokens.id_token, clientId, pending.nonce);
+
       if (state.registration && identity.sub !== state.registration.subject) {
         throw new SubscriptionError("Reconnect using the original ChatGPT account.");
       }
       const scopes = tokens.scope?.split(/\s+/) ?? [];
-      if (!scopes.includes(PLAN_SCOPE))
-        throw new SubscriptionError("Allow ChatGPT plan usage before connecting.");
+
       state.registration = {
         clientId,
         subject: identity.sub,
@@ -135,7 +166,6 @@ export class SubscriptionConnection {
         tokens: {
           accessToken: tokens.access_token,
           refreshToken: tokens.refresh_token,
-          idToken: tokens.id_token,
           scopes,
           expiresAt: Date.now() + tokens.expires_in * 1000,
         },
@@ -147,28 +177,44 @@ export class SubscriptionConnection {
   async access(ownerId: string) {
     return this.store.locked(ownerId, async (state) => {
       const registration = state.registration;
+
       if (!registration?.tokens)
         throw new SubscriptionError("Connect your ChatGPT account first.", 401);
       if (!registration.tokens.scopes.includes(PLAN_SCOPE))
         throw new SubscriptionError("ChatGPT plan usage is not authorized.", 403);
+      if (registration.tokens.refreshUncertain)
+        throw new SubscriptionError(
+          "A previous refresh was interrupted. Reconnect to continue.",
+          401
+        );
       if (registration.tokens.expiresAt <= Date.now() + 60_000) {
+        const previous = registration.tokens;
+
+        // Fence an ambiguous/crashed exchange without erasing recoverable credentials.
+        registration.tokens = { ...previous, refreshUncertain: true };
+        await this.store.write(state);
         let fresh: z.infer<typeof tokenSchema>;
+
         try {
           fresh = await this.exchange(
             new URLSearchParams({
               grant_type: "refresh_token",
               client_id: registration.clientId,
-              refresh_token: registration.tokens.refreshToken,
+              refresh_token: previous.refreshToken,
               resource: RESOURCE,
             })
           );
         } catch (error) {
-          // Ambiguous network failures may have rotated the token remotely. Require reauthorization.
-          delete registration.tokens;
+          if (error instanceof TokenExchangeError) {
+            if (error.terminal) delete registration.tokens;
+            else registration.tokens = previous;
+          }
+          // Network ambiguity retains encrypted tokens but blocks automatic refresh replay.
           await this.store.write(state);
           throw error;
         }
-        const scopes = fresh.scope?.split(/\s+/) ?? registration.tokens.scopes;
+        const scopes = fresh.scope?.split(/\s+/) ?? previous.scopes;
+
         if (!scopes.includes(PLAN_SCOPE)) {
           delete registration.tokens;
           await this.store.write(state);
@@ -176,13 +222,13 @@ export class SubscriptionConnection {
         }
         registration.tokens = {
           accessToken: fresh.access_token,
-          refreshToken: fresh.refresh_token ?? registration.tokens.refreshToken,
-          idToken: registration.tokens.idToken,
+          refreshToken: fresh.refresh_token ?? previous.refreshToken,
           scopes,
           expiresAt: Date.now() + fresh.expires_in * 1000,
         };
         await this.store.write(state);
       }
+
       return registration.tokens.accessToken;
     });
   }
@@ -191,6 +237,7 @@ export class SubscriptionConnection {
     return this.store.locked(ownerId, async (state: SubscriptionState) => {
       const registration = state.registration;
       let revoked = !registration?.tokens;
+
       if (registration?.tokens) {
         try {
           const discovery = await this.discover();
@@ -206,6 +253,7 @@ export class SubscriptionConnection {
             redirect: "error",
             cache: "no-store",
           });
+
           revoked = response.status === 200;
         } catch {
           revoked = false;
@@ -214,6 +262,7 @@ export class SubscriptionConnection {
       }
       delete state.pending;
       await this.store.write(state);
+
       return { revoked };
     });
   }
