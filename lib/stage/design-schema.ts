@@ -24,6 +24,9 @@ const DESIGN_UPSERT = z.object({
 });
 
 export const DESIGN_PLAN = z.object({
+  // The brief moves to a new topic: every piece the plan does not update or move is cleared in
+  // one step (collections and recall stay), so operations go to the new pieces, not removals.
+  fresh: z.boolean(),
   operations: z
     .array(
       z.union([

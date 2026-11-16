@@ -13,6 +13,7 @@ import {
   History,
   Layers,
   MessageCircle,
+  Plus,
   ArrowUpRight,
   RotateCcw,
 } from "lucide-react";
@@ -49,6 +50,8 @@ import {
 import { coreInputScopes } from "@/lib/core-input/scopes";
 
 const STAGE_COMPOSER_SCOPE = coreInputScopes.area("stage");
+// "New stage" asks once, inline: a second press within this window clears the stage.
+const RESET_CONFIRM_MS = 4_000;
 // In memory only, so demo drafts and settings never reach the real Stage composer.
 const SCRIPTED_COMPOSER_SCOPE = { ...coreInputScopes.area("stage-demo"), ephemeral: true };
 
@@ -104,7 +107,16 @@ export function StageView({
     refresh,
     retryDesign,
     cancelSubagent,
+    reset,
   } = stage;
+  const [confirmingReset, setConfirmingReset] = useState(false);
+
+  useEffect(() => {
+    if (!confirmingReset) return;
+    const timer = setTimeout(() => setConfirmingReset(false), RESET_CONFIRM_MS);
+
+    return () => clearTimeout(timer);
+  }, [confirmingReset]);
   const modelRef = useRef<ChatModel>(DEFAULT_COMPOSER_MODEL);
   const effortRef = useRef<ChatEffortLevel>("auto");
   const searchRef = useRef(false);
@@ -310,6 +322,32 @@ export function StageView({
               disabled={sending || Boolean(voice?.connected || voice?.connecting)}
               onChange={setContinuity}
             />
+          )}
+          {!!(state?.widgets.length || state?.messages.length) && (
+            <button
+              aria-label={confirmingReset ? "Confirm: clear the stage" : "New stage"}
+              aria-pressed={confirmingReset}
+              className="stage-tool"
+              disabled={sending}
+              title={
+                confirmingReset
+                  ? "Press again to clear every piece and the conversation"
+                  : "Start a new, empty stage"
+              }
+              type="button"
+              onClick={async () => {
+                if (!confirmingReset) {
+                  setConfirmingReset(true);
+
+                  return;
+                }
+                setConfirmingReset(false);
+                if (await reset()) selectView(ORGANIC_STAGE_VIEW);
+              }}
+            >
+              <Plus size={15} />
+              <span>{confirmingReset ? "Clear everything?" : "New stage"}</span>
+            </button>
           )}
           {!!state?.widgets.length && (
             <button

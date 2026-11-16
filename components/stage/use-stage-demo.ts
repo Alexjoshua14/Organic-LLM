@@ -93,6 +93,12 @@ export function useStageDemo(): StageController & { scene: string; show: (id: st
       refresh: noop,
       retryDesign: noop,
       cancelSubagent: noop,
+      reset: async () => {
+        setScene("blank");
+        setState((previous) => ({ ...emptyStageState(), revision: previous.revision + 1 }));
+
+        return true;
+      },
       scene,
       show: (id: string) => play(id),
     }),

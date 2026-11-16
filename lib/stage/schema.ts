@@ -224,6 +224,7 @@ export const StageEventSchema = z
       "subagent-complete",
       "subagent-cancel",
       "subagent-failed",
+      "reset",
     ]),
     requestId: z.string().uuid().nullable(),
     lastModel: z.string().nullable(),

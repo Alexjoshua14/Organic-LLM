@@ -12,7 +12,13 @@ import { applyStageOperations, stageReservedRects, StageLayoutError } from "@/li
 import { restoreStageLayout } from "@/lib/stage/restore";
 import { checkStageLimit } from "@/lib/stage/limit";
 import { readStagePayload, StagePayloadError } from "@/lib/stage/request";
-import { StageMutationSchema, StageTurnSchema, type StageState } from "@/lib/stage/schema";
+import {
+  emptyStageState,
+  StageMutationSchema,
+  StageTurnSchema,
+  type StageState,
+} from "@/lib/stage/schema";
+import { ORGANIC_STAGE_VIEW } from "@/lib/stage/view-schema";
 import {
   acquireStageLease,
   hasStageRequest,
@@ -129,6 +135,36 @@ export async function PATCH(req: Request) {
   }
 }
 
+/**
+ * A new, empty stage. Pieces, conversation, summary and queued work are cleared; a running designer
+ * or specialist sees its job gone and stops within a second. Memories and the event history
+ * (Activity) are kept. Holding the turn lease keeps a reply from landing on the cleared stage.
+ */
+async function resetStage(ownerId: string, requestId: string): Promise<StageState> {
+  if (await hasStageRequest(ownerId, requestId)) return (await readStage(ownerId)).state;
+  const lease = await acquireStageLease(ownerId, "turn");
+
+  if (!lease)
+    throw new StageTurnError("Organic is answering a message. Try again in a moment.", 409);
+  try {
+    return (
+      (await mutateStage(
+        ownerId,
+        "reset",
+        (current) => ({
+          ...emptyStageState(),
+          lastModel: current.lastModel,
+          nextModel: current.nextModel,
+          viewCommand: { id: requestId, target: ORGANIC_STAGE_VIEW },
+        }),
+        { requestId, deduplicate: true, lease }
+      )) ?? (await readStage(ownerId)).state
+    );
+  } finally {
+    await releaseStageLease(ownerId, lease);
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const id = await identity();
@@ -141,8 +177,13 @@ export async function POST(req: Request) {
       .object({ action: z.literal("retry-design"), requestId: z.string().uuid() })
       .strict()
       .safeParse(raw);
+    const reset = z
+      .object({ action: z.literal("reset"), requestId: z.string().uuid() })
+      .strict()
+      .safeParse(raw);
     const parsed = StageTurnSchema.safeParse(raw);
 
+    if (reset.success) return json({ state: await resetStage(id.ownerId, reset.data.requestId) });
     if (!retry.success && !parsed.success) return json({ error: "Invalid message" }, 400);
     if (parsed.success) {
       const state = await runStageTurn(

@@ -3,6 +3,7 @@ import { STAGE_CONTENT_RECT, type StageRect, type StageState, type StageWidget }
 
 import {
   findStagePlacement,
+  packedStageRect,
   initializeStageViewLayouts,
   repairStageLayout,
   stageReservedRects,
@@ -98,6 +99,34 @@ function unchangedTarget(current: StageWidget[], base: StageState, id: string) {
   return { original, index };
 }
 
+/**
+ * How many pieces the stage shows at once. More than this and each piece is too small to read;
+ * the stage becomes a pile of everything ever asked rather than the topic at hand.
+ */
+export const STAGE_MAX_PIECES = 4;
+
+/**
+ * Makes room for `incoming` new pieces by removing the oldest pieces nothing is about to change,
+ * so the stage holds at most STAGE_MAX_PIECES. Collections and Recall are the user's curated
+ * thoughts and are never removed here. Removed pieces stay in the stage's Activity history.
+ */
+export function makeRoomForPieces(
+  widgets: StageWidget[],
+  incoming: number,
+  touched: ReadonlySet<string> = new Set()
+): StageWidget[] {
+  const kept = [...widgets];
+
+  for (let index = 0; kept.length + incoming > STAGE_MAX_PIECES && index < kept.length; ) {
+    const widget = kept[index];
+
+    if (touched.has(widget.id) || widget.kind === "collection" || widget.kind === "recall") index++;
+    else kept.splice(index, 1);
+  }
+
+  return kept;
+}
+
 export function mergeStageDesignPlan(
   current: StageState,
   base: StageState,
@@ -105,7 +134,25 @@ export function mergeStageDesignPlan(
   chatIds: Map<number, string>,
   widgetIds: Map<number, string> = new Map()
 ) {
-  const widgets = [...current.widgets];
+  const touched = new Set(
+    plan.operations.flatMap((operation) => (operation.targetId ? [operation.targetId] : []))
+  );
+  const created = plan.operations.filter(
+    (operation) => operation.operation === "upsert" && !operation.targetId
+  ).length;
+  const removed = plan.operations.filter((operation) => operation.operation === "remove").length;
+  // A new topic clears what the plan leaves alone; otherwise older untouched pieces give way
+  // only as far as the cap needs, before new pieces look for space.
+  const kept = plan.fresh
+    ? current.widgets.filter(
+        (widget) =>
+          touched.has(widget.id) || widget.kind === "collection" || widget.kind === "recall"
+      )
+    : current.widgets;
+  const widgets = makeRoomForPieces(kept, created - removed, touched);
+  // Survivors keep cells sized for a crowded stage. Once pieces leave, or a new one finds no
+  // room, the whole stage is re-tiled evenly instead of failing or squeezing in a sliver.
+  let retile = widgets.length < current.widgets.length;
 
   for (const [index, operation] of plan.operations.entries()) {
     if (operation.operation === "remove") {
@@ -156,9 +203,21 @@ export function mergeStageDesignPlan(
       (operation.kind === "web" ? findStagePlacement(widgets, 16, 18, reserved) : null) ??
       findStagePlacement(widgets, w, h, reserved);
 
-    if (!rect) throw new StageLayoutError("No free space for the requested widget");
-    widgets.push(stageWidgetFromPiece(operation, rect, chatIds.get(index), widgetIds.get(index)));
+    if (!rect) retile = true;
+    widgets.push(
+      stageWidgetFromPiece(
+        operation,
+        rect ?? { ...STAGE_CONTENT_RECT },
+        chatIds.get(index),
+        widgetIds.get(index)
+      )
+    );
   }
+  if (retile)
+    return initializeStageViewLayouts(
+      widgets.map((widget, index) => ({ ...widget, rect: packedStageRect(index, widgets.length) })),
+      stageReservedRects(current)
+    );
   try {
     validateStageLayout(widgets, stageReservedRects(current));
 
@@ -201,5 +260,5 @@ export function sanitizeDesignPlan(plan: DesignPlan): { plan: DesignPlan; droppe
     return !reason;
   });
 
-  return { plan: { operations }, dropped };
+  return { plan: { ...plan, operations }, dropped };
 }

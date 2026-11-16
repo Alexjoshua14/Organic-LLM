@@ -225,6 +225,24 @@ export function useStage({ voiceActive = false }: { voiceActive?: boolean } = {}
     }
   }, [accept]);
 
+  const reset = useCallback(async () => {
+    try {
+      const data = await stageRequest<{ state: StageState }>("/api/stage", {
+        method: "POST",
+        body: JSON.stringify({ action: "reset", requestId: crypto.randomUUID() }),
+      });
+
+      accept(data.state);
+      setError(null);
+
+      return true;
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Couldn’t start a new stage.");
+
+      return false;
+    }
+  }, [accept]);
+
   const cancelSubagent = useCallback(
     async (id: string) => {
       try {
@@ -251,5 +269,6 @@ export function useStage({ voiceActive = false }: { voiceActive?: boolean } = {}
     refresh,
     retryDesign,
     cancelSubagent,
+    reset,
   };
 }

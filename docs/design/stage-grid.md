@@ -36,6 +36,21 @@ page's load event for seconds, so it is shown after 1.2s regardless (`WEB_REVEAL
 its cell (never below 0.7), so it keeps a desktop layout at the stage's reading size
 instead of collapsing to a phone layout in a narrow cell.
 
+## One topic, four pieces
+
+The stage shows one topic at a time, in at most four pieces (`STAGE_MAX_PIECES` in
+`lib/stage/reconcile.ts`); more and each piece is too small to read. The designer marks a
+plan `fresh` when the brief moves to a new topic, and every piece it doesn't touch is cleared
+in one step. Otherwise, the oldest untouched pieces give way only as far as the cap needs.
+Collections and Recall are never removed this way. Whenever pieces leave, or a new piece
+finds no room, the stage is re-tiled evenly: one piece takes the artifact area, two take
+halves, three or four a 2×2. Specialist results follow the same rule. Reading a stage never
+removes anything.
+
+**New stage**, in the top bar, clears pieces, conversation and queued work after a second
+press within 4s. A running designer or specialist sees its job gone and stops. Memories and
+the Activity history stay.
+
 ## Viewport ownership
 
 Stage is one 32×32 top-level grid. Navigation, Organic and its active children,
