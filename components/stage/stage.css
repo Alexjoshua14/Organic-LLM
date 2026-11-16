@@ -141,14 +141,61 @@
     background var(--stage-feedback),
     color var(--stage-feedback);
 }
+/*
+ * Tools tray. Each tool fades and slides out from the Tools button, nearest first, over the
+ * entrance time with a short stagger; closing fades them back together, faster and without
+ * stagger. The tray keeps its box until the exit ends (allow-discrete), and browsers without
+ * that support simply hide it. Only opacity and transform animate.
+ */
 .stage-tool-tray {
+  --stage-tray-shift: 8px;
+  --stage-tray-stagger: 20ms;
   display: flex;
   align-items: center;
   gap: inherit;
   min-width: 0;
+  transition: display var(--stage-feedback) allow-discrete;
 }
 .stage-tool-tray[hidden] {
   display: none;
+}
+.stage-tool-tray > * {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity var(--stage-enter) ease-out,
+    transform var(--stage-enter) cubic-bezier(0.22, 1, 0.36, 1);
+}
+.stage-tool-tray > :nth-last-child(2) {
+  transition-delay: var(--stage-tray-stagger);
+}
+.stage-tool-tray > :nth-last-child(3) {
+  transition-delay: calc(var(--stage-tray-stagger) * 2);
+}
+.stage-tool-tray > :nth-last-child(4) {
+  transition-delay: calc(var(--stage-tray-stagger) * 3);
+}
+.stage-tool-tray > :nth-last-child(n + 5) {
+  transition-delay: calc(var(--stage-tray-stagger) * 4);
+}
+.stage-tool-tray[hidden] > * {
+  opacity: 0;
+  transform: translateX(var(--stage-tray-shift));
+  transition-duration: var(--stage-feedback);
+  transition-timing-function: ease-in;
+  transition-delay: 0s;
+}
+@starting-style {
+  .stage-tool-tray:not([hidden]) > * {
+    opacity: 0;
+    transform: translateX(var(--stage-tray-shift));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stage-tool-tray,
+  .stage-tool-tray > * {
+    transition: none;
+  }
 }
 /* Something in the closed tray is on (grid, added context): a quiet dot on Tools says so. */
 .stage-tool[data-active] {
