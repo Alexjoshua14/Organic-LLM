@@ -16,6 +16,7 @@ import {
   Plus,
   ArrowUpRight,
   RotateCcw,
+  SlidersHorizontal,
 } from "lucide-react";
 
 import { useStage } from "./use-stage";
@@ -137,6 +138,22 @@ export function StageView({
 
   const [showGrid, setShowGrid] = useState(false);
   const [panel, setPanel] = useState<"conversation" | "activity" | null>(null);
+  // Context, New stage, Pieces, Grid and Activity live behind one Tools toggle, so the bar
+  // stays quiet; Conversation keeps its own button.
+  const [toolsOpen, setToolsOpen] = useState(false);
+
+  useEffect(() => {
+    if (!toolsOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setToolsOpen(false);
+      setConfirmingReset(false);
+    };
+
+    document.addEventListener("keydown", onKey);
+
+    return () => document.removeEventListener("keydown", onKey);
+  }, [toolsOpen]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { root, composer, wordmark, size } = useStageMeasurements();
   const [view, setView] = useState<StageView>(ORGANIC_STAGE_VIEW);
@@ -315,67 +332,98 @@ export function StageView({
           <span>stage</span>
         </div>
         <nav aria-label="Stage controls" className="stage-tools">
-          {!scripted && (
-            <ContextPicker
-              compact
-              surface="stage"
-              disabled={sending || Boolean(voice?.connected || voice?.connecting)}
-              onChange={setContinuity}
-            />
-          )}
-          {!!(state?.widgets.length || state?.messages.length) && (
-            <button
-              aria-label={confirmingReset ? "Confirm: clear the stage" : "New stage"}
-              aria-pressed={confirmingReset}
-              className="stage-tool"
-              disabled={sending}
-              title={
-                confirmingReset
-                  ? "Press again to clear every piece and the conversation"
-                  : "Start a new, empty stage"
-              }
-              type="button"
-              onClick={async () => {
-                if (!confirmingReset) {
-                  setConfirmingReset(true);
-
-                  return;
+          {/* Hidden, not unmounted: the context picker keeps its selection while closed. */}
+          <div className="stage-tool-tray" hidden={!toolsOpen} id="stage-tool-tray">
+            {!scripted && (
+              <ContextPicker
+                compact
+                surface="stage"
+                disabled={sending || Boolean(voice?.connected || voice?.connecting)}
+                onChange={setContinuity}
+              />
+            )}
+            {!!(state?.widgets.length || state?.messages.length) && (
+              <button
+                aria-label={confirmingReset ? "Confirm: clear the stage" : "New stage"}
+                aria-pressed={confirmingReset}
+                className="stage-tool"
+                disabled={sending}
+                title={
+                  confirmingReset
+                    ? "Press again to clear every piece and the conversation"
+                    : "Start a new, empty stage"
                 }
-                setConfirmingReset(false);
-                if (await reset()) selectView(ORGANIC_STAGE_VIEW);
-              }}
-            >
-              <Plus size={15} />
-              <span>{confirmingReset ? "Clear everything?" : "New stage"}</span>
-            </button>
-          )}
-          {!!state?.widgets.length && (
+                type="button"
+                onClick={async () => {
+                  if (!confirmingReset) {
+                    setConfirmingReset(true);
+
+                    return;
+                  }
+                  setConfirmingReset(false);
+                  if (await reset()) selectView(ORGANIC_STAGE_VIEW);
+                }}
+              >
+                <Plus size={15} />
+                <span>{confirmingReset ? "Clear everything?" : "New stage"}</span>
+              </button>
+            )}
+            {!!state?.widgets.length && (
+              <button
+                aria-label="Pieces"
+                aria-pressed={view.kind === "overview"}
+                className="stage-tool"
+                title={view.kind === "overview" ? "Back to Organic" : "Show every piece"}
+                type="button"
+                onClick={() =>
+                  selectView(
+                    view.kind === "overview" ? ORGANIC_STAGE_VIEW : { kind: "overview", id: null }
+                  )
+                }
+              >
+                <Layers size={15} />
+                <span>Pieces</span>
+              </button>
+            )}
             <button
-              aria-label="Pieces"
-              aria-pressed={view.kind === "overview"}
+              aria-label="Show grid"
+              aria-pressed={showGrid}
               className="stage-tool"
-              title={view.kind === "overview" ? "Back to Organic" : "Show every piece"}
+              title="Show the 32 by 32 grid"
               type="button"
-              onClick={() =>
-                selectView(
-                  view.kind === "overview" ? ORGANIC_STAGE_VIEW : { kind: "overview", id: null }
-                )
-              }
+              onClick={() => setShowGrid((value) => !value)}
             >
-              <Layers size={15} />
-              <span>Pieces</span>
+              <Grid3X3 size={15} />
+              <span>Grid</span>
             </button>
-          )}
+            {!scripted && (
+              <button
+                aria-label="Activity"
+                aria-expanded={panel === "activity"}
+                className="stage-tool"
+                type="button"
+                onClick={() => togglePanel("activity")}
+              >
+                <History size={15} />
+                <span>Activity</span>
+              </button>
+            )}
+          </div>
           <button
-            aria-label="Show grid"
-            aria-pressed={showGrid}
+            aria-controls="stage-tool-tray"
+            aria-expanded={toolsOpen}
+            aria-label="Stage tools"
             className="stage-tool"
-            title="Show the 32 by 32 grid"
+            data-active={!toolsOpen && (showGrid || !!continuity) ? "" : undefined}
+            title={toolsOpen ? "Hide tools" : "Context, new stage, pieces, grid and activity"}
             type="button"
-            onClick={() => setShowGrid((value) => !value)}
+            onClick={() => {
+              setToolsOpen((value) => !value);
+              setConfirmingReset(false);
+            }}
           >
-            <Grid3X3 size={15} />
-            <span>Grid</span>
+            <SlidersHorizontal size={15} />
+            <span>Tools</span>
           </button>
           <button
             aria-label="Conversation"
@@ -387,18 +435,6 @@ export function StageView({
             <MessageCircle size={15} />
             <span>Conversation</span>
           </button>
-          {!scripted && (
-            <button
-              aria-label="Activity"
-              aria-expanded={panel === "activity"}
-              className="stage-tool"
-              type="button"
-              onClick={() => togglePanel("activity")}
-            >
-              <History size={15} />
-              <span>Activity</span>
-            </button>
-          )}
         </nav>
       </header>
 

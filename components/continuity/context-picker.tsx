@@ -2,7 +2,11 @@
 
 import type { ContinuitySelection, ContinuitySource } from "@/lib/continuity/schema";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+
+import { glass } from "@/components/design-system/primitives";
+import { cn } from "@/lib/utils";
 
 type Candidate = { source: ContinuitySource; label: string; at: string | null };
 async function request(path: string, body?: unknown) {
@@ -44,7 +48,34 @@ export function ContextPicker({
   const [error, setError] = useState("");
   const interaction = useRef<ContinuitySelection | undefined>(undefined);
   const details = useRef<HTMLDetailsElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
   const pending = useRef(false);
+  const [open, setOpen] = useState(false);
+
+  // Outside a press or Escape closes it, like any popover. The panel renders at the document
+  // root, so the native <details> never sees those presses.
+  useEffect(() => {
+    if (!open) return;
+    const close = () => {
+      if (details.current) details.current.open = false;
+    };
+    const onPointer = (event: PointerEvent) => {
+      const target = event.target as Node;
+
+      if (!panel.current?.contains(target) && !details.current?.contains(target)) close();
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") close();
+    };
+
+    document.addEventListener("pointerdown", onPointer);
+    document.addEventListener("keydown", onKey);
+
+    return () => {
+      document.removeEventListener("pointerdown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
 
   async function search(page = 0) {
     if (pending.current || disabled) return;
@@ -101,7 +132,11 @@ export function ContextPicker({
   }
 
   return (
-    <details ref={details} className="relative text-sm">
+    <details
+      ref={details}
+      className="relative text-sm"
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
       <summary
         aria-disabled={disabled}
         className="flex min-h-11 max-w-64 cursor-pointer items-center rounded-xl px-inset-md text-muted-foreground hover:text-foreground"
@@ -116,106 +151,121 @@ export function ContextPicker({
               : "Add previous context"}
         </span>
       </summary>
-      <div className="fixed inset-x-4 top-20 z-50 mx-auto max-h-[65dvh] max-w-sm overflow-y-auto rounded-xl border border-border bg-background p-inset-md shadow-xl">
-        <p className="mb-stack-sm text-xs text-muted-foreground">
-          Adds reference material. Your current conversation and Stage stay in place.
-        </p>
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            void search();
-          }}
-          className="flex flex-col gap-stack-sm"
-        >
-          <label>
-            Search in
-            <select
-              aria-label="Context source"
-              className="block min-h-11 w-full rounded-lg border border-border bg-background px-inset-sm"
-              disabled={disabled || busy}
-              value={kind}
-              onChange={(event) => {
-                setKind(event.target.value as typeof kind);
-                setCandidates([]);
-                setNextPage(null);
-              }}
+      {open && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              ref={panel}
+              aria-label="Add previous context"
+              role="dialog"
+              className={cn(
+                glass({ opaque: true }),
+                // At the document root: a surface's own stacking layers (Stage's top bar sits under
+                // its pieces) can't cover it.
+                "fixed inset-x-4 top-20 z-50 mx-auto max-h-[65dvh] max-w-sm overflow-y-auto rounded-xl p-inset-md text-sm shadow-xl"
+              )}
             >
-              <option value="speak-thread">Voice conversations</option>
-              <option value="stage-artifact">Current Stage pieces</option>
-            </select>
-          </label>
-          <label>
-            Title
-            <input
-              className="block min-h-11 w-full rounded-lg border border-border bg-background px-inset-sm text-base"
-              disabled={disabled || busy}
-              maxLength={200}
-              value={query}
-              placeholder="e.g. Aion architecture"
-              onChange={(event) => {
-                setQuery(event.target.value);
-                setCandidates([]);
-                setNextPage(null);
-              }}
-            />
-          </label>
-          <button
-            className="min-h-11 rounded-lg bg-secondary px-inset-md"
-            disabled={disabled || busy}
-            type="submit"
-          >
-            {busy ? "Working…" : "Find context"}
-          </button>
-        </form>
-        <p className="my-stack-sm text-xs text-muted-foreground">{coverage}</p>
-        <ul>
-          {candidates.map((candidate) => (
-            <li key={JSON.stringify(candidate.source)}>
-              <button
-                className="flex min-h-11 w-full flex-col items-start rounded-lg p-inset-sm text-left hover:bg-secondary"
-                disabled={disabled || busy}
-                onClick={() => void select(candidate)}
-                type="button"
+              <p className="mb-stack-sm text-xs text-muted-foreground">
+                Adds reference material. Your current conversation and Stage stay in place.
+              </p>
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void search();
+                }}
+                className="flex flex-col gap-stack-sm"
               >
-                <span>{candidate.label}</span>
-                <span className="text-xs text-muted-foreground">
-                  {candidate.at ? new Date(candidate.at).toLocaleString() : "Current Stage"}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-        {nextPage !== null ? (
-          <button
-            disabled={disabled || busy}
-            className="min-h-11 px-inset-sm"
-            onClick={() => void search(nextPage)}
-            type="button"
-          >
-            More results
-          </button>
-        ) : null}
-        {label ? (
-          <button
-            disabled={disabled || busy}
-            className="min-h-11 px-inset-sm"
-            onClick={() => void select(null)}
-            type="button"
-          >
-            Remove added context
-          </button>
-        ) : null}
-        {error ? (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
-        ) : null}
-        {disabled ? (
-          <p className="text-xs text-muted-foreground">
-            End the call or wait for the current turn before changing context.
-          </p>
-        ) : null}
-      </div>
+                <label>
+                  Search in
+                  <select
+                    aria-label="Context source"
+                    className="block min-h-11 w-full rounded-lg border border-border/60 bg-background/60 px-inset-sm"
+                    disabled={disabled || busy}
+                    value={kind}
+                    onChange={(event) => {
+                      setKind(event.target.value as typeof kind);
+                      setCandidates([]);
+                      setNextPage(null);
+                    }}
+                  >
+                    <option value="speak-thread">Voice conversations</option>
+                    <option value="stage-artifact">Current Stage pieces</option>
+                  </select>
+                </label>
+                <label>
+                  Title
+                  <input
+                    className="block min-h-11 w-full rounded-lg border border-border/60 bg-background/60 px-inset-sm text-base"
+                    disabled={disabled || busy}
+                    maxLength={200}
+                    value={query}
+                    placeholder="e.g. Aion architecture"
+                    onChange={(event) => {
+                      setQuery(event.target.value);
+                      setCandidates([]);
+                      setNextPage(null);
+                    }}
+                  />
+                </label>
+                <button
+                  className="min-h-11 rounded-lg bg-secondary/70 px-inset-md hover:bg-secondary"
+                  disabled={disabled || busy}
+                  type="submit"
+                >
+                  {busy ? "Working…" : "Find context"}
+                </button>
+              </form>
+              <p className="my-stack-sm text-xs text-muted-foreground">{coverage}</p>
+              <ul>
+                {candidates.map((candidate) => (
+                  <li key={JSON.stringify(candidate.source)}>
+                    <button
+                      className="flex min-h-11 w-full flex-col items-start rounded-lg p-inset-sm text-left hover:bg-secondary/70"
+                      disabled={disabled || busy}
+                      onClick={() => void select(candidate)}
+                      type="button"
+                    >
+                      <span>{candidate.label}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {candidate.at ? new Date(candidate.at).toLocaleString() : "Current Stage"}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              {nextPage !== null ? (
+                <button
+                  disabled={disabled || busy}
+                  className="min-h-11 px-inset-sm"
+                  onClick={() => void search(nextPage)}
+                  type="button"
+                >
+                  More results
+                </button>
+              ) : null}
+              {label ? (
+                <button
+                  disabled={disabled || busy}
+                  className="min-h-11 px-inset-sm"
+                  onClick={() => void select(null)}
+                  type="button"
+                >
+                  Remove added context
+                </button>
+              ) : null}
+              {error ? (
+                <p role="alert" className="text-sm text-destructive">
+                  {error}
+                </p>
+              ) : null}
+              {disabled ? (
+                <p className="text-xs text-muted-foreground">
+                  End the call or wait for the current turn before changing context.
+                </p>
+              ) : null}
+            </div>,
+            document.body
+          )
+        : null}
     </details>
   );
 }

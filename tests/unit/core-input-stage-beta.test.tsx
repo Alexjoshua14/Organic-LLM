@@ -160,7 +160,7 @@ test("Stage returns to centered Organic, retains tucked pieces and applies serve
     return Response.json({ state });
   }) as typeof fetch;
   const app = render(<Stage />);
-  await waitFor(() => expect(Boolean(app.queryByRole("button", { name: "Pieces" }))).toBe(true));
+  await waitFor(() => expect(Boolean(app.queryByRole("button", { name: "Pieces", hidden: true }))).toBe(true));
   // The view listener is a passive effect of the loaded state; let it attach before commanding.
   await act(async () => {});
   expect(Boolean(app.queryByRole("article", { name: "Prep checklist" }))).toBe(false);
@@ -248,10 +248,12 @@ test("saved placement is identical after closing inspection, hiding guides, swit
     return Response.json({ state });
   }) as typeof fetch;
   const app = render(<Stage />);
-  await waitFor(() => expect(Boolean(app.queryByRole("button", { name: "Pieces" }))).toBe(true));
+  await waitFor(() => expect(Boolean(app.queryByRole("button", { name: "Pieces", hidden: true }))).toBe(true));
   // The view listener is a passive effect of the loaded state; let it attach before commanding.
   await act(async () => {});
   showAuthor();
+  // Grid sits in the Tools tray with Context, New stage, Pieces and Activity.
+  fireEvent.click(app.getByRole("button", { name: "Stage tools" }));
   fireEvent.click(app.getByRole("button", { name: "Show grid" }));
   fireEvent.click(app.getByRole("button", { name: "Arrange Prep checklist" }));
   fireEvent.change(app.getByLabelText("Column"), { target: { value: "16" } });
@@ -275,7 +277,7 @@ test("saved placement is identical after closing inspection, hiding guides, swit
   app.unmount();
   const reloaded = render(<Stage />);
   await waitFor(() =>
-    expect(Boolean(reloaded.queryByRole("button", { name: "Pieces" }))).toBe(true)
+    expect(Boolean(reloaded.queryByRole("button", { name: "Pieces", hidden: true }))).toBe(true)
   );
   await act(async () => {});
   showAuthor();

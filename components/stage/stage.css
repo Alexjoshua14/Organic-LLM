@@ -141,6 +141,29 @@
     background var(--stage-feedback),
     color var(--stage-feedback);
 }
+.stage-tool-tray {
+  display: flex;
+  align-items: center;
+  gap: inherit;
+  min-width: 0;
+}
+.stage-tool-tray[hidden] {
+  display: none;
+}
+/* Something in the closed tray is on (grid, added context): a quiet dot on Tools says so. */
+.stage-tool[data-active] {
+  position: relative;
+}
+.stage-tool[data-active]::after {
+  content: "";
+  position: absolute;
+  top: 7px;
+  right: 6px;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--stage-ink);
+}
 .stage-tool:hover,
 .stage-tool[aria-pressed="true"],
 .stage-tool[aria-expanded="true"] {

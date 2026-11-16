@@ -85,7 +85,11 @@ The latest response owns rows only on Organic's home view and while reading. In 
 view that shows pieces its rows are sized to zero and the artifact rows take the height,
 so the composer is the only thing under the pieces. Its cells stay reserved: the designer
 and the validator still keep pieces out of them. The full exchange stays in Conversation.
-The top bar's Pieces control switches between the home view and All pieces; there is no
+The top bar shows two buttons: Tools and Conversation. Tools opens a tray in place with
+Context, New stage, Pieces, Grid and Activity; while it is closed, a small dot on Tools says
+the grid or added context is on. The tray hides rather than unmounts, so added context
+survives closing it. The Context panel renders at the document root on the shared glass
+surface, above the pieces. Pieces switches between the home view and All pieces; there is no
 author or piece picker, and a specialist's view opens from its mark while it works. Send
 errors and designer recovery sit inside the composer's measured block, so the grid makes
 room for them only while one shows. Long content retains native scrolling inside its
