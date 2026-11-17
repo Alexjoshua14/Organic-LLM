@@ -1,193 +1,329 @@
 import "server-only";
 
 import {
+  claimErgonRefreshLock,
   loadErgonConnectionRecord,
+  releaseErgonRefreshLock,
   resolveErgonConnectionToken,
   resolveErgonRefreshToken,
-  saveErgonConnectionRecord,
+  rotateErgonConnectionTokens,
+  ErgonConnectionStoreError,
   type ErgonConnectionStoreOptions,
 } from "@/lib/connectors/ergon-connection-store";
-import { exchangeErgonOAuthToken, isErgonOAuthReady } from "@/lib/connectors/ergon-oauth";
 import {
-  ERGON_CONNECTION_SCOPES,
+  exchangeErgonOAuthToken,
+  isErgonOAuthReady,
+  type ErgonOAuthEnv,
+} from "@/lib/connectors/ergon-oauth";
+import { createLogger } from "@/lib/logger";
+import {
   ergonScopesInclude,
   mcpUrlForWorkspace,
   parseErgonMcpUrl,
   parseErgonWorkspaceUrl,
-  type ErgonAuthMode,
+  toPublicErgonConnection,
+  type ErgonConnectionPublic,
   type ErgonConnectionRecord,
   type ErgonConnectionScope,
-  type ErgonTransport,
 } from "@/lib/schemas/ergon-connection";
 
+const logger = createLogger("lib/llm/ergon-config.ts");
+
+/** Everything Organic needs to call Ergon as one specific user. Built per request, never stored. */
 export type ErgonConfig = {
   url: string;
   mcpUrl: string;
   token: string;
   scopes: readonly ErgonConnectionScope[];
-  source: "user" | "env";
-  authMode: ErgonAuthMode;
-  transport: ErgonTransport;
 };
-
-export type ErgonEnv = Record<string, string | undefined>;
 
 export type ErgonConfigPurpose = "tickets" | "agents";
 
+type RefreshResult =
+  | {
+      ok: true;
+      accessToken: string;
+      refreshToken: string | null;
+      expiresAt: string | null;
+    }
+  | { ok: false };
+
 export type ErgonConfigDeps = {
-  env?: ErgonEnv;
-  loadConnection?: (
-    profileId: string
-  ) => Promise<ErgonConnectionRecord | null>;
-  resolveToken?: (
-    profileId: string,
-    record: ErgonConnectionRecord
-  ) => Promise<string | null>;
+  /** Only used to decide whether this deployment can start OAuth (public status). */
+  env?: ErgonOAuthEnv;
+  loadConnection?: (profileId: string) => Promise<ErgonConnectionRecord | null>;
+  /**
+   * A read of this user's connection started earlier in the request (see
+   * `startErgonConnectionSnapshot`). Used ONLY for cheap "are the tools available" and status
+   * decisions at turn start, so one request makes one read instead of one per consumer. Tool
+   * calls always read fresh, because they may refresh a token and need the latest row.
+   */
+  connectionSnapshot?: Promise<ErgonConnectionRecord | null>;
+  resolveToken?: (profileId: string, record: ErgonConnectionRecord) => Promise<string | null>;
   storeOptions?: ErgonConnectionStoreOptions;
   /** Injected for tests; defaults to AuthKit refresh via ergon-oauth. */
-  refreshOAuth?: (refreshToken: string) => Promise<
-    | {
-        ok: true;
-        accessToken: string;
-        refreshToken: string | null;
-        expiresAt: string | null;
-      }
-    | { ok: false }
-  >;
+  refreshOAuth?: (refreshToken: string) => Promise<RefreshResult>;
+  now?: () => number;
+  sleep?: (ms: number) => Promise<void>;
 };
 
-function envOwnerId(env: ErgonEnv): string | null {
-  const id = env.ERGON_OWNER_PROFILE_ID?.trim();
+/** Refresh a minute before expiry. */
+const REFRESH_EARLY_MS = 60_000;
+/** How long a request that lost the refresh lock waits for the winner before giving up. */
+const REFRESH_WAIT_MS = 10_000;
+const REFRESH_POLL_MS = 500;
 
-  return id || null;
-}
-
-function envBridgeConfig(
-  sbUserId: string,
-  purpose: ErgonConfigPurpose,
-  env: ErgonEnv
-): ErgonConfig | null {
-  if (!sbUserId || sbUserId !== envOwnerId(env)) return null;
-
-  const url = parseErgonWorkspaceUrl(env.ERGON_URL);
-
-  if (!url) return null;
-
-  const mcpUrl =
-    parseErgonMcpUrl(env.ERGON_MCP_URL) ?? mcpUrlForWorkspace(url);
-
-  if (purpose === "tickets") {
-    const token = env.ERGON_TOKEN?.trim();
-
-    if (!token) return null;
-
-    return {
-      url,
-      mcpUrl,
-      token,
-      scopes: ["read", "write"],
-      source: "env",
-      authMode: "env",
-      // Admin ticket fallback stays on REST `/api/rpc` (COA-286 / ERGON_TOKEN).
-      transport: "rest",
-    };
-  }
-
-  const token = env.ERGON_AGENT_TOKEN?.trim();
-
-  if (!token) return null;
-
-  return {
-    url,
-    mcpUrl,
-    token,
-    scopes: ["read", "agents"],
-    source: "env",
-    authMode: "env",
-    transport: "rest",
-  };
-}
-
-function tokenExpired(expiresAt: string | null | undefined, nowMs: number): boolean {
+function needsRefresh(expiresAt: string | null | undefined, nowMs: number): boolean {
   if (!expiresAt) return false;
   const ms = Date.parse(expiresAt);
 
   if (!Number.isFinite(ms)) return false;
 
-  // Refresh a minute early.
-  return ms <= nowMs + 60_000;
+  return ms <= nowMs + REFRESH_EARLY_MS;
 }
 
-async function resolveUserAccessToken(
-  sbUserId: string,
-  record: ErgonConnectionRecord,
-  deps: ErgonConfigDeps
-): Promise<{ token: string; record: ErgonConnectionRecord } | null> {
-  const resolve =
-    deps.resolveToken ??
-    ((id: string, rec: ErgonConnectionRecord) => resolveErgonConnectionToken(id, rec));
+function reallyExpired(expiresAt: string | null | undefined, nowMs: number): boolean {
+  if (!expiresAt) return false;
+  const ms = Date.parse(expiresAt);
 
-  let token = await resolve(sbUserId, record);
-  let current = record;
+  if (!Number.isFinite(ms)) return false;
 
-  if (
-    record.authMode === "oauth" &&
-    tokenExpired(record.expiresAt, Date.now())
-  ) {
-    const refresh = await resolveErgonRefreshToken(sbUserId, record);
+  return ms <= nowMs;
+}
 
-    if (refresh) {
-      const refresher =
-        deps.refreshOAuth ??
-        (async (refreshToken: string) => {
-          const result = await exchangeErgonOAuthToken({
-            grantType: "refresh_token",
-            refreshToken,
-          });
+/** Only the short store code is ever logged; store errors never carry token material. */
+function errorCode(error: unknown): string | null {
+  return error instanceof ErgonConnectionStoreError ? (error.code ?? error.operation) : null;
+}
 
-          if (!result.ok) return { ok: false as const };
+type Resolved = { token: string; record: ErgonConnectionRecord };
 
-          return {
-            ok: true as const,
-            accessToken: result.tokens.accessToken,
-            refreshToken: result.tokens.refreshToken,
-            expiresAt: result.tokens.expiresAt,
-          };
-        });
+async function defaultRefresh(refreshToken: string): Promise<RefreshResult> {
+  const result = await exchangeErgonOAuthToken({ grantType: "refresh_token", refreshToken });
 
-      const refreshed = await refresher(refresh);
+  if (!result.ok) return { ok: false };
 
-      if (refreshed.ok) {
-        current = await saveErgonConnectionRecord(
-          sbUserId,
-          {
-            url: record.url,
-            mcpUrl: record.mcpUrl,
-            token: refreshed.accessToken,
-            refreshToken: refreshed.refreshToken ?? refresh,
-            authMode: "oauth",
-            transport: record.transport === "rest" ? "mcp" : record.transport,
-            scopes: record.scopes,
-            expiresAt: refreshed.expiresAt,
-            lastOkAt: new Date().toISOString(),
-          },
-          deps.storeOptions
-        );
-        token = refreshed.accessToken;
-      }
-    }
-  }
-
-  if (!token) return null;
-
-  return { token, record: current };
+  return {
+    ok: true,
+    accessToken: result.tokens.accessToken,
+    refreshToken: result.tokens.refreshToken,
+    expiresAt: result.tokens.expiresAt,
+  };
 }
 
 /**
- * Resolve Ergon credentials for a Supabase profile.
+ * Refresh while holding the cross-instance lock. The row is reloaded after the claim: another
+ * instance may have refreshed (and rotated the refresh token) between our read and our claim,
+ * and reusing a rotated refresh token can revoke the whole grant.
+ */
+async function refreshHoldingLock(
+  profileId: string,
+  deps: ErgonConfigDeps,
+  load: (id: string) => Promise<ErgonConnectionRecord | null>,
+  resolve: (id: string, rec: ErgonConnectionRecord) => Promise<string | null>
+): Promise<Resolved | null> {
+  const now = deps.now ?? Date.now;
+  const store = deps.storeOptions;
+  let rotated = false;
+
+  try {
+    const fresh = await load(profileId);
+
+    if (!fresh) return null;
+
+    if (!needsRefresh(fresh.expiresAt, now())) {
+      const token = await resolve(profileId, fresh);
+
+      return token ? { token, record: fresh } : null;
+    }
+
+    const stillUsable = async (): Promise<Resolved | null> => {
+      if (reallyExpired(fresh.expiresAt, now())) return null;
+      const token = await resolve(profileId, fresh);
+
+      return token ? { token, record: fresh } : null;
+    };
+    const refreshToken = await resolveErgonRefreshToken(profileId, fresh);
+
+    if (!refreshToken) return stillUsable();
+
+    const refreshed = await (deps.refreshOAuth ?? defaultRefresh)(refreshToken);
+
+    if (!refreshed.ok) return stillUsable();
+
+    let next: ErgonConnectionRecord | null;
+
+    try {
+      next = await rotateErgonConnectionTokens(
+        profileId,
+        fresh.version,
+        {
+          token: refreshed.accessToken,
+          refreshToken: refreshed.refreshToken ?? refreshToken,
+          expiresAt: refreshed.expiresAt,
+          lastOkAt: new Date(now()).toISOString(),
+        },
+        store
+      );
+    } catch (error) {
+      // The provider may already have rotated the refresh token. Serve this one request with
+      // the new access token and surface the failure; do not report the connection healthy.
+      logger.error("refresh", "Refreshed Ergon tokens could not be saved", {
+        code: errorCode(error),
+      });
+
+      return { token: refreshed.accessToken, record: fresh };
+    }
+
+    if (next) {
+      rotated = true;
+
+      return { token: refreshed.accessToken, record: next };
+    }
+
+    // Lost the compare-and-swap: another writer changed the row (or the user disconnected).
+    const winner = await load(profileId);
+
+    if (!winner || needsRefresh(winner.expiresAt, now())) return null;
+
+    const token = await resolve(profileId, winner);
+
+    return token ? { token, record: winner } : null;
+  } finally {
+    // A successful rotation already cleared the lock. Releasing then could clear a newer holder.
+    if (!rotated) {
+      await releaseErgonRefreshLock(profileId, store).catch(() => {
+        // The lock expires on its own.
+      });
+    }
+  }
+}
+
+async function resolveUserAccessToken(
+  profileId: string,
+  record: ErgonConnectionRecord,
+  deps: ErgonConfigDeps,
+  load: (id: string) => Promise<ErgonConnectionRecord | null>
+): Promise<Resolved | null> {
+  const now = deps.now ?? Date.now;
+  const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+  const resolve =
+    deps.resolveToken ??
+    ((id: string, rec: ErgonConnectionRecord) => resolveErgonConnectionToken(id, rec));
+  const deadline = now() + REFRESH_WAIT_MS;
+  let current = record;
+
+  for (;;) {
+    if (!needsRefresh(current.expiresAt, now())) {
+      const token = await resolve(profileId, current);
+
+      return token ? { token, record: current } : null;
+    }
+
+    let claimed: boolean;
+
+    try {
+      claimed = await claimErgonRefreshLock(profileId, deps.storeOptions);
+    } catch (error) {
+      logger.error("refresh", "Could not claim the Ergon refresh lock", {
+        code: errorCode(error),
+      });
+
+      if (reallyExpired(current.expiresAt, now())) return null;
+
+      const token = await resolve(profileId, current);
+
+      return token ? { token, record: current } : null;
+    }
+
+    if (claimed) return refreshHoldingLock(profileId, deps, load, resolve);
+
+    // Another instance is refreshing. A token that has not truly expired is still good.
+    if (!reallyExpired(current.expiresAt, now())) {
+      const token = await resolve(profileId, current);
+
+      return token ? { token, record: current } : null;
+    }
+
+    if (now() >= deadline) return null;
+
+    await sleep(REFRESH_POLL_MS);
+
+    const reloaded = await load(profileId);
+
+    if (!reloaded) return null;
+    current = reloaded;
+  }
+}
+
+/**
+ * Start one read of the user's Ergon connection. Never rejects: a store failure is logged (short
+ * code only) and treated as "no tools this turn". Start it early and pass the promise down as
+ * `connectionSnapshot` so the round trip overlaps work the turn does anyway.
+ */
+export function startErgonConnectionSnapshot(
+  sbUserId: string,
+  deps: Pick<ErgonConfigDeps, "loadConnection" | "storeOptions"> = {}
+): Promise<ErgonConnectionRecord | null> {
+  if (!sbUserId.trim()) return Promise.resolve(null);
+
+  const load =
+    deps.loadConnection ?? ((id: string) => loadErgonConnectionRecord(id, deps.storeOptions));
+
+  return load(sbUserId).catch((error) => {
+    logger.error("startErgonConnectionSnapshot", "Ergon connection unavailable", {
+      code: errorCode(error),
+    });
+
+    return null;
+  });
+}
+
+/**
+ * Cheap turn-start gate for registering Ergon tools: the connection exists, has the scope, points
+ * at a valid workspace, and its token opens locally. It never refreshes a token and never touches
+ * the network, so an expired token cannot slow the start of a turn; the refresh happens inside the
+ * tool call (`ergonConfigForUser`), which reads the latest row.
+ */
+export async function ergonToolsAvailable(
+  sbUserId: string,
+  purpose: ErgonConfigPurpose,
+  deps: ErgonConfigDeps = {}
+): Promise<boolean> {
+  if (!sbUserId.trim()) return false;
+
+  const requiredScope: ErgonConnectionScope = purpose === "tickets" ? "write" : "agents";
+
+  try {
+    const record = await (deps.connectionSnapshot ??
+      (deps.loadConnection ?? ((id: string) => loadErgonConnectionRecord(id, deps.storeOptions)))(
+        sbUserId
+      ));
+
+    if (
+      !record ||
+      !parseErgonWorkspaceUrl(record.url) ||
+      !ergonScopesInclude(record.scopes, requiredScope)
+    ) {
+      return false;
+    }
+
+    const resolve = deps.resolveToken ?? resolveErgonConnectionToken;
+
+    return Boolean(await resolve(sbUserId, record));
+  } catch (error) {
+    logger.error("ergonToolsAvailable", "Ergon connection unavailable", { code: errorCode(error) });
+
+    return false;
+  }
+}
+
+/**
+ * Resolve Ergon credentials for one Organic profile, from that user's own durable OAuth
+ * connection only. There is no deployment-wide or shared credential: no connection, no access.
  *
- * Order: per-user Settings connection (MCP OAuth preferred) →
- * env owner REST bridge (`ERGON_OWNER_PROFILE_ID` + token for the purpose).
+ * Store failures are logged and treated as "unavailable" for tools, never as a thrown error
+ * into the chat turn.
  */
 export async function ergonConfigForUser(
   sbUserId: string,
@@ -196,121 +332,64 @@ export async function ergonConfigForUser(
 ): Promise<ErgonConfig | null> {
   if (!sbUserId.trim()) return null;
 
-  const env = deps.env ?? process.env;
-  const requiredScope: ErgonConnectionScope =
-    purpose === "tickets" ? "write" : "agents";
-
+  const requiredScope: ErgonConnectionScope = purpose === "tickets" ? "write" : "agents";
   const load =
-    deps.loadConnection ??
-    ((id: string) => loadErgonConnectionRecord(id, deps.storeOptions));
+    deps.loadConnection ?? ((id: string) => loadErgonConnectionRecord(id, deps.storeOptions));
 
-  const record = await load(sbUserId);
+  try {
+    const record = await load(sbUserId);
 
-  if (record) {
+    if (!record) return null;
+
     const url = parseErgonWorkspaceUrl(record.url);
-    const resolved = url ? await resolveUserAccessToken(sbUserId, record, deps) : null;
 
-    if (url && resolved && ergonScopesInclude(record.scopes, requiredScope)) {
-      const mcpUrl =
-        parseErgonMcpUrl(resolved.record.mcpUrl) ?? mcpUrlForWorkspace(url);
+    if (!url || !ergonScopesInclude(record.scopes, requiredScope)) return null;
 
-      return {
-        url,
-        mcpUrl,
-        token: resolved.token,
-        scopes: resolved.record.scopes,
-        source: "user",
-        authMode: resolved.record.authMode === "env" ? "oauth" : resolved.record.authMode,
-        transport: resolved.record.transport,
-      };
-    }
+    const resolved = await resolveUserAccessToken(sbUserId, record, deps, load);
+
+    if (!resolved) return null;
+
+    return {
+      url,
+      mcpUrl: parseErgonMcpUrl(resolved.record.mcpUrl) ?? mcpUrlForWorkspace(url),
+      token: resolved.token,
+      scopes: resolved.record.scopes,
+    };
+  } catch (error) {
+    logger.error("ergonConfigForUser", "Ergon connection unavailable", {
+      code: errorCode(error),
+    });
+
+    return null;
   }
-
-  return envBridgeConfig(sbUserId, purpose, env);
 }
 
-/** Public status helper for Settings / API — never exposes a token. */
+/**
+ * Public status helper for Settings / API — never exposes a token. Store failures THROW so
+ * callers can report "temporarily unavailable" instead of showing a false "not connected".
+ */
 export async function ergonPublicStatusForUser(
   sbUserId: string,
   deps: ErgonConfigDeps = {}
-): Promise<{
-  connected: boolean;
-  authMode: ErgonAuthMode | null;
-  transport: ErgonTransport | null;
-  source: "user" | "env" | null;
-  url: string | null;
-  mcpUrl: string | null;
-  scopes: ErgonConnectionScope[];
-  connectedAt: string | null;
-  lastOkAt: string | null;
-  expiresAt: string | null;
-  hasToken: boolean;
-  oauthReady: boolean;
-}> {
-  const env = deps.env ?? process.env;
-  const oauthReady = isErgonOAuthReady(env);
+): Promise<ErgonConnectionPublic> {
+  const oauthReady = isErgonOAuthReady(deps.env);
   const load =
-    deps.loadConnection ??
-    ((id: string) => loadErgonConnectionRecord(id, deps.storeOptions));
-  const record = sbUserId.trim() ? await load(sbUserId) : null;
+    deps.loadConnection ?? ((id: string) => loadErgonConnectionRecord(id, deps.storeOptions));
+  const record = sbUserId.trim() ? await (deps.connectionSnapshot ?? load(sbUserId)) : null;
 
-  if (record) {
-    const url = parseErgonWorkspaceUrl(record.url);
+  if (!record) return toPublicErgonConnection(null, { oauthReady });
 
-    return {
-      connected: Boolean(url && record.tokenCiphertext),
-      authMode: record.authMode,
-      transport: record.transport,
-      source: "user",
-      url,
-      mcpUrl: record.mcpUrl,
-      scopes: [...record.scopes],
-      connectedAt: record.connectedAt,
-      lastOkAt: record.lastOkAt,
-      expiresAt: record.expiresAt,
-      hasToken: Boolean(record.tokenCiphertext),
-      oauthReady,
-    };
-  }
-
-  const tickets = envBridgeConfig(sbUserId, "tickets", env);
-  const agents = envBridgeConfig(sbUserId, "agents", env);
-  const bridge = tickets ?? agents;
-
-  if (!bridge) {
-    return {
-      connected: false,
-      authMode: null,
-      transport: null,
-      source: null,
-      url: null,
-      mcpUrl: null,
-      scopes: [],
-      connectedAt: null,
-      lastOkAt: null,
-      expiresAt: null,
-      hasToken: false,
-      oauthReady,
-    };
-  }
-
-  const scopes = new Set<ErgonConnectionScope>();
-
-  if (tickets) for (const s of tickets.scopes) scopes.add(s);
-  if (agents) for (const s of agents.scopes) scopes.add(s);
+  const url = parseErgonWorkspaceUrl(record.url);
+  // Report "connected" only if the stored token actually opens. A row sealed under another root
+  // secret (or a plaintext row in production) would otherwise show Connected while every tool
+  // is missing. This is a local decrypt; the token itself is never returned.
+  const resolve = deps.resolveToken ?? resolveErgonConnectionToken;
+  const usable = Boolean(url && (await resolve(sbUserId, record)));
 
   return {
-    connected: true,
-    authMode: "env",
-    transport: bridge.transport,
-    source: "env",
-    url: bridge.url,
-    mcpUrl: bridge.mcpUrl,
-    scopes: ERGON_CONNECTION_SCOPES.filter((scope) => scopes.has(scope)),
-    connectedAt: null,
-    lastOkAt: null,
-    expiresAt: null,
-    hasToken: true,
-    oauthReady,
+    ...toPublicErgonConnection(record, { oauthReady }),
+    connected: usable,
+    hasToken: usable,
+    url,
   };
 }

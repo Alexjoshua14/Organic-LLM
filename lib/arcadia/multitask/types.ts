@@ -28,6 +28,8 @@ export type ArcadiaSubagent = {
   /** Percent 0–100 for the condensed meter; narrative is in `progress`. */
   progressPct: number;
   status: ArcadiaSubagentStatus;
+  /** Timestamp of the latest live status, for the board's recent-activity grace period. */
+  statusAt?: number;
   milestones: ArcadiaSubagentMilestone[];
   /** Stable OpenAI Realtime voice id for this agent. */
   voiceId: SpeakRealtimeVoice;

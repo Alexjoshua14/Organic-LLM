@@ -41,6 +41,22 @@ function pruneExpired(map: StashMap): void {
 /** Per-request collector shared by generateMetadata and page via React cache(). */
 export const createRequestPhaseCollector = cache((): ServerPhaseRecord[] => []);
 
+/**
+ * Times a step inside the current request, into the collector the page ships to the browser.
+ * Usable from deep in the data layer; outside a page render it times and discards.
+ */
+export function timeRequestPhase<T>(name: string, fn: () => Promise<T>): Promise<T> {
+  return timeServerPhase(createRequestPhaseCollector(), name, fn);
+}
+
+/**
+ * Records a step that was timed in place. Adds no await, so it cannot change when the code
+ * around it runs (some callers depend on reads starting within a single tick).
+ */
+export function recordRequestPhase(name: string, startedAt: number): void {
+  createRequestPhaseCollector().push({ name, ms: performance.now() - startedAt });
+}
+
 export async function timeServerPhase<T>(
   collector: ServerPhaseRecord[],
   name: string,

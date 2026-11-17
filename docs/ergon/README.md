@@ -12,8 +12,9 @@ Each signed-in user connects their Ergon workspace in **Settings → Connectors*
 2. Organic starts AuthKit PKCE (`/api/profile/connectors/ergon/oauth/start`), redirects to
    Ergon’s authorization server, and completes the code exchange on
    `/api/profile/connectors/ergon/oauth/callback`.
-3. Access (+ refresh) tokens are stored **server-side only** (encrypted when
-   `ORGANIC_LLM_ROOT_SECRET` is set) and never returned to the browser.
+3. Access (+ refresh) tokens are stored **server-side only**, encrypted, in the
+   `ergon_connections` table ([migration](../migrations/ergon_connections.sql)), and never
+   returned to the browser. The save must succeed before Settings reports "connected".
 
 While connected:
 
@@ -24,21 +25,32 @@ While connected:
 - Workbench shorthand: `connector:ergon` (status only — no credentials; routes to Mira).
 
 There is **no second Ergon hard-set agent** — Mira owns `tools.ergon`. Disconnect clears stored
-tokens; tools disappear until the user reconnects (or the admin env bridge applies).
+tokens; tools disappear until the user reconnects.
 
 Deployments need `ERGON_OAUTH_CLIENT_ID` and a redirect
 (`ERGON_OAUTH_REDIRECT_URI` or `NEXT_PUBLIC_APP_URL` +
 `/api/profile/connectors/ergon/oauth/callback`). Optional: `ERGON_OAUTH_CLIENT_SECRET`,
 `ERGON_OAUTH_ISSUER`, `ERGON_MCP_URL`.
 
-Paste-token connect is **not** the Settings product UX (`PUT` returns 405).
+Pasting a token is **not** supported (`PUT` returns 405).
 
-## Admin / owner REST fallback
+## Storage and security
 
-`ERGON_URL`, `ERGON_TOKEN`, `ERGON_AGENT_TOKEN`, and `ERGON_OWNER_PROFILE_ID` remain available
-as a **server-wide admin fallback** for one Supabase profile when no per-user OAuth session
-exists (or lacks the required scope). That path uses REST `/api/rpc`. Ticket tools use
-`ERGON_TOKEN`; Mira uses `ERGON_AGENT_TOKEN`. Per-user MCP OAuth takes precedence when present.
+Ergon and Organic are separate applications. Organic holds only what each user delegated: that
+user's own tokens and connection metadata. There is no shared or deployment-wide Ergon
+credential.
+
+- **Table:** `public.ergon_connections`, one row per profile. Row-level security is on with no
+  policies and every privilege is revoked except for `service_role`; the browser never reads it.
+  Apply [`docs/migrations/ergon_connections.sql`](../migrations/ergon_connections.sql) before
+  deploying. It is not auto-applied.
+- **Encryption:** tokens are AES-256-GCM ciphertext with a per-user key. In production
+  (`NODE_ENV=production`, including previews) Organic refuses to store or read a token that is
+  not encrypted, so `ORGANIC_LLM_ROOT_SECRET` is required.
+- **Refresh:** a database lock plus a version compare-and-swap ensure one instance refreshes at
+  a time and a stale writer never overwrites newer tokens.
+- **Errors:** a store failure is never shown as "not connected". Settings returns 503, tools are
+  unavailable for that turn, and logs carry only a short error code.
 
 See [connected ticket tools](./decisions/20261016-connected-ticket-tools.md) and
 [chat tools](../chat-tools.md).

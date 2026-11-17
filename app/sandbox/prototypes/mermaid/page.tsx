@@ -2,6 +2,14 @@
 
 import { useEffect, useState } from "react";
 
+import {
+  MERMAID_DUAL_SOURCE_OUTPUT,
+  MERMAID_FLOWCHART_EDGE_LABELS,
+  MERMAID_INVALID,
+  MERMAID_SEQUENCE,
+  MERMAID_SUBGRAPH,
+} from "../_fixtures/mermaid-fixtures";
+
 import { MermaidDiagram } from "@/components/blog/mermaid-diagram";
 import { MermaidToolDiagram } from "@/components/mermaid/mermaid-tool-diagram";
 import Page from "@/components/layout/page";
@@ -19,82 +27,31 @@ type Fixture = {
   expectError?: boolean;
 };
 
-const DENSE_OVERVIEW = [
-  "flowchart TD",
-  '  A["Client"] --> B["API Gateway"]',
-  '  B --> C["Auth"]',
-  '  B --> D["Chat Service"]',
-  '  D --> E["LLM Router"]',
-  '  E --> F["Model A"]',
-  '  E --> G["Model B"]',
-].join("\n");
-
-const DENSE_DETAILED = [
-  "flowchart TD",
-  '  A["Client"] --> B["API Gateway"]',
-  '  B --> C["Auth"]',
-  '  B --> D["Chat Service"]',
-  '  C --> C1["JWT verify"]',
-  '  C --> C2["Session store"]',
-  '  D --> D1["Message pack"]',
-  '  D --> D2["Tool runner"]',
-  '  D --> E["LLM Router"]',
-  '  E --> F["Model A"]',
-  '  E --> G["Model B"]',
-  '  D2 --> H["Mermaid gen"]',
-  '  D2 --> I["Web search"]',
-  '  H --> J["Validate + repair"]',
-].join("\n");
-
 const FIXTURES: Fixture[] = [
   {
     id: "flowchart",
     title: "Flowchart (quoted edge labels)",
-    code: [
-      "flowchart TD",
-      '  Start["Receive request"] --> Validate["Validate input"]',
-      '  Validate -->|"ok"| Process["Process order"]',
-      '  Validate -->|"invalid"| Reject["Return 400"]',
-    ].join("\n"),
+    code: MERMAID_FLOWCHART_EDGE_LABELS,
   },
   {
     id: "sequence",
     title: "Sequence diagram",
-    code: [
-      "sequenceDiagram",
-      "  participant User",
-      "  participant API",
-      "  User->>API: Submit form",
-      "  API-->>User: 200 OK",
-    ].join("\n"),
+    code: MERMAID_SEQUENCE,
   },
   {
     id: "subgraph",
     title: "Subgraph grouping (cluster token styling)",
-    code: [
-      "flowchart LR",
-      '  subgraph Core["Aetherion Core AI"]',
-      '    Mem["Memory"] --> Cog["Cognition"]',
-      "  end",
-      '  Core --> UI["Arcadia: UI & Knowledge"]',
-    ].join("\n"),
+    code: MERMAID_SUBGRAPH,
   },
   {
     id: "dual-source",
     title: "Dual-source tool output (overview inline, detailed on expand)",
-    toolOutput: {
-      success: true,
-      density: "detailed",
-      title: "Chat request path",
-      overviewCode: DENSE_OVERVIEW,
-      detailedCode: DENSE_DETAILED,
-      code: DENSE_OVERVIEW,
-    },
+    toolOutput: { ...MERMAID_DUAL_SOURCE_OUTPUT },
   },
   {
     id: "invalid",
     title: "Invalid source → graceful error",
-    code: ["flowchart TD", "  My Node --> Other (oops)"].join("\n"),
+    code: MERMAID_INVALID,
     expectError: true,
   },
 ];

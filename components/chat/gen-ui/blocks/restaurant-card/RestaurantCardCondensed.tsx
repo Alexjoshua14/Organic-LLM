@@ -40,7 +40,7 @@ export function RestaurantCardCondensed({
   return (
     <button
       type="button"
-      className="group flex w-full gap-3 rounded-xl text-left transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+      className="group flex w-full gap-3 rounded-xl text-left transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:bg-muted/50 focus-visible:underline focus-visible:underline-offset-4"
       onClick={onExpand}
     >
       <div

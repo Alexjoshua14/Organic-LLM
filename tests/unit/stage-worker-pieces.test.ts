@@ -14,6 +14,8 @@ const recipe: StageWorkerPiece = {
   steps: ["Soften onion", "Simmer squash", "Blend"],
   text: null,
   code: null,
+  block: null,
+  url: null,
 };
 
 test("completed specialists publish attributed useful pieces and an independent brief reply", () => {

@@ -1,7 +1,18 @@
 import type { StageWorkerPiece } from "./worker-output";
 
-import { findStagePlacement, initializeStageViewLayouts, stageReservedRects } from "./layout";
-import { STAGE_MAX_WIDGETS, type StageState, type StageWidget } from "./schema";
+import {
+  findStagePlacement,
+  initializeStageViewLayouts,
+  packedStageRect,
+  stageReservedRects,
+} from "./layout";
+import { makeRoomForPieces, stageWidgetFromPiece } from "./reconcile";
+import {
+  STAGE_CONTENT_RECT,
+  STAGE_MAX_WIDGETS,
+  type StageState,
+  type StageWidget,
+} from "./schema";
 
 export function stageDiagramSources(text: string): string[] {
   return [...text.matchAll(/```mermaid[^\n]*\n([\s\S]*?)```/gi)]
@@ -63,6 +74,15 @@ export function placeStageWorkerPieces(
         ]
       : [];
 
+  // A specialist's own results replace older pieces rather than squeezing in beside them. Only
+  // pieces it published count: the read-time recovery path passes none and must never remove.
+  const before = next.widgets.length;
+
+  if (pieces.length) next = { ...next, widgets: makeRoomForPieces(next.widgets, pieces.length) };
+  // As for the designer: once pieces leave, the stage is re-tiled evenly rather than leaving the
+  // new pieces whatever slivers the old ones' cells allow.
+  const retile = next.widgets.length < before;
+
   for (const piece of work) {
     if (next.widgets.length >= STAGE_MAX_WIDGETS) break;
     if (next.widgets.some((w) => w.source?.id === source.id && w.title === piece.title)) continue;
@@ -70,36 +90,35 @@ export function placeStageWorkerPieces(
       findStagePlacement(
         next.widgets,
         11,
-        piece.kind === "recipe" ? 16 : 12,
+        piece.kind === "note" ? 12 : 16,
         stageReservedRects(next)
       ) ??
+      (retile ? { ...STAGE_CONTENT_RECT } : null) ??
       findStagePlacement(next.widgets, 7, 6, stageReservedRects(next)) ??
       findStagePlacement(next.widgets, 1, 1, stageReservedRects(next));
 
     if (!rect) continue;
-    const base = { id: crypto.randomUUID(), title: piece.title, rect, source };
     let widget: StageWidget;
 
-    if (piece.kind === "mermaid" && piece.code)
-      widget = { ...base, kind: "mermaid", code: piece.code };
-    else if (piece.kind === "recipe" && piece.ingredients?.length && piece.steps?.length)
+    try {
       widget = {
-        ...base,
-        kind: "recipe",
-        recipe: {
-          type: "recipe-card",
-          version: 1,
-          title: piece.title,
-          ingredients: piece.ingredients.map((name) => ({ name })),
-          steps: piece.steps,
-        },
-      };
-    else if (piece.kind === "note" && piece.text?.trim())
-      widget = { ...base, kind: "note", text: piece.text };
-    else continue;
+        ...stageWidgetFromPiece(piece, rect, undefined, crypto.randomUUID()),
+        source,
+      } as StageWidget;
+    } catch {
+      continue;
+    }
     next = { ...next, widgets: [...next.widgets, widget] };
   }
 
+  if (retile)
+    next = {
+      ...next,
+      widgets: next.widgets.map((widget, index) => ({
+        ...widget,
+        rect: packedStageRect(index, next.widgets.length),
+      })),
+    };
   const widgets = initializeStageViewLayouts(next.widgets, stageReservedRects(next));
 
   return widgets === next.widgets ? next : { ...next, widgets };

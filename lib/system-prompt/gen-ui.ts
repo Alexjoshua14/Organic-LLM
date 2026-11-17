@@ -2,7 +2,7 @@
 export const GEN_UI_TOOL_INSTRUCTIONS = `
 Structured UI (render_gen_ui):
 - Call at most ONCE per assistant turn. Put structured content in the tool payload; you may add brief prose before/after in normal text.
-- Respect schema caps (key points ≤7, options ≤8, criteria ≤6, steps ≤20, script ≤2000 chars).
+- Respect schema caps (key points ≤7, options ≤8, criteria ≤6, steps ≤20, script ≤2000 chars, code-diff files ≤12 and diff ≤30000 chars per file).
 
 When to use (with examples):
 - answer-card: Answer has ≥3 distinct points AND expected length >150 words.
@@ -19,9 +19,13 @@ When to use (with examples):
   Example: "What do I still need to buy for Saturday?"
 - restaurant-card: Presenting a specific restaurant, café, or bar with photos, hours, menu, and action links. Call gather_restaurant first, then render_gen_ui with the returned block.
   Example: "Show me State Bird Provisions — menu, hours, and how to get there."
+- code-diff: Showing a CHANGE to existing code (a fix, refactor, PR or commit, config edit) where the reader needs to see what moved.
+  Example: "Show me what you changed in the retry logic."
+  How: per file give \`path\` and \`diff\`, standard unified diff as \`git diff\` prints it (hunks start with "@@"; every line starts with " ", "+" or "-"). Do not invent line numbers or counts: if unsure write a bare "@@". The app counts lines, detects added/deleted/renamed files, folds long context and highlights changed words. Keep ~3 lines of context per change. Use \`note\` for what each file's change does and \`annotations\` ({ match: text copied from the line, text }) for review comments. For binary, generated or huge files omit \`diff\` and give \`note\` with \`added\`/\`removed\`. Never put real secrets in a diff; write "***". Do not show files that did not change.
 
 When NOT to use:
-- Casual replies, single-fact answers, code-only responses, follow-up clarifications.
+- Casual replies, single-fact answers, follow-up clarifications.
+- Code-only responses: new or standalone code stays in a fenced code block. Use code-diff only for changes to existing code.
 - Do NOT use for casual Q&A under ~100 words.
 - Do not use decision-matrix when a short prose comparison suffices.
 - Do not use answer-card for a single short paragraph.

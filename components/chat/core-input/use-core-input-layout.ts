@@ -9,7 +9,7 @@ import { CORE_INPUT_LAYOUT } from "./layout-breakpoints";
 export type CoreInputLayout = {
   /** Footer is wide enough to show text labels next to chip icons. */
   showLabels: boolean;
-  /** Footer is narrow enough that secondary tools move to the overflow menu. */
+  /** Shell is narrow enough to use the compact composer and options panel. */
   isCondensed: boolean;
 };
 
@@ -22,7 +22,7 @@ export type CoreInputLayout = {
  * (no labels, not condensed) therefore only exists inside that 40px band, depending on which
  * way the shell was resized.
  *
- * `toolsRef` is the footer's tools row. The width is measured on the closest
+ * `toolsRef` is the footer's tools row or the compact composer row. The width is measured on the closest
  * `[data-prompt-input-shell]` ancestor, so the ref must stay inside `PromptInput`.
  */
 export function useCoreInputLayout(toolsRef: RefObject<HTMLElement | null>): CoreInputLayout {
@@ -70,7 +70,7 @@ export function useCoreInputLayout(toolsRef: RefObject<HTMLElement | null>): Cor
     observer.observe(measureTarget);
 
     return () => observer.disconnect();
-    // A ref object is stable, so this runs once on mount: the tools row never remounts.
+    // Both layouts retain this prompt shell, even when controls move into the options panel.
   }, [toolsRef]);
 
   return { showLabels, isCondensed };

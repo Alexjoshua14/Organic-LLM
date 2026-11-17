@@ -1,0 +1,7 @@
+---
+description: Subagent card lab — design changes go to the Next fork only; "promote" copies Next to Current
+globs: app/sandbox/subagents/cards/**,app/sandbox/arcadia/_components/subagent-card.tsx,app/sandbox/arcadia/_components/subagent-swipe-row.tsx,app/sandbox/arcadia/_components/subagent-speak-glass-bar.tsx,tests/unit/subagent-card-lab.test.tsx
+alwaysApply: false
+---
+
+Read and follow the shared rule at [.agents/rules/subagent-card-lab.md](../../.agents/rules/subagent-card-lab.md).

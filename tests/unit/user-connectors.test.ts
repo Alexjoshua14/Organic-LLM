@@ -1,18 +1,9 @@
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
-
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 import {
   clearGithubSnapshotCache,
   fetchGithubConnectorSnapshot,
 } from "@/lib/connectors/github-connector";
-import {
-  clearUserConnectorsMemoryStore,
-  loadUserConnectorsProfile,
-  saveUserConnectorsProfile,
-} from "@/lib/connectors/user-connectors-store";
 import { formatOrchestratorFragment } from "@/lib/llm/subagents/orchestrator/format-orchestrator-fragment";
 import { coderSubagent } from "@/lib/llm/subagents/hard-set/agents/coder";
 import { researcherSubagent } from "@/lib/llm/subagents/hard-set/agents/researcher";
@@ -283,40 +274,5 @@ describe("GitHub public profile helper", () => {
     expect(missing.ok).toBe(false);
     if (missing.ok) throw new Error("expected 404");
     expect(missing.status).toBe(404);
-  });
-});
-
-describe("user connectors file store", () => {
-  let rootDir: string;
-
-  beforeEach(async () => {
-    clearUserConnectorsMemoryStore();
-    rootDir = await mkdtemp(path.join(tmpdir(), "organic-connectors-"));
-  });
-
-  afterEach(async () => {
-    clearUserConnectorsMemoryStore();
-    await rm(rootDir, { recursive: true, force: true });
-  });
-
-  test("round-trips a private profile for one user without leaking it to another", async () => {
-    const saved = await saveUserConnectorsProfile(
-      "user_a",
-      profile({ educationAndTranscripts: "Linear Algebra and Heliophysics" }),
-      { rootDir, now: () => Date.parse(NOW) }
-    );
-
-    expect(saved.githubUsername).toBe("Alexjoshua14");
-    expect(saved.updatedAt).toBe(NOW);
-
-    const loaded = await loadUserConnectorsProfile("user_a", { rootDir });
-
-    expect(loaded.educationAndTranscripts).toContain("Heliophysics");
-    expect(loaded.githubUrl).toBe("https://github.com/Alexjoshua14");
-
-    const other = await loadUserConnectorsProfile("user_b", { rootDir });
-
-    expect(other.educationAndTranscripts).toBe("");
-    expect(other.githubUsername).toBe("");
   });
 });

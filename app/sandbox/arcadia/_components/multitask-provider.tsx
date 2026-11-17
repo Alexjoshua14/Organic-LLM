@@ -99,6 +99,11 @@ type ArcadiaMultitaskValue = {
   setSendTarget: (next: ArcadiaMultitaskSendTarget) => void;
 };
 
+/** Long enough to read the notice twice; short enough not to linger over the toggle. */
+const TOGGLE_BLOCKED_NOTICE_MS = 4000;
+/** Only leaving Multiagent is refused mid-stream; entering has nothing in flight to disturb. */
+const TOGGLE_BLOCKED_STREAMING = "Wait until this thread finishes streaming to leave Multiagent.";
+
 const ArcadiaMultitaskContext = createContext<ArcadiaMultitaskValue | null>(null);
 
 type ProviderProps = {
@@ -154,7 +159,8 @@ export function ArcadiaMultitaskProvider({
     initialHasSubagentThreads ?? null
   );
   const [boardRequested, setBoardRequested] = useState(false);
-  const [toggleBlockedReason, setToggleBlockedReason] = useState<string | null>(null);
+  const [toggleBlockedReason, setToggleBlockedReasonState] = useState<string | null>(null);
+  const toggleBlockedTimerRef = useRef<number | null>(null);
   const speakBindingRef = useRef(speakBinding);
   const voiceRef = useRef(voice);
   const agentsRef = useRef(agents);
@@ -172,6 +178,32 @@ export function ArcadiaMultitaskProvider({
   voiceRef.current = voice;
   agentsRef.current = agents;
   enabledRef.current = multitaskViewEnabled;
+
+  // The notice only needs to be read once, so it clears itself; a retry restarts the clock.
+  const setToggleBlockedReason = useCallback((reason: string | null) => {
+    if (toggleBlockedTimerRef.current !== null) {
+      window.clearTimeout(toggleBlockedTimerRef.current);
+      toggleBlockedTimerRef.current = null;
+    }
+
+    setToggleBlockedReasonState(reason);
+
+    if (reason !== null) {
+      toggleBlockedTimerRef.current = window.setTimeout(() => {
+        toggleBlockedTimerRef.current = null;
+        setToggleBlockedReasonState(null);
+      }, TOGGLE_BLOCKED_NOTICE_MS);
+    }
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (toggleBlockedTimerRef.current !== null) {
+        window.clearTimeout(toggleBlockedTimerRef.current);
+      }
+    },
+    []
+  );
   boardPollingEnabledRef.current = boardPollingEnabled;
 
   const selected = useMemo(
@@ -201,7 +233,7 @@ export function ArcadiaMultitaskProvider({
     setSendTarget(DEFAULT_MULTITASK_SEND_TARGET);
     setBoardRequested(false);
     setToggleBlockedReason(null);
-  }, [orchestratorThreadId]);
+  }, [orchestratorThreadId, setToggleBlockedReason]);
 
   // The host stays mounted across thread switches, so the viewed subagent and the server-read
   // view and worker flags can arrive or change after mount. Adopt them when they do.
@@ -278,7 +310,7 @@ export function ArcadiaMultitaskProvider({
       window.removeEventListener("storage", onStorage);
       channel?.close();
     };
-  }, [orchestratorThreadId, applyEnabled]);
+  }, [orchestratorThreadId, applyEnabled, setToggleBlockedReason]);
 
   // Server-seeded threads need no mount request. Keep cross-device discovery lightweight.
   useEffect(() => {
@@ -697,13 +729,13 @@ export function ArcadiaMultitaskProvider({
         /* fall through — PATCH will re-check */
       }
 
-      if (!canToggleArcadiaMultitaskView({ activeStreamId })) {
-        setToggleBlockedReason("Wait until this thread finishes streaming.");
+      const next = !enabledRef.current;
+
+      if (!canToggleArcadiaMultitaskView({ activeStreamId, nextEnabled: next })) {
+        setToggleBlockedReason(TOGGLE_BLOCKED_STREAMING);
 
         return false;
       }
-
-      const next = !enabledRef.current;
 
       // Same-browser first.
       writeMultitaskViewLocal(orchestratorThreadId, next);
@@ -721,7 +753,7 @@ export function ArcadiaMultitaskProvider({
           // Stream started under us — revert local.
           writeMultitaskViewLocal(orchestratorThreadId, !next);
           applyEnabled(!next);
-          setToggleBlockedReason("Wait until this thread finishes streaming.");
+          setToggleBlockedReason(TOGGLE_BLOCKED_STREAMING);
 
           return false;
         }

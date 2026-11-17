@@ -19,7 +19,8 @@ function formatUsd(value: number | undefined | null): string {
  * turns/USD today, and last-turn tokens + ms. Pattern mirrors the perf HUD.
  */
 export function AionPresenceHud({ className }: { className?: string }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
+  const error = useAionPresenceStore((s) => s.error);
   const decisions = useAionPresenceStore((s) => s.decisions);
   const budget = useAionPresenceStore((s) => s.budget);
   const lastTurn = useAionPresenceStore((s) => s.lastTurn);
@@ -36,17 +37,23 @@ export function AionPresenceHud({ className }: { className?: string }) {
 
   return (
     <div
-      className={cn("fixed bottom-4 right-4 z-40 w-80 max-w-[calc(100vw-2rem)] text-xs", className)}
+      className={cn(
+        "absolute top-12 right-2 z-40 max-w-[calc(100vw-2rem)] text-xs",
+        open ? "w-80" : "w-auto",
+        className
+      )}
     >
       <div className={cn(glass({ opaque: true }), "rounded-xl border border-border/60 shadow-lg")}>
         <button
           className="flex w-full items-center justify-between px-3 py-2 text-left font-medium"
+          aria-expanded={open}
+          aria-controls="aion-presence-diagnostics"
           type="button"
           onClick={() => setOpen((v) => !v)}
         >
           <span>Aion presence</span>
           <span className="text-muted-foreground">
-            {phase}
+            {error ? "event failed" : phase}
             {busy ? " · busy" : ""}
             {dormant ? " · dormant" : ""}
             {open ? " ▾" : " ▸"}
@@ -54,7 +61,11 @@ export function AionPresenceHud({ className }: { className?: string }) {
         </button>
 
         {open ? (
-          <div className="space-y-3 border-t border-border/50 px-3 py-3">
+          <div
+            id="aion-presence-diagnostics"
+            className="max-h-[55vh] overflow-y-auto space-y-3 border-t border-border/50 px-3 py-3"
+          >
+            {error ? <p role="alert">{error}</p> : null}
             <div className="grid grid-cols-2 gap-2 text-muted-foreground">
               <div>
                 <div className="text-[10px] uppercase tracking-wide">Turns today</div>

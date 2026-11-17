@@ -62,11 +62,11 @@ function SubagentCompactCard({
     <>
       <div className="flex items-center gap-2 pr-7">
         <SubagentIdentityMark
-          className="size-9 rounded-md"
+          className="size-14 shrink-0 rounded-lg"
           imageUrl={agent.identityImageUrl}
           name={agent.name}
           seed={agent.activitySeed ?? agent.id}
-          size="sm"
+          size="lg"
           state={agent.status === "done" ? "complete" : agent.status}
         />
         <div className="min-w-0">

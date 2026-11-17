@@ -6,6 +6,7 @@ import {
   FINAL_STEP_NOTICE,
   PENULTIMATE_STEP_NOTICE,
   prepareChatCompletionStep,
+  withTurnContext,
 } from "@/lib/api/chat-step-completion";
 
 const messages: ModelMessage[] = [
@@ -58,5 +59,20 @@ describe("chat completion steps", () => {
 
     prepareChatCompletionStep({ ...base, messages: input, stepNumber: 15 });
     expect(input).toEqual(messages);
+  });
+});
+
+describe("turn context", () => {
+  test("goes after the conversation, leaving the history prefix untouched", () => {
+    const out = withTurnContext(messages, ["[Orchestrator]\nboard", "[Worktable]"]);
+
+    expect(out.slice(0, messages.length)).toEqual(messages);
+    expect(out).toHaveLength(messages.length + 1);
+    expect(out.at(-1)?.role).toBe("user");
+    expect(JSON.stringify(out.at(-1)?.content)).toContain("[Orchestrator]\\nboard");
+  });
+
+  test("no fragments, no extra message", () => {
+    expect(withTurnContext(messages, [])).toBe(messages);
   });
 });

@@ -8,14 +8,19 @@ import { cn } from "@/lib/utils";
 
 type HomeComposerLumenShellProps = {
   children: ReactNode;
+  enabled?: boolean;
   className?: string;
 };
 
 /** Warm lumen rim behind the homepage prompt shell — separate layer, not on the glass surface. */
-export function HomeComposerLumenShell({ children, className }: HomeComposerLumenShellProps) {
+export function HomeComposerLumenShell({
+  children,
+  className,
+  enabled = true,
+}: HomeComposerLumenShellProps) {
   const hostRef = useHomeComposerLumenHostRef();
 
-  useHomeComposerLumen(hostRef);
+  useHomeComposerLumen(hostRef, enabled);
 
   return (
     <span
@@ -23,7 +28,7 @@ export function HomeComposerLumenShell({ children, className }: HomeComposerLume
       className={cn("home-composer-lumen-host flex w-full overflow-visible", className)}
     >
       <span className="home-composer-lumen-stage relative w-full overflow-visible">
-        <span aria-hidden className="home-composer-lumen-rim" />
+        {enabled ? <span aria-hidden className="home-composer-lumen-rim" /> : null}
         <div className="relative z-10 w-full">{children}</div>
       </span>
     </span>

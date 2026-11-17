@@ -4,7 +4,7 @@ import type { ChatStatus } from "ai";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { ContextBudgetEstimate } from "@/lib/chat/context-budget";
 import type { CoreInputControlsValue } from "@/components/chat/core-input/core-input-context";
-import type { OrganicSubmitState } from "@/components/chat/core-input/submit/submit-glyph";
+import type { SubmitGlyphState } from "@/components/chat/core-input/submit/submit-glyph";
 import type { SteerAction } from "@/components/chat/core-input/footer/steer-action";
 import type { ChatEffortLevel } from "@/lib/schemas/chat-effort";
 import type { FocusLabState, LabPatch } from "../_lib/lab-state";
@@ -38,10 +38,7 @@ import {
   organicGlassSubmitClassName,
   PromptInputSubmit,
 } from "@/components/chat/core-input/submit/submit-button";
-import {
-  OrganicSubmitGlyph,
-  resolveOrganicSubmitState,
-} from "@/components/chat/core-input/submit/submit-glyph";
+import { SubmitGlyph } from "@/components/chat/core-input/submit/submit-glyph";
 import { HomeComposerLumenShell } from "@/components/chat/home-composer-lumen-shell";
 import { glass } from "@/components/design-system/primitives";
 import {
@@ -54,7 +51,8 @@ import {
   PromptInputTextarea,
   PromptInputTools,
 } from "@/components/third-party/ai-elements/prompt-input";
-import { estimateDraftTokens, formatTokenCount } from "@/lib/chat/context-budget";
+import { formatTokenCount } from "@/lib/chat/context-budget";
+import { useDraftTokenCount } from "@/hooks/use-draft-token-count";
 import { CONTEXT_EFFORT_BUDGETS } from "@/lib/memory/context-effort";
 import { AUTO_CHAT_MODEL, chatModelById, getSelectableChatModels } from "@/lib/schemas/chat";
 import { clampEffortForModel } from "@/lib/schemas/chat-effort";
@@ -141,7 +139,7 @@ export const FOCUS_CONTROLS: readonly FocusControl[] = [
     title: "Overflow menu",
     file: "core-input/controls/overflow-menu.tsx",
     blurb:
-      "Holds every control placed in the menu. Today: speech, preview, and steer on a condensed footer.",
+      "Holds every control placed in the menu. Today: speech and preview on a condensed footer. Steer has its own tab above the composer.",
   },
   {
     id: "attachments",
@@ -162,7 +160,7 @@ export function parseFocusControl(raw: string | null): FocusControlId | "all" {
 }
 
 const DEFAULT_SUBMIT_STATUSES: readonly ChatStatus[] = ["ready", "submitted", "streaming", "error"];
-const GLYPH_STATES: readonly OrganicSubmitState[] = ["idle", "ready", "sent", "awaiting", "error"];
+const GLYPH_STATES: readonly SubmitGlyphState[] = ["arrow", "working", "stop", "error"];
 
 const noop = () => undefined;
 
@@ -417,7 +415,7 @@ function labFooterPlacement(value: CoreInputControlsValue) {
 /** Steer against the panel draft, recorded on the simulated chat. */
 function labSteer({ state, chat }: CardContext): SteerAction {
   return {
-    label: "Steer assist",
+    label: "Tune",
     pending: false,
     available: state.draftText.trim().length > 0,
     run: () => chat.recordSteer(state.draftText),
@@ -430,16 +428,12 @@ function sendFromSurface(ctx: CardContext, text: string) {
 
 function ToolbarCard(ctx: CardContext) {
   const { value, chat, budget, state } = ctx;
+  const draftTokens = useDraftTokenCount(state.draftText);
 
   return (
     <StateCell label="Interactive · production footer">
       <MiniComposer
-        corner={
-          <ContextBudgetIndicatorView
-            budget={budget}
-            draftTokens={estimateDraftTokens(state.draftText)}
-          />
-        }
+        corner={<ContextBudgetIndicatorView budget={budget} draftTokens={draftTokens} />}
         footerSlot={
           <CoreInputFooter
             placement={labFooterPlacement(value)}
@@ -637,17 +631,14 @@ function ContextEffortCard({ value }: CardContext) {
 const LAB_DRAFT_TOKEN_SAMPLES = [12, 1_240, 9_999];
 
 function ContextBudgetCard({ state, value, budget }: CardContext) {
+  const draftTokens = useDraftTokenCount(state.draftText);
+
   return (
     <>
       <StateGrid>
         <StateCell label="Badge in the composer corner · hover for breakdown">
           <MiniComposer
-            corner={
-              <ContextBudgetIndicatorView
-                budget={budget}
-                draftTokens={estimateDraftTokens(state.draftText)}
-              />
-            }
+            corner={<ContextBudgetIndicatorView budget={budget} draftTokens={draftTokens} />}
             footer={
               <div className="ml-auto">
                 <PromptInputSubmit status="ready" stop={noop} />
@@ -709,7 +700,6 @@ function ContextBudgetCard({ state, value, budget }: CardContext) {
 
 function SubmitCard(ctx: CardContext) {
   const { chat, state } = ctx;
-  const hasText = state.draftText.trim().length > 0;
 
   return (
     <>
@@ -728,9 +718,7 @@ function SubmitCard(ctx: CardContext) {
                 className={organicGlassSubmitClassName}
                 status={chat.status}
                 stop={() => void chat.stop()}
-              >
-                <OrganicSubmitGlyph state={resolveOrganicSubmitState(chat.status, hasText)} />
-              </PromptInputSubmit>
+              />
             </div>
           </ComposerSurface>
         </StateCell>
@@ -746,17 +734,13 @@ function SubmitCard(ctx: CardContext) {
           </div>
         </ComposerSurface>
       </StateCell>
-      <StateCell label="Organic glass · every glyph state">
+      <StateCell label="Every glyph state · pinned">
         <ComposerSurface>
           <div className="flex flex-wrap items-end gap-5">
             {GLYPH_STATES.map((glyph) => (
               <Labeled key={glyph} label={glyph}>
-                <PromptInputSubmit
-                  className={organicGlassSubmitClassName}
-                  status="ready"
-                  stop={noop}
-                >
-                  <OrganicSubmitGlyph state={glyph} />
+                <PromptInputSubmit status="ready" stop={noop}>
+                  <SubmitGlyph state={glyph} />
                 </PromptInputSubmit>
               </Labeled>
             ))}
@@ -765,7 +749,8 @@ function SubmitCard(ctx: CardContext) {
       </StateCell>
       <p className="text-2xs leading-relaxed text-muted-foreground">
         Live cells share the lab status: press a send to run submitted → streaming → ready, or pin a
-        status from the panel. Draft text in the panel switches the glyph between idle and ready.
+        status from the panel. While a send runs, hover, focus or press the button to see the stop
+        square.
       </p>
     </>
   );
@@ -775,8 +760,6 @@ function SettingsMenuCard(ctx: CardContext) {
   const { value } = ctx;
   // The menu only has items on a condensed footer, so both cells pin that layout.
   const placement = labFooterPlacement({ ...value, useCondensedLayout: true });
-  const steer = labSteer(ctx);
-  const lastSteer = ctx.chat.lastSend?.kind === "steer" ? ctx.chat.lastSend.text : null;
 
   return (
     <>
@@ -784,7 +767,7 @@ function SettingsMenuCard(ctx: CardContext) {
         <StateCell label="Interactive · all items">
           <ComposerSurface>
             <div className="ml-auto">
-              <ComposerOverflowMenu placement={placement} steer={steer} />
+              <ComposerOverflowMenu placement={placement} />
             </div>
           </ComposerSurface>
         </StateCell>
@@ -795,16 +778,12 @@ function SettingsMenuCard(ctx: CardContext) {
                 base={value}
                 overrides={{ inputMarkdownMode: "edit", useSpeechFriendly: true }}
               >
-                <ComposerOverflowMenu placement={placement} steer={steer} />
+                <ComposerOverflowMenu placement={placement} />
               </Pinned>
             </div>
           </ComposerSurface>
         </StateCell>
       </StateGrid>
-      <p className="text-2xs leading-relaxed text-muted-foreground">
-        Steer is enabled once the panel draft has text.
-        {lastSteer != null ? ` Last steer: “${lastSteer.trim() || "(empty)"}”.` : ""}
-      </p>
     </>
   );
 }

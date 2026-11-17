@@ -51,6 +51,7 @@ export type AionPresenceState = {
   threadId: string | null;
   modelId: string | null;
   enabled: boolean;
+  error: string | null;
 };
 
 const INITIAL: AionPresenceState = {
@@ -67,6 +68,7 @@ const INITIAL: AionPresenceState = {
   threadId: null,
   modelId: null,
   enabled: true,
+  error: null,
 };
 
 const MAX_DECISIONS = 24;
@@ -154,8 +156,11 @@ export function setAionPresenceDormant(dormant: boolean): void {
   });
 }
 
-export function clearAionPresenceLedger(): void {
-  aionPresenceStore.setState((prev) => (prev.ledger.length === 0 ? prev : { ...prev, ledger: [] }));
+export function clearAionPresenceLedger(acknowledged?: AionLedgerEntry[]): void {
+  aionPresenceStore.setState((prev) => ({
+    ...prev,
+    ledger: acknowledged ? prev.ledger.filter((entry) => !acknowledged.includes(entry)) : [],
+  }));
 }
 
 export function applyAionPresenceTurnResult(args: {
@@ -163,6 +168,7 @@ export function applyAionPresenceTurnResult(args: {
   lastTurn: AionPresenceLastTurn;
   threadId?: string | null;
   clearLedger?: boolean;
+  acknowledgedLedger?: AionLedgerEntry[];
 }): void {
   aionPresenceStore.setState((prev) => ({
     ...prev,
@@ -170,7 +176,11 @@ export function applyAionPresenceTurnResult(args: {
     lastTurn: args.lastTurn,
     lastTurnAt: args.lastTurn.at,
     threadId: args.threadId ?? prev.threadId,
-    ledger: args.clearLedger ? [] : prev.ledger,
+    ledger: args.acknowledgedLedger
+      ? prev.ledger.filter((entry) => !args.acknowledgedLedger!.includes(entry))
+      : args.clearLedger
+        ? []
+        : prev.ledger,
     busy: false,
     phase: args.lastTurn.silent ? "active" : "responding",
   }));
@@ -203,4 +213,8 @@ export function useEmitAionEvent() {
       emitAionEvent(partial),
     []
   );
+}
+
+export function setAionPresenceError(error: string | null): void {
+  aionPresenceStore.setState((prev) => ({ ...prev, error }));
 }

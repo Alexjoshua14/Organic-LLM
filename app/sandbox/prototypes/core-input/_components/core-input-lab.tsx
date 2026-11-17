@@ -21,9 +21,8 @@ import { useContextEffortSettings } from "@/hooks/use-context-effort-settings";
 import { setSettings } from "@/lib/user-settings";
 import { cn } from "@/lib/utils";
 
-const VIEW_COPY: Record<LabView, string> = {
-  product:
-    "The shipped composer, live. Sends are simulated: type and press Enter to watch the real submit → streaming → ready cycle.",
+/** Intro line per view; the product view has none. */
+const VIEW_COPY: Partial<Record<LabView, string>> = {
   focus:
     "Footer controls in isolation, driven by lab state instead of CoreInput. Pinned cells hold a state so you can compare without clicking.",
 };
@@ -103,9 +102,11 @@ export function CoreInputLab() {
             <h1 className="font-commissioner text-2xl font-light tracking-tight text-foreground sm:text-3xl">
               CoreInput lab
             </h1>
-            <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-              {VIEW_COPY[view]}
-            </p>
+            {VIEW_COPY[view] ? (
+              <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+                {VIEW_COPY[view]}
+              </p>
+            ) : null}
           </header>
 
           {view === "focus" ? (
@@ -121,7 +122,12 @@ export function CoreInputLab() {
               {!hydrated ? (
                 <div className="h-48 rounded-2xl border border-dashed border-border/40" />
               ) : view === "product" ? (
-                <ProductStage chat={chat} remountKey={remountKey} state={state.product} />
+                <ProductStage
+                  chat={chat}
+                  remountKey={remountKey}
+                  state={state.product}
+                  onVoiceBarChange={(voiceBar) => patchProduct({ voiceBar })}
+                />
               ) : (
                 <FocusStage
                   chat={chat}

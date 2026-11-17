@@ -104,3 +104,44 @@ test("legacy repair retains all content and rendering uses the repaired rectangl
   const frame = resolveStageFrame(restored, { width: 1200, height: 700, composerHeight: 78 });
   expect(frame.pieces.map((p) => p.rect)).toEqual(restored.widgets.map((w) => w.rect));
 });
+
+test("the reply owns rows only on the home view and while reading, and phones give it full width", () => {
+  const state = { ...emptyStageState(), widgets: [note(8)] };
+  const options = { width: 1200, height: 700, composerHeight: 60 };
+  const pieces = resolveStageFrame(state, options);
+  expect(pieces.showReply).toBe(false);
+  expect(stageRectPixels(pieces, pieces.reply).h).toBe(0);
+  const home = resolveStageFrame(state, { ...options, home: true });
+  expect(home.showReply).toBe(true);
+  expect(stageRectPixels(home, home.reply).h).toBeGreaterThanOrEqual(36);
+  // The rows the reply gives up go to the pieces.
+  expect(stageRectPixels(pieces, pieces.body).h).toBeGreaterThan(
+    stageRectPixels(home, home.body).h
+  );
+  expect(resolveStageFrame(state, { ...options, reading: true }).showReply).toBe(true);
+  for (const width of [320, 375, 430]) {
+    const phone = resolveStageFrame(emptyStageState(), {
+      width,
+      height: 640,
+      composerHeight: 80,
+      home: true,
+    });
+    expect(phone.reply.x).toBe(0);
+    expect(phone.reply.w).toBe(32);
+    expect(stageRectPixels(phone, phone.parent).w).toBeGreaterThanOrEqual(160);
+    expect(phone.rowOffsets.at(-1)).toBeCloseTo(640);
+    expect(intersects(phone.reply, phone.composer)).toBe(false);
+  }
+});
+
+test("the home mark takes Speak's center size only when its rows fit", () => {
+  const state = emptyStageState();
+  const roomy = { width: 1400, height: 860, composerHeight: 56 };
+  const home = resolveStageFrame(state, { ...roomy, home: true });
+  expect(home.hero).toBe(true);
+  expect(home.centered).toBe(true);
+  // 13rem mark plus its status line.
+  expect(stageRectPixels(home, home.parent).h).toBeGreaterThanOrEqual(208 + 64);
+  expect(resolveStageFrame(state, roomy).hero).toBe(false);
+  expect(resolveStageFrame(state, { ...roomy, height: 420, home: true }).hero).toBe(false);
+});

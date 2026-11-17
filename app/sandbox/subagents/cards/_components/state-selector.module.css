@@ -3,7 +3,7 @@
   display: grid;
   grid-template-columns: repeat(var(--count), minmax(0, 1fr));
   width: 100%;
-  max-width: 360px;
+  max-width: 28rem;
   padding: 4px;
   border: 1px solid var(--border);
   border-radius: 999px;
@@ -30,10 +30,10 @@
   position: relative;
   z-index: 1;
   min-height: 36px;
-  padding: 6px 4px;
+  padding: 6px 8px;
   border-radius: 999px;
   color: var(--muted-foreground);
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
   transition: color 160ms ease-out;
 }

@@ -15,6 +15,7 @@ export function applyWorkerAwarenessToSubagent(
   if (event.kind === "progress") {
     return {
       ...agent,
+      statusAt: event.at,
       goal: event.assignedGoal ?? agent.goal,
       progress: event.narrative,
       progressPct: event.progressPct,
@@ -25,6 +26,7 @@ export function applyWorkerAwarenessToSubagent(
   if (event.kind === "milestone") {
     return {
       ...agent,
+      statusAt: event.at,
       milestones: [
         ...agent.milestones,
         {
@@ -40,6 +42,7 @@ export function applyWorkerAwarenessToSubagent(
   if (event.kind === "completion") {
     return {
       ...agent,
+      statusAt: event.at,
       progress: event.summary,
       progressPct: 100,
       status: "done",
@@ -49,6 +52,7 @@ export function applyWorkerAwarenessToSubagent(
   // failure — surface short error; never pretend near-done.
   return {
     ...agent,
+    statusAt: event.at,
     progress: event.error,
     status: "blocked",
   };

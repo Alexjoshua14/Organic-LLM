@@ -312,9 +312,13 @@ export function initializeStageViewLayouts(widgets: StageWidget[], reserved: Sta
   return next.every((widget, index) => widget === widgets[index]) ? widgets : next;
 }
 
-function packedStageRect(index: number, count: number): StageRect {
+/** The balanced tiling of `count` pieces over the artifact area. */
+export function packedStageRect(index: number, count: number): StageRect {
   const area = STAGE_CONTENT_RECT;
-  const columns = Math.min(count, Math.ceil(Math.sqrt((count * area.w) / area.h)));
+  // Up to four pieces split into halves or a 2×2, so each stays at least 11 cells wide; three
+  // narrow columns read as slivers.
+  const columns =
+    count <= 4 ? Math.min(count, 2) : Math.min(count, Math.ceil(Math.sqrt((count * area.w) / area.h)));
   const rows = Math.ceil(count / columns);
   const w = Math.floor((area.w - columns + 1) / columns);
   const h = Math.floor((area.h - rows + 1) / rows);

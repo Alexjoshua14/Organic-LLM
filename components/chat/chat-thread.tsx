@@ -66,6 +66,28 @@ function displayParts(
     : message.parts;
 }
 
+/**
+ * The row's message with its dispatch parts removed, cached per message object. A fresh object
+ * on every render would defeat `ChatMessage`'s memo and re-render each such row on every
+ * streamed chunk. `useChat` swaps in a new object when a message changes, the same assumption
+ * that memo relies on.
+ */
+const rowMessageWithoutDispatches = new WeakMap<UIMessage, UIMessage>();
+
+function rowMessage(message: UIMessage, rowParts: UIMessage["parts"]): UIMessage {
+  if (rowParts === message.parts) return message;
+
+  const cached = rowMessageWithoutDispatches.get(message);
+
+  if (cached) return cached;
+
+  const row = { ...message, parts: rowParts };
+
+  rowMessageWithoutDispatches.set(message, row);
+
+  return row;
+}
+
 function hasRowContent(parts: UIMessage["parts"]): boolean {
   return parts.some((part) => part.type !== "step-start");
 }
@@ -198,16 +220,16 @@ export const ChatThread: FC<ChatThreadProps> = ({
                       isLatestArcadiaHelp={
                         isArcadiaHelpMessage(message) ? isLatestArcadiaHelp : undefined
                       }
-                      message={
-                        rowParts === message.parts ? message : { ...message, parts: rowParts }
-                      }
+                      message={rowMessage(message, rowParts)}
                       showActions={showActions}
                       showModelBadge={!modelSummary.shouldUseThreadBadge}
                     />
                   )}
-                  {heard ? <PersonaHeardMark label={heard.label} pulseKey={heard.pulseKey} /> : null}
+                  {heard ? (
+                    <PersonaHeardMark label={heard.label} pulseKey={heard.pulseKey} />
+                  ) : null}
                   {messageDispatches.length > 0 && (
-                    <div className="space-y-stack-sm px-4" aria-label="Delegated work">
+                    <div className="space-y-stack-xs px-4" aria-label="Delegated work">
                       {messageDispatches.map((dispatch) => (
                         <InlineSubagentActivity
                           key={dispatch.toolCallId}
@@ -227,7 +249,7 @@ export const ChatThread: FC<ChatThreadProps> = ({
             })
           )}
           {unplacedAgents.length > 0 && (
-            <div className="space-y-stack-sm px-4" aria-label="Subagent activity">
+            <div className="space-y-stack-xs px-4" aria-label="Subagent activity">
               {unplacedAgents.map((agent) => (
                 <InlineSubagentActivity
                   key={agent.id}

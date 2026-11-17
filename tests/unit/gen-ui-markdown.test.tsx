@@ -24,7 +24,6 @@ const MARKDOWN_ANSWER_CARD: AnswerCardBlock = {
         "",
         "**Deeper:** a size-k heap is O(n log k).",
       ].join("\n"),
-      defaultOpen: true,
     },
   ],
   footer: { confidence: "high", caveats: ["Not thread-safe; see `queue.PriorityQueue`."] },
@@ -49,11 +48,11 @@ describe("AnswerCard markdown", () => {
 
   test("renders a section body's list and paragraphs as elements", () => {
     const { container } = render(<AnswerCard block={MARKDOWN_ANSWER_CARD} />);
-    const items = container.querySelectorAll("details ul > li");
+    const items = container.querySelectorAll("section ul > li");
 
     expect(items.length).toBe(2);
     expect(items[1]?.querySelector("strong")?.textContent).toBe("No max-heap:");
-    expect(container.querySelector("details p strong")?.textContent).toBe("Deeper:");
+    expect(container.querySelector("section p strong")?.textContent).toBe("Deeper:");
   });
 
   test("renders a streaming section that has no body yet", () => {

@@ -14,6 +14,7 @@ type GridProps = {
   seed?: string;
   performanceId?: string;
   intensity?: number;
+  dotWeight?: number;
 };
 type PhysicsGrid = ComponentType<GridProps & { onFailure: () => void }>;
 const loadPhysicsGrid = () => import("./physics-agent-dot-grid");

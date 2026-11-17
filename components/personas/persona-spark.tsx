@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, type CSSProperties } from "react";
+import { useId, type CSSProperties, type PointerEvent } from "react";
 
 import { SPARK_TIMING_VARS } from "./persona-spark-timing";
 
@@ -80,7 +80,7 @@ export function joinSparkClock(animation: Animation) {
 }
 
 // Runs as the mark commits, before its first paint.
-const syncClock = (svg: SVGSVGElement | null) => svg?.getAnimations?.().forEach(joinSparkClock);
+const syncClock = (element: Element | null) => element?.getAnimations?.().forEach(joinSparkClock);
 
 // A mark that comes back from `display: none` restarts its animation without remounting; that
 // restart rejoins on its next frame. One listener for the whole app.
@@ -189,6 +189,33 @@ function Glass({
   );
 }
 
+/** Panes in the interactive emblem: each is a vertical slice of the same glass, on its own plane. */
+const PANES = Array.from({ length: 6 }, (_, index) => index);
+/** Stratum's ripple: forward, back, rest, staggered left to right (home emblem, Nov 2026). */
+const RIPPLE_MS = 650;
+const RIPPLE_STAGGER_MS = 60;
+const RIPPLE_KEYFRAMES: Keyframe[] = [
+  { transform: "translateZ(0)", offset: 0 },
+  { transform: "translateZ(32px)", offset: 0.32 },
+  { transform: "translateZ(-12px)", offset: 0.64 },
+  { transform: "translateZ(0)", offset: 1 },
+];
+
+/** Sends a wave of depth across the panes. Skipped under reduced motion. */
+function ripple(element: HTMLElement) {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+  element.querySelectorAll<HTMLElement>(".persona-spark-pane").forEach((pane, index) => {
+    pane.getAnimations().forEach((animation) => animation.cancel());
+    pane.animate(RIPPLE_KEYFRAMES, {
+      duration: RIPPLE_MS,
+      delay: index * RIPPLE_STAGGER_MS,
+      easing: "ease-in-out",
+      fill: "backwards",
+    });
+  });
+}
+
 /** What the persona is doing; drives light, breath and the heard pulse. */
 export type PersonaSparkState = "inactive" | "idle" | "listening" | "deciding" | "speaking";
 
@@ -198,6 +225,7 @@ export function PersonaSpark({
   pulseKey,
   className,
   fps,
+  interactive = false,
 }: {
   size?: number;
   state?: PersonaSparkState;
@@ -205,8 +233,16 @@ export function PersonaSpark({
   pulseKey?: number | string | null;
   className?: string;
   fps?: number;
+  /**
+   * Emblem sizes only: cuts the glass into six panes that ripple in depth when a pointer enters
+   * (a tap on touch), as in Stratum's home emblem. Decorative, so there is no keyboard path.
+   */
+  interactive?: boolean;
 }) {
   const emblem = size >= EMBLEM_MIN_PX;
+
+  const panes = emblem && interactive;
+  const markFps = fps ?? (size >= 160 ? 30 : size >= EMBLEM_MIN_PX ? 24 : undefined);
 
   return (
     <span
@@ -217,13 +253,50 @@ export function PersonaSpark({
         className
       )}
       data-state={state}
+      onPointerDown={
+        panes
+          ? (event: PointerEvent<HTMLElement>) => {
+              if (event.pointerType === "touch") ripple(event.currentTarget);
+            }
+          : undefined
+      }
+      onPointerEnter={
+        panes
+          ? (event: PointerEvent<HTMLElement>) => {
+              if (event.pointerType !== "touch") ripple(event.currentTarget);
+            }
+          : undefined
+      }
       style={{ width: size, height: size, ...SPARK_TIMING_VARS } as CSSProperties}
     >
-      <Glass
-        className="persona-spark-mark size-full"
-        fps={fps ?? (size >= 160 ? 30 : size >= EMBLEM_MIN_PX ? 24 : undefined)}
-        glass={emblem ? EMBLEM : ICON}
-      />
+      {panes ? (
+        // The wrapper owns the clock; the faces inherit it, so every pane shows the same frame.
+        <span
+          ref={syncClock}
+          className="persona-spark-mark persona-spark-emblem size-full"
+          style={
+            {
+              "--persona-spark-steps": Math.round((markFps ?? DEFAULT_FPS) * PERIOD_S),
+            } as CSSProperties
+          }
+        >
+          {PANES.map((index) => (
+            <span
+              key={index}
+              className="persona-spark-pane"
+              style={{ "--pane-index": index } as CSSProperties}
+            >
+              <Glass className="persona-spark-pane-face" fps={markFps} glass={EMBLEM} />
+            </span>
+          ))}
+        </span>
+      ) : (
+        <Glass
+          className="persona-spark-mark size-full"
+          fps={markFps}
+          glass={emblem ? EMBLEM : ICON}
+        />
+      )}
       {pulseKey != null && state !== "inactive" ? (
         <span
           key={pulseKey}

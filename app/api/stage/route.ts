@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
 import { NextResponse } from "next/server";
 
+import { ContinuityError } from "@/lib/continuity/store";
 import { scheduleStageSubagents, recoverStaleStageSubagents } from "@/lib/stage/subagents";
 import { runStageTurn, scheduleStageDesign, StageTurnError } from "@/lib/stage/turn";
 import { getSupabaseUserIdCached } from "@/data/supabase/profile-id-cache";
@@ -11,7 +12,13 @@ import { applyStageOperations, stageReservedRects, StageLayoutError } from "@/li
 import { restoreStageLayout } from "@/lib/stage/restore";
 import { checkStageLimit } from "@/lib/stage/limit";
 import { readStagePayload, StagePayloadError } from "@/lib/stage/request";
-import { StageMutationSchema, StageTurnSchema, type StageState } from "@/lib/stage/schema";
+import {
+  emptyStageState,
+  StageMutationSchema,
+  StageTurnSchema,
+  type StageState,
+} from "@/lib/stage/schema";
+import { ORGANIC_STAGE_VIEW } from "@/lib/stage/view-schema";
 import {
   acquireStageLease,
   hasStageRequest,
@@ -37,6 +44,7 @@ async function identity() {
 }
 
 function errorStatus(error: unknown) {
+  if (error instanceof ContinuityError) return json({ error: error.message }, error.status);
   if (error instanceof StageTurnError) return json({ error: error.message }, error.status);
   if (error instanceof StagePayloadError) return json({ error: error.message }, 413);
   if (error instanceof StageLayoutError) return json({ error: error.message }, 400);
@@ -44,7 +52,11 @@ function errorStatus(error: unknown) {
   return json({ error: "Stage request failed" }, 500);
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  // The revision the caller already shows. When it is still current, the reply is that revision
+  // alone instead of a full stage, which runs to hundreds of KB.
+  const since = Number(new URL(req.url).searchParams.get("since"));
+
   try {
     const id = await identity();
 
@@ -81,7 +93,7 @@ export async function GET() {
     // Polling also resumes queued work after a prior invocation ended. The designer lease deduplicates workers.
     scheduleStageDesign(id, state);
 
-    return json({ state });
+    return json(since > 0 && state.revision === since ? { revision: since } : { state });
   } catch {
     return json({ error: "Could not load stage" }, 500);
   }
@@ -123,6 +135,36 @@ export async function PATCH(req: Request) {
   }
 }
 
+/**
+ * A new, empty stage. Pieces, conversation, summary and queued work are cleared; a running designer
+ * or specialist sees its job gone and stops within a second. Memories and the event history
+ * (Activity) are kept. Holding the turn lease keeps a reply from landing on the cleared stage.
+ */
+async function resetStage(ownerId: string, requestId: string): Promise<StageState> {
+  if (await hasStageRequest(ownerId, requestId)) return (await readStage(ownerId)).state;
+  const lease = await acquireStageLease(ownerId, "turn");
+
+  if (!lease)
+    throw new StageTurnError("Organic is answering a message. Try again in a moment.", 409);
+  try {
+    return (
+      (await mutateStage(
+        ownerId,
+        "reset",
+        (current) => ({
+          ...emptyStageState(),
+          lastModel: current.lastModel,
+          nextModel: current.nextModel,
+          viewCommand: { id: requestId, target: ORGANIC_STAGE_VIEW },
+        }),
+        { requestId, deduplicate: true, lease }
+      )) ?? (await readStage(ownerId)).state
+    );
+  } finally {
+    await releaseStageLease(ownerId, lease);
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const id = await identity();
@@ -135,8 +177,13 @@ export async function POST(req: Request) {
       .object({ action: z.literal("retry-design"), requestId: z.string().uuid() })
       .strict()
       .safeParse(raw);
+    const reset = z
+      .object({ action: z.literal("reset"), requestId: z.string().uuid() })
+      .strict()
+      .safeParse(raw);
     const parsed = StageTurnSchema.safeParse(raw);
 
+    if (reset.success) return json({ state: await resetStage(id.ownerId, reset.data.requestId) });
     if (!retry.success && !parsed.success) return json({ error: "Invalid message" }, 400);
     if (parsed.success) {
       const state = await runStageTurn(

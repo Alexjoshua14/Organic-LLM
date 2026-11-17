@@ -98,6 +98,11 @@ ${toolLines.join("\n")}`,
 - Never announce, acknowledge, or react to a ${AMBIENT_LABEL} message on its own. It is not the user speaking; wait for them.
 - If you have none, or it says there is nothing to describe, tell the user you cannot see what they have open.`);
 
+  // Keep all shared guidance before per-session context for an unchanged cache prefix.
+  sections.push(
+    "If the user asks for something that requires a disabled modality, say you can enable it in Speak settings (briefly) and continue by voice."
+  );
+
   const subagent = options.subagentContext?.trim();
 
   if (subagent) {
@@ -115,10 +120,6 @@ ${context}`);
       "You are continuing an earlier conversation with this user, though nothing from it is on hand. Pick up naturally without pretending to remember specifics."
     );
   }
-
-  sections.push(
-    "If the user asks for something that requires a disabled modality, say you can enable it in Speak settings (briefly) and continue by voice."
-  );
 
   return sections.join("\n\n");
 }

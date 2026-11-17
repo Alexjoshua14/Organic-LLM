@@ -1,9 +1,13 @@
 import { NoObjectGeneratedError } from "ai";
 
 import { StageLayoutError } from "./layout";
+import { StageLeaseLostError } from "./lease-error";
 
 /** Safe categories only: never return provider bodies, prompts, or generated content. */
 export function describeStageDesignFailure(error: unknown): { code: string; message: string } {
+  if (error instanceof StageLeaseLostError) {
+    return { code: "lease-lost", message: "The designer was interrupted. Retry when ready." };
+  }
   if (error instanceof StageLayoutError) {
     return { code: "layout", message: `${error.message}. Try another arrangement or retry.` };
   }

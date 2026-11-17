@@ -12,7 +12,7 @@ import { WORKTABLE_LIMITS } from "./types";
 import { findBundle } from "./operations";
 
 import { resolveSubagentIdentity } from "@/lib/arcadia/multitask/subagent-identity";
-import { estimateTokenCountSync } from "@/lib/chat/context-budget";
+import { estimateTokenCountSync } from "@/lib/chat/tokenizer";
 import {
   contextItemPreview,
   frameContextData,

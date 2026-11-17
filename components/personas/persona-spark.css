@@ -122,6 +122,34 @@
   stroke-width: 0.5;
 }
 
+/*
+ * Interactive emblem (Stratum's home emblem): six slices of one glass, each its own plane, so a
+ * pointer can send a ripple of depth across them. The wrapper carries the clock and colours;
+ * faces inherit both and never animate on their own.
+ */
+.persona-spark-emblem {
+  display: flex;
+  perspective: 420px;
+  transform-style: preserve-3d;
+  pointer-events: auto;
+}
+.persona-spark-pane {
+  position: relative;
+  flex: 1 1 0;
+  height: 100%;
+  overflow: hidden;
+  transform: translateZ(0);
+}
+.persona-spark-pane-face {
+  position: absolute;
+  top: 0;
+  left: calc(var(--pane-index) * -100%);
+  width: 600%;
+  height: 100%;
+  isolation: isolate;
+  pointer-events: none;
+}
+
 /* ---------- persona states (layered on the glass; the clock is untouched) ---------- */
 
 .persona-spark-light {
@@ -184,6 +212,9 @@
   .persona-spark-mark {
     animation: none;
   }
+  .persona-spark-pane {
+    transform: none !important;
+  }
   .persona-spark[data-state] .persona-spark-light {
     animation: none;
     transform: none;
@@ -203,7 +234,8 @@
 }
 
 @media (forced-colors: active) {
-  .persona-spark-mark > g > :not(.persona-spark-panel) {
+  .persona-spark-mark > g > :not(.persona-spark-panel),
+  .persona-spark-pane-face > g > :not(.persona-spark-panel) {
     display: none;
   }
   .persona-spark-panel {

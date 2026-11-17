@@ -53,9 +53,22 @@ memory.db
 .context/
 .handover/
 
-.cursor/
 .project-references/
-.claude/
+
+# Keep local tool state private; version only shared instruction adapters.
+/.cursor/*
+!/.cursor/README.md
+!/.cursor/skills/
+!/.cursor/rules/
+/.cursor/rules/*
+!/.cursor/rules/subagent-card-lab.mdc
+!/.cursor/rules/design-backbone.mdc
+/.claude/*
+!/.claude/skills/
+!/.claude/rules/
+/.claude/rules/*
+!/.claude/rules/subagent-card-lab.md
+!/.claude/rules/design-backbone.md
 
 # Local profile (personal data, never committed)
 .local-profile.md

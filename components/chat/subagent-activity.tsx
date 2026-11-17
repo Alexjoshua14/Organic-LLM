@@ -7,7 +7,9 @@ import Link from "next/link";
 import { ArrowUpRight, ChevronRight } from "lucide-react";
 
 import { SubagentIdentityMark } from "@/components/agents/subagent-identity-mark";
+import { ChatMessageMarkdown } from "@/components/chat/chat-message-markdown";
 import { getModelDisplayName } from "@/lib/chat/message-model";
+import { markdownToTtsPlainText } from "@/lib/strata/elaborated-tts";
 import { cn } from "@/lib/utils";
 
 const STATUS_LABEL = { idle: "Idle", working: "Working", blocked: "Needs attention", done: "Done" };
@@ -80,6 +82,13 @@ export function ActiveSubagentStrip({
   );
 }
 
+/** First meaningful line of a result, as plain text: the row's one-line preview. */
+export function subagentPreviewLine(text: string | null | undefined): string {
+  const first = text?.split("\n").find((line) => line.replace(/[#>*_\-\s|`]/g, "").length > 0);
+
+  return first ? markdownToTtsPlainText(first) : "";
+}
+
 /** One durable dispatch, with live progress only when it is still the agent's current goal. */
 export function InlineSubagentActivity({
   id,
@@ -96,58 +105,86 @@ export function InlineSubagentActivity({
   const brief = dispatch?.brief ?? agent?.goal;
   const model = getModelDisplayName(dispatch?.modelId ?? agent?.modelId);
   const status = agent ? STATUS_LABEL[agent.status] : "Sent";
+  const result = agent?.progress?.trim() || null;
+  const preview = subagentPreviewLine(result) || subagentPreviewLine(brief);
+  const markState = !agent ? "idle" : agent.status === "done" ? "complete" : agent.status;
 
   return (
     <details
       id={id}
-      className="group/subagent min-w-0 rounded-lg border border-border/50 bg-background-secondary/20 text-sm"
+      className="group/subagent min-w-0 rounded-xl bg-background-secondary/30 text-sm transition-colors open:bg-background-secondary/45 hover:bg-background-secondary/45"
     >
       <summary
         className={cn(
-          "flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-lg px-3 py-2 [&::-webkit-details-marker]:hidden",
+          "flex min-h-11 cursor-pointer list-none items-center gap-inline-sm rounded-xl px-inset-md py-inset-sm [&::-webkit-details-marker]:hidden",
           FOCUS_RING
         )}
       >
-        <ChevronRight
-          aria-hidden
-          className="size-3.5 shrink-0 text-muted-foreground group-open/subagent:rotate-90"
+        <SubagentIdentityMark
+          name={name}
+          seed={agent?.activitySeed ?? agent?.id ?? dispatch?.agentId ?? name}
+          imageUrl={agent?.identityImageUrl}
+          state={markState}
+          size="sm"
+          className="size-7 shrink-0"
         />
         <span className="min-w-0 flex-1">
-          <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="font-medium">{name}</span>
+          <span className="flex items-baseline gap-inline-sm">
+            <span className="shrink-0 font-medium">{name}</span>
             <span
               className={cn(
-                "text-xs text-muted-foreground",
+                "shrink-0 text-xs text-muted-foreground",
                 agent?.status === "blocked" && "text-amber-800 dark:text-amber-200"
               )}
             >
               {status}
             </span>
           </span>
-          <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-            {agent?.progress || brief}
-          </span>
+          {preview && (
+            <span className="block truncate text-xs text-muted-foreground">{preview}</span>
+          )}
         </span>
+        <ChevronRight
+          aria-hidden
+          className="size-4 shrink-0 text-muted-foreground/70 transition-transform group-open/subagent:rotate-90 motion-reduce:transition-none"
+        />
       </summary>
-      <div className="space-y-stack-md border-t border-border/40 px-3 py-3">
-        <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{brief}</p>
-        {agent?.progress && (
-          <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-muted-foreground">
-            {agent.progress}
-          </p>
-        )}
-        {!agent && (
+      <div className="space-y-stack-md px-inset-md pb-inset-md">
+        {result ? (
+          <div className="min-w-0 text-sm leading-relaxed [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm">
+            <ChatMessageMarkdown content={result} id={`${id}-result`} />
+          </div>
+        ) : (
           <p className="text-xs text-muted-foreground">
-            Assignment sent. Open the agent’s conversation for its progress and result.
+            {agent?.status === "working"
+              ? "Working on it. The result appears here when it's done."
+              : "Assignment sent. Open the conversation for progress."}
           </p>
         )}
-        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+        {brief && (
+          <details className="group/brief text-xs text-muted-foreground">
+            <summary
+              className={cn(
+                "inline-flex min-h-11 cursor-pointer list-none items-center gap-1 rounded [&::-webkit-details-marker]:hidden",
+                FOCUS_RING
+              )}
+            >
+              <ChevronRight
+                aria-hidden
+                className="size-3 group-open/brief:rotate-90 motion-reduce:transition-none"
+              />
+              Assignment
+            </summary>
+            <p className="whitespace-pre-wrap break-words leading-relaxed">{brief}</p>
+          </details>
+        )}
+        <div className="flex flex-wrap items-center justify-between gap-inline-sm text-xs text-muted-foreground">
           {model && <span>LLM · {model}</span>}
           {threadId && (
             <Link
               href={`/sandbox/arcadia/${encodeURIComponent(threadId)}`}
               className={cn(
-                "inline-flex min-h-11 items-center gap-1 rounded px-1 text-foreground underline underline-offset-4",
+                "inline-flex min-h-11 items-center gap-1 rounded px-1 text-foreground underline-offset-4 hover:underline",
                 FOCUS_RING
               )}
             >

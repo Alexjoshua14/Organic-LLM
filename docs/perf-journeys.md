@@ -1,20 +1,35 @@
 # Performance journeys
 
-Dev-only instrumentation for measuring three user journeys:
+Instrumentation for measuring user journeys, locally (the `?perf=1` HUD) and, for accounts that
+share them, as anonymous production timings (see [performance metrics](./perf-metrics.md)):
 
-1. **Page load** — document load of `/` (signed-in composer)
+1. **Page load** — document load of `/`, `/chat/[id]` or `/sandbox/arcadia/[id]` (signed in)
 2. **Home → Chat** — Let's Chat / sidebar Chat rail
 3. **Home → Arcadia** — any link to `/sandbox/arcadia…`
+4. **Switch thread** — a sidebar thread click (`thread-switch`)
+5. **Open ⌘K launcher** — keydown to the frame after the surface paints (`launcher-open`)
 
 Phase names and journey ids live in [`lib/perf/journeys.ts`](../lib/perf/journeys.ts).
 
+Besides milestones (an offset from the start), a journey carries **durations**: how long a part
+took. They are listed, with what each one means and what is discarded, in
+[performance metrics](./perf-metrics.md#where-the-time-goes-durations); the HUD shows them under
+"Time spent".
+
 ## Enable
 
-Add `?perf=1` to any URL. The flag is sticky per tab (`sessionStorage`). Disable with `?perf=0`.
+**Collection** is on for every signed-in account that shares anonymous timings (the default after
+the first-run notice; Settings → Privacy turns it off). **The HUD, the console log and the
+per-tab trace history** remain opt-in: add `?perf=1` to any URL. The flag is sticky per tab (`sessionStorage`). Disable with `?perf=0`.
 
 Works in `bun dev`, `bun start`, and deployed builds. The HUD is **not** auto-on in development.
 
-**Locked — 2026-09-10:** Collection and the HUD require resolved, signed-in auth as well as
+**Locked — 2026-09-10, amended 2026-11-12 (owner):** The local collector previously required
+the perf flag. The owner asked for production metrics without `?perf=1`, so collection now
+requires resolved, signed-in auth plus *either* the flag *or* the account's consent to share
+anonymous timings. Reporting to the server requires consent specifically; the flag alone never
+sends anything. The HUD, console log and sessionStorage history still require the flag.
+Original rule: Collection and the HUD require resolved, signed-in auth as well as
 the perf flag. Signed-out visits emit no custom perf marks or traces, even with a stored flag.
 Sign-out discards the active trace and disconnects the page-load observer. The debug preference
 and completed history remain stored per tab.

@@ -11,7 +11,7 @@ export const CORE_INPUT_LAYOUT = {
   showLabelsAtPx: 640,
   /** Lower threshold to hide them again. */
   hideLabelsAtPx: 600,
-  /** Narrow composer: icon chips + overflow menu for secondary tools; model/effort stay visible. */
+  /** Narrow composer: shared compact row with settings in the options panel. */
   condensedAtPx: 600,
   /** Leave the condensed layout once the shell is at least this wide. */
   expandedAtPx: 640,

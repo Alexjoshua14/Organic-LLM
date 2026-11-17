@@ -100,7 +100,7 @@ Or import `resetFeatureHintDismissals` from `lib/onboarding/feature-hint-storage
 | `chat-empty-state` | Main chat | toast | — |
 | `noesis-sparks` | Noesis empty state | spotlight | Sparks header |
 | `noesis-suggest-reply` | Noesis | spotlight | Suggest my reply button |
-| `noesis-steer-assist` | Noesis composer | spotlight | Steer assist button |
+| `noesis-steer-assist` | Noesis composer | spotlight | Tune button |
 | `noesis-thread-title` | Noesis (sidebar collapsed) | spotlight | Thread title pill |
 | `composer-search-memory` | Shared composer | spotlight | Search + Memory chips |
 | `composer-auto-model` | Shared composer | spotlight | Model picker |

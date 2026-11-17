@@ -68,7 +68,8 @@ export const UserConnectorsProfileSchema = z.object({
   autoShareWithSubagents: z.boolean().default(true),
   cachedGithubSnapshot: GithubConnectorSnapshotSchema.nullable().optional().default(null),
   /** Public Ergon connection status only — OAuth access/refresh never live here. */
-  ergonConnection: ErgonConnectionPublicSchema.nullable().optional().default(null),
+  // `.catch` drops a cached status saved before the env/PAT modes were removed.
+  ergonConnection: ErgonConnectionPublicSchema.nullable().optional().default(null).catch(null),
   updatedAt: z.string().nullable().optional().default(null),
 });
 
@@ -421,7 +422,7 @@ export const CONNECTOR_SPECIALIST_ROUTES = [
     role: "Ergon / Planning",
     shorthand: ["connector:ergon"],
     description:
-      "Reads Ergon docs, briefs, and tickets via your connected Ergon REST token, and can start Ergon agent runs. Main chat handles write tickets when write scope is present.",
+      "Reads Ergon docs, briefs, and tickets through your Ergon OAuth connection, and can start Ergon agent runs. Main chat handles write tickets when write scope is present.",
     when: "Ergon planning, docs, tickets, and agent runs",
   },
 ] as const;

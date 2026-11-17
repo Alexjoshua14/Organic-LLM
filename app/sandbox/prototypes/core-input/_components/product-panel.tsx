@@ -5,6 +5,7 @@ import type {
   LabBackdrop,
   LabExperience,
   LabSendOutcome,
+  LabVoiceBarMode,
   ProductLabState,
 } from "../_lib/lab-state";
 import type { SimulatedChat } from "../_lib/use-simulated-chat";
@@ -40,6 +41,13 @@ const OUTCOME_OPTIONS: readonly SegmentedOption<LabSendOutcome>[] = [
   { value: "error", label: "Fails" },
 ];
 
+const VOICE_BAR_OPTIONS: readonly SegmentedOption<LabVoiceBarMode>[] = [
+  { value: "off", label: "Off" },
+  { value: "connecting", label: "Connecting" },
+  { value: "live", label: "Live" },
+  { value: "paused", label: "Paused" },
+];
+
 const BACKDROP_OPTIONS: readonly SegmentedOption<LabBackdrop>[] = [
   { value: "chat", label: "Chat page" },
   { value: "chrome", label: "Liquid chrome" },
@@ -48,6 +56,7 @@ const BACKDROP_OPTIONS: readonly SegmentedOption<LabBackdrop>[] = [
 const VARIANT_OPTIONS: readonly SegmentedOption<ProductLabState["variant"]>[] = [
   { value: "default", label: "Default" },
   { value: "compact", label: "Compact" },
+  { value: "stage-beta", label: "Stage" },
 ];
 
 const SUBMIT_OPTIONS: readonly SegmentedOption<ProductLabState["submitVariant"]>[] = [
@@ -111,6 +120,13 @@ export function ProductPanel({
           options={BACKDROP_OPTIONS}
           value={state.backdrop}
           onChange={(backdrop) => patch({ backdrop })}
+        />
+        <SegmentedRow
+          hint="The real live bar, fed a stubbed session. Its End and Resume buttons work."
+          label="Live voice bar"
+          options={VOICE_BAR_OPTIONS}
+          value={state.voiceBar}
+          onChange={(voiceBar) => patch({ voiceBar })}
         />
         <ToggleRow
           checked={state.showThread}

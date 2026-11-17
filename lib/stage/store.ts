@@ -9,6 +9,9 @@ import {
 } from "@/lib/crypto/message-encryption";
 import { redis } from "@/lib/redis/redis";
 import { StageEventSchema, emptyStageState, type StageEvent, type StageState } from "./schema";
+import { StageLeaseLostError } from "./lease-error";
+
+export { StageLeaseLostError };
 
 const CAS_SCRIPT = `
 local current = redis.call('GET', KEYS[1])
@@ -69,6 +72,10 @@ export async function readStage(ownerId: string): Promise<{ state: StageState; r
 
 export type StageLease = { scope: "turn" | "design"; token: string };
 
+// The designer renews its lease while it runs, so a short lease only shortens how long a crashed
+// worker blocks the next one. The turn lease is not renewed; it outlasts the turn's own timeout.
+const LEASE_MS = { turn: 120_000, design: 30_000 } as const;
+
 export async function appendStageEvent(
   ownerId: string,
   expectedRaw: string,
@@ -88,7 +95,7 @@ export async function appendStageEvent(
       String(event.revision),
     ]
   );
-  if (actual === -2) throw new Error("Stage generation lease expired");
+  if (actual === -2) throw new StageLeaseLostError();
   return actual === 1;
 }
 
@@ -173,8 +180,35 @@ export async function acquireStageLease(
   const token = crypto.randomUUID();
   const pair = keys(ownerId);
   const key = scope === "turn" ? pair.turnLease : pair.designLease;
-  const result = await redis.set(key, token, { nx: true, px: scope === "turn" ? 120_000 : 80_000 });
+  const result = await redis.set(key, token, { nx: true, px: LEASE_MS[scope] });
   return result ? { scope, token } : null;
+}
+
+const RENEW_SCRIPT = `
+if redis.call('GET', KEYS[1]) ~= ARGV[1] then return 0 end
+redis.call('PEXPIRE', KEYS[1], ARGV[2])
+return redis.call('GETRANGE', KEYS[2], 0, 15)
+`;
+
+/**
+ * Extends a lease this worker still holds and, in the same command, reads the head revision from
+ * the envelope's plaintext prefix (`<revision>|<ciphertext>`), so a running worker learns whether
+ * anything changed without pulling the whole snapshot (hundreds of KB). Null when the lease
+ * expired or another worker took it; 0 when there is no stage yet.
+ */
+export async function renewStageLease(ownerId: string, lease: StageLease): Promise<number | null> {
+  const pair = keys(ownerId);
+  const key = lease.scope === "turn" ? pair.turnLease : pair.designLease;
+  const head = await redis.eval<string[], string | number>(
+    RENEW_SCRIPT,
+    [key, pair.head],
+    [lease.token, String(LEASE_MS[lease.scope])]
+  );
+
+  if (typeof head !== "string") return null;
+  const revision = Number(head.slice(0, head.indexOf("|")));
+
+  return Number.isSafeInteger(revision) && revision > 0 ? revision : 0;
 }
 
 export async function releaseStageLease(ownerId: string, lease: StageLease) {

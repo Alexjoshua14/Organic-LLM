@@ -1,14 +1,23 @@
 "use client";
 
 import "./stage.css";
-
+import type { ContinuitySelection } from "@/lib/continuity/schema";
 import type { ChatModel } from "@/lib/schemas/chat";
 import type { ChatEffortLevel } from "@/lib/schemas/chat-effort";
 import type { StageTurnSettings, StageRect } from "@/lib/stage/schema";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { placeStageWidget } from "@/lib/stage/placements";
-import { AudioLines, Grid3X3, History, MessageCircle, ArrowUpRight, RotateCcw } from "lucide-react";
+import {
+  AudioLines,
+  Grid3X3,
+  History,
+  Layers,
+  MessageCircle,
+  Plus,
+  ArrowUpRight,
+  RotateCcw,
+  SlidersHorizontal,
+} from "lucide-react";
 
 import { useStage } from "./use-stage";
 import { StagePieces } from "./stage-pieces";
@@ -19,6 +28,8 @@ import { StageSubagents } from "./stage-subagents";
 import { StageHistory } from "./stage-history";
 import { useStageMeasurements } from "./use-stage-frame";
 
+import { placeStageWidget } from "@/lib/stage/placements";
+import { ContextPicker } from "@/components/continuity/context-picker";
 import { resolveStageView } from "@/lib/stage/views";
 import {
   ORGANIC_STAGE_VIEW,
@@ -33,12 +44,24 @@ import { ComposerActionButton } from "@/components/chat/composer-action-button";
 import { CoreInput } from "@/components/chat/core-input";
 import { useVoiceSessionOptional } from "@/components/voice/voice-session-provider";
 import { useVoiceScreenContext } from "@/hooks/use-voice-screen-context";
-import { DEFAULT_COMPOSER_MODEL } from "@/lib/chat/composer-tool-defaults";
+import {
+  DEFAULT_COMPOSER_MEMORIES,
+  DEFAULT_COMPOSER_MODEL,
+} from "@/lib/chat/composer-tool-defaults";
 import { coreInputScopes } from "@/lib/core-input/scopes";
 
 const STAGE_COMPOSER_SCOPE = coreInputScopes.area("stage");
+// "New stage" asks once, inline: a second press within this window clears the stage.
+const RESET_CONFIRM_MS = 4_000;
+// In memory only, so demo drafts and settings never reach the real Stage composer.
+const SCRIPTED_COMPOSER_SCOPE = { ...coreInputScopes.area("stage-demo"), ephemeral: true };
 
 const STARTERS = [
+  {
+    label: "Empty my head",
+    prompt:
+      "I want to get some thoughts out of my head. Keep what matters and organize it as I go.",
+  },
   {
     label: "Map an idea",
     prompt: "Help me map an idea. Ask me what I’m exploring before making a diagram.",
@@ -50,8 +73,29 @@ const STARTERS = [
   { label: "Make something", prompt: "Let’s make something together. Ask me what I have in mind." },
 ];
 
+/** Everything the Stage view reads and does. The live Stage backs it with the API; the demo scripts it. */
+export type StageController = ReturnType<typeof useStage>;
+
 export function Stage() {
   const voice = useVoiceSessionOptional();
+
+  return (
+    <StageView
+      stage={useStage({ voiceActive: !!voice && (voice.connected || voice.connecting) })}
+    />
+  );
+}
+
+export function StageView({
+  stage,
+  scripted = false,
+}: {
+  stage: StageController;
+  /** A scripted stage has no real threads, calls, or voice session to attach to. */
+  scripted?: boolean;
+}) {
+  const liveVoice = useVoiceSessionOptional();
+  const voice = scripted ? null : liveVoice;
   const voiceActive = !!voice && (voice.connected || voice.connecting || voice.paused);
   const {
     state,
@@ -64,17 +108,26 @@ export function Stage() {
     refresh,
     retryDesign,
     cancelSubagent,
-  } = useStage({
-    voiceActive: !!voice && (voice.connected || voice.connecting),
-  });
+    reset,
+  } = stage;
+  const [confirmingReset, setConfirmingReset] = useState(false);
+
+  useEffect(() => {
+    if (!confirmingReset) return;
+    const timer = setTimeout(() => setConfirmingReset(false), RESET_CONFIRM_MS);
+
+    return () => clearTimeout(timer);
+  }, [confirmingReset]);
   const modelRef = useRef<ChatModel>(DEFAULT_COMPOSER_MODEL);
   const effortRef = useRef<ChatEffortLevel>("auto");
   const searchRef = useRef(false);
-  const memoryRef = useRef(false);
+  const memoryRef = useRef(DEFAULT_COMPOSER_MEMORIES);
   const speechRef = useRef(false);
   const [composerError, setComposerError] = useState<Error | null>(null);
   const [composerInject, setComposerInject] = useState<{ id: number; text: string } | null>(null);
+  const [continuity, setContinuity] = useState<ContinuitySelection>();
   const settings = (): StageTurnSettings => ({
+    continuity,
     model: modelRef.current.id,
     effort: effortRef.current,
     webSearch: searchRef.current,
@@ -85,8 +138,24 @@ export function Stage() {
 
   const [showGrid, setShowGrid] = useState(false);
   const [panel, setPanel] = useState<"conversation" | "activity" | null>(null);
+  // Context, New stage, Pieces, Grid and Activity live behind one Tools toggle, so the bar
+  // stays quiet; Conversation keeps its own button.
+  const [toolsOpen, setToolsOpen] = useState(false);
+
+  useEffect(() => {
+    if (!toolsOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setToolsOpen(false);
+      setConfirmingReset(false);
+    };
+
+    document.addEventListener("keydown", onKey);
+
+    return () => document.removeEventListener("keydown", onKey);
+  }, [toolsOpen]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const { root, composer, size } = useStageMeasurements();
+  const { root, composer, wordmark, size } = useStageMeasurements();
   const [view, setView] = useState<StageView>(ORGANIC_STAGE_VIEW);
   const author = view.kind === "author" ? view.id! : "organic";
   const pieceId = view.kind === "piece" ? view.id : null;
@@ -173,7 +242,7 @@ export function Stage() {
     return () => window.removeEventListener(STAGE_VIEW_EVENT, receiveView);
   }, [state, selectView, refresh]);
   useVoiceScreenContext(
-    state
+    state && !scripted
       ? {
           kind: "stage",
           revision: String(state.revision),
@@ -228,7 +297,7 @@ export function Stage() {
     if (!voice) return;
     if (voice.connected || voice.connecting) voice.disconnect();
     else if (voice.paused && voice.stage) voice.resume();
-    else voice.connect({ stage: true, stageSettings: settings() });
+    else voice.connect({ stage: true, stageSettings: { ...settings(), continuity: undefined } });
   }
 
   function togglePanel(next: "conversation" | "activity") {
@@ -249,28 +318,112 @@ export function Stage() {
       }
       data-grid={showGrid || !!selected}
       data-empty={empty}
+      data-docked={!frame.centered}
+      data-hero={frame.hero}
       data-compact={frame.compact}
       data-tiny={frame.tiny}
       data-short-children={frame.shortChildren}
     >
       <div aria-hidden className="stage-grid-guide" />
       <header className="stage-topbar" style={stageCellStyle(frame.header)}>
-        <div className="stage-wordmark">
+        <div ref={wordmark} className="stage-wordmark">
           <span>organic</span>
           <span className="stage-wordmark-slash">/</span>
           <span>stage</span>
         </div>
         <nav aria-label="Stage controls" className="stage-tools">
+          {/* Hidden, not unmounted: the context picker keeps its selection while closed. */}
+          <div className="stage-tool-tray" hidden={!toolsOpen} id="stage-tool-tray">
+            {!scripted && (
+              <ContextPicker
+                compact
+                surface="stage"
+                disabled={sending || Boolean(voice?.connected || voice?.connecting)}
+                onChange={setContinuity}
+              />
+            )}
+            {!!(state?.widgets.length || state?.messages.length) && (
+              <button
+                aria-label={confirmingReset ? "Confirm: clear the stage" : "New stage"}
+                aria-pressed={confirmingReset}
+                className="stage-tool"
+                disabled={sending}
+                title={
+                  confirmingReset
+                    ? "Press again to clear every piece and the conversation"
+                    : "Start a new, empty stage"
+                }
+                type="button"
+                onClick={async () => {
+                  if (!confirmingReset) {
+                    setConfirmingReset(true);
+
+                    return;
+                  }
+                  setConfirmingReset(false);
+                  if (await reset()) selectView(ORGANIC_STAGE_VIEW);
+                }}
+              >
+                <Plus size={15} />
+                <span>{confirmingReset ? "Clear everything?" : "New stage"}</span>
+              </button>
+            )}
+            {!!state?.widgets.length && (
+              <button
+                aria-label="Pieces"
+                aria-pressed={view.kind === "overview"}
+                className="stage-tool"
+                title={view.kind === "overview" ? "Back to Organic" : "Show every piece"}
+                type="button"
+                onClick={() =>
+                  selectView(
+                    view.kind === "overview" ? ORGANIC_STAGE_VIEW : { kind: "overview", id: null }
+                  )
+                }
+              >
+                <Layers size={15} />
+                <span>Pieces</span>
+              </button>
+            )}
+            <button
+              aria-label="Show grid"
+              aria-pressed={showGrid}
+              className="stage-tool"
+              title="Show the 32 by 32 grid"
+              type="button"
+              onClick={() => setShowGrid((value) => !value)}
+            >
+              <Grid3X3 size={15} />
+              <span>Grid</span>
+            </button>
+            {!scripted && (
+              <button
+                aria-label="Activity"
+                aria-expanded={panel === "activity"}
+                className="stage-tool"
+                type="button"
+                onClick={() => togglePanel("activity")}
+              >
+                <History size={15} />
+                <span>Activity</span>
+              </button>
+            )}
+          </div>
           <button
-            aria-label="Show grid"
-            aria-pressed={showGrid}
+            aria-controls="stage-tool-tray"
+            aria-expanded={toolsOpen}
+            aria-label="Stage tools"
             className="stage-tool"
-            title="Show the 32 by 32 grid"
+            data-active={!toolsOpen && (showGrid || !!continuity) ? "" : undefined}
+            title={toolsOpen ? "Hide tools" : "Context, new stage, pieces, grid and activity"}
             type="button"
-            onClick={() => setShowGrid((value) => !value)}
+            onClick={() => {
+              setToolsOpen((value) => !value);
+              setConfirmingReset(false);
+            }}
           >
-            <Grid3X3 size={15} />
-            <span>Grid</span>
+            <SlidersHorizontal size={15} />
+            <span>Tools</span>
           </button>
           <button
             aria-label="Conversation"
@@ -281,16 +434,6 @@ export function Stage() {
           >
             <MessageCircle size={15} />
             <span>Conversation</span>
-          </button>
-          <button
-            aria-label="Activity"
-            aria-expanded={panel === "activity"}
-            className="stage-tool"
-            type="button"
-            onClick={() => togglePanel("activity")}
-          >
-            <History size={15} />
-            <span>Activity</span>
           </button>
         </nav>
       </header>
@@ -307,6 +450,7 @@ export function Stage() {
               : status
           }
           rect={frame.parent}
+          hero={frame.hero}
           state={sending ? "working" : loading || activeSubagents > 0 ? "waiting" : "idle"}
           onFocus={() => {
             chooseAuthor("organic");
@@ -325,6 +469,7 @@ export function Stage() {
           visible={frame.pieces}
           selectedId={selectedId}
           onArrange={arrangePiece}
+          onChange={mutate}
         />
       </section>
 
@@ -345,82 +490,81 @@ export function Stage() {
       )}
 
       <footer className="stage-footer">
-        <div className="stage-reply" style={stageCellStyle(frame.reply)}>
-          {error || voice?.error ? (
-            <div className="stage-error">
-              <p role="alert">{error || voice?.error}</p>
-              {!state && (
-                <button className="stage-text-button" type="button" onClick={() => void refresh()}>
-                  <RotateCcw size={13} />
-                  Try again
-                </button>
-              )}
-            </div>
-          ) : latestReply ? (
-            <StageResponse
-              state={state!}
-              selectedAuthor={author}
-              organicActive={view.kind === "organic"}
-              overviewActive={view.kind === "overview"}
-              pieces={state!.widgets}
-              selectedPieceId={pieceId}
-              onSelectPiece={(id) => selectView({ kind: "piece", id })}
-              onShowPieces={
-                state?.widgets.length ? () => selectView({ kind: "overview", id: null }) : undefined
-              }
-              onSelectAuthor={chooseAuthor}
-              expanded={frame.reading}
-              compact={frame.replyCompact}
-              onToggleExpanded={() => setReading((v) => !v)}
-              onOpenConversation={() => togglePanel("conversation")}
-            />
-          ) : (
-            <div className="stage-starters">
-              {STARTERS.map((starter) => (
-                <button
-                  key={starter.label}
-                  className="stage-text-button"
-                  disabled={!state || (sending && !voiceActive)}
-                  type="button"
-                  onClick={() => {
-                    setComposerInject({ id: Date.now(), text: starter.prompt });
-                    composer.current?.querySelector("textarea")?.focus();
-                  }}
-                >
-                  {starter.label}
-                  <ArrowUpRight aria-hidden size={12} />
-                </button>
-              ))}
-            </div>
-          )}
-          {failed ? (
-            <div className="stage-error stage-design-error">
-              <p role="status">
-                {state?.design?.error ?? "The designer couldn’t finish this arrangement."}
-              </p>
-              <button
-                className="stage-text-button"
-                type="button"
-                onClick={() => void retryDesign()}
-              >
-                Try designer again
-              </button>
-            </div>
-          ) : null}
-        </div>
+        {/* Organic's words belong to the home view (and to reading). With pieces showing, the
+            pieces are the reply; the full exchange stays one tap away in Conversation. */}
+        {frame.showReply && (
+          <div className="stage-reply" style={stageCellStyle(frame.reply)}>
+            {latestReply ? (
+              <StageResponse
+                state={state!}
+                selectedAuthor={author}
+                expanded={frame.reading}
+                onToggleExpanded={() => setReading((v) => !v)}
+              />
+            ) : (
+              <div className="stage-starters">
+                {STARTERS.map((starter) => (
+                  <button
+                    key={starter.label}
+                    className="stage-text-button"
+                    disabled={!state || (sending && !voiceActive)}
+                    type="button"
+                    onClick={() => {
+                      setComposerInject({ id: Date.now(), text: starter.prompt });
+                      composer.current?.querySelector("textarea")?.focus();
+                    }}
+                  >
+                    {starter.label}
+                    <ArrowUpRight aria-hidden size={12} />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         <div className="stage-composer-slot" style={stageCellStyle(frame.composer)}>
+          {/* Notices sit inside the measured block, so the grid makes room only while one shows. */}
           <div ref={composer} className="stage-composer-measure">
+            {error || voice?.error ? (
+              <div className="stage-error">
+                <p role="alert">{error || voice?.error}</p>
+                {!state && (
+                  <button
+                    className="stage-text-button"
+                    type="button"
+                    onClick={() => void refresh()}
+                  >
+                    <RotateCcw size={13} />
+                    Try again
+                  </button>
+                )}
+              </div>
+            ) : null}
+            {failed ? (
+              <div className="stage-error stage-design-error">
+                <p role="status">
+                  {state?.design?.error ?? "The designer couldn’t finish this arrangement."}
+                </p>
+                <button
+                  className="stage-text-button"
+                  type="button"
+                  onClick={() => void retryDesign()}
+                >
+                  Try designer again
+                </button>
+              </div>
+            ) : null}
             <div className="stage-core-input" data-voice-active={voiceActive}>
               <CoreInput
                 variant="stage-beta"
-                snapshotScope={STAGE_COMPOSER_SCOPE}
+                snapshotScope={scripted ? SCRIPTED_COMPOSER_SCOPE : STAGE_COMPOSER_SCOPE}
                 modelRef={modelRef}
                 effortRef={effortRef}
                 useWebSearchRef={searchRef}
                 useMemoriesRef={memoryRef}
                 useSpeechFriendlyRef={speechRef}
                 defaultWebSearch={false}
-                defaultMemories={false}
+                defaultMemories={DEFAULT_COMPOSER_MEMORIES}
                 disabled={!state}
                 status={sending ? "submitted" : "ready"}
                 error={composerError}
@@ -453,7 +597,6 @@ export function Stage() {
                             : "Start voice session"
                       }
                       aria-pressed={voiceActive}
-                      className="size-9 min-w-9 p-0"
                       engaged={voiceActive}
                       disabled={!state || (sending && !voiceActive)}
                       title={
@@ -464,19 +607,11 @@ export function Stage() {
                       type="button"
                       onClick={toggleVoice}
                     >
-                      <AudioLines aria-hidden size={19} />
+                      <AudioLines aria-hidden className="size-4" />
                     </ComposerActionButton>
                   ) : null
                 }
               />
-            </div>
-            <div className="stage-footer-caption">
-              <span>
-                {working
-                  ? "The designer is working. Keep talking."
-                  : "A thought can become a place."}
-              </span>
-              <span className="stage-shortcut">⌘ / to focus</span>
             </div>
           </div>
         </div>

@@ -4,15 +4,32 @@ import type { StageEvent, StageState } from "./schema";
 
 import { describeStageDesignFailure } from "./design-failure";
 import { generateStageDesign, StageGenerationError } from "./agent";
-import { availableStageChildSlot, repairStageLayout } from "./layout";
-import { mergeStageDesignPlan } from "./reconcile";
-import { acquireStageLease, mutateStage, readStage, releaseStageLease } from "./store";
+import { availableStageChildSlot, repairStageLayout, StageLayoutError } from "./layout";
+import { mergeStageDesignPlan, sanitizeDesignPlan } from "./reconcile";
+import { STAGE_OVERVIEW } from "./placements";
+import {
+  acquireStageLease,
+  mutateStage,
+  readStage,
+  releaseStageLease,
+  renewStageLease,
+  StageLeaseLostError,
+} from "./store";
 
 import { createLogger } from "@/lib/logger";
 
 const logger = createLogger("lib/stage/design.ts");
 
-const DESIGN_TIMEOUT_MS = 90_000;
+// A job's work stops at its deadline, however many attempts it has made. A job still marked
+// working past the stale timeout (its worker died) is failed on the next read; the gap between
+// the two lets a worker at its deadline record its own failure first.
+const DESIGN_DEADLINE_MS = 180_000;
+const DESIGN_TIMEOUT_MS = 240_000;
+// How often a running designer renews its lease and checks for a cancel or a newer job.
+const DESIGN_WATCH_MS = 750;
+// A watch tick that errors (a Redis hiccup) is retried; the run only stops once renewals have
+// failed for this long, which stays under the 30s design lease.
+const DESIGN_LEASE_GRACE_MS = 20_000;
 const controllers = new Map<string, AbortController>();
 
 function releaseDesign(state: StageState): StageState {
@@ -55,20 +72,40 @@ export async function runStageDesign(args: {
   let model: string | null = null;
   const controller = new AbortController();
   const controllerKey = `${args.ownerId}:${args.jobId}`;
+  let deadline: AbortSignal = controller.signal;
 
   controllers.set(controllerKey, controller);
   let timer: ReturnType<typeof setTimeout> | undefined;
   let disposed = false;
+  let leaseLost = false;
+  let seenRevision = 0;
+  let renewedAt = Date.now();
+  // Keeps the lease alive for as long as the run is, and stops the run on a cancel or a newer job.
+  // One Redis command per tick; only a changed revision is worth decoding the whole stage for.
   const poll = async () => {
     try {
-      const { state } = await readStage(args.ownerId);
+      const revision = await renewStageLease(args.ownerId, lease);
 
-      if (state.design?.id !== args.jobId || state.design.status === "canceling")
+      if (revision === null) {
+        leaseLost = true;
         controller.abort();
+      } else {
+        renewedAt = Date.now();
+        if (revision !== seenRevision) {
+          const { state } = await readStage(args.ownerId);
+
+          seenRevision = revision;
+          if (state.design?.id !== args.jobId || state.design.status === "canceling")
+            controller.abort();
+        }
+      }
     } catch {
-      controller.abort();
+      if (Date.now() - renewedAt > DESIGN_LEASE_GRACE_MS) {
+        leaseLost = true;
+        controller.abort();
+      }
     }
-    if (!disposed && !controller.signal.aborted) timer = setTimeout(poll, 750);
+    if (!disposed && !controller.signal.aborted) timer = setTimeout(poll, DESIGN_WATCH_MS);
   };
 
   try {
@@ -83,7 +120,7 @@ export async function runStageDesign(args: {
       return;
     }
     if (current.state.design.status !== "working") return;
-    const base = await mutateStage(
+    const startBase = await mutateStage(
       args.ownerId,
       "design-start",
       (state) => {
@@ -92,37 +129,86 @@ export async function runStageDesign(args: {
 
         if (slot === null) return null;
 
+        // A worker taking over a job already under way keeps its start, so the stale-job timeout
+        // still bounds the job as a whole rather than restarting with every takeover.
+        const startedAt =
+          state.design.phase === "working" ? state.design.startedAt : new Date().toISOString();
+
         return repairStageLayout({
           ...state,
-          design: { ...state.design, phase: "working", slot, startedAt: new Date().toISOString() },
+          design: { ...state.design, phase: "working", slot, startedAt },
         });
       },
       { lease }
     );
 
-    if (!base) return;
+    if (!startBase) return;
     void poll();
-    const result = await generateStageDesign({
-      ownerId: args.ownerId,
-      clerkUserId: args.clerkUserId,
-      state: base,
-      brief: args.brief,
-      signal: controller.signal,
-    });
+    deadline = AbortSignal.any([controller.signal, AbortSignal.timeout(DESIGN_DEADLINE_MS)]);
+    let result: Awaited<ReturnType<typeof generateStageDesign>>;
+    let feedback: string | undefined;
+    let planBase = startBase;
+    let chatIds = new Map<number, string>();
+    let widgetIds = new Map<number, string>();
+    let stillCurrent: Awaited<ReturnType<typeof readStage>>;
+    const spent = { inputTokens: 0, outputTokens: 0 };
 
-    if (controller.signal.aborted) throw new DOMException("Designer stopped", "AbortError");
-    usage = result.usage;
-    model = result.model;
-    const chatIds = new Map<number, string>();
-    const widgetIds = new Map<number, string>();
+    // A plan the layout engine rejects (no free space, a target the user just changed) is
+    // regenerated once against fresh state with the reason, instead of failing the whole job.
+    for (;;) {
+      result = await generateStageDesign({
+        ownerId: args.ownerId,
+        clerkUserId: args.clerkUserId,
+        state: planBase,
+        brief: args.brief,
+        feedback,
+        signal: deadline,
+      });
 
-    for (const [index, operation] of result.plan.operations.entries()) {
-      if (operation.operation !== "upsert" || operation.targetId) continue;
-      widgetIds.set(index, crypto.randomUUID());
-      // Persist the server-owned identity now; hydrate its real thread only after the layout commits.
-      if (operation.kind === "chat") chatIds.set(index, crypto.randomUUID());
+      if (deadline.aborted) throw new DOMException("Designer stopped", "AbortError");
+      const { plan: usable, dropped } = sanitizeDesignPlan(result.plan);
+
+      // Unusable operations are dropped. Only a plan with nothing left is worth another attempt.
+      if (dropped.length && !usable.operations.length && !feedback) {
+        feedback = dropped.join("; ");
+        spent.inputTokens += result.usage.inputTokens;
+        spent.outputTokens += result.usage.outputTokens;
+        continue;
+      }
+      // Second attempt also unusable: say why, rather than completing as if nothing was asked.
+      if (dropped.length && !usable.operations.length) throw new StageLayoutError(dropped[0]);
+      result = { ...result, plan: usable };
+      spent.inputTokens += result.usage.inputTokens;
+      spent.outputTokens += result.usage.outputTokens;
+      usage = { ...spent };
+      model = result.model;
+      chatIds = new Map<number, string>();
+      widgetIds = new Map<number, string>();
+
+      for (const [index, operation] of result.plan.operations.entries()) {
+        if (operation.operation !== "upsert" || operation.targetId) continue;
+        widgetIds.set(index, crypto.randomUUID());
+        // Persist the server-owned identity now; hydrate its real thread only after the layout commits.
+        if (operation.kind === "chat") chatIds.set(index, crypto.randomUUID());
+      }
+      stillCurrent = await readStage(args.ownerId);
+
+      if (
+        stillCurrent.state.design?.id !== args.jobId ||
+        stillCurrent.state.design.status !== "working"
+      )
+        break;
+      try {
+        // Validate before committing; every CAS retry reconciles against concurrent user changes.
+        mergeStageDesignPlan(stillCurrent.state, planBase, result.plan, chatIds, widgetIds);
+        break;
+      } catch (error) {
+        if (!(error instanceof StageLayoutError) || feedback) throw error;
+        feedback = error.message;
+        planBase = stillCurrent.state;
+      }
     }
-    const stillCurrent = await readStage(args.ownerId);
+    const base = planBase;
 
     if (
       stillCurrent.state.design?.id !== args.jobId ||
@@ -145,8 +231,6 @@ export async function runStageDesign(args: {
 
       return;
     }
-    // Validate before committing; every CAS retry reconciles against concurrent user changes.
-    mergeStageDesignPlan(stillCurrent.state, base, result.plan, chatIds, widgetIds);
     await mutateStage(
       args.ownerId,
       "design-complete",
@@ -155,9 +239,18 @@ export async function runStageDesign(args: {
           return { ...state, lastModel: result.model };
         const [next, ...pendingDesigns] = state.pendingDesigns;
 
+        const showsPieces = result.plan.operations.some(
+          (operation) => operation.operation === "upsert"
+        );
+
         return {
           ...state,
           widgets: mergeStageDesignPlan(state, base, result.plan, chatIds, widgetIds),
+          // The user asked for this and is watching the stage: from the home view, where pieces
+          // are tucked away, show them as they land. A specialist or piece view is left alone.
+          ...(showsPieces && (state.presentation?.view.kind ?? "organic") === "organic"
+            ? { viewCommand: { id: crypto.randomUUID(), target: STAGE_OVERVIEW } }
+            : {}),
           lastModel: result.model,
           pendingDesigns,
           design: next
@@ -172,13 +265,17 @@ export async function runStageDesign(args: {
       usage = error.usage;
       model = error.model;
     }
-    const failure = describeStageDesignFailure(error);
+    if (error instanceof StageLeaseLostError) leaseLost = true;
+    const failure = describeStageDesignFailure(leaseLost ? new StageLeaseLostError() : error);
 
     logger.warn("runStageDesign", "design_failed", {
       jobId: args.jobId,
       model,
       code: failure.code,
     });
+    // Another worker may own the job now; failing it here would end that worker's run. If nobody
+    // does, the next read finds the job stale or schedules it again.
+    if (leaseLost) return;
     await mutateStage(
       args.ownerId,
       "design-failed",

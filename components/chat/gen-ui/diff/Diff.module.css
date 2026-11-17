@@ -1,0 +1,557 @@
+/*
+ * Code diff: summary strip, then one section per file — header, then a scrollable code well.
+ * Flat on purpose, like the Plan: no glass, no shadows, no focus rings (focus is a tint + underline).
+ * Current Organic tokens only. Sizes are rem so 200% text reflows instead of clipping, and layout
+ * answers to the container (chat column ~700px, Remy dock ~360px, Stage wider), not the viewport.
+ * Added / removed are carried three ways at once: a +/− marker, a row tint and a word in headers.
+ */
+
+.root {
+  --diff-pad-x: var(--spacing-inset-sm); /* 8px */
+  --diff-pad-y: var(--spacing-stack-sm);
+  --diff-line: 1.25rem; /* one code line */
+  --diff-hover: color-mix(in oklab, var(--muted) 55%, transparent);
+  --diff-add-tone: color-mix(in oklab, var(--accent) 62%, var(--foreground));
+  --diff-del-tone: color-mix(in oklab, var(--destructive) 68%, var(--foreground));
+
+  container-type: inline-size;
+  display: grid;
+  /* minmax(0, 1fr), not auto: a wide code table must scroll in its well, never widen the card. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--spacing-stack-md);
+  min-width: 0;
+  color: var(--foreground);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+/* The diff reader renders in a portal, outside .root: it carries the same tokens, nothing else. */
+.readerScope {
+  --diff-pad-x: var(--spacing-inset-sm);
+  --diff-pad-y: var(--spacing-stack-sm);
+  --diff-line: 1.25rem;
+  --diff-hover: color-mix(in oklab, var(--muted) 55%, transparent);
+  --diff-add-tone: color-mix(in oklab, var(--accent) 62%, var(--foreground));
+  --diff-del-tone: color-mix(in oklab, var(--destructive) 68%, var(--foreground));
+
+  display: contents;
+}
+
+@media (pointer: coarse) {
+  .root {
+    --diff-pad-y: var(--spacing-stack-md);
+  }
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.mono {
+  font-family:
+    var(--font-mono, "Fira Code"), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+/* ── Header: title, summary, strip ──────────────────────── */
+
+.header {
+  display: grid;
+  gap: var(--spacing-stack-xs);
+  padding: 0 var(--diff-pad-x);
+}
+
+.title {
+  margin: 0;
+  min-width: 0;
+  font-size: 1rem;
+  line-height: 1.35;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  overflow-wrap: anywhere;
+}
+
+.summary {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-stack-xs) var(--spacing-inline-md);
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.counts {
+  display: inline-flex;
+  gap: var(--spacing-inline-sm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.countAdd {
+  color: var(--diff-add-tone);
+}
+
+.countDel {
+  color: var(--diff-del-tone);
+}
+
+.bar {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.barBlock {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 1px;
+  background: color-mix(in oklab, var(--muted-foreground) 30%, transparent);
+}
+
+.barBlock[data-tone="add"] {
+  background: var(--accent);
+}
+
+.barBlock[data-tone="del"] {
+  background: var(--destructive);
+}
+
+.tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--spacing-inline-sm);
+  margin-left: auto;
+}
+
+/* ── Buttons: flat, tint + underline for hover and focus ── */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.75rem;
+  padding: 0 var(--spacing-inset-sm);
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted-foreground);
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+@media (pointer: coarse) {
+  .btn {
+    min-height: 2.75rem;
+  }
+}
+
+.btn:hover {
+  background: var(--diff-hover);
+  color: var(--foreground);
+}
+
+.btn:focus-visible {
+  outline: none;
+  background: var(--diff-focus);
+  color: var(--foreground);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.btn[aria-pressed="true"] {
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+/* ── File index (three or more files) ───────────────────── */
+
+.index {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.indexItem {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--spacing-inline-sm);
+  width: 100%;
+  padding: var(--spacing-stack-xs) var(--diff-pad-x);
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.8125rem;
+  text-align: left;
+}
+
+button.indexItem {
+  cursor: pointer;
+}
+
+button.indexItem:hover {
+  background: var(--diff-hover);
+}
+
+button.indexItem:focus-visible {
+  outline: none;
+  background: var(--diff-focus);
+}
+
+button.indexItem:hover .pathBase,
+button.indexItem:focus-visible .pathBase {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+/* ── File section ───────────────────────────────────────── */
+
+.files {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--spacing-stack-md);
+}
+
+.file {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--spacing-stack-xs);
+  min-width: 0;
+}
+
+.fileHead {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-inline-sm);
+}
+
+.fileTitle {
+  flex: 1 1 0;
+  min-width: 0;
+  margin: 0;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+.toggle {
+  display: flex;
+  width: 100%;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--spacing-inline-sm);
+  min-width: 0;
+  padding: var(--spacing-stack-xs) var(--diff-pad-x);
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+button.toggle {
+  cursor: pointer;
+}
+
+button.toggle:hover {
+  background: var(--diff-hover);
+}
+
+button.toggle:focus-visible {
+  outline: none;
+  background: var(--diff-focus);
+}
+
+button.toggle:hover .pathBase,
+button.toggle:focus-visible .pathBase {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.file:has([role="region"]:focus-visible) .pathBase {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.chevron {
+  flex: 0 0 auto;
+  width: 0.75rem;
+  height: 0.75rem;
+  align-self: center;
+  color: var(--muted-foreground);
+}
+
+.toggle[aria-expanded="true"] .chevron {
+  transform: rotate(90deg);
+}
+
+.mark {
+  flex: 0 0 auto;
+  align-self: center;
+  width: 1rem;
+  height: 1rem;
+  color: var(--muted-foreground);
+}
+
+.mark[data-status="added"] {
+  color: var(--diff-add-tone);
+}
+
+.mark[data-status="deleted"] {
+  color: var(--diff-del-tone);
+}
+
+.path {
+  flex: 999 1 12ch;
+  min-width: 0;
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+
+.pathDir {
+  color: var(--muted-foreground);
+}
+
+.pathBase {
+  font-weight: 600;
+}
+
+.statusWord {
+  color: var(--muted-foreground);
+  font-size: 0.625rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.statusWord[data-status="added"] {
+  color: var(--diff-add-tone);
+  font-weight: 600;
+}
+
+.statusWord[data-status="deleted"] {
+  color: var(--diff-del-tone);
+  font-weight: 600;
+}
+
+.fileMeta {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0 var(--diff-pad-x);
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.fileMeta p {
+  margin: 0;
+}
+
+.fileNote {
+  color: var(--foreground);
+}
+
+/* ── Code well ──────────────────────────────────────────── */
+
+/* Changed span inside a line: tint and weight, so it holds up without colour. */
+
+/* Rows that span the table: kept at the left edge and the well's width while the code scrolls. */
+.sticky {
+  position: sticky;
+  inset-inline-start: 0;
+  inline-size: fit-content;
+  max-inline-size: 100cqw;
+}
+
+.hunkHead > td {
+  padding: var(--spacing-stack-xs) var(--spacing-inset-sm);
+  background: color-mix(in oklab, var(--muted) 60%, transparent);
+  color: var(--muted-foreground);
+}
+
+.hunkSection {
+  margin-left: var(--spacing-inline-sm);
+  color: var(--foreground);
+  white-space: pre;
+}
+
+.root[data-wrap="true"] .hunkSection {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.gap > td,
+.fold > td {
+  padding: 0 var(--spacing-inset-sm);
+  border-block: 1px solid color-mix(in oklab, var(--code-border) 65%, transparent);
+  background: color-mix(in oklab, var(--code-foreground) 2.5%, transparent);
+  color: var(--code-muted-foreground);
+  font-family: inherit;
+}
+
+.gap .sticky {
+  padding: var(--spacing-stack-xs) 0;
+  font-style: italic;
+}
+
+.fold .btn {
+  min-height: 1.5rem;
+  padding: 0 var(--spacing-inset-sm);
+  font-family: inherit;
+}
+
+/* ── Annotations ────────────────────────────────────────── */
+
+.annotation > td {
+  padding: var(--spacing-stack-xs) var(--spacing-inset-sm);
+  background: color-mix(in oklab, var(--background) 70%, transparent);
+  font-family: inherit;
+}
+
+.note {
+  display: grid;
+  gap: 2px;
+  max-inline-size: min(100cqw, 44rem);
+  padding: var(--spacing-stack-xs) var(--spacing-inset-md);
+  border-inline-start: 3px solid var(--muted-foreground);
+  font-family: var(--font-satoshi), sans-serif;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.note[data-kind="issue"] {
+  border-inline-start-color: var(--destructive);
+  border-inline-start-style: double;
+}
+
+.note[data-kind="suggestion"] {
+  border-inline-start-color: var(--accent);
+  border-inline-start-style: dashed;
+}
+
+.noteKind {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.note[data-kind="issue"] .noteKind {
+  color: var(--diff-del-tone);
+}
+
+.note[data-kind="suggestion"] .noteKind {
+  color: var(--diff-add-tone);
+}
+
+.noteText {
+  margin: 0;
+}
+
+.unplaced {
+  display: grid;
+  gap: var(--spacing-stack-xs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.unplaced .note {
+  max-inline-size: none;
+}
+
+.unplacedLabel {
+  margin: 0;
+  padding: 0 var(--diff-pad-x);
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+}
+
+/* ── Notices ────────────────────────────────────────────── */
+
+.notice {
+  margin: 0;
+  padding: var(--spacing-stack-xs) var(--diff-pad-x);
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.plain {
+  margin: 0;
+  max-height: 24rem;
+  padding: var(--spacing-stack-sm) var(--spacing-inset-md);
+  overflow: auto;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: 0.75rem;
+  line-height: 1.6;
+  white-space: pre;
+}
+
+/* ── Forced colours, motion ─────────────────────────────── */
+
+@media (forced-colors: active) {
+  .btn:focus-visible,
+  button.toggle:focus-visible,
+  button.indexItem:focus-visible {
+    outline: 2px solid CanvasText;
+    outline-offset: 1px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .btn,
+  button.toggle,
+  button.indexItem {
+    transition: background-color 120ms ease-out;
+  }
+
+  .chevron {
+    transition: transform 120ms ease-out;
+  }
+}
+
+/*
+ * Phone: the same facts, quieter. The status word is spoken but not drawn (the mark, the tint and
+ * the counts already say it), and a hunk head is a slim divider rather than a bar.
+ */
+@media (max-width: 40rem) {
+  .statusWord {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .hunkHead > td {
+    padding-block: 2px;
+    background: transparent;
+    border-block: 1px solid color-mix(in oklab, var(--code-border) 65%, transparent);
+    font-size: 0.6875rem;
+  }
+}

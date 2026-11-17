@@ -39,6 +39,7 @@ export type VoiceCaption = {
 };
 
 export type VoiceConnectOptions = {
+  continuity?: import("@/lib/continuity/schema").ContinuitySelection;
   stage?: boolean;
   stageSettings?: StageTurnSettings;
   voice?: SpeakRealtimeVoice;
@@ -109,7 +110,11 @@ export type VoiceSessionValue = {
   setSuppressHostBar: (next: boolean) => void;
 };
 
-const VoiceSessionContext = createContext<VoiceSessionValue | null>(null);
+/**
+ * Exported so the CoreInput lab can supply a stubbed session and render the real live bar
+ * without opening a call. Production code reads it through `useVoiceSession`.
+ */
+export const VoiceSessionContext = createContext<VoiceSessionValue | null>(null);
 
 /**
  * Owns the Realtime session for the entire app.

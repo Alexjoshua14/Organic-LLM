@@ -39,7 +39,8 @@ import { stampTurnWithActivatedMemories } from "@/lib/chat/stamp-activated-memor
 import { expandActivatedMemoriesForModel } from "@/lib/memory/activated-thread-memories";
 import { resolveMemoryEnabledForExperience } from "@/lib/chat/chat-experience";
 import { getLastUserMessageText } from "@/lib/arcadia/help-response";
-import { loadUserConnectorsProfile } from "@/lib/connectors/user-connectors-store";
+import { loadUserConnectorsForTurn } from "@/lib/connectors/durable-ergon-status";
+import { startErgonConnectionSnapshot } from "@/lib/llm/ergon-config";
 import { compileChatTools } from "@/lib/llm/compile-chat-tools";
 import { getHardSetSubagent } from "@/lib/llm/subagents/hard-set/registry";
 import { getChatModel } from "@/lib/llm/helpers";
@@ -120,6 +121,12 @@ export async function runQueuedChatTurn(args: {
 
   const assistantMessageId = randomUUID();
   const threadHasTitlePromise = getThreadHasTitle(chatId);
+  // Started now so the reads overlap the message save instead of following it. The Ergon
+  // connection is read once and shared by the tool gate and the worktable status. Neither promise
+  // rejects: failures are logged and the turn runs without that data.
+  const ergonConnectionPromise = startErgonConnectionSnapshot(sbUserId);
+  const userConnectorsPromise =
+    experience === "arcadia" ? loadUserConnectorsForTurn(sbUserId, ergonConnectionPromise) : null;
 
   const userMessageSave = isHeartbeat
     ? Promise.resolve()
@@ -148,10 +155,7 @@ export async function runQueuedChatTurn(args: {
       // `after()` (nested inside the queue route's `after` drain).
       let multitask: PrepareMultitaskTurnResult | null = null;
 
-      const userConnectors =
-        experience === "arcadia"
-          ? await loadUserConnectorsProfile(clerkUserId).catch(() => null)
-          : null;
+      const userConnectors = userConnectorsPromise ? await userConnectorsPromise : null;
 
       if (experience === "arcadia") {
         multitask = await prepareArcadiaMultitaskTurn({
@@ -235,8 +239,16 @@ export async function runQueuedChatTurn(args: {
         sbUserId,
       });
 
-      for (const fragment of multitask?.systemFragments ?? []) {
-        systemPromptForRequest = `${systemPromptForRequest}\n\n${fragment}`;
+      // The orchestrator's board, worktable, and routing change every turn: send them after the
+      // conversation (see withTurnContext) so the system prompt stays cacheable. A subagent's
+      // fragments are its fixed identity and stay in the system prompt.
+      const turnContext =
+        multitask?.role === "orchestrator" ? multitask.systemFragments : ([] as string[]);
+
+      if (multitask && multitask.role !== "orchestrator") {
+        for (const fragment of multitask.systemFragments) {
+          systemPromptForRequest = `${systemPromptForRequest}\n\n${fragment}`;
+        }
       }
 
       const messages = await convertToModelMessages(
@@ -246,6 +258,7 @@ export async function runQueuedChatTurn(args: {
 
       const shellAgent = getHardSetSubagent(multitask?.hardSetAgentId);
       const compiledTools = await compileChatTools({
+        ergonConnection: ergonConnectionPromise,
         useSearch: shellAgent?.tools.webSearch ?? payload.webSearch ?? false,
         useResearch: shellAgent?.tools.research ?? false,
         useChronos: shellAgent?.tools.chronos ?? false,
@@ -292,7 +305,7 @@ export async function runQueuedChatTurn(args: {
       );
 
       const inputTokenEstimate = estimateLlmInputTokens({
-        systemPrompt: systemPromptWithLength,
+        systemPrompt: [systemPromptWithLength, ...turnContext].join("\n\n"),
         toolInstructions,
         messages: validatedMessages,
       });
@@ -321,7 +334,7 @@ export async function runQueuedChatTurn(args: {
         draftMessage: userMessage,
         validatedMessages,
         contextSystemPrompt: afterContext,
-        finalSystemPrompt: systemPromptWithLength,
+        finalSystemPrompt: [systemPromptWithLength, ...turnContext].join("\n\n"),
         toolInstructions,
         activeToolNames: toolNames,
         tokenBreakdown,
@@ -354,6 +367,7 @@ export async function runQueuedChatTurn(args: {
         effort: payload.effort,
         messages,
         systemPromptWithLength,
+        turnContext,
         tools,
         hasTools,
         maxSteps,

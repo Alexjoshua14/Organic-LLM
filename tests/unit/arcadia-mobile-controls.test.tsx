@@ -4,7 +4,8 @@ import { memo, useState } from "react";
 import { SendTargetPicker } from "@/app/sandbox/arcadia/_components/send-target-picker";
 import { SubagentSwipeRow } from "@/app/sandbox/arcadia/_components/subagent-swipe-row";
 import { MultitaskDashboard } from "@/app/sandbox/arcadia/_components/multitask-dashboard";
-import { ArcadiaMultitaskProvider } from "@/app/sandbox/arcadia/_components/multitask-provider";
+import { ArcadiaMultitaskProvider, useArcadiaMultitask } from "@/app/sandbox/arcadia/_components/multitask-provider";
+import { useMultitaskConversationHidden } from "@/app/sandbox/arcadia/_components/multitask-composer-slot";
 import { SidebarProvider } from "@/components/third-party/ui/sidebar";
 import { FeatureHint } from "@/components/onboarding/feature-hint";
 import {
@@ -32,6 +33,19 @@ const agents: ArcadiaSubagent[] = [
     modelId: "anthropic/claude-sonnet-4.6",
   },
 ];
+
+function DraftProbe() {
+  const conversationHidden = useMultitaskConversationHidden();
+  const { sendTarget } = useArcadiaMultitask();
+  return (
+    <input
+      aria-label="Draft"
+      defaultValue="Keep this draft"
+      data-conversation-hidden={conversationHidden}
+      data-recipient={sendTarget.kind === "subagent" ? sendTarget.agentId : "orchestrator"}
+    />
+  );
+}
 
 describe("mobile multiagent controls", () => {
   test("opening multiagent mode notifies the first-use guide without navigation", () => {
@@ -68,7 +82,7 @@ describe("mobile multiagent controls", () => {
       const previousFetch = globalThis.fetch;
       const previousMedia = window.matchMedia;
       globalThis.fetch = (async () =>
-        Response.json({ enabled: true, activeStreamId: null, subagents: [] })) as typeof fetch;
+        Response.json({ enabled: true, activeStreamId: null, subagents: agents })) as typeof fetch;
       window.matchMedia = ((query: string) => ({
         matches: condensed && query.includes("max-width"),
         media: query,
@@ -91,7 +105,7 @@ describe("mobile multiagent controls", () => {
                     initialMultitaskView
                   >
                     <MultitaskDashboard>
-                      <input aria-label="Draft" defaultValue="Keep this draft" />
+                      <DraftProbe />
                     </MultitaskDashboard>
                   </ArcadiaMultitaskProvider>
                 </SidebarProvider>
@@ -100,6 +114,8 @@ describe("mobile multiagent controls", () => {
           );
         });
         const draft = app.getByRole("textbox", { name: "Draft" });
+        expect(draft.getAttribute("data-conversation-hidden")).toBe("false");
+        fireEvent.change(draft, { target: { value: "New instructions" } });
         expect(
           app
             .getByRole("button", { name: "Orchestrator", exact: true })
@@ -116,7 +132,11 @@ describe("mobile multiagent controls", () => {
           ).toBe("Control+W");
           const layout = draft.closest("section")!.parentElement!;
           const columns = layout.style.gridTemplateColumns;
-          const select = app.getAllByRole("button", { name: /^View / })[0];
+          // Unused roster slots stay hidden; choosing a recipient makes it available.
+          expect(app.queryByRole("button", { name: /^View / })).toBeNull();
+          fireEvent.click(app.getByRole("button", { name: "Orchestrator", exact: true }));
+          fireEvent.click(app.getByRole("button", { name: "Lyra", exact: true }));
+          const select = app.getByRole("button", { name: "View Lyra", exact: true });
           fireEvent.pointerDown(select);
           fireEvent.focusIn(select);
           fireEvent.click(select);
@@ -128,12 +148,22 @@ describe("mobile multiagent controls", () => {
           app.getByRole("button", { name: condensed ? "Agents" : "Hide chat", exact: true })
         );
         expect(draft.isConnected).toBe(true);
-        expect(draft.closest("section")?.getAttribute("aria-hidden")).toBe("true");
+        expect(draft.closest("section")?.getAttribute("aria-hidden")).toBe(condensed ? null : "true");
+        expect(draft.getAttribute("data-conversation-hidden")).toBe(String(condensed));
+        if (condensed) {
+          expect(app.getByRole("region", { name: "Subagent board" })).toBeTruthy();
+          expect(app.getByRole("region", { name: "Message composer" }).contains(draft)).toBe(true);
+          fireEvent.click(app.getByRole("button", { name: "Orchestrator", exact: true }));
+          fireEvent.click(app.getByRole("button", { name: "Lyra", exact: true }));
+          expect(draft.getAttribute("data-recipient")).toBe("agent-researcher");
+        }
         fireEvent.click(
           app.getByRole("button", { name: condensed ? "Chat" : "Show chat", exact: true })
         );
         expect(app.getByRole("textbox", { name: "Draft" }) === draft).toBe(true);
-        expect((draft as HTMLInputElement).value).toBe("Keep this draft");
+        expect((draft as HTMLInputElement).value).toBe("New instructions");
+        expect(draft.getAttribute("data-conversation-hidden")).toBe("false");
+        if (condensed) expect(draft.getAttribute("data-recipient")).toBe("agent-researcher");
       } finally {
         cleanup();
         globalThis.fetch = previousFetch;

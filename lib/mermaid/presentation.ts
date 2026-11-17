@@ -10,9 +10,14 @@ export const mermaidWellClass = cn(
   "overflow-hidden"
 );
 
+/**
+ * No `justify-center` on the scroller: centering a flex child that overflows clips its left
+ * edge beyond reach. The svg centers itself with auto margins (see applyMermaidGlassStyles), which
+ * fall back to the start edge when the diagram is wider than the well.
+ */
 export const mermaidWellInnerClass = cn(
-  "relative flex min-h-[4.5rem] justify-center overflow-x-auto px-3 py-4",
-  "[&_.mermaid]:my-0 [&_svg]:h-auto [&_svg]:max-w-none"
+  "relative flex min-h-[4.5rem] overflow-x-auto px-3 py-4",
+  "[&_.mermaid]:my-0 [&_svg]:h-auto"
 );
 
 /** Staged reveal on first paint (opacity only — no layout animation). */
@@ -25,11 +30,17 @@ export const mermaidRevealClass = cn(
 export const mermaidControlsClass = cn(
   "pointer-events-none absolute right-2 top-2 z-10 flex gap-1",
   "opacity-0 transition-opacity duration-200",
-  "group-hover/mermaid-well:opacity-100 group-focus-within/mermaid-well:opacity-100"
+  "group-hover/mermaid-well:opacity-100 group-focus-within/mermaid-well:opacity-100",
+  // No hover on a touch screen: the controls stay put.
+  "max-sm:opacity-100 pointer-coarse:opacity-100"
 );
+
+/** Room above the diagram for the always-visible phone controls, so they never sit on a node. */
+export const mermaidControlsGutterClass = "max-sm:pt-12";
 
 export const mermaidControlButtonClass = cn(
   "pointer-events-auto grid size-7 place-content-center rounded-md",
+  "max-sm:size-10 pointer-coarse:size-11",
   "border border-border/50 bg-background/80 text-muted-foreground backdrop-blur-sm",
   "hover:bg-background hover:text-foreground",
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -65,9 +76,9 @@ export function buildMermaidGlassStyleMarkup(): string {
       stroke: color-mix(in srgb, var(--foreground, #20252b) 28%, transparent) !important;
       stroke-width: 1.2px !important;
     }
-    [data-organic-mermaid] :is(.cluster rect, .cluster polygon) {
-      fill: color-mix(in srgb, var(--card, #ffffff) 65%, var(--background, #f7f8fa) 35%) !important;
-      stroke: var(--border, #c8cfd5) !important;
+    [data-organic-mermaid] :is(.cluster > rect, .cluster > polygon) {
+      fill: color-mix(in srgb, var(--foreground, #20252b) 4%, transparent) !important;
+      stroke: none !important;
     }
     [data-organic-mermaid] :is(text, tspan, .label, .nodeLabel, .edgeLabel, .cluster-label, foreignObject p, foreignObject span) {
       color: var(--foreground, #20252b) !important;
@@ -84,12 +95,34 @@ export function buildMermaidGlassStyleMarkup(): string {
     [data-organic-mermaid] :is(.edgeLabel rect, .labelBkg) { fill: var(--card, #ffffff) !important; }
     [data-organic-mermaid] .edgeLabel { background: var(--card, #ffffff) !important; }
     [data-organic-mermaid] foreignObject > div { background: transparent !important; }
+    [data-organic-mermaid] .cluster-label :is(text, tspan, span, p, div) {
+      color: var(--muted-foreground, #687480) !important;
+      fill: var(--muted-foreground, #687480) !important;
+      font-size: 11px !important;
+      letter-spacing: 0.02em;
+    }
+    [data-organic-mermaid] .cluster-label rect { fill: none !important; }
     [data-organic-mermaid] g.node[data-mermaid-highlighted="true"] :is(rect, polygon, circle, .node-bkg) { stroke: var(--foreground, #20252b) !important; stroke-width: 2px !important; }
     [data-organic-mermaid] g.node[data-mermaid-dimmed="true"] { opacity: 0.35; }
   `;
 }
 
-export function applyMermaidGlassStyles(svgEl: SVGSVGElement): void {
+/**
+ * An inline diagram shrinks to fit a narrow well, but never below this share of its natural size:
+ * labels are 14px, and past about three quarters they stop being legible. Below it the well
+ * scrolls sideways instead.
+ */
+export const MERMAID_MIN_FIT_SCALE = 0.75;
+
+type GlassStyleOptions = {
+  /** Shrink to the well's width, down to MERMAID_MIN_FIT_SCALE. Off where the diagram is panned. */
+  fit?: boolean;
+};
+
+export function applyMermaidGlassStyles(
+  svgEl: SVGSVGElement,
+  { fit = false }: GlassStyleOptions = {}
+): void {
   svgEl.querySelector(`#${MERMAID_GLASS_STYLE_ID}`)?.remove();
 
   svgEl.setAttribute("data-organic-mermaid", "");
@@ -98,6 +131,7 @@ export function applyMermaidGlassStyles(svgEl: SVGSVGElement): void {
   styleEl.setAttribute("id", MERMAID_GLASS_STYLE_ID);
   styleEl.textContent = buildMermaidGlassStyleMarkup();
   svgEl.prepend(styleEl);
+  tuckGroupLabels(svgEl);
   // Mermaid can emit inline HTML label colors; put semantic ink above those declarations.
   svgEl
     .querySelectorAll<HTMLElement>(
@@ -109,9 +143,45 @@ export function applyMermaidGlassStyles(svgEl: SVGSVGElement): void {
   const viewBox = svgEl.viewBox?.baseVal;
 
   if (viewBox?.width > 0) {
-    svgEl.style.width = `${viewBox.width}px`;
-    svgEl.style.maxWidth = "none";
+    svgEl.style.display = "block";
+    svgEl.style.marginInline = "auto";
     svgEl.style.height = "auto";
-    svgEl.style.flexShrink = "0";
+    svgEl.style.width = `${viewBox.width}px`;
+    svgEl.style.maxWidth = fit ? "100%" : "none";
+    svgEl.style.minWidth = fit ? `${Math.round(viewBox.width * MERMAID_MIN_FIT_SCALE)}px` : "";
   }
+}
+
+/** Room between a group's corner and its label, in SVG units. */
+const GROUP_LABEL_INSET = 8;
+/** Rounded corners for the tint behind a group. */
+const GROUP_RADIUS = 12;
+
+/**
+ * A group (subgraph) reads as a faint tint behind its nodes with a small label in its top-left
+ * corner. Mermaid centres the title on the top edge, where edges entering the group cross it;
+ * the corner keeps it out of their way. Runs after the theme styles apply, because the label's
+ * size depends on them.
+ */
+function tuckGroupLabels(svgEl: SVGSVGElement) {
+  svgEl.querySelectorAll<SVGGElement>("g.cluster").forEach((group) => {
+    const box = group.querySelector<SVGRectElement>(":scope > rect");
+    const label = group.querySelector<SVGGElement>(":scope > .cluster-label");
+
+    if (!box) return;
+    box.setAttribute("rx", String(GROUP_RADIUS));
+    box.setAttribute("ry", String(GROUP_RADIUS));
+    if (!label) return;
+    try {
+      const area = box.getBBox();
+      const own = label.getBBox();
+
+      label.setAttribute(
+        "transform",
+        `translate(${area.x + GROUP_LABEL_INSET - own.x}, ${area.y + GROUP_LABEL_INSET - own.y})`
+      );
+    } catch {
+      // Not laid out (e.g. a detached test DOM): keep Mermaid's centred title.
+    }
+  });
 }

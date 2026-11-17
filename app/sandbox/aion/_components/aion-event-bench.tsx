@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useAionPresence } from "./aion-presence-provider";
 
@@ -15,19 +15,29 @@ export function AionEventBench({ className }: { className?: string }) {
   const { emit } = useAionPresence();
   const [selectValue, setSelectValue] = useState("option-a");
   const [bursting, setBursting] = useState(false);
+  const burstTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  useEffect(
+    () => () => {
+      burstTimers.current.forEach(clearTimeout);
+    },
+    []
+  );
 
   const fireBurst = () => {
     setBursting(true);
     for (let i = 0; i < 20; i += 1) {
-      window.setTimeout(() => {
-        emit({
-          kind: "button",
-          surface: "event-bench",
-          label: "Burst click",
-          payload: { index: i },
-        });
-        if (i === 19) setBursting(false);
-      }, i * 40);
+      burstTimers.current.push(
+        setTimeout(() => {
+          emit({
+            kind: "button",
+            surface: "event-bench",
+            label: "Burst click",
+            payload: { index: i },
+          });
+          if (i === 19) setBursting(false);
+        }, i * 40)
+      );
     }
   };
 

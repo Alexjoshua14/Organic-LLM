@@ -3,6 +3,7 @@
  */
 export const CHAT_EXPERIENCES = [
   "arcadia",
+  "aion",
   "topic_explore",
   "strata_hub",
   "strata_page",
@@ -61,4 +62,13 @@ export function shouldSkipMemoryWriteForExperience(
   experience: ChatExperience | undefined
 ): boolean {
   return experience === "delphi" || experience === "topic_explore" || experience === "rabbit_hole";
+}
+
+/** Aion's presence lab shares Arcadia's full-turn engine, keeping its own surface identity. */
+export function resolveChatRuntimeExperience(
+  experience: ChatExperience | undefined
+): ChatExperience | undefined;
+export function resolveChatRuntimeExperience(experience: string | undefined): string | undefined;
+export function resolveChatRuntimeExperience(experience: string | undefined): string | undefined {
+  return experience === "aion" ? "arcadia" : experience;
 }

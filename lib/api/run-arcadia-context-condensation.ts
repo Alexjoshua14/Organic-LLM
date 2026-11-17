@@ -1,5 +1,6 @@
 import { getMessages } from "@/data/supabase/chat";
 import { selectArcadiaContextMessages } from "@/lib/chat/arcadia-token-context";
+import { messageTextTokenCountSync } from "@/lib/chat/token-count";
 import {
   condenseArcadiaContext,
   filterCondenseCandidates,
@@ -36,7 +37,9 @@ export async function runArcadiaContextCondensation(
   }
 
   const allMessages = allMessagesResult.data;
-  const selection = selectArcadiaContextMessages(allMessages);
+  const selection = selectArcadiaContextMessages(allMessages, {
+    countTokens: messageTextTokenCountSync,
+  });
 
   if (!selection.needsCondensation || selection.messagesToCondense.length === 0) {
     logger.log("runArcadiaContextCondensation", "No condensation needed", { chatId });

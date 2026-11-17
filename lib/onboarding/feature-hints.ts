@@ -112,8 +112,8 @@ export const FEATURE_HINTS: Record<FeatureHintId, FeatureHintDefinition> = {
   "noesis-steer-assist": {
     id: "noesis-steer-assist",
     enabled: true,
-    title: "Steer assist",
-    body: "Shape how reply suggestions should sound — notes feed Suggest my reply, not the chat. ⌘/Ctrl+Enter runs steer on your draft.",
+    title: "Tune",
+    body: "Shape how reply suggestions should sound — notes feed Suggest my reply, not the chat. ⌘/Ctrl+Enter runs Tune on your draft.",
     version: 2,
     presentation: "spotlight",
     side: "top",

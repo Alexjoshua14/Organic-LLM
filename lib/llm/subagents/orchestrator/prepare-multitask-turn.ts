@@ -9,6 +9,7 @@ import type {
 } from "@/lib/llm/subagents/threads/snapshot";
 import type { SubagentThreadStatus } from "@/lib/llm/subagents/threads/status";
 import type { WorktableSession, WorktableStore } from "@/lib/llm/subagents/worktable/session";
+import type { UsageCostSum } from "@/data/supabase/llm-usage";
 import type {
   WorkerInputRequest,
   WorkerInputInspection,
@@ -23,6 +24,7 @@ import {
 import {
   isOrchestratorDispatchEnabled,
   ORCHESTRATOR_MAX_AUTONOMOUS_DISPATCHES,
+  getAutonomousSpendLimitUsd,
   RABBIT_HOLE_MAX_DISPATCHES_PER_TURN,
 } from "@/lib/llm/subagents/orchestrator/constants";
 import { dispatchMultitaskInbound } from "@/lib/llm/subagents/orchestrator/dispatch-inbound";
@@ -100,6 +102,8 @@ export type MultitaskTurnDeps = {
   }): Promise<void>;
   /** The orchestrator thread's worktable store. Absent means the worktable is unavailable. */
   openWorktable?(threadId: string): WorktableStore;
+  /** Owner's billed spend since `since`. Absent: automatic turns are bounded by count alone. */
+  sumSpendSince?(since: Date): Promise<UsageCostSum>;
   router?: ThoughtRouter;
 };
 
@@ -135,7 +139,10 @@ export type PrepareMultitaskTurnResult = {
   role: "orchestrator" | "subagent";
   /** Set only for an owned child, not a standalone persona shell. */
   parentThreadId?: string;
-  /** Appended to the turn's system prompt, in order. */
+  /**
+   * In order. An orchestrator's are sent after the conversation as turn context; a subagent's
+   * are appended to its system prompt.
+   */
   systemFragments: string[];
   /** True when this orchestrator has at least one subagent thread (gates the reader tool). */
   hasSubagentThreads: boolean;
@@ -273,20 +280,37 @@ export async function prepareArcadiaMultitaskTurn(
       (!orchestratorDispatch || resolveMultitaskSendTarget(input.sendTarget).kind === "subagent");
     let worktable: WorktableSession | null = null;
     let autonomousRemaining: number | null = null;
+    let autonomousStop: "spend" | undefined;
 
     if (orchestratorDispatch) {
       worktable = deps.openWorktable ? createWorktableSession(deps.openWorktable(chatId)) : null;
       let table = worktable ? await worktable.read() : null;
 
       // The user spoke: automatic turns get their full allowance back.
-      if (worktable && table && !autonomous && table.autonomousDispatches > 0) {
+      if (
+        worktable &&
+        table &&
+        !autonomous &&
+        (table.autonomousDispatches > 0 || table.autonomousSince)
+      ) {
         const reset = await worktable.mutate((t) => ({
           ok: true as const,
-          worktable: { ...t, autonomousDispatches: 0 },
+          worktable: { ...t, autonomousDispatches: 0, autonomousSince: null },
           value: null,
         }));
 
         if (reset.ok) table = reset.worktable;
+      }
+      // First automatic turn since the user spoke: start the spend window here.
+      if (worktable && table && autonomous && !table.autonomousSince) {
+        const at = new Date(now()).toISOString();
+        const started = await worktable.mutate((t) => ({
+          ok: true as const,
+          worktable: { ...t, autonomousSince: t.autonomousSince ?? at },
+          value: null,
+        }));
+
+        if (started.ok) table = started.worktable;
       }
       if (!table) worktable = null;
 
@@ -299,6 +323,19 @@ export async function prepareArcadiaMultitaskTurn(
             );
 
         autonomousRemaining = Math.max(0, ORCHESTRATOR_MAX_AUTONOMOUS_DISPATCHES - used);
+
+        if (autonomousRemaining > 0 && table?.autonomousSince && deps.sumSpendSince) {
+          const spend = await deps.sumSpendSince(new Date(table.autonomousSince));
+
+          // Fail closed on a read error; a missing ledger (unmigrated) leaves the count cap.
+          if (
+            spend.status === "error" ||
+            (spend.status === "ok" && spend.usd >= getAutonomousSpendLimitUsd())
+          ) {
+            autonomousRemaining = 0;
+            autonomousStop = "spend";
+          }
+        }
       }
 
       const budgetSnapshot =
@@ -316,6 +353,7 @@ export async function prepareArcadiaMultitaskTurn(
           snapshots,
           autonomous,
           autonomousRemaining,
+          autonomousStop,
           budget: budgetSnapshot,
           maxDispatchesPerTurn: input.maxDispatchesPerTurn,
           connectors: input.userConnectors,

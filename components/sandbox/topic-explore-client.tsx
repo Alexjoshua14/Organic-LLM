@@ -662,7 +662,7 @@ export function TopicExploreClient({ chatData }: TopicExploreClientProps) {
             modelRef={selectedModelRef}
             onComposerTextChange={setComposerDraft}
             secondarySubmitDisabled={steerPending || status !== "ready"}
-            secondarySubmitLabel="Steer assist"
+            secondarySubmitLabel="Tune"
             secondarySubmitPending={steerPending}
             sendMessage={sendMessage}
             status={status}

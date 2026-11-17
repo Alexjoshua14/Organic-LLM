@@ -15,7 +15,17 @@ import { useVoiceSessionOptional } from "./voice-session-provider";
  * `bottom-[calc(100%-0.5rem)]` is the tuck: 8px of the bar sits behind the composer's rounded
  * top edge, which is what sells the drawer rather than a floating pill.
  */
-export function CoreInputVoiceDrawerSlot({ includePending = false }: { includePending?: boolean }) {
+export function CoreInputVoiceDrawerSlot({
+  includePending = false,
+  inline = false,
+}: {
+  includePending?: boolean;
+  /**
+   * Sit in flow as a flexible cell of a row (CoreInput's strip, beside the steer tab) instead of
+   * floating absolutely above the composer. The bar slides in just the same.
+   */
+  inline?: boolean;
+}) {
   const session = useVoiceSessionOptional();
   const ref = useRef<HTMLDivElement | null>(null);
   const setBarContainer = session?.setBarContainer;
@@ -36,7 +46,11 @@ export function CoreInputVoiceDrawerSlot({ includePending = false }: { includePe
           ? undefined
           : true
       }
-      className="pointer-events-none absolute inset-x-2 bottom-[calc(100%-0.5rem)] z-30 flex justify-center"
+      className={
+        inline
+          ? "pointer-events-none relative flex min-w-0 flex-1 justify-center"
+          : "pointer-events-none absolute inset-x-2 bottom-[calc(100%-0.5rem)] z-30 flex justify-center"
+      }
     />
   );
 }

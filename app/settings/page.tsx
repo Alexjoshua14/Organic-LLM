@@ -8,6 +8,7 @@ import { X } from "lucide-react";
 import { Switch } from "@/components/design-system/switch";
 import { BackgroundActivitySetting } from "@/components/settings/background-activity-setting";
 import { LightweightModeSetting } from "@/components/settings/lightweight-mode-setting";
+import { PerformanceMetricsSetting } from "@/components/settings/performance-metrics-setting";
 import Page from "@/components/layout/page";
 import { PageTopBar } from "@/components/layout/page-top-bar";
 import { ReturnButton } from "@/components/ReturnButton";
@@ -310,6 +311,7 @@ export default function SettingsPage() {
                     }}
                   />
                 </SettingsRow>
+                <PerformanceMetricsSetting />
                 <DangerZone>
                   <AccountDeletion />
                 </DangerZone>

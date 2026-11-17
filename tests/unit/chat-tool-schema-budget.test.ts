@@ -1,9 +1,10 @@
-import { describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { generateText } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 
 import { compileChatTools } from "@/lib/llm/compile-chat-tools";
 import { createErgonTicketTools } from "@/lib/llm/ergon-ticket-tools";
+import { installConnectedErgon, uninstallConnectedErgon } from "../helpers/ergon-connected";
 import { createOrchestratorTools } from "@/lib/llm/subagents/orchestrator/orchestrator-tools";
 
 // Anthropic's compilation budget is request-wide. Count oneOf too, conservatively,
@@ -18,6 +19,10 @@ function unionCount(schema: unknown): number {
     Number(union) + Object.values(node).reduce<number>((sum, child) => sum + unionCount(child), 0)
   );
 }
+
+// Ergon ticket tools only register for a user with their own connection.
+beforeAll(() => installConnectedErgon({ owner: "synthetic-owner" }).then(() => undefined));
+afterAll(uninstallConnectedErgon);
 
 describe("chat tool schema compilation budget", () => {
   for (const chatStyle of [undefined, "ergon", "remy"] as const) {
@@ -35,16 +40,7 @@ describe("chat tool schema compilation budget", () => {
       const unused = async () => {
         throw new Error("Schema checks must not execute tools");
       };
-      const ticketTools = await createErgonTicketTools("synthetic-owner", {
-        env: {
-          ERGON_URL: "https://ergon.example.com",
-          ERGON_TOKEN: "test-only",
-          ERGON_OWNER_PROFILE_ID: "synthetic-owner",
-        },
-        loadConnection: async () => null,
-        resolveToken: async () => null,
-        fetch: unused,
-      });
+      const ticketTools = await createErgonTicketTools("synthetic-owner", { callTool: unused });
       const tools = {
         ...compiled.tools,
         ...ticketTools,

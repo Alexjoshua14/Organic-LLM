@@ -75,6 +75,7 @@ export function createScreenContextDelivery({
   let claimedKey: string | null = null;
   /** Our id for the screen item in the conversation, so the next push can delete it. */
   let itemId: string | null = null;
+  let lastBody: string | null = null;
   /** Never reset: ids stay unique across reconnects within the page. */
   let seq = 0;
 
@@ -113,6 +114,21 @@ export function createScreenContextDelivery({
       if (claimedKey !== key || now.transport !== transport || !now.connected) return;
 
       const body = data.body?.trim() || AMBIENT_CLEARED_BODY;
+
+      // A revision can change while its bounded server description stays identical. Replacing
+      // that item would invalidate the conversation cache without giving the model new context.
+      if (body === lastBody) {
+        onSnapshot({
+          surfaceKey: key,
+          label: data.label ?? surface.kind,
+          body,
+          reason: data.reason,
+          at: Date.now(),
+        });
+
+        return;
+      }
+
       const next = `${AMBIENT_EVENT_PREFIX}item_${++seq}`;
       const previous = itemId;
 
@@ -124,6 +140,7 @@ export function createScreenContextDelivery({
         })!
       );
       itemId = next;
+      lastBody = body;
 
       if (previous) {
         transport.send(buildAmbientDeleteEvent(previous, `${AMBIENT_EVENT_PREFIX}del_${seq}`));
@@ -145,6 +162,7 @@ export function createScreenContextDelivery({
   function reset() {
     claimedKey = null;
     itemId = null;
+    lastBody = null;
     onSnapshot(null);
   }
 

@@ -19,6 +19,8 @@ import {
   clearAionPresenceLedger,
   emitAionEvent,
   recordAionDecision,
+  setAionPresenceError,
+  setAionPresenceBudget,
   setAionPresenceBusy,
   setAionPresenceDormant,
   setAionPresenceModelId,
@@ -33,7 +35,7 @@ import { createLogger } from "@/lib/logger";
 
 const logger = createLogger("aion-presence-provider");
 
-export type AionChatSend = (text: string, trigger?: AionEvent) => void;
+export type AionChatSend = (text: string) => Promise<void>;
 
 export type AionVoiceBridge = {
   connected: boolean;
@@ -44,6 +46,7 @@ type AionPresenceContextValue = {
   emit: typeof emitAionEvent;
   registerChatSend: (send: AionChatSend | null) => void;
   registerVoiceBridge: (bridge: AionVoiceBridge | null) => void;
+  reportChatStatus: (status: "submitted" | "streaming" | "ready" | "error") => void;
 };
 
 const AionPresenceContext = createContext<AionPresenceContextValue | null>(null);
@@ -72,10 +75,14 @@ export function AionPresenceProvider({
   modelId = models.openai.oss20b.id,
 }: AionPresenceProviderProps) {
   const reduceMotion = useReducedMotion();
+  const mountedRef = useRef(true);
+  const chatBusyRef = useRef(false);
+  const microAbortRef = useRef<AbortController | null>(null);
   const chatSendRef = useRef<AionChatSend | null>(null);
   const voiceBridgeRef = useRef<AionVoiceBridge | null>(null);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingMicroRef = useRef<AionEvent | null>(null);
+  const settleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dormantTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const enabled = useAionPresenceStore((s) => s.enabled);
@@ -93,9 +100,28 @@ export function AionPresenceProvider({
   }, []);
 
   useEffect(() => {
+    if (!enabled) {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      pendingMicroRef.current = null;
+      microAbortRef.current?.abort();
+      if (!chatBusyRef.current) {
+        setAionPresenceBusy(false);
+        setAionPresencePhase("idle");
+      }
+    }
+  }, [enabled]);
+
+  useEffect(() => {
+    mountedRef.current = true;
     scheduleDormancy();
 
     return () => {
+      mountedRef.current = false;
+      chatSendRef.current = null;
+      setAionPresenceBusy(false);
+      setAionPresencePhase("idle");
+      microAbortRef.current?.abort();
+      if (settleTimerRef.current) clearTimeout(settleTimerRef.current);
       if (dormantTimerRef.current) clearTimeout(dormantTimerRef.current);
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     };
@@ -105,7 +131,12 @@ export function AionPresenceProvider({
     async (event: AionEvent) => {
       const state = aionPresenceStore.getState();
 
-      if (state.busy) return;
+      if (state.busy || chatBusyRef.current || !state.enabled) return;
+      const controller = new AbortController();
+
+      microAbortRef.current = controller;
+      setAionPresenceError(null);
+      if (settleTimerRef.current) clearTimeout(settleTimerRef.current);
 
       setAionPresenceBusy(true);
       setAionPresencePhase("thinking");
@@ -113,6 +144,7 @@ export function AionPresenceProvider({
       try {
         const res = await fetch("/api/ai/aion/event", {
           method: "POST",
+          signal: controller.signal,
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             event,
@@ -125,12 +157,18 @@ export function AionPresenceProvider({
         });
         const data = (await res.json()) as AionEventResponse;
 
+        if (controller.signal.aborted) return;
+        if (!res.ok || data.error) {
+          if (data.budget) setAionPresenceBudget(data.budget);
+          throw new Error(data.error ?? "Presence request failed");
+        }
+
         if (data.threadId) setAionPresenceThreadId(data.threadId);
 
         applyAionPresenceTurnResult({
           budget: data.budget ?? null,
           threadId: data.threadId,
-          clearLedger: true,
+          acknowledgedLedger: state.ledger,
           lastTurn: {
             at: Date.now(),
             inputTokens: data.usage?.inputTokens,
@@ -149,11 +187,20 @@ export function AionPresenceProvider({
         } else {
           setAionPresencePhase("responding");
           // Settle back to active after a short presence window.
-          window.setTimeout(() => setAionPresencePhase("active"), reduceMotion ? 0 : 2_000);
+          settleTimerRef.current = setTimeout(
+            () => {
+              if (!aionPresenceStore.getState().busy) setAionPresencePhase("active");
+            },
+            reduceMotion ? 0 : 2_000
+          );
         }
 
         scheduleDormancy();
       } catch (err) {
+        if (controller.signal.aborted) return;
+        setAionPresenceError(
+          "Aion could not process the event. Try another event or continue in chat."
+        );
         logger.error("runMicroTurn", err instanceof Error ? err.message : String(err));
         setAionPresenceBusy(false);
         setAionPresencePhase("idle");
@@ -191,7 +238,7 @@ export function AionPresenceProvider({
       });
 
       if (decision.tier === "none") {
-        setAionPresencePhase(reduceMotion ? "idle" : "active");
+        if (!state.busy) setAionPresencePhase(reduceMotion ? "idle" : "active");
         scheduleDormancy();
 
         return event;
@@ -201,12 +248,28 @@ export function AionPresenceProvider({
         const send = chatSendRef.current;
 
         if (send) {
-          clearAionPresenceLedger();
-          send(`[${event.kind}] ${event.label}`, event);
+          if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+          if (settleTimerRef.current) clearTimeout(settleTimerRef.current);
+          pendingMicroRef.current = null;
+          setAionPresenceBusy(true);
           setAionPresencePhase("thinking");
+          void send(
+            `[${event.kind}] ${event.label}\n\nRecent sandbox events (context only): ${JSON.stringify(state.ledger)}`
+          )
+            .then(() => {
+              if (!mountedRef.current) return;
+              clearAionPresenceLedger(state.ledger);
+            })
+            .catch((err) => {
+              logger.error("fullTurn", err instanceof Error ? err.message : String(err));
+            })
+            .finally(() => {
+              if (!mountedRef.current) return;
+              setAionPresenceBusy(false);
+              setAionPresencePhase("idle");
+            });
         } else {
-          // No chat bridge yet — fall back to micro.
-          void runMicroTurn(event);
+          setAionPresenceError("The conversation is still loading. Try asking again in a moment.");
         }
 
         scheduleDormancy();
@@ -243,6 +306,28 @@ export function AionPresenceProvider({
     [enabled, reduceMotion, runMicroTurn, scheduleDormancy]
   );
 
+  const reportChatStatus = useCallback(
+    (status: "submitted" | "streaming" | "ready" | "error") => {
+      const busy = status === "submitted" || status === "streaming";
+      const wasBusy = chatBusyRef.current;
+
+      chatBusyRef.current = busy;
+      if (busy) {
+        microAbortRef.current?.abort();
+        if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+        if (settleTimerRef.current) clearTimeout(settleTimerRef.current);
+        pendingMicroRef.current = null;
+        setAionPresenceBusy(true);
+        setAionPresencePhase(status === "submitted" ? "thinking" : "responding");
+      } else if (wasBusy) {
+        setAionPresenceBusy(false);
+        setAionPresencePhase("idle");
+        scheduleDormancy();
+      }
+    },
+    [scheduleDormancy]
+  );
+
   const registerChatSend = useCallback((send: AionChatSend | null) => {
     chatSendRef.current = send;
   }, []);
@@ -256,8 +341,9 @@ export function AionPresenceProvider({
       emit: handleEvent,
       registerChatSend,
       registerVoiceBridge,
+      reportChatStatus,
     }),
-    [handleEvent, registerChatSend, registerVoiceBridge]
+    [handleEvent, registerChatSend, registerVoiceBridge, reportChatStatus]
   );
 
   return <AionPresenceContext.Provider value={value}>{children}</AionPresenceContext.Provider>;

@@ -30,6 +30,33 @@ function withNotice(messages: ModelMessage[], notice: string): ModelMessage[] {
   ];
 }
 
+/**
+ * Appends per-turn runtime state (the Arcadia subagent board, worktable, routing) after the
+ * conversation instead of folding it into `instructions`, for the same cache reason as
+ * {@link withNotice}: that state changes on every orchestrator turn, and in the system prompt it
+ * re-billed the whole history uncached each time. Not saved to the thread, so the next turn's
+ * prefix is this turn's history plus its reply.
+ */
+export function withTurnContext(
+  messages: ModelMessage[],
+  fragments: ReadonlyArray<string>
+): ModelMessage[] {
+  if (fragments.length === 0) return messages;
+
+  return [
+    ...messages,
+    {
+      role: "user",
+      content: [
+        {
+          type: "text",
+          text: `<turn_context>\nCurrent state from the chat runtime for this turn, not from the user.\n\n${fragments.join("\n\n")}\n</turn_context>`,
+        },
+      ],
+    },
+  ];
+}
+
 /** Reserve the last model step for a reply instead of ending on tool results. */
 export function prepareChatCompletionStep({
   stepNumber,

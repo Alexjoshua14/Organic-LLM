@@ -9,6 +9,13 @@
 export const VOICE_BAR_HEIGHT_PX = 32;
 
 /**
+ * How far the composer covers the bar's lower edge. `CoreInputVoiceDrawerSlot` tucks the bar by
+ * this much (`bottom-[calc(100%-0.5rem)]`), and CoreInput's strip reuses it so the steer tab
+ * sits at the same depth.
+ */
+export const VOICE_BAR_TUCK_PX = 8;
+
+/**
  * Reveal: the bar starts fully hidden behind the composer and translates up into view.
  * Entrance settles (principle 2), exit clears faster.
  */

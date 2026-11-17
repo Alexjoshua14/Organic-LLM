@@ -1,6 +1,5 @@
 "use client";
 
-import { scan, setOptions } from "react-scan";
 import { useEffect, useState } from "react";
 
 import { MORPH_DEMO_HUD_SIDE_MIN_WIDTH_PX } from "../_lib/morph-demo-layout";
@@ -30,8 +29,25 @@ type MorphDemoReactScanProps = {
  */
 export function MorphDemoReactScan({ debugPanelExpanded = true }: MorphDemoReactScanProps) {
   const [sideDock, setSideDock] = useState(false);
+  const [scanApi, setScanApi] = useState<typeof import("react-scan") | null>(null);
 
   useEffect(() => {
+    if (process.env.NODE_ENV !== "development") return;
+
+    let mounted = true;
+
+    void import("react-scan").then((api) => {
+      if (mounted) setScanApi(api);
+    });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "development") return;
+
     const mql = window.matchMedia(`(min-width: ${MORPH_DEMO_HUD_SIDE_MIN_WIDTH_PX}px)`);
     const sync = () => {
       setSideDock(mql.matches);
@@ -44,9 +60,9 @@ export function MorphDemoReactScan({ debugPanelExpanded = true }: MorphDemoReact
   }, []);
 
   useEffect(() => {
-    if (process.env.NODE_ENV !== "development") return;
+    if (!scanApi) return;
 
-    scan({
+    scanApi.scan({
       animationSpeed: "fast",
       enabled: true,
       showFPS: true,
@@ -54,25 +70,25 @@ export function MorphDemoReactScan({ debugPanelExpanded = true }: MorphDemoReact
       showToolbar: true,
       safeArea: {
         ...SCAN_SAFE_AREA_BASE,
-        right: scanSafeRight(debugPanelExpanded, sideDock),
+        right: 16,
       },
     });
 
     return () => {
-      setOptions({ enabled: false, showToolbar: false });
+      scanApi.setOptions({ enabled: false, showToolbar: false });
     };
-  }, []);
+  }, [scanApi]);
 
   useEffect(() => {
-    if (process.env.NODE_ENV !== "development") return;
+    if (!scanApi) return;
 
-    setOptions({
+    scanApi.setOptions({
       safeArea: {
         ...SCAN_SAFE_AREA_BASE,
         right: scanSafeRight(debugPanelExpanded, sideDock),
       },
     });
-  }, [debugPanelExpanded, sideDock]);
+  }, [scanApi, debugPanelExpanded, sideDock]);
 
   return null;
 }

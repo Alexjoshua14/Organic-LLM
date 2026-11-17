@@ -1,0 +1,70 @@
+/*
+ * Default code block: only what is specific to a fenced block, its header. The surface, scroll
+ * region, rows and actions are the shared primitives in ./code. Design record:
+ * docs/design/code-blocks.md.
+ */
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  min-height: 40px;
+  padding: 2px 8px 2px 14px;
+  border-bottom: 1px solid var(--code-border);
+  background: color-mix(in oklab, var(--code-foreground) 2%, var(--code-background));
+}
+.identity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--code-muted-foreground);
+  font: 12px var(--code-mono);
+}
+.identity svg {
+  flex-shrink: 0;
+}
+.language {
+  color: var(--code-foreground);
+  font-weight: 500;
+}
+.meta {
+  opacity: 0.75;
+  white-space: nowrap;
+}
+.headerActions {
+  margin-left: auto;
+}
+
+/* Mermaid and other non-code fences keep the plain wrapper, with no header chrome. */
+.plain {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Phone: one row. The identity gives way (ellipsis) before the controls do. */
+@media (max-width: 40rem) {
+  .header {
+    flex-wrap: nowrap;
+    gap: 6px;
+    padding: 0 4px 0 12px;
+  }
+  .identity {
+    flex: 1 1 auto;
+    overflow: hidden;
+  }
+  /* The file icon is decoration; the language name says it. */
+  .identity svg {
+    display: none;
+  }
+  .language,
+  .meta {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .headerActions {
+    flex-shrink: 0;
+  }
+}

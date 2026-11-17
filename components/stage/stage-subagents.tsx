@@ -3,9 +3,7 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion, useIsPresent, useReducedMotion } from "framer-motion";
 
-import { STAGE_AGENT_GLASS } from "./stage-agent";
-
-import { OrganicActivityMark } from "@/components/agents/organic-activity-mark";
+import { OrganicAgentMark } from "@/components/agents/organic-agent-mark";
 import { stageAgentReservations } from "@/lib/stage/layout";
 import {
   STAGE_CHILD_RECTS,
@@ -69,9 +67,8 @@ function Child({
         aria-label={`View ${agent.name}’s work`}
         onClick={() => onSelect?.(agent.id)}
       >
-        <OrganicActivityMark
+        <OrganicAgentMark
           className="stage-subagent-mark"
-          glassByState={STAGE_AGENT_GLASS}
           seed={agent.id}
           state={!present ? "complete" : agent.status === "working" ? "working" : "waiting"}
         />

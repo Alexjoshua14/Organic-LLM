@@ -63,6 +63,13 @@ const MERMAID_DIRECTIVE_LINE = /^\s*%%\{.*\}%%\s*$/;
 const MERMAID_INTERACTIVITY_LINE = /^\s*(?:click|href)\b/i;
 
 /**
+ * `classDef`, `style` and `linkStyle` lines. The app's theme owns diagram colors: an authored
+ * fill is fixed for one mode (light paper nodes on a dark page) and wins over the theme.
+ * Classes a node still names (`class A x`, `A:::x`) then style nothing, which Mermaid allows.
+ */
+const MERMAID_STYLING_LINE = /^\s*(?:classDef|style|linkStyle)\s/;
+
+/**
  * Repair the handful of generator mistakes that are unambiguous enough to fix
  * without understanding the surrounding grammar, so the common case never pays
  * for an LLM fix round trip.
@@ -76,6 +83,7 @@ export function repairCommonMermaidMistakes(source: string): string {
     .split("\n")
     .filter((line) => !MERMAID_DIRECTIVE_LINE.test(line))
     .filter((line) => !MERMAID_INTERACTIVITY_LINE.test(line))
+    .filter((line) => !MERMAID_STYLING_LINE.test(line))
     .map((line) =>
       line.replace(MERMAID_LINE_BREAK_TAG, " ").replace(MERMAID_FORBIDDEN_INLINE_TAGS, "")
     )

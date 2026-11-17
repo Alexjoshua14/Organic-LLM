@@ -40,7 +40,7 @@ Canon for the product: what we're building, who owns which kind of truth, how ag
   - [Composer preferences & Auto model](./composer-preferences.md) → [/dev/docs/composer-preferences](https://organic.coalescencelabs.app/dev/docs/composer-preferences)
   - [Feature hints (onboarding)](./feature-hints.md) → [/dev/docs/feature-hints](https://organic.coalescencelabs.app/dev/docs/feature-hints)
 - [Chat tools](./chat-tools.md) — assistant toolbelt (memory, search, Gen UI, Mermaid, kanban, experiences)
-- [Ergon connection](./ergon/README.md) — per-user MCP OAuth Connectors + optional admin REST env fallback
+- [Ergon connection](./ergon/README.md) — per-user MCP OAuth Connectors, durable encrypted connection store
 - [Arcadia sandbox](./arcadia.md)
 - [Arcadia showcase progress](./architecture/decisions/20261009-arcadia-showcase-progress.md) — scripted replay isolated from live worker progress
 - [Chat LLM transparency](./chat-llm-transparency.md)
@@ -51,11 +51,15 @@ Canon for the product: what we're building, who owns which kind of truth, how ag
 
 - **[Design backbone](./design/README.md)** — agent-facing design standards (start here for UI/motion quality)
 - [Sidebar session signals](./design/sidebar-session-signals.md) — experience glyphs, working / new signals, gaze hierarchy
+  - [Code blocks](./design/code-blocks.md) — default fenced-code block, palettes, highlighting
+  - [Focus feedback](./design/focus-feedback.md) — Lumen-based keyboard focus and shared control defaults
+  - [⌘K launcher](./design/launcher.md) — idea switcher: homepage input, recent-idea cards, in-memory cues
   - [Spacing](./design/spacing.md) — stack/gap/inset tokens, card density
   - [Switches & quick settings](./design/switches-and-quick-settings.md) — shared glass switches and compact caption popovers
   - [Context usage](./design/context-usage.md) — composer charts, source colors, percentage ramp, hover labels
   - [Conversation scrolling](./design/conversation-scrolling.md) — native reading, reduced-motion following, and browser regression checks
   - [Reasoning display](./design/reasoning-display.md) — secondary summary typography, stable disclosure, and streaming verification
+  - [Rabbit-hole tool presence](./design/rabbit-hole-tool-presence.md) — data-shaped rabbit-hole cards (article trees, matched articles), dev-only tool details
   - [Subagent identity mark](./design/subagent-identity-mark.md) — SVG dot states, glass diffusion, local layering
   - [Glass distortion](./design/glass-distortion.md) — opt-in source refraction beneath glass, Safari compatibility
   - [Liquid chrome materials](./design/liquid-chrome-materials.md) — theme-specific shader materials, fallbacks, and refraction parity
@@ -96,6 +100,7 @@ Public routes under `/blog` — see the [blog index](../app/blog/page.tsx) or ru
 - [Invites](./invites.md) — invite-only sign-up, branded invitation email, and which surfaces invited accounts can open
 - [Shared gateway visibility](./architecture/decisions/20261009-shared-gateway-visibility.md) — request deduplication, session isolation, fresh server authorization, and identifier logging
 - [Performance journeys](./perf-journeys.md) — dev HUD for home load, Chat, and Arcadia transition timings (`?perf=1`)
+- [Performance metrics](./perf-metrics.md) — anonymous production timings, consent, admin dashboard
 - [Chat and Arcadia initial load](./architecture/decisions/20261009-chat-arcadia-initial-load.md) — direct creation navigation, parallel owned reads, stream resumption, and worker discovery
 - [Strata manual verification](./strata-manual-verification.md)
 - [TTS token tracker](./tts-token-tracker.md) — historical; display components removed

@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { GenUIBlockSchema } from "@/lib/schemas/gen-ui";
 import { httpUrl } from "@/lib/schemas/gen-ui/shared";
+import { StageReadArgsSchema } from "@/lib/stage/voice-read";
 
 /** OpenAI Realtime function-tool shape. */
 export type SpeakRealtimeFunctionTool = {
@@ -95,6 +96,13 @@ export function compileSpeakRealtimeTools(
           "Send the user's request to the central Stage agent. It persists the exchange and asks the designer to create or update canvas widgets when useful. Returns the reply and design status.",
         parameters: toParameters(StageVoiceTurnSchema),
       },
+      {
+        type: "function",
+        name: "read_stage",
+        description:
+          "Read what is actually on the user's Stage: the full text of notes, diagram source, recipes, the latest messages in chat pieces, subagent results, and design status. [Screen] only lists pieces with short previews. Call this silently, without announcing it, whenever you need what a piece says. Pass piece ids or titles from [Screen]; omit them for what is on screen. Set conversation for the latest Stage exchanges. Read-only.",
+        parameters: toParameters(StageReadArgsSchema),
+      },
     ];
   const tools: SpeakRealtimeFunctionTool[] = [];
 
@@ -168,6 +176,7 @@ export function compileSpeakRealtimeTools(
 
 export const SpeakToolNameSchema = z.enum([
   "stage_turn",
+  "read_stage",
   "update_display_text",
   "render_gen_ui",
   "refresh_component",
@@ -211,7 +220,7 @@ export type SpeakToolGate = {
 
 /** Full per-session gate: modality toggles plus the memory opt-in captured at mint. */
 export function isToolAllowedForSession(name: SpeakToolName, gate: SpeakToolGate): boolean {
-  if (name === "stage_turn") return gate.stage === true;
+  if (name === "stage_turn" || name === "read_stage") return gate.stage === true;
   if (gate.stage) return false;
   if (name === "search_memories") return gate.memoryEnabled;
 

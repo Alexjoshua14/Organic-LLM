@@ -179,7 +179,6 @@ export function RabbitHoleArticle({
       if (!parent) return;
 
       const preSnapshot = pre.outerHTML;
-      const preClass = pre.getAttribute("class") ?? "";
       const innerCode = pre.querySelector("code");
       const codeClass = innerCode?.getAttribute("class") ?? "";
       const text = innerCode?.textContent ?? pre.textContent ?? "";
@@ -193,7 +192,7 @@ export function RabbitHoleArticle({
 
       entries.push({ root, mountHost, parent, preSnapshot });
       root.render(
-        <CodeBlock className={preClass || undefined} containerClassName="w-full min-w-0">
+        <CodeBlock containerClassName="w-full min-w-0">
           <code className={codeClass || undefined}>{text}</code>
         </CodeBlock>
       );

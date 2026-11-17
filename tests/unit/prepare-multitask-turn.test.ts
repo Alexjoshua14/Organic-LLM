@@ -8,6 +8,7 @@ import {
   type MultitaskTurnDeps,
   type PrepareMultitaskTurnInput,
 } from "@/lib/llm/subagents/orchestrator/prepare-multitask-turn";
+import { ORCHESTRATOR_MAX_AUTONOMOUS_DISPATCHES } from "@/lib/llm/subagents/orchestrator/constants";
 import { createHeuristicThoughtRouter } from "@/lib/llm/subagents/orchestrator/thought-router";
 import { uiMessageText } from "@/lib/llm/subagents/threads/messages";
 import { emptyWorktable } from "@/lib/llm/subagents/worktable/types";
@@ -237,21 +238,71 @@ describe("Arcadia orchestrator-authored dispatch", () => {
   });
 
   test("the user speaking restores the automatic dispatch allowance; automatic turns do not", async () => {
-    const auto = orchestrating({ autonomousDispatches: 1 });
+    const auto = orchestrating({ autonomousDispatches: ORCHESTRATOR_MAX_AUTONOMOUS_DISPATCHES });
     const autoResult = await prepareArcadiaMultitaskTurn({
       ...auto.input,
       userText: "",
       autonomous: true,
     });
 
-    expect(auto.store.current().autonomousDispatches).toBe(1);
+    expect(auto.store.current().autonomousDispatches).toBe(ORCHESTRATOR_MAX_AUTONOMOUS_DISPATCHES);
     expect(autoResult?.autonomousRemaining).toBe(0);
     expect(autoResult?.systemFragments.join("\n")).toContain("allowance is spent");
 
-    const user = orchestrating({ autonomousDispatches: 3 });
+    const user = orchestrating({
+      autonomousDispatches: 3,
+      autonomousSince: "2026-11-12T07:00:00.000Z",
+    });
 
     await prepareArcadiaMultitaskTurn(user.input);
     expect(user.store.current().autonomousDispatches).toBe(0);
+    expect(user.store.current().autonomousSince).toBeNull();
+  });
+
+  test("a user-requested multi-round run keeps going on automatic turns", async () => {
+    const { input, store } = orchestrating({ autonomousDispatches: 9 });
+    const result = await prepareArcadiaMultitaskTurn({ ...input, userText: "", autonomous: true });
+    const prompt = result?.systemFragments.join("\n") ?? "";
+
+    expect(result?.autonomousRemaining).toBe(ORCHESTRATOR_MAX_AUTONOMOUS_DISPATCHES - 9);
+    expect(prompt).toContain("continue it now");
+    expect(prompt).not.toContain("finish here when possible");
+    // The first automatic turn opens the spend window.
+    expect(store.current().autonomousSince).toEqual(expect.any(String));
+  });
+
+  test("automatic turns stop at the spend ceiling, counted from the first automatic turn", async () => {
+    const since = "2026-11-12T07:00:00.000Z";
+    const { deps, input } = orchestrating({ autonomousSince: since });
+    const sumSpendSince = mock(async () => ({ status: "ok" as const, usd: 50 }));
+
+    Object.assign(deps, { sumSpendSince });
+
+    const result = await prepareArcadiaMultitaskTurn({ ...input, userText: "", autonomous: true });
+
+    expect(sumSpendSince).toHaveBeenCalledWith(new Date(since));
+    expect(result?.autonomousRemaining).toBe(0);
+    expect(result?.systemFragments.join("\n")).toContain("spend ceiling until the user speaks");
+  });
+
+  test("spend under the ceiling leaves the count allowance; an unreadable ledger fails closed", async () => {
+    const under = orchestrating({ autonomousSince: "2026-11-12T07:00:00.000Z" });
+
+    Object.assign(under.deps, { sumSpendSince: async () => ({ status: "ok", usd: 0.4 }) });
+    expect(
+      (await prepareArcadiaMultitaskTurn({ ...under.input, userText: "", autonomous: true }))
+        ?.autonomousRemaining
+    ).toBe(ORCHESTRATOR_MAX_AUTONOMOUS_DISPATCHES);
+
+    const broken = orchestrating({ autonomousSince: "2026-11-12T07:00:00.000Z" });
+
+    Object.assign(broken.deps, {
+      sumSpendSince: async () => ({ status: "error", message: "boom" }),
+    });
+    expect(
+      (await prepareArcadiaMultitaskTurn({ ...broken.input, userText: "", autonomous: true }))
+        ?.autonomousRemaining
+    ).toBe(0);
   });
 
   test("without worktable storage, an automatic turn counts its allowance from thread history", async () => {
@@ -288,8 +339,8 @@ describe("Arcadia orchestrator-authored dispatch", () => {
     const result = await prepareArcadiaMultitaskTurn({ ...input, userText: "", autonomous: true });
     const prompt = result?.systemFragments.join("\n") ?? "";
 
-    expect(result?.autonomousRemaining).toBe(0);
-    expect(prompt).toContain("allowance is spent");
+    expect(result?.autonomousRemaining).toBe(ORCHESTRATOR_MAX_AUTONOMOUS_DISPATCHES - 1);
+    expect(prompt).toContain(`dispatch ${ORCHESTRATOR_MAX_AUTONOMOUS_DISPATCHES - 1} more time(s)`);
   });
 
   test("missing worktable storage still lets the orchestrator dispatch inline", async () => {

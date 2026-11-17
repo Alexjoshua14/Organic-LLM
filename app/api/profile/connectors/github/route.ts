@@ -1,12 +1,16 @@
-import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
+import { requireProfileActor } from "@/lib/api/profile-actor";
 import { fetchGithubConnectorSnapshot } from "@/lib/connectors/github-connector";
 import {
   loadUserConnectorsProfile,
   saveUserConnectorsProfile,
+  UserConnectorsStoreError,
 } from "@/lib/connectors/user-connectors-store";
+import { createLogger } from "@/lib/logger";
 import { normalizeGithubUsername } from "@/lib/schemas/user-connectors";
+
+const logger = createLogger("api/profile/connectors/github");
 
 /**
  * GET /api/profile/connectors/github?username=<handleOrUrl>&refresh=1
@@ -15,17 +19,29 @@ import { normalizeGithubUsername } from "@/lib/schemas/user-connectors";
  * configured GitHub handle (or the provided `username` query parameter).
  */
 export async function GET(req: Request) {
-  const user = await auth();
+  const { actor, error } = await requireProfileActor();
 
-  if (!user?.userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (error) return error;
 
   const url = new URL(req.url);
   const queryUsername = url.searchParams.get("username");
   const forceRefresh = url.searchParams.get("refresh") === "1";
 
-  const stored = await loadUserConnectorsProfile(user.userId);
+  let stored;
+
+  try {
+    stored = await loadUserConnectorsProfile(actor.sbUserId);
+  } catch (err) {
+    logger.error("GET", "Connectors profile store unavailable", {
+      code: err instanceof UserConnectorsStoreError ? (err.code ?? err.operation) : null,
+    });
+
+    return NextResponse.json(
+      { error: "Your connectors profile is temporarily unavailable. Try again shortly." },
+      { status: 503 }
+    );
+  }
+
   const candidate =
     queryUsername?.trim() || stored.githubUsername.trim() || stored.githubUrl.trim();
   const username = normalizeGithubUsername(candidate);
@@ -49,14 +65,26 @@ export async function GET(req: Request) {
     );
   }
 
-  await saveUserConnectorsProfile(user.userId, {
-    githubUsername: result.snapshot.username,
-    githubUrl: result.snapshot.profileUrl,
-    cachedGithubSnapshot: result.snapshot,
-  });
+  // The snapshot is public data we just fetched, so a failed save does not fail the request. It is
+  // logged and reported to the caller instead of being claimed as saved.
+  let persisted = true;
+
+  try {
+    await saveUserConnectorsProfile(actor.sbUserId, {
+      githubUsername: result.snapshot.username,
+      githubUrl: result.snapshot.profileUrl,
+      cachedGithubSnapshot: result.snapshot,
+    });
+  } catch (err) {
+    persisted = false;
+    logger.error("GET", "GitHub snapshot could not be saved", {
+      code: err instanceof UserConnectorsStoreError ? (err.code ?? err.operation) : null,
+    });
+  }
 
   return NextResponse.json({
     data: result.snapshot,
     cached: result.cached,
+    persisted,
   });
 }

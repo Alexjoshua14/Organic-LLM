@@ -17,6 +17,19 @@ import { resolveIntensityTierFromScore } from "@/lib/usage/processing-intensity"
 import { cn } from "@/lib/utils";
 
 export type OrganicActivityMarkProps = {
+  /** Scale blur with width, calibrated to the existing 40px mark. */
+  relativeBlur?: boolean;
+  /**
+   * Multiplies each dot's radius before the background is blurred. 1 keeps the original dots;
+   * larger values leave more ink in the blurred field, so a big mark reads as solid rather
+   * than washed out. Dot spacing and the blur are unchanged.
+   */
+  dotWeight?: number;
+  /**
+   * Blur radius (px) of a frosted layer under everything else: it blurs whatever is behind the
+   * mark. 0 (default) adds no layer, so other marks are unchanged.
+   */
+  underlayBlur?: number;
   state?: AgentDotState;
   size?: "sm" | "md" | "lg";
   seed?: string;
@@ -44,6 +57,9 @@ const SIZE_CLASS = { sm: "size-8", md: "size-10", lg: "size-14" } as const;
 
 /** Owns the local stack and all layer behavior; callers only supply state and dimensions. */
 export function OrganicActivityMark({
+  relativeBlur = false,
+  dotWeight = 1,
+  underlayBlur = 0,
   state = "idle",
   size = "md",
   seed,
@@ -84,14 +100,27 @@ export function OrganicActivityMark({
         "relative isolate shrink-0 overflow-hidden rounded-lg",
         className
       )}
+      style={relativeBlur ? { containerType: "inline-size" } : undefined}
       role={label ? "img" : undefined}
     >
+      {underlayBlur > 0 ? (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 rounded-[inherit]"
+          data-activity-layer="underlay"
+          style={{
+            zIndex: 0,
+            backdropFilter: `blur(${underlayBlur}px)`,
+            WebkitBackdropFilter: `blur(${underlayBlur}px)`,
+          }}
+        />
+      ) : null}
       <div
         ref={backdropRef}
         className="organic-activity-backdrop pointer-events-none absolute inset-0"
         data-activity-layer="backdrop"
         data-activity-state={state}
-        style={{ zIndex: 0, filter: activityBackgroundFilter(initialAppearance) }}
+        style={{ zIndex: 0, filter: activityBackgroundFilter(initialAppearance, relativeBlur) }}
       >
         <GlassBackdrop
           className="absolute inset-0"
@@ -105,9 +134,15 @@ export function OrganicActivityMark({
             // eslint-disable-next-line @next/next/no-img-element -- may be file://, data:, or remote
             <img alt="" className="size-full object-cover" src={imageUrl} />
           ) : renderer === "v0" ? (
-            <AgentDotGrid intensity={normalizedIntensity} seed={seed} state={state} />
+            <AgentDotGrid
+              dotWeight={dotWeight}
+              intensity={normalizedIntensity}
+              seed={seed}
+              state={state}
+            />
           ) : (
             <AdaptiveAgentDotGrid
+              dotWeight={dotWeight}
               intensity={normalizedIntensity}
               performanceId={performanceId}
               seed={seed}
@@ -124,6 +159,7 @@ export function OrganicActivityMark({
         />
       </div>
       <MorphActivityGlass
+        relativeBlur={relativeBlur}
         appearance={appearance}
         backdropRef={backdropRef}
         performanceId={performanceId}

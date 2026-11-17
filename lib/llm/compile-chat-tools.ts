@@ -3,6 +3,7 @@ import type { ChatStyle } from "@/lib/chat/chat-style";
 import type { PrepareMultitaskTurnResult } from "@/lib/llm/subagents/orchestrator/prepare-multitask-turn";
 import type { WorktableSession } from "@/lib/llm/subagents/worktable/session";
 import type { RabbitHoleNodeLike } from "@/lib/llm/subagents/worktable/shorthand";
+import type { ErgonConnectionRecord } from "@/lib/schemas/ergon-connection";
 
 import {
   createResearchTools,
@@ -14,6 +15,7 @@ import {
 } from "@/lib/chat/chat-experience";
 import { createKanbanBoardTool, type KanbanStreamWriter } from "@/lib/llm/kanban-tool";
 import { KANBAN_TOOL_INSTRUCTIONS } from "@/lib/system-prompt/kanban";
+import { startErgonConnectionSnapshot } from "@/lib/llm/ergon-config";
 import { createManageTasksTool } from "@/lib/llm/ergon-tasks-tool";
 import { createErgonTicketTools, ERGON_TICKET_INSTRUCTIONS } from "@/lib/llm/ergon-ticket-tools";
 import { createChronosTools, CHRONOS_TOOL_INSTRUCTIONS } from "@/lib/llm/chronos-mcp-tools";
@@ -110,6 +112,11 @@ export type CompileChatToolsParams = {
   rabbitHoleNodes?: Record<string, RabbitHoleNodeLike> | null;
   /** Subagent mesh orchestrator configuration (enabled in Arcadia and Rabbit Hole). */
   multitaskOrchestrator?: MultitaskOrchestratorCompileInput | null;
+  /**
+   * The user's Ergon connection, read once earlier in the request (see
+   * `startErgonConnectionSnapshot`). When omitted, compilation starts its own single read.
+   */
+  ergonConnection?: Promise<ErgonConnectionRecord | null>;
 };
 
 /**
@@ -138,6 +145,7 @@ async function compileBaseChatTools({
   rabbitHoleRootNodeId,
   rabbitHoleNodes,
   multitaskOrchestrator,
+  ergonConnection,
 }: CompileChatToolsParams): Promise<{ tools: ToolSet; toolInstructions: string }> {
   if (experience === "rabbit_hole" && (rabbitHoleSessionId || multitaskOrchestrator)) {
     const rhTools = createRabbitHoleAssistantTools({
@@ -283,8 +291,14 @@ async function compileBaseChatTools({
   tools["manage_tasks"] = createManageTasksTool();
   toolInstructions += `${MANAGE_TASKS_TOOL_INSTRUCTIONS}\n`;
 
+  // One read of the user's Ergon connection serves every Ergon gate below. Callers that already
+  // started it earlier in the request pass it in, so the round trip overlaps other setup.
+  const ergonSnapshot = ergonConnection ?? startErgonConnectionSnapshot(sbUserId);
+
   // Mira's agents-scoped path stands in for the chat's write ticket tools on her turns.
-  const ticketTools = useErgonAgent ? {} : await createErgonTicketTools(sbUserId);
+  const ticketTools = useErgonAgent
+    ? {}
+    : await createErgonTicketTools(sbUserId, { connectionSnapshot: ergonSnapshot });
 
   if (Object.keys(ticketTools).length > 0) {
     Object.assign(tools, ticketTools);
@@ -299,7 +313,9 @@ async function compileBaseChatTools({
     toolInstructions += `${CHRONOS_TOOL_INSTRUCTIONS}\n`;
   }
 
-  const ergonAgentTools = useErgonAgent ? await createErgonAgentTools(sbUserId) : {};
+  const ergonAgentTools = useErgonAgent
+    ? await createErgonAgentTools(sbUserId, { connectionSnapshot: ergonSnapshot })
+    : {};
 
   if (Object.keys(ergonAgentTools).length > 0) {
     Object.assign(tools, ergonAgentTools);

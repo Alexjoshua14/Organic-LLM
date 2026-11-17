@@ -36,29 +36,33 @@ describe("CoreInput footer placement", () => {
     expect(hasOverflowItems(resolveFooterPlacement(FULL))).toBe(false);
   });
 
-  test("a narrow composer moves speech, preview, and steer into the overflow menu", () => {
+  test("a narrow composer drops speech, moves preview into the overflow menu, and steer into the tab", () => {
     const placement = resolveFooterPlacement({ ...FULL, condensed: true });
 
     expect(placement).toEqual({
       persona: "inline",
       toolToggles: "inline",
-      speech: "menu",
+      speech: "hidden",
       preview: "menu",
       modelEffort: "inline",
       contextEffort: "inline",
       addFiles: "inline",
       threadClipboard: "inline",
       mic: "inline",
-      steer: "menu",
+      steer: "tab",
     });
     expect(hasOverflowItems(placement)).toBe(true);
   });
 
-  test("the compact variant drops search and memory entirely", () => {
+  test("the compact variant keeps search and memory available in its options panel", () => {
     const placement = resolveFooterPlacement({ ...FULL, condensed: true, compact: true });
 
-    expect(placement.toolToggles).toBe("hidden");
-    expect(placement.speech).toBe("menu");
+    expect(placement.toolToggles).toBe("inline");
+    expect(placement.speech).toBe("hidden");
+  });
+
+  test("text-only surfaces do not offer file attachments", () => {
+    expect(resolveFooterPlacement({ ...FULL, hasAttachments: false }).addFiles).toBe("hidden");
   });
 
   test("controls the surface did not opt into are hidden", () => {
@@ -90,12 +94,12 @@ describe("CoreInput footer placement", () => {
     ).toBe(false);
   });
 
-  test("hideWebMemorySpeechToggles hides inline speech but not the menu item", () => {
+  test("hideWebMemorySpeechToggles hides inline speech, and condensed layouts never show it", () => {
     const hidden = { ...FULL, hideWebMemorySpeechToggles: true };
 
     expect(resolveFooterPlacement(hidden).toolToggles).toBe("hidden");
     expect(resolveFooterPlacement(hidden).speech).toBe("hidden");
-    expect(resolveFooterPlacement({ ...hidden, condensed: true }).speech).toBe("menu");
+    expect(resolveFooterPlacement({ ...hidden, condensed: true }).speech).toBe("hidden");
   });
 
   test("the mic hides while the markdown preview replaces the textarea", () => {

@@ -1,14 +1,27 @@
-import { afterEach, describe, expect, mock, test } from "bun:test";
+import { afterAll, afterEach, describe, expect, mock, test } from "bun:test";
 import type { UIMessage } from "ai";
 import { cleanup, fireEvent } from "@testing-library/react";
 
-import { ChatMessage } from "@/components/chat/chat-message";
+import * as useMobile from "@/hooks/use-mobile";
+import * as ttsContext from "@/lib/context/tts-context";
+
+import { installBrowserMedia } from "../helpers/browser-media";
 import { mockModulePreservingReal } from "../helpers/module-mock";
 import { render } from "../helpers/render";
 
-import * as ttsContext from "@/lib/context/tts-context";
+import { ChatMessage } from "@/components/chat/chat-message";
 import { FIXTURE_ANSWER_CARD, FIXTURE_RESTAURANT_CARD } from "@/lib/schemas/gen-ui/fixtures";
 import { ChatAIActionEnum } from "@/types/ai";
+
+const restoreUseMobile = mockModulePreservingReal("@/hooks/use-mobile", useMobile, {
+  useIsMobile: () => false,
+});
+const restoreMedia = installBrowserMedia();
+
+afterAll(() => {
+  restoreUseMobile();
+  restoreMedia();
+});
 
 // Merged over the real module so the stub keeps `TTSProvider` and `useTTSOptional` for files
 // loaded after this one. Deliberately not restored: other files register their own TTS stub at
@@ -117,9 +130,10 @@ describe("ChatMessage gather_restaurant", () => {
       ],
     };
 
-    const { getByText, queryByText } = render(<ChatMessage message={message} />);
+    const { getByText, queryByText, queryByRole } = render(<ChatMessage message={message} />);
     expect(getByText(FIXTURE_RESTAURANT_CARD.name)).toBeTruthy();
     expect(queryByText("gather_restaurant")).toBeNull();
+    expect(queryByRole("region", { name: /Restaurant results/i })).toBeNull();
   });
 
   test("shows loading label while gather_restaurant is in flight", () => {
@@ -139,6 +153,46 @@ describe("ChatMessage gather_restaurant", () => {
 
     const { getByText } = render(<ChatMessage message={message} />);
     expect(getByText("Looking up restaurant…")).toBeTruthy();
+  });
+
+  test("adjacent restaurant cards in one message render as a carousel", () => {
+    const second = {
+      ...FIXTURE_RESTAURANT_CARD,
+      name: "Tartine Manufactory",
+      heroImage: {
+        ...FIXTURE_RESTAURANT_CARD.heroImage,
+        url: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=1200&q=80",
+      },
+    };
+    const message: UIMessage = {
+      id: "msg-restaurant-carousel",
+      role: "assistant",
+      parts: [
+        {
+          type: "dynamic-tool",
+          toolName: "render_gen_ui",
+          toolCallId: "tc-gen-ui-1",
+          state: "output-available",
+          input: {},
+          output: { block: FIXTURE_RESTAURANT_CARD },
+        },
+        {
+          type: "dynamic-tool",
+          toolName: "render_gen_ui",
+          toolCallId: "tc-gen-ui-2",
+          state: "output-available",
+          input: {},
+          output: { block: second },
+        },
+      ],
+    };
+
+    const { getByRole, getByText } = render(<ChatMessage message={message} />);
+
+    expect(getByRole("region", { name: /Restaurant results/i })).toBeTruthy();
+    expect(getByText("1 of 2")).toBeTruthy();
+    expect(getByText(FIXTURE_RESTAURANT_CARD.name)).toBeTruthy();
+    expect(getByText("Tartine Manufactory")).toBeTruthy();
   });
 });
 
@@ -202,7 +256,7 @@ describe("ChatMessage reasoning", () => {
 });
 
 describe("ChatMessage OrganicToolCallPresence", () => {
-  test("renders visual OrganicActivityMark presence for subagent dispatch, worktable, and rabbit hole tools", () => {
+  test("renders Organic marks for agent tools and the rabbit-hole glyph for rabbit holes", () => {
     const message: UIMessage = {
       id: "msg-organic-tools",
       role: "assistant",
@@ -246,9 +300,12 @@ describe("ChatMessage OrganicToolCallPresence", () => {
     expect(getByText("Dispatched to Lyra")).toBeTruthy();
     expect(getByText("Synthesize speculative decoding benchmarks")).toBeTruthy();
     expect(getByText("Crafting context bundle")).toBeTruthy();
-    expect(getByText("Navigating branch…")).toBeTruthy();
+    expect(getByText("Moving to a branch…")).toBeTruthy();
     expect(container.querySelectorAll("[data-organic-tool-presence]")).toHaveLength(3);
-    expect(container.querySelectorAll('[role="img"][data-activity-state]')).toHaveLength(3);
+    expect(container.querySelectorAll('[role="img"][data-activity-state]')).toHaveLength(2);
+    expect(
+      container.querySelectorAll("[data-rabbit-hole-tool] .session-glyph").length
+    ).toBeGreaterThan(0);
   });
 });
 
@@ -271,6 +328,52 @@ function webSearchPart(state: "input-available" | "output-available") {
       : {}),
   } as UIMessage["parts"][number];
 }
+
+describe("ChatMessage rabbit-hole creation", () => {
+  test("creation stays visible beside collapsed reasoning for current and historical messages", () => {
+    const output = {
+      ok: true,
+      sessionId: "rabbit-session",
+      nodeId: "root-node",
+      title: "New exploration",
+      status: "generating",
+    };
+    const current = {
+      type: "dynamic-tool",
+      toolName: "create_rabbit_hole",
+      toolCallId: "rabbit-create",
+      state: "output-available",
+      input: { query: "space" },
+      output,
+    };
+    const historical = {
+      type: "tool-invocation",
+      toolName: "create_rabbit_hole",
+      toolInvocationId: "rabbit-create",
+      state: "result",
+      args: { query: "space" },
+      result: output,
+    };
+    const message = (part: unknown): UIMessage => ({
+      id: "rabbit-message",
+      role: "assistant",
+      parts: [
+        { type: "reasoning", text: "Starting the exploration.", state: "done" },
+        part as UIMessage["parts"][number],
+        { type: "text", text: "Follow the new exploration.", state: "done" },
+      ],
+    });
+    const view = render(<ChatMessage message={message(current)} />);
+    expect(view.getByText(/Rabbit hole created/)).toBeTruthy();
+    expect(view.getByRole("link", { name: "Open rabbit hole" }).getAttribute("href")).toBe(
+      "/rabbitholes?sessionId=rabbit-session"
+    );
+    expect(view.queryByText("Starting the exploration.")).toBeNull();
+    view.rerender(<ChatMessage message={message(historical)} />);
+    expect(view.getByText(/Rabbit hole created/)).toBeTruthy();
+    expect(view.getByRole("link", { name: "Open rabbit hole" })).toBeTruthy();
+  });
+});
 
 describe("ChatMessage activity trail", () => {
   test("reasoning around a web search coalesces into one trail with its thought time", () => {

@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
+import { installConnectedErgon, uninstallConnectedErgon } from "../helpers/ergon-connected";
 import { HARD_SET_SUBAGENTS } from "@/lib/llm/subagents/hard-set/registry";
 import { prepareWorkerTools } from "@/lib/llm/subagents/worker/prepare-input";
 
@@ -8,21 +9,20 @@ const CONNECTED_ENV = {
   CHRONOS_MCP_URL: "http://localhost:3005/api/mcp",
   CHRONOS_MCP_TOKEN: "test-only",
   CHRONOS_OWNER_PROFILE_ID: OWNER,
-  ERGON_URL: "https://ergon.example.com",
-  ERGON_TOKEN: "test-only",
-  ERGON_AGENT_TOKEN: "test-only",
-  ERGON_OWNER_PROFILE_ID: OWNER,
 };
 const saved: Record<string, string | undefined> = {};
 
-// compileChatTools reads connection settings from process.env, as it does in production.
-beforeAll(() => {
+// compileChatTools reads Chronos settings from process.env, as it does in production. Ergon comes
+// from the user's own durable connection, here an in-memory database seeded for OWNER.
+beforeAll(async () => {
   for (const [key, value] of Object.entries(CONNECTED_ENV)) {
     saved[key] = process.env[key];
     process.env[key] = value;
   }
+  await installConnectedErgon({ owner: OWNER });
 });
 afterAll(() => {
+  uninstallConnectedErgon();
   for (const [key, value] of Object.entries(saved)) {
     if (value === undefined) delete process.env[key];
     else process.env[key] = value;
