@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { cleanup, render } from "@testing-library/react";
+import { cleanup, render, within } from "@testing-library/react";
 import { StageResponse } from "@/components/stage/stage-response";
 import { emptyStageState } from "@/lib/stage/schema";
 
@@ -16,8 +16,9 @@ test("the reading surface shows the selected author's own words, and Organic's b
     "coordinating"
   );
   expect(view.queryByText("My independent result.")).toBeNull();
-  // No author tabs or piece navigation: the surface is only the words.
-  expect(view.queryAllByRole("button")).toHaveLength(0);
+  // No author tabs or piece navigation: the surface is only the words. Scoped to this render,
+  // since the default queries cover the whole document and another file's leftovers.
+  expect(within(view.container).queryAllByRole("button")).toHaveLength(0);
 
   view.rerender(<StageResponse state={state} selectedAuthor={planner.id} />);
   expect(view.getByRole("region", { name: "Planner’s response" }).textContent).toContain(
