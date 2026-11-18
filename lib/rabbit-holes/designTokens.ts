@@ -144,6 +144,12 @@ export const articleContent = {
 // (element = direct <h1>; child = same rules via [&_h1] for BlogSection wrappers).
 
 export const blogArticle = {
+  /**
+   * Root of a blog body. Unlike a Rabbit Hole article it does not clip x-overflow: figures marked
+   * `data-blog-wide` step out of the reading column and must not be cut at its edge. The article
+   * shell and the page frame already stop anything from widening the page.
+   */
+  base: "text-muted-foreground min-w-0",
   h1: {
     element: "font-commissioner text-3xl font-light tracking-tight text-foreground mb-3",
     child:
@@ -216,7 +222,7 @@ export const blogArticleBodyLayout = cn(
 export function blogArticleContentClasses(): string[] {
   return [
     "article-content",
-    articleContent.base,
+    blogArticle.base,
     articleContent.leading.desktop,
     blogArticle.h2.desktop,
     articleContent.h2Takeaway.desktop,
