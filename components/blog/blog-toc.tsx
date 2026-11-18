@@ -52,8 +52,7 @@ export function BlogToc({ articleId }: { articleId: string }) {
 
         if (visible.length > 0) {
           setActiveId(
-            visible.sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0].target
-              .id
+            visible.sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0].target.id
           );
         }
       },

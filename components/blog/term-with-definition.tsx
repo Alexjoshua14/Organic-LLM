@@ -128,8 +128,7 @@ const DEFINITIONS: Record<string, string> = {
   "env var":
     "Environment variable; a configuration value set outside the app (e.g. for secrets), not stored in code.",
   HKDF: "HMAC-based Key Derivation Function; turns one secret into many separate keys, for example one per user.",
-  "at rest":
-    "Stored on disk or in a database, as opposed to moving over the network (in transit).",
+  "at rest": "Stored on disk or in a database, as opposed to moving over the network (in transit).",
   ciphertext: "Text scrambled by encryption; unreadable without the key.",
   plaintext: "Ordinary readable text, before encryption or after decryption.",
   embedding:
@@ -146,7 +145,11 @@ export function getTermDefinition(term: string): string | undefined {
 export function Term({ children }: { children: string }) {
   const definition = getTermDefinition(children);
 
-  return definition ? <TermWithDefinition definition={definition} term={children} /> : <>{children}</>;
+  return definition ? (
+    <TermWithDefinition definition={definition} term={children} />
+  ) : (
+    <>{children}</>
+  );
 }
 
 export { DEFINITIONS };

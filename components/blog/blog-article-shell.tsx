@@ -42,10 +42,7 @@ export function BlogArticleShell({
   return (
     <>
       <div aria-hidden className={styles.glow} />
-      <PageContentFrame
-        className="@container relative z-10"
-        maxWidth="8xl"
-      >
+      <PageContentFrame className="@container relative z-10" maxWidth="8xl">
         <PageNavBack className={blogArticlePage.navToContent} href={back.href}>
           {back.label}
         </PageNavBack>

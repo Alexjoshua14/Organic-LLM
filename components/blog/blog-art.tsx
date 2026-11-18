@@ -110,7 +110,10 @@ function Export() {
   // A card with an arrow leaving it.
   return (
     <>
-      <path className={styles.stroke} d="M62 28 H34 a8 8 0 0 0 -8 8 V76 a8 8 0 0 0 8 8 H74 a8 8 0 0 0 8 -8 V62" />
+      <path
+        className={styles.stroke}
+        d="M62 28 H34 a8 8 0 0 0 -8 8 V76 a8 8 0 0 0 8 8 H74 a8 8 0 0 0 8 -8 V62"
+      />
       <line className={styles.lumen} x1={64} x2={128} y1={64} y2={20} />
       <polyline className={styles.lumen} points="100,20 128,20 128,48" />
     </>

@@ -57,16 +57,15 @@ export function MemoryEncryptionIntroContent() {
       <p className="text-lg leading-relaxed text-foreground/90">
         Message content and summaries are stored as <Term>ciphertext</Term>. This is why we chose
         that design, what we built, and where it stops. For a shorter version written for everyone,
-        read{" "}
-        <Link href="/blog/how-we-secure-memory">How we protect your memories</Link>.
+        read <Link href="/blog/how-we-secure-memory">How we protect your memories</Link>.
       </p>
 
       <WhoCanReadWhat />
 
       <p>
         Encrypting <Term>at rest</Term> protects data from someone who gets the database, not from
-        someone who gets the running server. We say so first because it is the most important
-        limit, and the rest of this post is about working inside it.
+        someone who gets the running server. We say so first because it is the most important limit,
+        and the rest of this post is about working inside it.
       </p>
 
       <h2>The problem</h2>
@@ -80,19 +79,19 @@ export function MemoryEncryptionIntroContent() {
       </p>
       <p>
         Sensitive text lives in two places at rest. <strong>Messages and summaries</strong> are in
-        our primary database (Supabase), which most of this post covers. <strong>Long-term
-        memory</strong> is in a separate vector store (Mem0 on Qdrant) and is protected by its own
-        layer, described near the end.
+        our primary database (Supabase), which most of this post covers.{" "}
+        <strong>Long-term memory</strong> is in a separate vector store (Mem0 on Qdrant) and is
+        protected by its own layer, described near the end.
       </p>
 
       <h2>What we found</h2>
       <p>
         We read public documentation for several major AI products, with ChatGPT Atlas to speed up
         the search. Their stated protections are the standard ones: <Term>TLS 1.2/1.3</Term> in
-        transit, <Term>AES-256-GCM</Term>-class encryption on disk, and a{" "}
-        <Term>KMS</Term> for keys. We did not find application-layer encryption described. That is
-        a limit of public documentation, not proof of what any company does, but it told us the
-        layer was worth building ourselves.
+        transit, <Term>AES-256-GCM</Term>-class encryption on disk, and a <Term>KMS</Term> for keys.
+        We did not find application-layer encryption described. That is a limit of public
+        documentation, not proof of what any company does, but it told us the layer was worth
+        building ourselves.
       </p>
 
       <h2>What we encrypt and what we leave readable</h2>
@@ -106,8 +105,8 @@ export function MemoryEncryptionIntroContent() {
 
       <h2>The decisions</h2>
       <p>
-        Each choice below was weighed against alternatives. Open any row for the options, what
-        each cost, and the verdict.
+        Each choice below was weighed against alternatives. Open any row for the options, what each
+        cost, and the verdict.
       </p>
     </BlogSection>
   );

@@ -111,8 +111,8 @@ export function MemoryEncryptionOutroContent() {
       <p>
         Every encrypted value describes itself: a version, the key that sealed it, the{" "}
         <Term>IV</Term>, the authentication tag and the ciphertext. That is what allows algorithm
-        upgrades, key rotation and mixed rows. A value that does not start with <code>enc:</code>{" "}
-        is returned as plaintext.
+        upgrades, key rotation and mixed rows. A value that does not start with <code>enc:</code> is
+        returned as plaintext.
       </p>
       <BlogCode caption="One encrypted value." code={PAYLOAD} language="text" />
 
@@ -120,10 +120,10 @@ export function MemoryEncryptionOutroContent() {
       <p>
         Long-term memory lives in a separate vector store (Mem0 on Qdrant). A server-side wrapper
         can encrypt the readable text fields on the way in and decrypt them on search. The{" "}
-        <Term>embedding</Term> that makes semantic search work stays readable by design:
-        scrambling it would break the search. Embeddings are numbers, not words, but they can still
-        reveal what a memory is about, so this is a trade-off, not a guarantee. It uses AES-256-GCM
-        with its own key material and its own wire format. The reader-friendly version is{" "}
+        <Term>embedding</Term> that makes semantic search work stays readable by design: scrambling
+        it would break the search. Embeddings are numbers, not words, but they can still reveal what
+        a memory is about, so this is a trade-off, not a guarantee. It uses AES-256-GCM with its own
+        key material and its own wire format. The reader-friendly version is{" "}
         <Link href="/blog/how-we-secure-memory">How we protect your memories</Link>.
       </p>
 
@@ -155,8 +155,8 @@ export function MemoryEncryptionOutroContent() {
           bound AAD.
         </li>
         <li>
-          <strong>A narrower blast radius</strong> for a single user's key, though not for the root
-          secret.
+          <strong>A narrower blast radius</strong> for a single user&apos;s key, though not for the
+          root secret.
         </li>
         <li>
           <strong>A safe rollout</strong>: mixed plaintext and encrypted rows, no downtime, no

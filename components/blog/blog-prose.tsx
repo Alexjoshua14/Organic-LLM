@@ -57,11 +57,7 @@ export function BlogProse({ content, className }: { content: string; className?:
 
             if (isMermaid) {
               return (
-                <div
-                  data-blog-wide
-                  data-syntax-highlighted
-                  className={blogArticle.mermaidBlock}
-                >
+                <div data-blog-wide data-syntax-highlighted className={blogArticle.mermaidBlock}>
                   <MermaidDiagram code={raw.trim()} />
                 </div>
               );
