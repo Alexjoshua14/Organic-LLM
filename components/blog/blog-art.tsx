@@ -5,36 +5,44 @@ import styles from "./blog-card.module.css";
 /**
  * One abstract line drawing per post. They are marks of identity, not charts: nothing here
  * encodes a value, so nothing can be misread as data. Lumen picks out the one element that "is"
- * the post (the live voice, the open pane, the key). All share a 160x100 viewBox.
+ * the post (the live voice ribbon, the open pane, the key). All share a 160x100 viewBox.
  */
 
-function Voice() {
-  // A spoken waveform: the middle bar is the voice that is being heard right now.
-  const bars = [
-    { x: 24, h: 14 },
-    { x: 38, h: 26 },
-    { x: 52, h: 40 },
-    { x: 66, h: 22 },
-    { x: 94, h: 28 },
-    { x: 108, h: 46 },
-    { x: 122, h: 24 },
-    { x: 136, h: 12 },
-  ];
+/** A smooth curve across the drawing, tapering to nothing at both ends like the live ribbon. */
+function ribbonPath(phase: number, amplitude: number, cycles: number): string {
+  const steps = 64;
+  const points: string[] = [];
 
+  for (let i = 0; i <= steps; i += 1) {
+    const t = i / steps;
+    const envelope = Math.sin(Math.PI * t) ** 1.4;
+    const x = 12 + t * 136;
+    const y = 50 + Math.sin(t * Math.PI * 2 * cycles + phase) * amplitude * envelope;
+
+    points.push(`${i === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`);
+  }
+
+  return points.join(" ");
+}
+
+const RIBBON_CURVES = [
+  { phase: 0.4, amplitude: 26, cycles: 1.5 },
+  { phase: 1.3, amplitude: 20, cycles: 1.5 },
+  { phase: 2.2, amplitude: 14, cycles: 1.5 },
+] as const;
+
+function Voice() {
+  // The voice ribbon: a few quiet curves that cross in the middle, one of them in Lumen.
   return (
     <>
-      {bars.map((b) => (
-        <line
-          key={b.x}
+      {RIBBON_CURVES.map((c) => (
+        <path
+          key={c.phase}
           className={styles.stroke}
-          x1={b.x}
-          x2={b.x}
-          y1={50 - b.h / 2}
-          y2={50 + b.h / 2}
+          d={ribbonPath(c.phase, c.amplitude, c.cycles)}
         />
       ))}
-      <line className={styles.lumen} x1={80} x2={80} y1={14} y2={86} />
-      <circle className={styles.lumenFill} cx={80} cy={50} r={3.5} />
+      <path className={styles.lumen} d={ribbonPath(-0.5, 22, 1.5)} />
     </>
   );
 }
