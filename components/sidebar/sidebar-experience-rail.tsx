@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
-import { FeatureHint } from "@/components/onboarding/feature-hint";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { Logger } from "@/lib/logger";
 import { PERF_PHASES } from "@/lib/perf/journeys";
@@ -102,7 +101,7 @@ const segmentClass = cn(
 /**
  * Experimental segmented rail: grouped rows of contiguous strips (no gutter between cells).
  * Hover uses the same fill as the sidebar “active” treatment (`bg-sidebar-accent`).
- * Surface descriptions live in onboarding guides — not hover tooltips here.
+ * Surface descriptions live in the Guide (Start here → Surfaces) — not hover tooltips here.
  */
 export function SidebarExperienceRail() {
   const router = useRouter();
@@ -182,18 +181,16 @@ export function SidebarExperienceRail() {
   };
 
   return (
-    <FeatureHint id="experience-rail">
-      <div className="flex w-full min-w-0 flex-col gap-1" data-sidebar-experience-rail>
-        {rows.map((row, rowIndex) => (
-          <div
-            key={row.map((item) => item.id).join("-")}
-            className="flex w-full min-w-0 overflow-hidden rounded-md"
-            data-sidebar-experience-rail-row={rowIndex}
-          >
-            {row.map(renderItem)}
-          </div>
-        ))}
-      </div>
-    </FeatureHint>
+    <div className="flex w-full min-w-0 flex-col gap-1" data-sidebar-experience-rail>
+      {rows.map((row, rowIndex) => (
+        <div
+          key={row.map((item) => item.id).join("-")}
+          className="flex w-full min-w-0 overflow-hidden rounded-md"
+          data-sidebar-experience-rail-row={rowIndex}
+        >
+          {row.map(renderItem)}
+        </div>
+      ))}
+    </div>
   );
 }

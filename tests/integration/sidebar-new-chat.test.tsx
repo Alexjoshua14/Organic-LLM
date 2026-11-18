@@ -3,7 +3,6 @@ import { act, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ComponentProps, ReactNode } from "react";
 
-import { FeatureHintRegistryProvider } from "@/lib/onboarding/feature-hint-context";
 import * as sidebarUi from "@/components/third-party/ui/sidebar";
 import { mockModulePreservingReal } from "../helpers/module-mock";
 import { render } from "../helpers/render";
@@ -103,7 +102,6 @@ describe("SidebarExperienceRail (Chat segment)", () => {
     const { SidebarExperienceRail } = await import("@/components/sidebar/sidebar-experience-rail");
 
     return render(
-      <FeatureHintRegistryProvider>
         <ChatContext.Provider
           value={
             {
@@ -120,7 +118,6 @@ describe("SidebarExperienceRail (Chat segment)", () => {
         >
           <SidebarExperienceRail />
         </ChatContext.Provider>
-      </FeatureHintRegistryProvider>
     );
   }
 

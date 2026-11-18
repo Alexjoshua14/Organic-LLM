@@ -26,7 +26,7 @@ import { useVisibleSubagents } from "./use-visible-subagents";
 import { useMultitaskCondensed } from "./use-multitask-condensed";
 
 import { glass } from "@/components/design-system/primitives";
-import { FeatureHint } from "@/components/onboarding/feature-hint";
+import { FeatureTip } from "@/components/onboarding/feature-tip";
 import { KeyboardShortcutKbd } from "@/components/onboarding/keyboard-shortcut-kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/third-party/ui/tooltip";
 import { useVoiceSessionOptional } from "@/components/voice/voice-session-provider";
@@ -338,7 +338,7 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
             condensed ? "pb-1" : "pb-3"
           )}
         >
-          <FeatureHint id="arcadia-multiagent" showWhen={!viewingSubagentId}>
+          <FeatureTip id="arcadia-multiagent" showWhen={!viewingSubagentId}>
             <div className="min-w-0 flex-1 select-none pr-2">
               <SendTargetPicker
                 agents={agents}
@@ -354,7 +354,7 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
                 </p>
               ) : null}
             </div>
-          </FeatureHint>
+          </FeatureTip>
           <div className="flex shrink-0 items-center justify-end gap-2">
             {condensed ? (
               <div

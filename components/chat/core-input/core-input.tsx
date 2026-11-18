@@ -181,10 +181,12 @@ type CoreInputProps = {
   variant?: "default" | "compact" | "stage-beta";
   /** Optional realtime start/stop control. It takes the dictation mic's place. */
   voiceControl?: ReactNode;
-  /** First-run coachmarks for composer tools (dismiss persists in localStorage). */
+  /**
+   * Opt in to the composer's feature tip (what informs each reply, on Search and Memory). Pass it
+   * only once the tip is relevant, e.g. after the first reply; CoreInput also holds it while a
+   * reply is in flight or a draft is being written.
+   */
   featureHints?: boolean;
-  /** Gate steer-assist coachmark until Noesis assist is available (after first assistant turn). */
-  steerHintShowWhen?: boolean;
   /** When false, hides the context budget donut. */
   showContextBudget?: boolean;
   /** Server stream snapshot from the latest assembled turn. */
@@ -308,8 +310,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   secondarySubmitPending = false,
   variant = "default",
   voiceControl,
-  featureHints = true,
-  steerHintShowWhen = true,
+  featureHints = false,
   showContextBudget = true,
   streamContextBudget,
   contextBudgetRefreshKey = 0,
@@ -1377,9 +1378,8 @@ export const CoreInput: React.FC<CoreInputProps> = ({
           locked={Boolean(disabled) || showSentShimmer}
           placement={footerPlacement}
           settingsReady={settingsReady}
-          showFeatureHints={featureHints}
+          featureTip={featureHints && status === "ready" && text.trim().length === 0}
           steer={steer}
-          steerHintShowWhen={steerHintShowWhen}
           submit={submitControl}
           textareaRef={textareaRef}
           toolsRef={toolsRef}
@@ -1424,12 +1424,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
         ) : null}
         {tabSteer ? (
           <CoreInputStrip includePending={variant === "stage-beta"}>
-            <CoreInputSteerTab
-              featureHintShowWhen={steerHintShowWhen}
-              locked={Boolean(disabled) || showSentShimmer}
-              showFeatureHint={featureHints}
-              steer={tabSteer}
-            />
+            <CoreInputSteerTab locked={Boolean(disabled) || showSentShimmer} steer={tabSteer} />
           </CoreInputStrip>
         ) : (
           <CoreInputVoiceDrawerSlot includePending={variant === "stage-beta"} />

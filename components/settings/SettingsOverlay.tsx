@@ -17,6 +17,8 @@ import { KnowledgeModal } from "@/components/knowledge/KnowledgeModal";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/third-party/ui/sheet";
 import { ThemeSwitch } from "@/components/shared/theme-switch";
 import { getSettings, setSettings } from "@/lib/user-settings";
+import { useOnboardingSnapshot } from "@/hooks/use-onboarding";
+import { onboardingActions } from "@/lib/onboarding/onboarding-actions";
 import { persistUserSettingsToSupabase } from "@/data/supabase/user-settings";
 
 type SettingsOverlayProps = {
@@ -39,6 +41,7 @@ export function SettingsOverlay({ open, onOpenChange, trigger }: SettingsOverlay
     () => getSettings().experimentalContextEffort
   );
   const [ergonLiquidChrome, setErgonLiquidChrome] = useState(() => getSettings().ergonLiquidChrome);
+  const onboarding = useOnboardingSnapshot();
 
   const knowledgeDisplayName = useMemo(() => {
     const full = user?.fullName?.trim();
@@ -93,6 +96,20 @@ export function SettingsOverlay({ open, onOpenChange, trigger }: SettingsOverlay
               </QuickSettingRow>
 
               <LightweightModeSetting compact />
+
+              {onboarding.status === "ready" ? (
+                <QuickSettingRow
+                  caption="A short pointer the first time you reach a feature. Read every tip, or replay them, in the Guide (?)."
+                  icon={<Sparkles aria-hidden className="size-4 shrink-0 text-lumen" />}
+                  label="Feature tips"
+                >
+                  <Switch
+                    aria-label="Feature tips"
+                    isSelected={onboarding.state.tipsEnabled}
+                    onValueChange={(enabled) => onboardingActions.setTipsEnabled(enabled)}
+                  />
+                </QuickSettingRow>
+              ) : null}
 
               <QuickSettingRow
                 caption="Unlock Organic’s full potential by connecting its features."

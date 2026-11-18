@@ -49,20 +49,20 @@ export const DEV_DOCS: DevDocEntry[] = [
   },
   {
     slug: "feature-hints",
-    title: "Feature hints (onboarding coachmarks)",
+    title: "Feature tips",
     description:
-      "First-run callouts with per-hint dev toggles, dismiss persistence, and wiring guide.",
+      "Automatic tips: anchoring, pacing, dismissal rules, storage, and how to add or retire one.",
     category: "onboarding",
     file: "feature-hints.md",
-    updated: "2026-06-29",
+    updated: "2026-11-18",
   },
   {
     slug: "nux-overview",
     title: "New user experience (NUX)",
-    description: "Coachmarks, help dialog, first-session checklist, welcome paths, and QA reset.",
+    description: "Welcome card, the Guide, first steps, feature tips, and replaying onboarding.",
     category: "onboarding",
     file: "nux-overview.md",
-    updated: "2026-06-29",
+    updated: "2026-11-18",
   },
 ];
 

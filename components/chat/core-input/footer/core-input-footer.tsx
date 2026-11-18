@@ -1,7 +1,6 @@
 "use client";
 
 import type { ReactNode, RefObject } from "react";
-import type { FeatureHintId } from "@/lib/onboarding/feature-hints";
 import type { FooterPlacementMap } from "./footer-placement";
 import type { SteerAction } from "./steer-action";
 
@@ -20,7 +19,7 @@ import { hasOverflowItems } from "./footer-placement";
 
 import { CORE_INPUT_SETTINGS_REVEAL_MS } from "@/lib/core-input/morph-timing";
 import { cn } from "@/lib/utils";
-import { FeatureHint } from "@/components/onboarding/feature-hint";
+import { FeatureTip } from "@/components/onboarding/feature-tip";
 import { ComposerPersonaChip } from "@/components/personas/persona-chip";
 import {
   PromptInputFooter,
@@ -37,12 +36,11 @@ export type CoreInputFooterProps = {
    */
   settingsReady?: boolean;
   /**
-   * First-run coachmarks anchored to the tool toggles, model picker, and steer button. CoreInput
-   * turns them off on a condensed footer, where those anchors move or shrink.
+   * Anchors the "what informs each reply" feature tip on the Search and Memory toggles. CoreInput
+   * sets it only when the surface opted in and the composer is idle; the tip layer decides
+   * whether it actually shows.
    */
-  showFeatureHints?: boolean;
-  /** Holds the steer coachmark until Noesis assist is available. */
-  steerHintShowWhen?: boolean;
+  featureTip?: boolean;
   /**
    * Attached to the tools row. `useCoreInputLayout` measures the prompt shell from here, so it
    * must stay inside `PromptInput`.
@@ -63,17 +61,6 @@ export type CoreInputFooterProps = {
   submit: ReactNode;
 };
 
-/** Wraps a control in its first-run coachmark anchor when hints are on. */
-function hinted(show: boolean, id: FeatureHintId, node: ReactNode, showWhen?: boolean) {
-  return show ? (
-    <FeatureHint id={id} showWhen={showWhen}>
-      {node}
-    </FeatureHint>
-  ) : (
-    node
-  );
-}
-
 /**
  * CoreInput's footer row. Layout only: it renders each control where `placement` says and owns
  * no state. Toggle state comes from `CoreInputControlsContext`; actions that need CoreInput's
@@ -93,8 +80,7 @@ function hinted(show: boolean, id: FeatureHintId, node: ReactNode, showWhen?: bo
 export function CoreInputFooter({
   placement,
   settingsReady = true,
-  showFeatureHints = false,
-  steerHintShowWhen = true,
+  featureTip = false,
   toolsRef,
   steer,
   locked = false,
@@ -123,14 +109,14 @@ export function CoreInputFooter({
             style={{ transitionDuration: `${CORE_INPUT_SETTINGS_REVEAL_MS}ms` }}
           >
             {inline("persona") ? <ComposerPersonaChip showLabel={showLabels} /> : null}
-            {inline("toolToggles")
-              ? hinted(showFeatureHints, "composer-search-memory", <ComposerToolToggleGroup />)
-              : null}
+            {inline("toolToggles") ? (
+              <FeatureTip id="composer-search-memory" showWhen={featureTip}>
+                <ComposerToolToggleGroup />
+              </FeatureTip>
+            ) : null}
             {inline("speech") ? <ComposerSpeechChip /> : null}
             {inline("preview") ? <ComposerPreviewChip /> : null}
-            {inline("modelEffort")
-              ? hinted(showFeatureHints, "composer-auto-model", <ComposerModelEffortSelect />)
-              : null}
+            {inline("modelEffort") ? <ComposerModelEffortSelect /> : null}
             {inline("contextEffort") ? <ComposerContextEffortSlider /> : null}
           </div>
 
@@ -155,14 +141,7 @@ export function CoreInputFooter({
 
       {/* Submit cluster: beside the tools row, so it keeps its size however the tools truncate. */}
       <div className="flex shrink-0 items-center gap-1.5">
-        {inline("steer") && steer
-          ? hinted(
-              showFeatureHints,
-              "noesis-steer-assist",
-              <ComposerSteerButton locked={locked} steer={steer} />,
-              steerHintShowWhen
-            )
-          : null}
+        {inline("steer") && steer ? <ComposerSteerButton locked={locked} steer={steer} /> : null}
         {submit}
       </div>
     </PromptInputFooter>

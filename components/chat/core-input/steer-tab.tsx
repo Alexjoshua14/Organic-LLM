@@ -6,7 +6,6 @@ import type { SteerAction } from "./footer/steer-action";
 import { ComposerSteerButton, TuneGlyph } from "./controls/steer-button";
 
 import { glassPreview } from "@/components/design-system/primitives";
-import { FeatureHint } from "@/components/onboarding/feature-hint";
 import { CoreInputVoiceDrawerSlot } from "@/components/voice/core-input-voice-drawer-slot";
 import { VOICE_BAR_HEIGHT_PX, VOICE_BAR_TUCK_PX } from "@/components/voice/voice-live-bar-timing";
 import { cn } from "@/lib/utils";
@@ -80,36 +79,20 @@ export function CoreInputTab({
 export function CoreInputSteerTab({
   steer,
   locked = false,
-  showFeatureHint = false,
-  featureHintShowWhen = true,
 }: {
   steer: SteerAction;
   /** The composer is disabled or showing the sent-message shimmer. */
   locked?: boolean;
-  /** Anchor the first-run "Tune" coachmark on the button, as the desktop footer does. */
-  showFeatureHint?: boolean;
-  /** Holds the coachmark until Noesis assist is available. */
-  featureHintShowWhen?: boolean;
 }) {
-  const button = (
-    <ComposerSteerButton
-      labelClassName="text-2xs"
-      icon={<TuneGlyph />}
-      locked={locked}
-      steer={steer}
-      showLabel
-    />
-  );
-
   return (
     <CoreInputTab>
-      {showFeatureHint ? (
-        <FeatureHint id="noesis-steer-assist" showWhen={featureHintShowWhen}>
-          {button}
-        </FeatureHint>
-      ) : (
-        button
-      )}
+      <ComposerSteerButton
+        labelClassName="text-2xs"
+        icon={<TuneGlyph />}
+        locked={locked}
+        steer={steer}
+        showLabel
+      />
     </CoreInputTab>
   );
 }

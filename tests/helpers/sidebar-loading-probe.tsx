@@ -36,7 +36,6 @@ mock.module("@/components/sidebar/prototypes-sidebar-content", () => ({
 const { Sidebar } = await import("@/components/sidebar/sidebar");
 const { SidebarProvider } = await import("@/components/third-party/ui/sidebar");
 const { ChatContext } = await import("@/lib/context/chat-context");
-const { FeatureHintRegistryProvider } = await import("@/lib/onboarding/feature-hint-context");
 
 const loadingValue = {
   sidebarChats: [],
@@ -52,13 +51,11 @@ const loadingValue = {
 
 function sidebar(value: Partial<ChatContextValue>) {
   return (
-    <FeatureHintRegistryProvider>
       <ChatContext.Provider value={value as ChatContextValue}>
         <SidebarProvider>
           <Sidebar />
         </SidebarProvider>
       </ChatContext.Provider>
-    </FeatureHintRegistryProvider>
   );
 }
 

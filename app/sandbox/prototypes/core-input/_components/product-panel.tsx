@@ -228,7 +228,7 @@ export function ProductPanel({
         />
         <ToggleRow
           checked={state.featureHints}
-          hint="First-run coachmarks (dismissals persist)"
+          hint="Search and Memory feature tip (opt-in; the tip layer decides when it shows)"
           label="featureHints"
           onCheckedChange={(featureHints) => patch({ featureHints })}
         />

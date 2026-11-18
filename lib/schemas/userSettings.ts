@@ -37,8 +37,6 @@ export const UserSettingsSchema = z.object({
   contextEffortLevel: ContextEffortLevelSchema.default(DEFAULT_CONTEXT_EFFORT),
   /** Ergon page: animated liquid chrome background. */
   ergonLiquidChrome: z.boolean().default(true),
-  /** When true, show feature hints/coachmarks again (ignores persisted dismissals until turned off). */
-  replayFeatureHints: z.boolean().default(false),
   /** Settings → AI: cadence of in-view background probes (Arcadia subagent heartbeat). */
   backgroundActivity: BackgroundActivityModeSchema.default(DEFAULT_BACKGROUND_ACTIVITY_MODE),
   /** Settings → Connectors: private profile connectors & personal dossier. */
@@ -58,7 +56,6 @@ export const defaultUserSettings = (): UserSettings => ({
   experimentalKnowledgeCapsuleTitles: false,
   contextEffortLevel: DEFAULT_CONTEXT_EFFORT,
   ergonLiquidChrome: true,
-  replayFeatureHints: false,
   backgroundActivity: DEFAULT_BACKGROUND_ACTIVITY_MODE,
   connectors: defaultUserConnectorsProfile(),
 });

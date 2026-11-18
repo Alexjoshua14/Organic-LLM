@@ -12,7 +12,6 @@ import { ChatModels } from "@/lib/schemas/chat";
 import { DEFAULT_COMPOSER_MODEL } from "@/lib/chat/composer-tool-defaults";
 import { coreInputSnapshots } from "@/lib/core-input/snapshot-store";
 import { coreInputScopes, type CoreInputScope } from "@/lib/core-input/scopes";
-import { FeatureHintRegistryProvider } from "@/lib/onboarding/feature-hint-context";
 import { ChatContext, type ChatContextValue } from "@/lib/context/chat-context";
 import { defaultUserSettings, type UserSettings } from "@/lib/schemas/userSettings";
 import { composerField, setComposerText } from "../helpers/composer";
@@ -211,7 +210,7 @@ const chatContextValue = {
 function Providers({ children }: { children: ReactNode }) {
   return (
     <ChatContext.Provider value={chatContextValue}>
-      <FeatureHintRegistryProvider>{children}</FeatureHintRegistryProvider>
+      {children}
     </ChatContext.Provider>
   );
 }

@@ -4,7 +4,6 @@ import { useMemo } from "react";
 
 import { ThreadTitleLine, useThreadTitlePhase } from "@/components/chat/thread-title-line";
 import { glass } from "@/components/design-system/primitives";
-import { FeatureHint } from "@/components/onboarding/feature-hint";
 import { useSidebar } from "@/components/third-party/ui/sidebar";
 import { useSharedChatContext } from "@/lib/context/chat-context";
 import { cn } from "@/lib/utils";
@@ -58,22 +57,20 @@ export function ChatThreadTitleOverlay({
         className
       )}
     >
-      <FeatureHint id="noesis-thread-title">
-        <div
-          className={cn(
-            glass({ opaque: true }),
-            "pointer-events-auto max-w-[min(18rem,calc(100vw-6rem))]",
-            "rounded-lg px-3.5 py-2",
-            "shadow-[0_12px_44px_-26px_rgba(0,0,0,0.4)]",
-            "ring-1 ring-inset ring-white/25 dark:ring-white/10"
-          )}
-        >
-          <h1 className="thread-title truncate text-[0.9375rem] font-semibold leading-snug tracking-tight text-foreground md:text-base">
-            <span className="sr-only">{announced}</span>
-            <ThreadTitleLine from={from} phase={phase} text={shown} to={to} />
-          </h1>
-        </div>
-      </FeatureHint>
+      <div
+        className={cn(
+          glass({ opaque: true }),
+          "pointer-events-auto max-w-[min(18rem,calc(100vw-6rem))]",
+          "rounded-lg px-3.5 py-2",
+          "shadow-[0_12px_44px_-26px_rgba(0,0,0,0.4)]",
+          "ring-1 ring-inset ring-white/25 dark:ring-white/10"
+        )}
+      >
+        <h1 className="thread-title truncate text-[0.9375rem] font-semibold leading-snug tracking-tight text-foreground md:text-base">
+          <span className="sr-only">{announced}</span>
+          <ThreadTitleLine from={from} phase={phase} text={shown} to={to} />
+        </h1>
+      </div>
     </div>
   );
 }

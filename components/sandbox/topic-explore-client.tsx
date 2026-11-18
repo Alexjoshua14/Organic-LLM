@@ -33,7 +33,6 @@ import {
   DEFAULT_COMPOSER_MEMORIES,
   DEFAULT_COMPOSER_WEB_SEARCH,
 } from "@/lib/chat/composer-tool-defaults";
-import { FeatureHint } from "@/components/onboarding/feature-hint";
 import { glass } from "@/components/design-system/primitives";
 import { Button } from "@/components/third-party/ui/button";
 import { cn } from "@/lib/utils";
@@ -470,66 +469,64 @@ export function TopicExploreClient({ chatData }: TopicExploreClientProps) {
           </p>
         </div>
         <div className="flex flex-col gap-2">
-          <FeatureHint id="noesis-sparks" showWhen={messages.length === 0}>
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  Sparks
-                </span>
-                <Button
-                  className="h-8 gap-1.5 text-xs"
-                  disabled={startersLoading || messages.length > 0}
-                  size="sm"
-                  type="button"
-                  variant="ghost"
-                  onClick={() => void loadStarters()}
-                >
-                  {startersLoading ? (
-                    <Loader2 className="size-3.5 animate-spin" />
-                  ) : (
-                    <RefreshCw className="size-3.5" />
-                  )}
-                  Regenerate
-                </Button>
-              </div>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {AUTHORED_SPARKS.map((spark) => (
-                  <SparkCard
-                    key={spark.id}
-                    disabled={status !== "ready"}
-                    spark={spark}
-                    onEdit={handleAuthoredSparkEdit}
-                    onTap={handleAuthoredSparkTap}
-                  />
-                ))}
-                {(() => {
-                  // Fill the remaining slots (up to 4 total) with LLM-generated sparks.
-                  const slots = Math.max(0, 4 - AUTHORED_SPARKS.length);
-                  const llmStarters =
-                    starters.length > 0
-                      ? starters.slice(0, slots)
-                      : (Array(slots).fill("") as string[]);
-
-                  return llmStarters.map((s, i) => (
-                    <button
-                      key={`spark-${i}`}
-                      className={cn(
-                        "cursor-pointer rounded-lg border border-border/60 bg-background-secondary/40 px-3 py-3 text-left text-sm",
-                        "hover:border-accent/40 hover:bg-background-secondary/70 transition-colors",
-                        "disabled:opacity-40 disabled:pointer-events-none disabled:cursor-not-allowed",
-                        !s && "min-h-[4.5rem] animate-pulse"
-                      )}
-                      disabled={!s || startersLoading || status !== "ready"}
-                      type="button"
-                      onClick={() => s && sendMessage({ text: s })}
-                    >
-                      {s || (startersLoading ? "…" : "—")}
-                    </button>
-                  ));
-                })()}
-              </div>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Sparks
+              </span>
+              <Button
+                className="h-8 gap-1.5 text-xs"
+                disabled={startersLoading || messages.length > 0}
+                size="sm"
+                type="button"
+                variant="ghost"
+                onClick={() => void loadStarters()}
+              >
+                {startersLoading ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <RefreshCw className="size-3.5" />
+                )}
+                Regenerate
+              </Button>
             </div>
-          </FeatureHint>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {AUTHORED_SPARKS.map((spark) => (
+                <SparkCard
+                  key={spark.id}
+                  disabled={status !== "ready"}
+                  spark={spark}
+                  onEdit={handleAuthoredSparkEdit}
+                  onTap={handleAuthoredSparkTap}
+                />
+              ))}
+              {(() => {
+                // Fill the remaining slots (up to 4 total) with LLM-generated sparks.
+                const slots = Math.max(0, 4 - AUTHORED_SPARKS.length);
+                const llmStarters =
+                  starters.length > 0
+                    ? starters.slice(0, slots)
+                    : (Array(slots).fill("") as string[]);
+
+                return llmStarters.map((s, i) => (
+                  <button
+                    key={`spark-${i}`}
+                    className={cn(
+                      "cursor-pointer rounded-lg border border-border/60 bg-background-secondary/40 px-3 py-3 text-left text-sm",
+                      "hover:border-accent/40 hover:bg-background-secondary/70 transition-colors",
+                      "disabled:opacity-40 disabled:pointer-events-none disabled:cursor-not-allowed",
+                      !s && "min-h-[4.5rem] animate-pulse"
+                    )}
+                    disabled={!s || startersLoading || status !== "ready"}
+                    type="button"
+                    onClick={() => s && sendMessage({ text: s })}
+                  >
+                    {s || (startersLoading ? "…" : "—")}
+                  </button>
+                ));
+              })()}
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -609,39 +606,37 @@ export function TopicExploreClient({ chatData }: TopicExploreClientProps) {
             </div>
           ) : null}
           <div className="flex items-center gap-2 flex-wrap">
-            <FeatureHint id="noesis-suggest-reply" showWhen={canSuggestReply}>
-              <Button
-                className={cn("gap-2", canSuggestReply ? "cursor-pointer" : "cursor-not-allowed")}
-                disabled={assistDisabled}
-                size="sm"
-                title={
-                  composerDraft.trim().length > 0
-                    ? "Finish your draft in the composer (Shift+click to send without editing)"
-                    : "Draft your next reply in the composer (Shift+click to send without editing)"
-                }
-                type="button"
-                variant="glass"
-                onClick={(event) => void runAssist({ autoSend: event.shiftKey })}
-              >
-                <Sparkles className="size-4 shrink-0" />
-                {assistPending ? (
-                  <ChatThinking
-                    as="span"
-                    className="text-sm font-normal"
-                    text={composerDraft.trim().length > 0 ? "Finish my reply" : "Suggest my reply"}
-                  />
-                ) : composerDraft.trim().length > 0 ? (
-                  "Finish my reply"
-                ) : (
-                  "Suggest my reply"
-                )}
-                {assistCooldownRemaining > 0 ? (
-                  <span className="text-muted-foreground tabular-nums">
-                    ({assistCooldownRemaining}s)
-                  </span>
-                ) : null}
-              </Button>
-            </FeatureHint>
+            <Button
+              className={cn("gap-2", canSuggestReply ? "cursor-pointer" : "cursor-not-allowed")}
+              disabled={assistDisabled}
+              size="sm"
+              title={
+                composerDraft.trim().length > 0
+                  ? "Finish your draft in the composer (Shift+click to send without editing)"
+                  : "Draft your next reply in the composer (Shift+click to send without editing)"
+              }
+              type="button"
+              variant="glass"
+              onClick={(event) => void runAssist({ autoSend: event.shiftKey })}
+            >
+              <Sparkles className="size-4 shrink-0" />
+              {assistPending ? (
+                <ChatThinking
+                  as="span"
+                  className="text-sm font-normal"
+                  text={composerDraft.trim().length > 0 ? "Finish my reply" : "Suggest my reply"}
+                />
+              ) : composerDraft.trim().length > 0 ? (
+                "Finish my reply"
+              ) : (
+                "Suggest my reply"
+              )}
+              {assistCooldownRemaining > 0 ? (
+                <span className="text-muted-foreground tabular-nums">
+                  ({assistCooldownRemaining}s)
+                </span>
+              ) : null}
+            </Button>
             {canSuggestReply && !assistPending ? (
               <button
                 className="cursor-pointer text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
@@ -657,7 +652,6 @@ export function TopicExploreClient({ chatData }: TopicExploreClientProps) {
             clearError={clearError}
             composerInject={composerInject}
             error={error ?? chatError}
-            featureHints={messages.length > 0}
             isBlankChat={messages.length === 0}
             modelRef={selectedModelRef}
             onComposerTextChange={setComposerDraft}
@@ -666,7 +660,6 @@ export function TopicExploreClient({ chatData }: TopicExploreClientProps) {
             secondarySubmitPending={steerPending}
             sendMessage={sendMessage}
             status={status}
-            steerHintShowWhen={canSuggestReply}
             stop={handleStop}
             useMemoriesRef={useMemoriesRef}
             useSpeechFriendlyRef={useSpeechFriendlyRef}

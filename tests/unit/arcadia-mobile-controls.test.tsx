@@ -7,11 +7,8 @@ import { MultitaskDashboard } from "@/app/sandbox/arcadia/_components/multitask-
 import { ArcadiaMultitaskProvider, useArcadiaMultitask } from "@/app/sandbox/arcadia/_components/multitask-provider";
 import { useMultitaskConversationHidden } from "@/app/sandbox/arcadia/_components/multitask-composer-slot";
 import { SidebarProvider } from "@/components/third-party/ui/sidebar";
-import { FeatureHint } from "@/components/onboarding/feature-hint";
-import {
-  FeatureHintRegistryProvider,
-  useFeatureHintRegistrations,
-} from "@/lib/onboarding/feature-hint-context";
+import { FeatureTip } from "@/components/onboarding/feature-tip";
+import { useFeatureTipInstances } from "@/hooks/use-onboarding";
 import type { ArcadiaMultitaskSendTarget } from "@/lib/arcadia/multitask/layout-mode";
 import type { ArcadiaSubagent } from "@/lib/arcadia/multitask/types";
 import { AppRouterProvider } from "../helpers/app-router";
@@ -48,33 +45,37 @@ function DraftProbe() {
 }
 
 describe("mobile multiagent controls", () => {
-  test("opening multiagent mode notifies the first-use guide without navigation", () => {
-    const GuideProbe = memo(function GuideProbe() {
-      const registrations = useFeatureHintRegistrations();
+  test("opening multiagent mode registers its feature tip without navigation", () => {
+    const TipProbe = memo(function TipProbe() {
+      const instances = useFeatureTipInstances();
       return (
-        <output>{registrations.has("arcadia-multiagent") ? "Guide ready" : "Guide idle"}</output>
+        <output>
+          {instances.some((instance) => instance.id === "arcadia-multiagent")
+            ? "Tip ready"
+            : "Tip idle"}
+        </output>
       );
     });
     function ModeSwitch() {
       const [enabled, setEnabled] = useState(false);
       return (
-        <FeatureHintRegistryProvider>
+        <>
           <button onClick={() => setEnabled(!enabled)}>Toggle mode</button>
           {enabled && (
-            <FeatureHint id="arcadia-multiagent">
+            <FeatureTip id="arcadia-multiagent">
               <div>Orchestrator</div>
-            </FeatureHint>
+            </FeatureTip>
           )}
-          <GuideProbe />
-        </FeatureHintRegistryProvider>
+          <TipProbe />
+        </>
       );
     }
     const app = render(<ModeSwitch />);
-    expect(app.getByText("Guide idle")).toBeTruthy();
+    expect(app.getByText("Tip idle")).toBeTruthy();
     fireEvent.click(app.getByRole("button", { name: "Toggle mode" }));
-    expect(app.getByText("Guide ready")).toBeTruthy();
+    expect(app.getByText("Tip ready")).toBeTruthy();
     fireEvent.click(app.getByRole("button", { name: "Toggle mode" }));
-    expect(app.getByText("Guide idle")).toBeTruthy();
+    expect(app.getByText("Tip idle")).toBeTruthy();
   });
   test.each([true, false])(
     "panel controls keep the draft mounted (condensed: %s)",
@@ -98,7 +99,6 @@ describe("mobile multiagent controls", () => {
         await act(async () => {
           app = render(
             <AppRouterProvider>
-              <FeatureHintRegistryProvider>
                 <SidebarProvider>
                   <ArcadiaMultitaskProvider
                     threadId="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
@@ -109,7 +109,6 @@ describe("mobile multiagent controls", () => {
                     </MultitaskDashboard>
                   </ArcadiaMultitaskProvider>
                 </SidebarProvider>
-              </FeatureHintRegistryProvider>
             </AppRouterProvider>
           );
         });

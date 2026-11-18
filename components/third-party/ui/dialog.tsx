@@ -14,7 +14,7 @@ const DialogPortal = DialogPrimitive.Portal;
 
 const DialogClose = DialogPrimitive.Close;
 
-/** Above control cluster (z-215) and feature-hint layers (z-210). */
+/** Above the control cluster (z-215) and feature tips (z-212). */
 const DIALOG_Z = "z-[230]";
 
 const DialogOverlay = React.forwardRef<

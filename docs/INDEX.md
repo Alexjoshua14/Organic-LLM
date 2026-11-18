@@ -55,6 +55,7 @@ Canon for the product: what we're building, who owns which kind of truth, how ag
   - [Lumen](./design/lumen.md) — natural light in dark mode, shadow in light mode; tokens and rules
   - [Focus feedback](./design/focus-feedback.md) — Lumen-based keyboard focus and shared control defaults
   - [⌘K launcher](./design/launcher.md) — idea switcher: homepage input, recent-idea cards, in-memory cues
+  - [Onboarding](./design/onboarding.md) — welcome card, the Guide, feature tips: pacing, dismissal, accessibility
   - [Spacing](./design/spacing.md) — stack/gap/inset tokens, card density
   - [Switches & quick settings](./design/switches-and-quick-settings.md) — shared glass switches and compact caption popovers
   - [Context usage](./design/context-usage.md) — composer charts, source colors, percentage ramp, hover labels
