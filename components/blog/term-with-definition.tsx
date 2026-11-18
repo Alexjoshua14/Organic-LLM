@@ -11,6 +11,10 @@ type TermWithDefinitionProps = {
   className?: string;
 };
 
+/** Widest a definition card gets, in px (about 20rem), and its minimum gap to the screen edge. */
+const CARD_MAX_WIDTH = 320;
+const CARD_EDGE = 12;
+
 function stripBackticks(s: string): string {
   return s.replace(/`/g, "").trim() || s;
 }
@@ -27,30 +31,22 @@ export function TermWithDefinition({ term, definition, className }: TermWithDefi
     if (!el || typeof document === "undefined") return;
     const rect = el.getBoundingClientRect();
     const viewportHeight = window.innerHeight;
+    const viewportWidth = document.documentElement.clientWidth;
     const spaceAbove = rect.top;
     const spaceBelow = viewportHeight - rect.bottom;
     const cardHeight = 80;
     const placeAbove = spaceBelow < cardHeight + 8 && spaceAbove >= spaceBelow;
+    // Width follows the definition, not the term: a short word such as "SSE" must not squeeze a
+    // sentence into a sliver. Cap it at a comfortable measure and keep it inside the screen.
+    const maxWidth = Math.min(CARD_MAX_WIDTH, viewportWidth - CARD_EDGE * 2);
+    const left = Math.min(Math.max(rect.left, CARD_EDGE), viewportWidth - maxWidth - CARD_EDGE);
+    const common = { position: "fixed", left, width: "max-content", maxWidth, zIndex: 50 } as const;
 
-    if (placeAbove) {
-      setCardStyle({
-        position: "fixed",
-        left: rect.left,
-        bottom: viewportHeight - rect.top + 6,
-        width: "max-content",
-        maxWidth: Math.min(320, rect.width * 2),
-        zIndex: 50,
-      });
-    } else {
-      setCardStyle({
-        position: "fixed",
-        left: rect.left,
-        top: rect.bottom + 6,
-        width: "max-content",
-        maxWidth: Math.min(320, rect.width * 2),
-        zIndex: 50,
-      });
-    }
+    setCardStyle(
+      placeAbove
+        ? { ...common, bottom: viewportHeight - rect.top + 6 }
+        : { ...common, top: rect.bottom + 6 }
+    );
   }, []);
 
   useEffect(() => {

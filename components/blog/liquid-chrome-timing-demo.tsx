@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { BlogFigure } from "./blog-figure";
 
 import { ADAPTIVE_CHROME_TIMING as T } from "@/components/background/adaptive-chrome-timing";
+import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
 import { Input } from "@/components/third-party/ui/input";
 import { cn } from "@/lib/utils";
 
@@ -17,18 +18,6 @@ const PHASE_LABEL: Record<Phase, string> = {
   rest: "At rest",
   dimmed: "Dimmed",
   to65: "Brightening",
-};
-
-const TRANSITION_MS: Record<Phase, number> = {
-  dimmed: T.dimMs,
-  to65: T.to65Ms,
-  rest: T.to100Ms,
-};
-
-const TARGET_OPACITY: Record<Phase, number> = {
-  dimmed: DIMMED_OPACITY,
-  to65: T.brightenTo,
-  rest: 1,
 };
 
 /** The three legs of a full cycle, widths proportional to their duration. */
@@ -51,80 +40,85 @@ const LEGS = [
 const TOTAL_MS = LEGS.reduce((sum, leg) => sum + leg.ms, 0);
 
 /**
- * A live model of the background's dim and two-phase brighten, driven by the same timing the real
- * component reads (adaptive-chrome-timing.ts). The "background" is a plain gradient so the page
- * never runs a second WebGL canvas; what you are meant to feel is the timing, not the shader.
+ * The real AdaptiveLiquidChrome, the one behind the app, mounted inside a box. Nothing is
+ * modelled here: the component listens for hover and focus on any `data-dim-background` element
+ * and does its own dim and two-phase brighten; this figure only supplies a trigger, mounts the
+ * shader while it is on screen (so a long post never holds a second WebGL context for nothing),
+ * and reads the opacity the component is actually showing for the readout.
  */
 export function LiquidChromeTimingDemo() {
   const [phase, setPhase] = useState<Phase>("rest");
   const [pct, setPct] = useState(100);
+  const [visible, setVisible] = useState(false);
   const stageRef = useRef<HTMLDivElement>(null);
-  const hoverRef = useRef(false);
-  const focusRef = useRef(false);
-  const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const raf = useRef(0);
+  const restTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const clearSettle = () => {
-    if (settleTimer.current) clearTimeout(settleTimer.current);
-    settleTimer.current = null;
-  };
-
-  const dim = useCallback(() => {
-    clearSettle();
-    setPhase("dimmed");
-  }, []);
-
-  const release = useCallback(() => {
-    if (hoverRef.current || focusRef.current) return;
-    clearSettle();
-    setPhase("to65");
-    settleTimer.current = setTimeout(() => setPhase("rest"), T.to65Ms);
-  }, []);
-
-  // Read the real, interpolated opacity while a transition runs, then stop.
   useEffect(() => {
     const el = stageRef.current;
 
     if (!el) return;
+    const observer = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting), {
+      rootMargin: "120px",
+    });
 
-    const end = performance.now() + TRANSITION_MS[phase] + 120;
+    observer.observe(el);
+
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (restTimer.current) clearTimeout(restTimer.current);
+    },
+    []
+  );
+
+  const handleDimChange = (dimmed: boolean) => {
+    if (restTimer.current) clearTimeout(restTimer.current);
+    restTimer.current = null;
+    if (dimmed) {
+      setPhase("dimmed");
+
+      return;
+    }
+    setPhase("to65");
+    restTimer.current = setTimeout(() => setPhase("rest"), T.to65Ms);
+  };
+
+  // Read the opacity the real component is showing while it moves; idle at rest costs nothing.
+  useEffect(() => {
+    const layer = stageRef.current?.firstElementChild;
+
+    if (!(layer instanceof HTMLElement) || !visible) return;
+    let raf = 0;
+    const end = performance.now() + (phase === "dimmed" ? T.dimMs : T.to65Ms + T.to100Ms) + 200;
     const tick = () => {
-      setPct(Math.round(Number.parseFloat(getComputedStyle(el).opacity) * 100));
-      if (performance.now() < end) raf.current = requestAnimationFrame(tick);
-      else setPct(Math.round(TARGET_OPACITY[phase] * 100));
+      setPct(Math.round(Number.parseFloat(getComputedStyle(layer).opacity) * 100));
+      if (performance.now() < end) raf = requestAnimationFrame(tick);
     };
 
-    raf.current = requestAnimationFrame(tick);
+    raf = requestAnimationFrame(tick);
 
-    return () => cancelAnimationFrame(raf.current);
-  }, [phase]);
-
-  useEffect(() => clearSettle, []);
+    return () => cancelAnimationFrame(raf);
+  }, [phase, visible]);
 
   return (
-    <BlogFigure caption="A model of the real timing. The gradient stands in for the shader.">
+    <BlogFigure caption="The real background component, running in a box. Hover or focus the field.">
       <div className="space-y-stack-lg rounded-xl border border-border bg-secondary/40 p-inset-xl">
-        <div className="relative overflow-hidden rounded-lg border border-border/60">
-          <div
-            ref={stageRef}
-            aria-hidden
-            className="absolute inset-0 bg-linear-to-br from-lumen/50 via-accent/30 to-background motion-reduce:transition-none!"
-            style={{
-              opacity: TARGET_OPACITY[phase],
-              transition: `opacity ${TRANSITION_MS[phase]}ms ${T.ease}`,
-            }}
-          />
+        <div className="relative isolate overflow-hidden rounded-lg border border-border/60">
+          <div ref={stageRef} aria-hidden className="absolute inset-0 -z-10">
+            {visible ? (
+              <AdaptiveLiquidChrome
+                cover="parent"
+                interactive={false}
+                onDimChange={handleDimChange}
+              />
+            ) : null}
+          </div>
           <div className="relative flex min-h-48 items-center justify-center p-inset-xl">
             <div
               className="w-full max-w-sm rounded-xl border border-border bg-background/70 p-inset-lg backdrop-blur-md"
-              onPointerEnter={() => {
-                hoverRef.current = true;
-                dim();
-              }}
-              onPointerLeave={() => {
-                hoverRef.current = false;
-                release();
-              }}
+              data-dim-background
             >
               <label
                 className="mb-stack-sm block text-xs text-muted-foreground"
@@ -132,18 +126,7 @@ export function LiquidChromeTimingDemo() {
               >
                 Hover here, or click into the field
               </label>
-              <Input
-                id="chrome-demo"
-                placeholder="Type something…"
-                onBlur={() => {
-                  focusRef.current = false;
-                  release();
-                }}
-                onFocus={() => {
-                  focusRef.current = true;
-                  dim();
-                }}
-              />
+              <Input id="chrome-demo" placeholder="Type something…" />
             </div>
           </div>
         </div>
