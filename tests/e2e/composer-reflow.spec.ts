@@ -232,6 +232,32 @@ test.describe("phone (touch)", () => {
     });
   }
 
+  test("the draft fills its row: the whole area on one line, the full row once stacked", async ({
+    page,
+  }) => {
+    await page.locator('[data-row] [role="textbox"]').click();
+    await page.keyboard.type("A short thought");
+    await frames(page);
+    expect(await stacked(page)).toBe(false);
+    let fill = await draftFill(page);
+
+    expect(fill.editor).toBeGreaterThanOrEqual(fill.area - 1);
+    await typeSlowly(page, ` ${DRAFT}`);
+    expect(await stacked(page)).toBe(true);
+    fill = await draftFill(page);
+    expect(fill.editor).toBeGreaterThanOrEqual(fill.row - 1);
+  });
+
+  test("a long draft deleted back to a word or two returns to one line", async ({ page }) => {
+    await page.locator('[data-row] [role="textbox"]').click();
+    await typeSlowly(page, DRAFT);
+    expect(await stacked(page)).toBe(true);
+    // A fast burst of deletes, down to "Can we" (fits the one-line room at every phone width).
+    for (let i = 0; i < DRAFT.length - 6; i += 1) await page.keyboard.press("Backspace");
+    await page.waitForTimeout(SETTLE_MS);
+    expect(await stacked(page)).toBe(false);
+  });
+
   test("every compact button is a 44px square target", async ({ page }) => {
     const sizes = await buttonSizes(page);
 
@@ -356,4 +382,18 @@ function focusedOnDraft(page: Page) {
   return page.evaluate(
     () => document.activeElement?.closest('[data-row] [role="textbox"]') !== null
   );
+}
+
+/** Widths of the editor, its reflow area, and the row's content box (inside its padding). */
+function draftFill(page: Page) {
+  return page.evaluate(() => {
+    const row = document.querySelector<HTMLElement>("[data-row]")!;
+    const style = getComputedStyle(row);
+
+    return {
+      editor: document.querySelector('[data-row] [role="textbox"]')!.getBoundingClientRect().width,
+      area: document.querySelector('[data-reflow="area"]')!.getBoundingClientRect().width,
+      row: row.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight),
+    };
+  });
 }

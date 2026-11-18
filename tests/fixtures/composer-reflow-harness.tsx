@@ -8,6 +8,7 @@ import {
   COMPACT_ROW_BAND,
   COMPACT_ROW_LINE,
   COMPACT_SUBMIT_CLASS,
+  composerDraftClassName,
 } from "@/components/chat/core-input/compact-row";
 import { CoreInputControlsProvider } from "@/components/chat/core-input/core-input-context";
 import { CoreInputOptions } from "@/components/chat/core-input/core-input-options";
@@ -100,7 +101,11 @@ function ReflowHarness() {
                 data-reflow="area"
               >
                 <ComposerEditor
-                  className="text-base md:text-sm"
+                  // As CoreInput does, with the context budget on (its default).
+                  className={composerDraftClassName({
+                    condensed: true,
+                    reserveBudget: Boolean(text.trim()),
+                  })}
                   textareaRef={textareaRef}
                   value={text}
                   onChange={(event) => setText(event.target.value)}

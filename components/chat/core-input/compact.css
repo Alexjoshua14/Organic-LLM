@@ -44,6 +44,11 @@
   grid-area: area;
   min-width: 0;
 }
+/* On one line the draft's inline padding steps down a size, to give the text as much room as the
+   actions leave it. */
+.core-input-compact-row[data-expanded="false"] .composer-editor .editor-surface {
+  padding-inline: var(--spacing-inset-sm);
+}
 .core-input-reflow-trail {
   grid-area: trail;
 }

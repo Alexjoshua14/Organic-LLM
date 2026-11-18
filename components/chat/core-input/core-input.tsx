@@ -39,10 +39,7 @@ import {
 } from "../../third-party/ai-elements/prompt-input";
 import ShinyText from "../../ShinyText";
 import { ChatMessageMarkdown } from "../chat-message-markdown";
-import {
-  CONTEXT_BUDGET_DRAFT_RESERVE_CLASS,
-  ContextBudgetIndicator,
-} from "../context-budget-indicator";
+import { ContextBudgetIndicator } from "../context-budget-indicator";
 import { HomeComposerLumenShell } from "../home-composer-lumen-shell";
 
 import {
@@ -58,7 +55,12 @@ import { ComposerAddFilesButton } from "./controls/add-files-button";
 import { ComposerEditor, focusDraftFromShell } from "./editor/composer-editor";
 import { LumenSubmit } from "./editor/lumen-submit";
 import { useComposerReflow } from "./editor/use-composer-reflow";
-import { COMPACT_ROW_BAND, COMPACT_ROW_LINE, COMPACT_SUBMIT_CLASS } from "./compact-row";
+import {
+  COMPACT_ROW_BAND,
+  COMPACT_ROW_LINE,
+  COMPACT_SUBMIT_CLASS,
+  composerDraftClassName,
+} from "./compact-row";
 import { ComposerMicButton } from "./controls/mic-button";
 import "./compact.css";
 import { organicGlassSubmitClassName, PromptInputSubmit } from "./submit/submit-button";
@@ -1069,10 +1071,13 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       <ComposerEditor
         aria-label={variant === "stage-beta" ? "Message Organic" : undefined}
         className={cn(
-          "text-base md:text-sm",
-          variant === "compact" && "[&_.editor-surface]:max-h-24",
-          // The corner badge widens to show the draft's token count; wrap text before it.
-          showContextBudget && text.trim() && CONTEXT_BUDGET_DRAFT_RESERVE_CLASS
+          // The corner badge widens to show the draft's token count; the full layout wraps text
+          // before it. The compact row keeps the badge in its settings panel instead.
+          composerDraftClassName({
+            condensed: useCondensedLayout,
+            reserveBudget: Boolean(showContextBudget && text.trim()),
+          }),
+          variant === "compact" && "[&_.editor-surface]:max-h-24"
         )}
         disabled={variant === "stage-beta" ? disabled : false}
         maxLength={variant === "stage-beta" ? 7800 : undefined}
