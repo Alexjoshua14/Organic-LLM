@@ -359,11 +359,6 @@
   gap: var(--spacing-inline-xs);
 }
 
-/* Resolves the one-line text padding token to pixels for the fit measurement; never shown. */
-.organic-composer .editor-pad-probe {
-  padding-inline: var(--spacing-inset-sm);
-}
-
 /*
  * CoreInput's surface: the textarea's footprint (one line, growing with the draft) instead of the
  * lab's taller card. It shows far more of a long draft before scrolling (40% of the screen, against

@@ -37,6 +37,7 @@ export function CoreInputOptions({
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
+  const [align, setAlign] = useState<"start" | "center">("start");
   const [shell, setShell] = useState<HTMLElement | null>(null);
   const [root, setRoot] = useState<HTMLElement | null>(null);
   const available = (id: keyof FooterPlacementMap) => placement[id] !== "hidden";
@@ -55,7 +56,15 @@ export function CoreInputOptions({
   const anchorRef = useMemo(() => ({ current: shell }), [shell]);
 
   return (
-    <Popover.Root open={open} onOpenChange={setOpen}>
+    <Popover.Root
+      open={open}
+      onOpenChange={(next) => {
+        // On xs screens (below Tailwind's sm breakpoint) the panel is about as wide as the
+        // composer, so it centres over it instead of hugging the left edge.
+        if (next) setAlign(isExtraSmallScreen() ? "center" : "start");
+        setOpen(next);
+      }}
+    >
       <span ref={hostRef} className="contents" />
       {shell ? <Popover.Anchor virtualRef={anchorRef} /> : null}
       <ComposerActionButton
@@ -71,7 +80,7 @@ export function CoreInputOptions({
         <Popover.Content
           ref={panelRef}
           aria-label="Composer settings"
-          align="start"
+          align={align}
           side="top"
           sideOffset={-OPTIONS_PANEL_OVERLAP_PX}
           collisionPadding={16}
@@ -108,4 +117,13 @@ export function CoreInputOptions({
       </Popover.Portal>
     </Popover.Root>
   );
+}
+
+/** Below Tailwind's `sm` breakpoint (`--breakpoint-sm`, 40rem by default). */
+function isExtraSmallScreen() {
+  const sm =
+    getComputedStyle(document.documentElement).getPropertyValue("--breakpoint-sm").trim() ||
+    "40rem";
+
+  return window.matchMedia(`(width < ${sm})`).matches;
 }

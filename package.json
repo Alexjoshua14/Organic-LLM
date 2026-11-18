@@ -18,6 +18,7 @@
     "test:unit": "scripts/run-tests.ts unit",
     "test:integration": "scripts/run-tests.ts integration",
     "test:e2e": "bunx playwright test",
+    "test:composer": "bunx playwright test -c tests/e2e/composer-reflow.playwright.config.ts",
     "webhook:local": "ngrok http 3000",
     "supabase:types": "supabase gen types typescript --linked --schema public > lib/supabase/types.ts",
     "migrate:memories-v2": "bun run scripts/migrate-memories-v2.ts",

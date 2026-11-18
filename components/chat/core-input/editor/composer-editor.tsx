@@ -36,6 +36,22 @@ import { cn } from "@/lib/utils";
 
 export const COMPOSER_DEFAULT_PLACEHOLDER = "Drop a thought";
 
+/** Anything that handles its own tap; a tap anywhere else in the composer goes to the draft. */
+const OWNS_TAP =
+  'button, a[href], input, select, textarea, label, summary, [contenteditable="true"], [role="button"], [role="switch"], [role="option"], [role^="menuitem"], [role="slider"], [role="tab"], [data-composer-own-tap]';
+
+/**
+ * A tap on the composer's empty space (padding, gaps, the line around the text) focuses the
+ * draft, so the whole shell is a target, not just the text. Taps on controls are left alone, and
+ * so is a drag that selected text.
+ */
+export function focusDraftFromShell(target: EventTarget | null, editor: Editor | null) {
+  if (!editor || editor.isDestroyed || !editor.isEditable) return;
+  if (!(target instanceof Element) || target.closest(OWNS_TAP)) return;
+  if (window.getSelection()?.toString()) return;
+  editor.commands.focus("end");
+}
+
 type ComposerEditorProps = {
   /**
    * CoreInput's textarea ref. It now points at a hidden textarea that mirrors the editor's

@@ -55,9 +55,10 @@ import { resolveFooterPlacement } from "./footer/footer-placement";
 import { CoreInputOptions } from "./core-input-options";
 import { CoreInputSteerTab, CoreInputStrip } from "./steer-tab";
 import { ComposerAddFilesButton } from "./controls/add-files-button";
-import { ComposerEditor } from "./editor/composer-editor";
+import { ComposerEditor, focusDraftFromShell } from "./editor/composer-editor";
 import { LumenSubmit } from "./editor/lumen-submit";
 import { useComposerReflow } from "./editor/use-composer-reflow";
+import { COMPACT_ROW_BAND, COMPACT_ROW_LINE, COMPACT_SUBMIT_CLASS } from "./compact-row";
 import { ComposerMicButton } from "./controls/mic-button";
 import "./compact.css";
 import { organicGlassSubmitClassName, PromptInputSubmit } from "./submit/submit-button";
@@ -228,11 +229,6 @@ type CoreInputProps = {
 let lastDisplayedSettings: CoreInputSettings | null = null;
 
 /** Morph pulses target controls through these `data-core-input-morph-*` names. */
-/** A compact action group: one line of text tall (the send button), every control centred in it. */
-const REFLOW_BAND = "flex min-h-9 items-center gap-inline-xs pointer-coarse:min-h-11";
-/** The draft on the one-line layout: the same band, its single line centred in it. */
-const REFLOW_LINE = "flex min-h-9 flex-col justify-center pointer-coarse:min-h-11";
-
 const MORPH_PULSE_ATTRIBUTE: Record<CoreInputSettingField, string> = {
   modelId: "data-core-input-morph-model",
   effort: "data-core-input-morph-effort",
@@ -1205,9 +1201,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
           organicGlassSubmitClassName,
         personaActive && "overflow-hidden rounded-lg bg-transparent p-0 hover:bg-transparent",
         useCondensedLayout &&
-          (personaActive
-            ? cn(glass({ chip: true }), "core-input-compact-submit size-9 rounded-full")
-            : "core-input-compact-submit size-9 rounded-full")
+          (personaActive ? cn(glass({ chip: true }), COMPACT_SUBMIT_CLASS) : COMPACT_SUBMIT_CLASS)
       )}
       variant={personaActive ? "ghost" : undefined}
       // Multi-mode: always submit (never stop). Default: keep stop available while streaming.
@@ -1268,6 +1262,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       multiple
       maxFiles={variant === "stage-beta" ? 0 : undefined}
       className={cn("z-40 w-full min-w-0", useCondensedLayout && "core-input-condensed", className)}
+      onClick={(event) => focusDraftFromShell(event.target, composerEditor)}
       onSubmit={handleSubmit}
       onSubmitCapture={handleSubmitCapture}
     >
@@ -1313,7 +1308,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
         data-expanded={useCondensedLayout ? (stacked ? "true" : "false") : undefined}
       >
         {useCondensedLayout ? (
-          <div className={cn(REFLOW_BAND, "core-input-reflow-lead")} data-reflow="lead">
+          <div className={cn(COMPACT_ROW_BAND, "core-input-reflow-lead")} data-reflow="lead">
             <CoreInputOptions
               placement={footerPlacement}
               ready={settingsReady}
@@ -1322,7 +1317,10 @@ export const CoreInput: React.FC<CoreInputProps> = ({
           </div>
         ) : null}
         {useCondensedLayout ? (
-          <div className={cn("core-input-reflow-area", !stacked && REFLOW_LINE)} data-reflow="area">
+          <div
+            className={cn("core-input-reflow-area", !stacked && COMPACT_ROW_LINE)}
+            data-reflow="area"
+          >
             {composerBody}
           </div>
         ) : (
@@ -1330,7 +1328,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
         )}
         {useCondensedLayout ? (
           <>
-            <div className={cn(REFLOW_BAND, "core-input-reflow-trail")} data-reflow="trail">
+            <div className={cn(COMPACT_ROW_BAND, "core-input-reflow-trail")} data-reflow="trail">
               {footerPlacement.addFiles !== "hidden" ||
               footerPlacement.threadClipboard !== "hidden" ? (
                 <ComposerAddFilesButton
@@ -1345,7 +1343,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
                   <ComposerMicButton textareaRef={textareaRef} onTranscriptionChange={setText} />
                 ) : null)}
             </div>
-            <div className={cn(REFLOW_BAND, "core-input-reflow-send")} data-reflow="send">
+            <div className={cn(COMPACT_ROW_BAND, "core-input-reflow-send")} data-reflow="send">
               {submitControl}
             </div>
           </>

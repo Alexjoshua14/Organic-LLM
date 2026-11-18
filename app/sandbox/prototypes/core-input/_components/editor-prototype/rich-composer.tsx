@@ -5,7 +5,7 @@ import type { Editor } from "@tiptap/core";
 import type { SlashMatch } from "@/components/chat/core-input/editor/editor-model";
 
 import { createPortal } from "react-dom";
-import { memo, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { memo, useEffect, useId, useRef, useState } from "react";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Markdown } from "@tiptap/markdown";
@@ -18,10 +18,13 @@ import {
   handleEditorCodeFenceEnter,
   handleEditorLineShortcut,
 } from "@/components/chat/core-input/editor/editor-model";
-import { EditableCodeDelimiters, EditorCodeHighlight } from "@/components/chat/core-input/editor/code-editing";
+import {
+  EditableCodeDelimiters,
+  EditorCodeHighlight,
+} from "@/components/chat/core-input/editor/code-editing";
 import { ComposerCodeBlock } from "@/components/chat/core-input/editor/code-block-editor";
 import { LumenSubmit } from "@/components/chat/core-input/editor/lumen-submit";
-import { playReflow, snapshotReflow, wantsExpanded, type ReflowSnapshot } from "@/components/chat/core-input/editor/composer-reflow";
+import { useComposerReflow } from "@/components/chat/core-input/editor/use-composer-reflow";
 
 import { useSubmitOnEnter } from "@/hooks/use-mobile";
 import { Button } from "@/components/third-party/ui/button";
@@ -73,11 +76,6 @@ export const RichComposer = memo(function RichComposer({
   const richChanged = useRef(false);
   const canSubmit = useSubmitOnEnter();
   const rowRef = useRef<HTMLDivElement>(null);
-  const [expanded, setExpanded] = useState(false);
-  const expandedRef = useRef(false);
-  const reflowFrom = useRef<ReflowSnapshot | null>(null);
-  const settled = useRef(false);
-  const evaluateLayout = useRef<(target?: Editor | null) => void>(() => {});
   const handlers = useRef({ busy, voice, canSubmit, onSend, slash, active, source, mode });
 
   handlers.current = { busy, voice, canSubmit, onSend, slash, active, source, mode };
@@ -102,7 +100,6 @@ export const RichComposer = memo(function RichComposer({
     onUpdate: ({ editor }) => {
       richChanged.current = true;
       refreshSlash(editor);
-      evaluateLayout.current(editor);
     },
     onSelectionUpdate: ({ editor }) => refreshSlash(editor),
     editorProps: {
@@ -197,47 +194,11 @@ export const RichComposer = memo(function RichComposer({
     }),
   });
 
-  evaluateLayout.current = (target = editor) => {
-    const row = rowRef.current;
-
-    if (!row || !target || target.isDestroyed) return;
-    const want = wantsExpanded(target, row, mode === "source" || voice, expandedRef.current);
-
-    if (want === expandedRef.current) return;
-    reflowFrom.current = settled.current ? snapshotReflow(row) : null;
-    expandedRef.current = want;
-    setExpanded(want);
-  };
-  useLayoutEffect(() => {
-    evaluateLayout.current();
-  }, [editor, mode, voice]);
-  useEffect(() => {
-    evaluateLayout.current();
-    const frame = requestAnimationFrame(() => {
-      settled.current = true;
-    });
-    const row = rowRef.current;
-    const observer =
-      row && typeof ResizeObserver !== "undefined"
-        ? new ResizeObserver(() => evaluateLayout.current())
-        : null;
-
-    if (row) observer?.observe(row);
-    // Measurements taken before the web font loads are for the wrong glyph widths.
-    void document.fonts?.ready.then(() => evaluateLayout.current());
-
-    return () => {
-      cancelAnimationFrame(frame);
-      observer?.disconnect();
-    };
-  }, [editor]);
-  useLayoutEffect(() => {
-    const row = rowRef.current;
-    const from = reflowFrom.current;
-
-    reflowFrom.current = null;
-    if (row && from) playReflow(row, from, expanded);
-  }, [expanded]);
+  // The same one-line → stacked logic CoreInput uses (editor/use-composer-reflow.ts).
+  const expanded = useComposerReflow(rowRef, editor, {
+    enabled: true,
+    forced: mode === "source" || voice,
+  });
   useEffect(() => {
     editor?.setEditable(!busy && !voice);
   }, [editor, busy, voice]);
@@ -425,7 +386,6 @@ export const RichComposer = memo(function RichComposer({
           {leading}
         </div>
         <div className={cn("editor-area", !expanded && "min-h-11")} data-reflow="area">
-          <span hidden aria-hidden className="editor-pad-probe" data-pad-probe />
           <div className={cn((voice || mode === "source") && "hidden")}>
             <EditorContent editor={editor} />
           </div>

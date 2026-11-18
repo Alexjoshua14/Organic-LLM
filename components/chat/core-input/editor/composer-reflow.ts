@@ -128,76 +128,93 @@ function textWidth(text: string, element: Element) {
   return measurer.measureText(text).width;
 }
 
-/** Width the text has on one line: the row minus the actions, which hold their size either way. */
-function singleLineTextWidth(row: HTMLElement, surface?: Element) {
-  const style = getComputedStyle(row);
-  const gap = parseFloat(style.columnGap) || 0;
-  // The one-line layout pads the text with a token; a hidden probe resolves it to pixels.
-  const probe = row.querySelector("[data-pad-probe]");
-  // A probe resolves the one-line padding when it differs from the current layout's (the lab);
-  // otherwise the editor surface's own padding is the same in both layouts.
-  const padSource = probe ?? surface;
-  const inlinePad = padSource ? parseFloat(getComputedStyle(padSource).paddingLeft) || 0 : 0;
-  let used = 0;
-  let items = 0;
+/**
+ * What the reflow remembers between measurements. Created once per composer
+ * (`createReflowMemo`) and passed to every `wantsExpanded` call.
+ */
+export type ReflowMemo = {
+  /** Room for text on one line, measured from the editor while it was last on one line. */
+  oneLineRoom: number;
+  /** The row's width at that measurement, so a resize can shift the room by the same amount. */
+  rowWidth: number;
+  /** Draft length when it stacked because it wrapped; only a shorter draft may return to one line. */
+  lengthAtStack: number;
+};
 
-  // The editor itself is what is being fitted, so only the actions count against its width.
-  for (const item of row.querySelectorAll<HTMLElement>("[data-reflow]:not([data-reflow='area'])")) {
-    const margin = getComputedStyle(item);
-
-    used +=
-      item.offsetWidth +
-      (parseFloat(margin.marginLeft) || 0) +
-      (parseFloat(margin.marginRight) || 0);
-    items += 1;
-  }
-
-  return row.clientWidth - used - gap * items - inlinePad * 2;
+export function createReflowMemo(): ReflowMemo {
+  return { oneLineRoom: 0, rowWidth: 0, lengthAtStack: Infinity };
 }
 
 /**
  * Whether the composer should be stacked: anything beyond a single plain line (several blocks, a
- * Shift+Enter break, a list, a code block), or a line too long for the one-row layout.
+ * Shift+Enter break, a list, a code block), or a line that no longer fits the one-line layout.
+ *
+ * Nothing here is estimated. On one line, it stacks only when the text really wraps. Stacked, it
+ * returns to one line only after the draft got shorter than when it stacked, and only if the
+ * text clears the one-line room measured before stacking by `COMPOSER_FIT_SLACK_PX`. So typing
+ * can never bounce between the layouts, whatever the exact widths are.
  */
 export function wantsExpanded(
   editor: Editor,
   row: HTMLElement,
   forced: boolean,
-  expanded: boolean
+  expanded: boolean,
+  memo: ReflowMemo
 ): boolean {
-  if (forced) return true;
+  const stack = (wrapped: boolean, length: number) => {
+    // Stacking for a wrap remembers the length; any other reason lets it return once it fits.
+    if (!expanded) memo.lengthAtStack = wrapped ? length : Infinity;
+
+    return true;
+  };
+
+  if (forced) return expanded || stack(false, 0);
   const { doc } = editor.state;
   const first = doc.firstChild;
 
-  if (doc.childCount !== 1 || first?.type.name !== "paragraph") return true;
+  if (doc.childCount !== 1 || first?.type.name !== "paragraph") return expanded || stack(false, 0);
   let broken = false;
 
   first.forEach((child) => {
     if (child.type.name === "hardBreak") broken = true;
   });
-  if (broken) return true;
-  const line = editor.view.dom.firstElementChild;
+  if (broken) return expanded || stack(false, 0);
+  const surface = editor.view.dom;
+  const line = surface.firstElementChild;
 
   if (!line) return false;
+  if (!expanded) {
+    const style = getComputedStyle(surface);
+
+    memo.oneLineRoom =
+      surface.clientWidth -
+      (parseFloat(style.paddingLeft) || 0) -
+      (parseFloat(style.paddingRight) || 0);
+    memo.rowWidth = row.clientWidth;
+  }
+  // A resize while stacked moves the one-line room by as much as the row changed.
+  const room = memo.oneLineRoom + (row.clientWidth - memo.rowWidth);
+  const slack = expanded ? COMPOSER_FIT_SLACK_PX : 0;
+
   // An empty line shows the placeholder, which has to fit the one-line layout like typed text.
   if (!first.content.size) {
     const width = textWidth(line.getAttribute("data-placeholder") ?? "", line);
+    const tooWide = width > 0 && room > 0 && width > room - slack;
 
-    return (
-      width > 0 &&
-      width > singleLineTextWidth(row, editor.view.dom) - (expanded ? COMPOSER_FIT_SLACK_PX : 0)
-    );
+    return tooWide ? expanded || stack(false, 0) : false;
   }
   const range = document.createRange();
 
   // No layout engine (tests, server render): nothing can be measured, so the line is taken to fit.
-  if (typeof range.getBoundingClientRect !== "function") return false;
+  if (typeof range.getBoundingClientRect !== "function") return expanded;
   range.selectNodeContents(line);
   const box = range.getBoundingClientRect();
   const lineHeight = parseFloat(getComputedStyle(line).lineHeight) || 24;
-  const slack = expanded ? COMPOSER_FIT_SLACK_PX : 0;
+  const wraps = box.height >= lineHeight * 1.5;
+  const length = first.textContent.length;
 
-  return (
-    box.height >= lineHeight * 1.5 || box.width > singleLineTextWidth(row, editor.view.dom) - slack
-  );
+  if (!expanded) return wraps ? stack(true, length) : false;
+  if (wraps || length >= memo.lengthAtStack) return true;
+
+  return box.width > room - slack;
 }

@@ -75,10 +75,14 @@
   border-radius: 50%;
 }
 /* Icon buttons in the compact row (options, +, mic) are 32px squares, the toolbar button height. */
-.core-input-compact-row .composer-tool-chip {
-  width: 32px;
-  height: 32px;
-  min-width: 32px;
+/*
+ * Icon chips (options, +, mic) are 1:1 squares, the toolbar button height. Send keeps its own
+ * size-9 circle. Width and height are always set together so no rule can squash one axis.
+ */
+.core-input-compact-row .composer-tool-chip:not(.core-input-compact-submit) {
+  width: calc(var(--spacing) * 8);
+  height: calc(var(--spacing) * 8);
+  min-width: calc(var(--spacing) * 8);
   padding: 0;
   aspect-ratio: 1;
 }
@@ -245,6 +249,17 @@
   .core-input-options-panel button {
     min-height: 44px;
     min-width: 44px;
+  }
+  /*
+   * On touch every compact control is a 44px square target. The chips and Send are sized on both
+   * axes here; the minimums above alone stretched them taller than wide (a squashed Send).
+   */
+  .core-input-compact-row .composer-tool-chip:not(.core-input-compact-submit),
+  .core-input-compact-row .core-input-compact-submit {
+    width: calc(var(--spacing) * 11);
+    height: calc(var(--spacing) * 11);
+    min-width: calc(var(--spacing) * 11);
+    min-height: calc(var(--spacing) * 11);
   }
   .core-input-options-setting {
     min-height: 44px;
