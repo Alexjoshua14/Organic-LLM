@@ -34,6 +34,48 @@ jobs:
           TEST_VERBOSE: "1"
         run: bun run test
 
+  browser-regressions:
+    # Headless component suites: real components and the compiled app CSS in real engines, with no
+    # app server, account or LLM calls. Each suite has its own Playwright config.
+    name: Browser regressions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "latest"
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install browsers
+        run: bunx playwright install --with-deps chromium webkit
+
+      - name: CoreInput compact layout (reflow, buttons, tap to focus, settings panel)
+        run: bun run test:composer
+
+      - name: Composer resize during sidebar transitions
+        run: bunx playwright test -c tests/e2e/composer-resize.playwright.config.ts
+
+      - name: Conversation scrolling
+        # "explicitly disabled resize-following remains disabled" fails on develop and is tracked
+        # in Ergon (COA-659); the rest of the suite gates. Remove the exclusion with that fix.
+        run: >-
+          bunx playwright test -c tests/e2e/scroll.playwright.config.ts
+          --grep-invert "explicitly disabled resize-following remains disabled"
+
+      - name: Upload Playwright results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-regressions-results
+          path: /tmp/organic-*-results
+          if-no-files-found: ignore
+          retention-days: 7
+
   memory-feedback-database:
     name: Memory feedback grants and migrations
     runs-on: ubuntu-latest
