@@ -49,25 +49,26 @@ export function BlogArticleShell({
     <>
       <div aria-hidden className={styles.glow} />
       <PageContentFrame className="@container relative z-10" maxWidth="8xl">
-        <PageNavBack className={blogArticlePage.navToContent} href={back.href}>
-          {back.label}
-        </PageNavBack>
-
         <div className={styles.layout}>
-          <article className={cn(styles.article, "text-foreground")} id={articleId}>
-            {meta !== undefined ? (
-              meta
-            ) : post ? (
-              <p className={styles.meta}>
-                <span>{BLOG_CATEGORY_LABELS[post.category]}</span>
-                <span aria-hidden className={styles.metaDot} />
-                <span className={styles.metaItem}>{post.readMinutes} min read</span>
-                <span aria-hidden className={styles.metaDot} />
-                <span className={styles.metaItem}>Updated {formatBlogDate(post.updated)}</span>
-              </p>
-            ) : null}
-            <div className={blogArticlePage.blockStack}>{children}</div>
-          </article>
+          <div className={styles.column}>
+            <PageNavBack className={blogArticlePage.navToContent} href={back.href}>
+              {back.label}
+            </PageNavBack>
+            <article className="text-foreground" id={articleId}>
+              {meta !== undefined ? (
+                meta
+              ) : post ? (
+                <p className={styles.meta}>
+                  <span>{BLOG_CATEGORY_LABELS[post.category]}</span>
+                  <span aria-hidden className={styles.metaDot} />
+                  <span className={styles.metaItem}>{post.readMinutes} min read</span>
+                  <span aria-hidden className={styles.metaDot} />
+                  <span className={styles.metaItem}>Updated {formatBlogDate(post.updated)}</span>
+                </p>
+              ) : null}
+              <div className={blogArticlePage.blockStack}>{children}</div>
+            </article>
+          </div>
 
           <aside className={styles.rail}>
             <BlogToc articleId={articleId} />

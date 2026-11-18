@@ -24,7 +24,7 @@
   row-gap: var(--spacing-stack-4xl, 3rem);
 }
 
-.article {
+.column {
   min-width: 0;
   width: 100%;
   max-width: var(--blog-measure);
@@ -34,7 +34,7 @@
 /* ---------- figures ---------- */
 
 @container (min-width: 64rem) {
-  .article [data-blog-wide] {
+  .column [data-blog-wide] {
     --w: min(var(--blog-wide), 100cqw);
 
     width: var(--w);
@@ -56,7 +56,7 @@
     align-items: start;
   }
 
-  .article {
+  .column {
     grid-column: 2;
     grid-row: 1;
     max-width: none;
@@ -71,14 +71,18 @@
     max-width: calc(var(--blog-rail-gap) + 13rem);
   }
 
-  /* Footer lines up with the column, not the rail. */
+  /* The footer takes the whole row and centres on the column, under the rail as well. */
   .after {
-    grid-column: 2;
+    grid-column: 1 / -1;
   }
 }
 
+/* Same measure as a figure, centred: it reads as the end of the column, not of the page. */
 .after {
   min-width: 0;
+  width: 100%;
+  max-width: var(--blog-wide);
+  margin-inline: auto;
 }
 
 /* ---------- meta line above the title ---------- */

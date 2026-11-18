@@ -36,12 +36,13 @@ export function MessageFlowStepper({
   return (
     <BlogFigure caption={caption}>
       <div className="rounded-xl border border-border bg-secondary/40 p-inset-xl">
-        <ol
+        <div
           aria-label="Steps"
-          className="mb-stack-xl flex list-none items-center gap-inline-sm p-0"
+          className="mb-stack-xl flex items-center gap-inline-sm"
+          role="group"
         >
           {steps.map((s, i) => (
-            <li key={s.title} className="flex-1">
+            <div key={s.title} className="flex-1">
               <button
                 aria-current={i === index ? "step" : undefined}
                 aria-label={`Step ${i + 1}: ${s.title}`}
@@ -52,9 +53,9 @@ export function MessageFlowStepper({
                 type="button"
                 onClick={() => setIndex(i)}
               />
-            </li>
+            </div>
           ))}
-        </ol>
+        </div>
 
         <div aria-live="polite" className="min-h-40 space-y-stack-md">
           <p className="text-2xs font-medium uppercase tracking-widest text-muted-foreground">
