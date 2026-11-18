@@ -32,7 +32,7 @@ export function SidebarAttentionSummary({
       {unseen > 0 ? (
         <button
           aria-label={`Jump to the next thread with new activity (${unseen} total)`}
-          className="cursor-pointer rounded px-1 text-accent hover:bg-accent/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
+          className="cursor-pointer rounded px-1 text-accent organic-lumen-interactive focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
           type="button"
           onClick={(event) => {
             // The label row can also toggle its collapsible group.

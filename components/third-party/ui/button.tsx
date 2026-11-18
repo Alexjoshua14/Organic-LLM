@@ -2,7 +2,11 @@ import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 
-import { glass, secondaryInteractive } from "@/components/design-system/primitives";
+import {
+  glass,
+  glassControlHover,
+  secondaryInteractive,
+} from "@/components/design-system/primitives";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
@@ -14,10 +18,10 @@ const buttonVariants = cva(
         destructive:
           "bg-destructive text-white shadow-xs hover:bg-destructive/90   dark:bg-destructive/60",
         outline:
-          "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50",
+          "organic-lumen-interactive border bg-background shadow-xs hover:text-foreground dark:bg-input/30 dark:border-input",
         secondary: "bg-secondary text-secondary-foreground shadow-xs hover:bg-secondary/80",
         secondaryInteractive: `${secondaryInteractive()} hover:scale-[1.02] active:scale-[0.98]`,
-        ghost: "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
+        ghost: `${glassControlHover} organic-lumen-interactive hover:text-foreground`,
         link: "text-primary underline-offset-4 hover:underline",
         glass: `${glass()} active:scale-95 hover:scale-105 transition-all duration-300`,
         none: "bg-transparent border-0 shadow-none font-normal hover:bg-transparent hover:opacity-90 active:scale-100",

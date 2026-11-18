@@ -399,7 +399,7 @@ export function AudioSnippet({ block, partial }: AudioSnippetProps) {
                 isButtonDisabled
                   ? "border-border/50 bg-background-tertiary/40 text-muted-foreground cursor-not-allowed opacity-60"
                   : isPlaying
-                    ? "border-accent/60 bg-accent/15 text-foreground hover:bg-accent/25 cursor-pointer"
+                    ? "border-accent/60 bg-accent/15 text-foreground organic-lumen-interactive cursor-pointer"
                     : "border-border/70 bg-background-tertiary/60 text-foreground hover:border-foreground/40 hover:bg-background-tertiary cursor-pointer"
               )}
             >

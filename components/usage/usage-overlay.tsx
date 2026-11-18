@@ -11,6 +11,7 @@ import { PlanAllotmentRow } from "./plan-allotment-row";
 import { PlanStatusCard } from "./plan-status-card";
 import { UsageChart } from "./usage-chart";
 import { UsageModelBreakdown } from "./usage-model-breakdown";
+import { usageSectionCaption, usageSectionTitle } from "./usage-typography";
 import { UsagePanelSkeleton, UsageTrackingNote } from "./usage-panel-skeleton";
 import { USAGE_REFRESH_MS, UsageRefreshProgress } from "./usage-refresh-progress";
 import { UsageStatCard } from "./usage-stat-card";
@@ -257,13 +258,16 @@ export function UsageOverlay({ className, triggerClassName }: UsageOverlayProps)
                     />
                   </div>
 
+                  <UsageTrackingNote />
+                  <UsageChart daily={data.daily} />
+
                   {data.gatewaySpend ? (
-                    <div className="space-y-2 rounded-xl border border-border/50 px-3 py-3 text-xs">
-                      <p className="font-medium">Gateway spend · admin</p>
+                    <div className="space-y-stack-sm rounded-lg border border-border/50 p-inset-md text-2xs">
+                      <p className={usageSectionTitle}>Gateway spend</p>
                       {data.gatewaySpend.status === "available" ? (
                         <>
                           <p className="flex justify-between gap-3">
-                            <span>Gateway account total</span>
+                            <span>Account total</span>
                             <span className="tabular-nums">
                               {formatUsd(data.gatewaySpend.accountCostUsd)}
                             </span>
@@ -274,23 +278,18 @@ export function UsageOverlay({ className, triggerClassName }: UsageOverlayProps)
                               {formatUsd(data.gatewaySpend.attributedCostUsd)}
                             </span>
                           </p>
-                          <p className="text-muted-foreground">
-                            Account total includes other users and apps on this Gateway account.
-                            User attribution covers tagged requests; older calls may be
-                            unattributed. Direct-provider calls are separate. Reports can lag recent
-                            activity.
+                          <p className={usageSectionCaption}>
+                            Account-wide spend. Your share covers tagged calls; older calls may be
+                            unassigned. Excludes direct-provider calls. Reports may lag.
                           </p>
                         </>
                       ) : (
                         <p className="text-muted-foreground">
-                          Gateway reporting is unavailable. Tracked cost below is not a complete
-                          account bill.
+                          Gateway reporting unavailable. Tracked cost isn’t the full account bill.
                         </p>
                       )}
                     </div>
                   ) : null}
-                  <UsageTrackingNote />
-                  <UsageChart daily={data.daily} />
 
                   <PlanAllotmentRow
                     billingCycleLabel={`${formatBillingCycleLabel(data.billingCycle.start)} – now`}

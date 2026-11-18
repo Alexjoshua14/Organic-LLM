@@ -63,7 +63,7 @@ export function QuickSettingRow({ label, caption, icon, children }: QuickSetting
               aria-controls={open ? captionId : undefined}
               aria-describedby={open ? captionId : undefined}
               aria-label={`About ${label}`}
-              className="flex min-h-11 items-center gap-inline-sm rounded-sm text-left leading-snug outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex min-h-11 items-center gap-inline-sm rounded-sm text-left leading-snug outline-none organic-focus"
               type="button"
               onBlur={() => {
                 keyboardFocused.current = false;

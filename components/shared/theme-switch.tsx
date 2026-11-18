@@ -56,9 +56,9 @@ export const ThemeSwitch: FC<ThemeSwitchProps> = ({
       <button
         aria-label={`Theme: ${option.label}. Click to switch.`}
         className={clsx(
-          "group flex cursor-pointer items-center justify-center rounded-md p-1.5 text-muted-foreground transition-colors",
-          "hover:bg-muted/60 hover:text-foreground",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+          "organic-focus organic-lumen-interactive group flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors",
+          "hover:text-foreground",
+          "organic-focus",
           className
         )}
         title={`${option.label} (click to change)`}
@@ -92,8 +92,8 @@ export const ThemeSwitch: FC<ThemeSwitchProps> = ({
             aria-pressed={isSelected}
             className={clsx(
               "flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-muted-foreground transition-colors",
-              "hover:bg-muted/60 hover:text-foreground",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+              "hover:text-foreground",
+              "organic-focus",
               isSelected && "bg-background text-foreground shadow-sm"
             )}
             title={label}
