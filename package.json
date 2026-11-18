@@ -1,6 +1,6 @@
 {
   "name": "organic-llm",
-  "version": "0.21.0",
+  "version": "0.22.0",
   "private": true,
   "engines": {
     "node": "22.x"
@@ -80,6 +80,13 @@
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.119.0",
     "@tailwindcss/typography": "^0.5.20",
+    "@tiptap/core": "3.34.0",
+    "@tiptap/extension-code-block": "3.34.0",
+    "@tiptap/extensions": "3.34.0",
+    "@tiptap/markdown": "3.34.0",
+    "@tiptap/pm": "3.34.0",
+    "@tiptap/react": "3.34.0",
+    "@tiptap/starter-kit": "3.34.0",
     "@types/three": "^0.184.1",
     "@upstash/ratelimit": "^2.2.1",
     "@upstash/redis": "^1.41.0",
