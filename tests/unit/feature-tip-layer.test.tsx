@@ -245,7 +245,7 @@ describe("FeatureTipLayer", () => {
     expect(app.queryByRole("dialog")).toBeNull();
     app.container.querySelector("form")?.removeAttribute("data-onboarding-composer-busy");
 
-    await app.findByRole("dialog", { name: "Choose who hears you" });
+    await app.findByRole("dialog", { name: "Choose who gets your message" });
     const recipient = app.getByRole("button", { name: "Researcher" });
 
     expect(recipient.hasAttribute("aria-describedby")).toBe(true);

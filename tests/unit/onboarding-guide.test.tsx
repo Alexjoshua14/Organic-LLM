@@ -152,7 +152,7 @@ describe("Guide", () => {
     const app = render(<Harness />);
     const guide = await openGuide(app);
 
-    fireEvent.click(within(guide).getByRole("button", { name: "Open launcher" }));
+    fireEvent.click(within(guide).getByRole("button", { name: "Jump to an idea" }));
 
     await waitFor(() => expect(app.queryByRole("dialog", { name: "Guide" })).toBeNull());
     expect(app.getByTestId("launcher").textContent).toBe("open");
@@ -167,7 +167,7 @@ describe("Guide", () => {
     fireEvent.mouseDown(within(guide).getByRole("tab", { name: "Shortcuts" }));
     fireEvent.click(within(guide).getByRole("tab", { name: "Shortcuts" }));
 
-    expect(await within(guide).findByText("Switch ideas")).toBeTruthy();
+    expect(await within(guide).findByText("Jump to an idea")).toBeTruthy();
     expect(within(guide).getByRole("img", { name: "Control K" })).toBeTruthy();
     expect(within(guide).queryByText("Show or hide the agent board")).toBeNull();
   });
@@ -185,7 +185,7 @@ describe("Guide", () => {
     fireEvent.click(within(guide).getByRole("tab", { name: "Tips" }));
 
     expect(await within(guide).findByText("What informs each reply")).toBeTruthy();
-    expect(within(guide).getByText("Choose who hears you")).toBeTruthy();
+    expect(within(guide).getByText("Choose who gets your message")).toBeTruthy();
 
     fireEvent.click(within(guide).getByRole("switch"));
     expect(getOnboardingSnapshot().state.tipsEnabled).toBe(false);
@@ -229,11 +229,11 @@ describe("WelcomeCard", () => {
       </Harness>
     );
 
-    expect(app.queryByText("Welcome to Organic")).toBeNull();
+    expect(app.queryByText("Welcome to Organic LLM")).toBeNull();
     act(() => {
       void onboardingActions.replay();
     });
-    expect(app.getByText("Welcome to Organic")).toBeTruthy();
+    expect(app.getByText("Welcome to Organic LLM")).toBeTruthy();
   });
 
   test("shows for a new account and opens the Guide, which retires it", async () => {
@@ -243,12 +243,12 @@ describe("WelcomeCard", () => {
       </Harness>
     );
 
-    const card = app.getByRole("complementary", { name: "Welcome to Organic" });
+    const card = app.getByRole("complementary", { name: "Welcome to Organic LLM" });
 
     fireEvent.click(within(card).getByRole("button", { name: "Open the Guide" }));
 
     expect(await app.findByRole("dialog", { name: "Guide" })).toBeTruthy();
-    expect(app.queryByRole("complementary", { name: "Welcome to Organic" })).toBeNull();
+    expect(app.queryByRole("complementary", { name: "Welcome to Organic LLM" })).toBeNull();
     expect(getOnboardingSnapshot().state.welcomeDismissedAt).toBeNumber();
   });
 
@@ -261,7 +261,7 @@ describe("WelcomeCard", () => {
 
     fireEvent.click(app.getByRole("button", { name: "Dismiss welcome" }));
 
-    expect(app.queryByRole("complementary", { name: "Welcome to Organic" })).toBeNull();
+    expect(app.queryByRole("complementary", { name: "Welcome to Organic LLM" })).toBeNull();
   });
 
   test("stays away for older accounts, while another notice is up, and once first steps are done", () => {
@@ -283,7 +283,7 @@ describe("WelcomeCard", () => {
 
     expect(held.queryByRole("complementary")).toBeNull();
     act(() => release());
-    expect(held.getByRole("complementary", { name: "Welcome to Organic" })).toBeTruthy();
+    expect(held.getByRole("complementary", { name: "Welcome to Organic LLM" })).toBeTruthy();
 
     act(() => {
       for (const step of ["first-message", "try-arcadia", "rabbit-hole", "switch-ideas"] as const) {

@@ -16,7 +16,7 @@ import { onboardingActions } from "@/lib/onboarding/onboarding-actions";
 import { checklistProgress } from "@/lib/onboarding/onboarding-state";
 import { cn } from "@/lib/utils";
 
-const sectionLabel = "text-2xs font-medium uppercase tracking-[0.16em] text-muted-foreground/80";
+const sectionLabel = "text-2xs font-medium uppercase tracking-[0.16em] text-muted-foreground";
 
 function StepAction({
   step,
@@ -160,7 +160,7 @@ function Surfaces({ onHandoff }: { onHandoff: () => void }) {
         Surfaces
       </h3>
       <p className="text-xs leading-relaxed text-muted-foreground">
-        Open the sidebar to switch between these parts of Organic.
+        Open a workspace here or find most of them in the sidebar.
       </p>
       <ul className="grid gap-stack-sm sm:grid-cols-2">
         {guideSurfaces({ isAdmin }).map((surface) => (
@@ -200,9 +200,17 @@ export function GuideStartTab({ onHandoff }: { onHandoff: () => void }) {
     <div className="flex flex-col gap-stack-2xl px-5 py-5 sm:px-6">
       <section className="flex flex-col gap-stack-sm">
         <p className="text-sm leading-relaxed text-foreground">
-          Use Organic to ask questions, explore research, and make plans. With Memory enabled,
-          Organic can use what you’ve shared in earlier conversations to inform a reply.
+          Organic LLM brings chat, cited research, meal planning, tasks, and voice together. With
+          Memory on, Organic can save details you share and recall them in later chats. View or
+          delete saved memories in Settings → Memory.
         </p>
+        <Link
+          className="organic-focus w-fit rounded-sm text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+          href="/privacy-and-security#encryption"
+          onClick={onHandoff}
+        >
+          How Organic protects your conversations
+        </Link>
         {!signedIn ? (
           <p className="text-xs leading-relaxed text-muted-foreground">
             Sign in to start a thread and track your first steps.

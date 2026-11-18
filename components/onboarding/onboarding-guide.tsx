@@ -49,10 +49,11 @@ export function OnboardingGuide() {
           glass({ opaque: true }),
           "flex max-h-[min(88dvh,46rem)] w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden rounded-2xl p-0 sm:max-w-2xl",
           "ring-1 ring-white/50 ring-inset dark:ring-white/10",
+          "motion-reduce:data-[state=open]:animate-none motion-reduce:data-[state=closed]:animate-none",
           "shadow-[0_24px_80px_-24px_rgb(0_0_0/0.25)] dark:shadow-[0_24px_80px_-24px_rgb(0_0_0/0.55)]"
         )}
         closeClassName="organic-focus top-0.5 right-[2px] flex size-11 items-center justify-center bg-transparent focus:ring-0 focus:ring-offset-0 data-[state=open]:bg-transparent"
-        overlayClassName="bg-black/25 dark:bg-black/60"
+        overlayClassName="bg-black/25 dark:bg-black/60 motion-reduce:data-[state=open]:animate-none motion-reduce:data-[state=closed]:animate-none"
         onOpenAutoFocus={() => {
           handoffRef.current = false;
           openerRef.current =
@@ -76,7 +77,7 @@ export function OnboardingGuide() {
             Guide
           </DialogTitle>
           <DialogDescription className="text-sm leading-relaxed text-muted-foreground">
-            First steps, keyboard shortcuts, and tips.
+            Reopen the Guide any time from the ? button.
           </DialogDescription>
         </DialogHeader>
 

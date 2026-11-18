@@ -49,7 +49,7 @@ export const KEYBOARD_SHORTCUT_SCOPES: KeyboardShortcutScope[] = [
 
 export const KEYBOARD_SHORTCUT_SCOPE_LABELS: Record<KeyboardShortcutScope, string> = {
   everywhere: "Everywhere",
-  chat: "Chat & composer",
+  chat: "Chat, composer & Arcadia",
   home: "Home",
   "rabbit-holes": "Rabbit Holes",
   speak: "Speak",
@@ -60,7 +60,7 @@ export const KEYBOARD_SHORTCUTS: KeyboardShortcutDefinition[] = [
   {
     id: "switch-ideas",
     keys: ["mod", "K"],
-    label: "Switch ideas",
+    label: "Jump to an idea",
     hint: "Reopen a recent thread or start something new",
     scope: "everywhere",
     handler: "components/aion-launcher/aion-launcher.tsx",
@@ -133,7 +133,7 @@ export const KEYBOARD_SHORTCUTS: KeyboardShortcutDefinition[] = [
   {
     id: "rabbit-focus",
     keys: ["mod", "shift", "F"],
-    label: "Reading mode",
+    label: "Focus mode",
     hint: "Hides the path, sources and prompt",
     scope: "rabbit-holes",
     handler: "components/rabbit-holes/RabbitHoleShell.tsx",

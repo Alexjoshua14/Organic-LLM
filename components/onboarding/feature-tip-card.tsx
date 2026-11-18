@@ -43,7 +43,7 @@ export function FeatureTipCard({
       </p>
       <div className="mt-stack-xs flex items-center justify-between gap-inline-sm">
         <Button
-          className="h-9 px-2 text-xs font-normal text-muted-foreground hover:text-foreground sm:h-8"
+          className="h-11 px-2 text-xs font-normal text-muted-foreground hover:text-foreground sm:h-8"
           size="sm"
           type="button"
           variant="ghost"
@@ -51,7 +51,7 @@ export function FeatureTipCard({
         >
           Turn off tips
         </Button>
-        <Button className="h-9 px-4 sm:h-8" size="sm" type="button" onClick={onGotIt}>
+        <Button className="h-11 px-4 sm:h-8" size="sm" type="button" onClick={onGotIt}>
           Got it
         </Button>
       </div>

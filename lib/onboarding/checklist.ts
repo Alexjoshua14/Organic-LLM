@@ -21,25 +21,25 @@ export const CHECKLIST_STEPS: ChecklistStep[] = [
   {
     id: "first-message",
     title: "Ask your first question",
-    body: "Send a question you already have. The Search and Memory buttons control what each reply can draw on.",
+    body: "Send a question you already have. The globe (Search) and brain (Memory) buttons control what replies can draw on.",
     action: { kind: "link", href: "/chat", label: "New chat" },
   },
   {
     id: "try-arcadia",
     title: "Try Arcadia",
-    body: "Send a message in Arcadia. It can use tools to do things like organize tasks or plan meals.",
+    body: "Try a quick request in Arcadia, like sorting tasks into a board or planning a meal.",
     action: { kind: "link", href: "/sandbox/arcadia", label: "Open Arcadia" },
   },
   {
     id: "rabbit-hole",
     title: "Go down a rabbit hole",
-    body: "Ask a research question and approve the article when prompted. Follow a related question to branch off.",
+    body: "Ask for a research article, or say yes in chat when Organic offers one. Follow a related question to explore it further.",
     action: { kind: "link", href: "/rabbitholes", label: "Start a rabbit hole" },
   },
   {
     id: "switch-ideas",
-    title: "Jump between ideas",
-    body: "Open the launcher to find a recent thread or start something new from anywhere.",
-    action: { kind: "launcher", label: "Open launcher" },
+    title: "Jump to an idea",
+    body: "Reopen a recent thread or start something new from any page.",
+    action: { kind: "launcher", label: "Jump to an idea" },
   },
 ];

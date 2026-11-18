@@ -33,8 +33,9 @@ export function ChatEmptyStateGuide({ className }: ChatEmptyStateGuideProps) {
         Start a conversation
       </h2>
       <p className="mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">
-        Search and Memory are on by default, so replies can use web results and what Organic has
-        learned about you. Leave the model on Auto to have it chosen for each message.
+        Search and Memory are on by default, so replies can use web results and memories you’ve
+        shared. Leave the composer’s model picker on Auto to let Organic choose a model for each
+        message.
       </p>
     </div>
   );

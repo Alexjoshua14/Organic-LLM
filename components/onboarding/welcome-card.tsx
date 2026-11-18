@@ -59,11 +59,11 @@ export function WelcomeCard({ className }: { className?: string }) {
         id="welcome-card-title"
       >
         <Sparkles aria-hidden className="size-3.5 text-lumen" strokeWidth={1.75} />
-        Welcome to Organic
+        Welcome to Organic LLM
       </h2>
       <p className="mt-stack-xs text-sm leading-relaxed text-muted-foreground">
-        Type an idea above and Organic opens the right place for it: a recent thread that matches,
-        or a fresh chat. The sidebar holds every other surface, from research to meal plans.
+        Submit an idea above to reopen a matching thread or start a new chat with your draft ready
+        to send. Open the Guide below, or find it later under the ? button.
       </p>
       <Button
         className="mt-stack-md h-11 px-3 text-xs sm:h-8"

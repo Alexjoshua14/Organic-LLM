@@ -20,13 +20,14 @@ export const GUIDE_SURFACES: GuideSurface[] = [
   {
     id: "chat",
     label: "Chat",
-    summary: "Everyday threads with web search and memory.",
+    summary: "Everyday conversations, with more room for research and memory.",
     href: "/chat",
   },
   {
     id: "arcadia",
     label: "Arcadia",
-    summary: "Fast, tool-forward answers in four styles, plus multiagent work.",
+    summary:
+      "Quick answers with tools for tasks, meal planning, or writing. You can also work with a team of agents.",
     href: "/sandbox/arcadia",
   },
   {
