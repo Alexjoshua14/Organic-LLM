@@ -80,7 +80,7 @@ export function TermWithDefinition({ term, definition, className }: TermWithDefi
         aria-describedby={open ? `term-def-${displayTerm.replace(/\s/g, "-")}` : undefined}
         className={cn(
           "cursor-help border-b border-dotted border-muted-foreground text-foreground",
-          "hover:text-secondary-foreground focus:text-secondary-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+          "hover:text-secondary-foreground focus:text-secondary-foreground organic-focus",
           className
         )}
         role="button"
@@ -127,12 +127,26 @@ const DEFINITIONS: Record<string, string> = {
     "Backend-as-a-Service platform providing database, auth, and real-time APIs; Organic LLM uses it for chat and user data.",
   "env var":
     "Environment variable; a configuration value set outside the app (e.g. for secrets), not stored in code.",
+  HKDF: "HMAC-based Key Derivation Function; turns one secret into many separate keys, for example one per user.",
+  "at rest":
+    "Stored on disk or in a database, as opposed to moving over the network (in transit).",
+  ciphertext: "Text scrambled by encryption; unreadable without the key.",
+  plaintext: "Ordinary readable text, before encryption or after decryption.",
+  embedding:
+    "A list of numbers that stands for the meaning of a piece of text, so similar ideas can be found by comparing numbers.",
   "resumable stream":
     "A stream that can be paused and resumed (e.g. after page refresh) by storing a stream ID and reconnecting via GET.",
 };
 
 export function getTermDefinition(term: string): string | undefined {
   return DEFINITIONS[term];
+}
+
+/** A glossary term in TSX posts: hover or focus for its definition. Unknown terms render plain. */
+export function Term({ children }: { children: string }) {
+  const definition = getTermDefinition(children);
+
+  return definition ? <TermWithDefinition definition={definition} term={children} /> : <>{children}</>;
 }
 
 export { DEFINITIONS };

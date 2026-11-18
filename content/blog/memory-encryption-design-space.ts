@@ -54,11 +54,12 @@ export const MEMORY_ENCRYPTION_DESIGN_SPACE = [
   },
   {
     title: "Encryption location",
-    overview: "Server-side chosen; client-side impossible for AI chat.",
+    overview:
+      "Server-side chosen: the model has to read the text to answer, so only the server can decrypt it for a request. Device-held keys are used where the server never needs the text.",
     tableMarkdown: `| Option | Pros | Cons | Verdict |
 |--------|------|------|---------|
-| A — Client-side | Strongest privacy | LLM cannot process encrypted text | Impossible for AI chat |
-| **B — Server-side** | Protects DB compromise; LLM can read in server memory | Server must be trusted | **Chosen** |`,
+| A — On the device only | Server never holds readable text | The model cannot answer text it cannot read, so it does not fit chat or memory | Used for composer drafts and Strata notes, not for chat |
+| **B — On the server** | Protects against a database leak; the model can read the text in server memory | The server must be trusted; a compromised server exposes everything | **Chosen** |`,
   },
   {
     title: "Logging security",
