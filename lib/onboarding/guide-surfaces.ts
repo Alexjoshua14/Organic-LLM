@@ -26,8 +26,7 @@ export const GUIDE_SURFACES: GuideSurface[] = [
   {
     id: "arcadia",
     label: "Arcadia",
-    summary:
-      "Quick answers with tools for tasks, meal planning, or writing. You can also work with a team of agents.",
+    summary: "Quick answers for tasks, meals, and writing, with the option to use a team of agents.",
     href: "/sandbox/arcadia",
   },
   {
