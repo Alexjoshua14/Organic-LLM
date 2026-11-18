@@ -26,7 +26,7 @@ export const welcomeCopy = {
       {
         href: "/blog",
         label: "Blog",
-        description: "Design & systems",
+        description: "How it works: voice, memory, design",
       },
       {
         href: "/good-news",
@@ -38,6 +38,10 @@ export const welcomeCopy = {
   footer: {
     organization: "Coalescence Labs",
     tagline: "Organic LLM · UI & cognition lab",
+    blog: {
+      href: "/blog",
+      label: "Blog",
+    },
     privacy: {
       href: "/privacy-and-security",
       label: "Privacy & security",

@@ -31,6 +31,9 @@ export function PublicSiteHeader({ className, showThemeToggle = false }: PublicS
         <Link className={styles.navLink} href="/showcase">
           Showcase
         </Link>
+        <Link className={styles.navLink} href="/blog">
+          Blog
+        </Link>
         {isSignedIn ? null : (
           <SignInButton mode="modal">
             <button className={styles.navLink} type="button">

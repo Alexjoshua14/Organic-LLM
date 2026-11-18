@@ -9,8 +9,7 @@ import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: "Blog · Organic LLM",
-  description:
-    "Short write-ups on how Organic LLM works and why it is built this way: voice, memory, privacy and the interface that ties them together.",
+  description: "Voice, memory and design: how Organic LLM works, and why we built it this way.",
 };
 
 /**
@@ -34,8 +33,7 @@ export default function BlogPage() {
             <p className={blogIndex.kicker}>Coalescence Labs · Notes</p>
             <h1 className={blogIndex.title}>How Organic LLM is built</h1>
             <p className={blogIndex.lede}>
-              Short write-ups on how Organic LLM works and why: voice, memory, privacy, and the
-              interface that ties them together.
+              Voice, memory and design: how Organic LLM works, and why we built it this way.
             </p>
           </header>
 
