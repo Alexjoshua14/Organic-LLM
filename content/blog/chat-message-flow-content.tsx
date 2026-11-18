@@ -1,170 +1,122 @@
+import { BlogFigure } from "@/components/blog/blog-figure";
 import { BlogSection } from "@/components/blog/blog-section";
 import { MermaidDiagram } from "@/components/blog/mermaid-diagram";
+import { MessageFlowStepper, type FlowStep } from "@/components/blog/message-flow-stepper";
+import { Term } from "@/components/blog/term-with-definition";
 
-const CHAT_FLOW_MERMAID = `flowchart LR
-  subgraph client [Client]
-    chatUi[Chat UI]
-    chatInput[Chat Input]
-    chatUi --> chatInput
-  end
-
-  subgraph route [Main chat endpoint]
-    authStep[Auth Clerk to Supabase]
-    saveUser[Save user message]
-    buildContext[Build context]
-    runModel[Run model stream]
-    postProcess[Persist and post-process]
-    authStep --> saveUser
-    saveUser --> buildContext
-    buildContext --> runModel
-    runModel --> postProcess
-  end
-
-  subgraph response [Response]
-    resumable[Resumable stream response]
-  end
-
-  chatInput -->|POST| authStep
-  postProcess --> resumable
-  resumable -->|SSE| chatUi
+/** Top-down, plain labels. The answer is created before the model speaks; saving happens on the side. */
+const CHAT_FLOW_MERMAID = `flowchart TD
+  send["You press send"]
+  check["Check who you are"]
+  save["Save your message"]
+  context["Gather context: recent messages, summary, memories"]
+  model["The model answers, streaming"]
+  screen["The answer appears on your screen"]
+  after["Save the answer, then tidy up: title, summary, memory"]
+  send --> check
+  check --> save
+  save --> context
+  context --> model
+  model --> screen
+  model --> after
 `;
+
+const STEPS: readonly FlowStep[] = [
+  {
+    title: "You press send",
+    seen: "Your message appears in the thread at once.",
+    behind:
+      "The chat component, built on Vercel's AI SDK, sends one POST request with your message, the model you picked, and whether web search, memory and zero data retention are on.",
+  },
+  {
+    title: "We check who you are",
+    seen: "Nothing. This takes a moment.",
+    behind:
+      "Clerk confirms your sign-in and Supabase maps it to your account. The server validates the request and checks that you may start a response. The identity comes from your session, never from the request body.",
+  },
+  {
+    title: "We save your message first",
+    seen: "If you refresh now, your message is still there.",
+    behind:
+      "The message is written to the database before the model is called, so the thread and its saved history never disagree.",
+  },
+  {
+    title: "We gather context",
+    seen: "A short status such as “Gathering context.”",
+    behind:
+      "The server selects the latest 10 messages, the conversation summary and any relevant memories, then builds the system prompt from them with your persona and settings.",
+  },
+  {
+    title: "The model starts answering",
+    seen: "Words begin to stream in.",
+    behind:
+      "The server prepares the tools for this turn (web search, memory lookup, chat-history lookup) and starts the stream. Alongside the words it sends small status events, such as thinking or using a tool, so the interface can show them without reading the raw output.",
+  },
+  {
+    title: "You can leave and come back",
+    seen: "Refresh the page mid-answer and the same answer continues.",
+    behind:
+      "The active stream is recorded. A separate resume request returns it when the page reconnects, so the answer picks up where it was instead of starting over.",
+  },
+  {
+    title: "We save the answer and tidy up",
+    seen: "A title appears for a new thread; the thread list updates.",
+    behind:
+      "On finish the answer is persisted and the stream marked done. Title generation, summary updates and optional memory writes run afterwards and never hold up the stream.",
+  },
+];
 
 export function ChatMessageFlowContent() {
   return (
     <BlogSection>
-      <h1>Chat Message Flow</h1>
-      <p>
-        This page describes the main path a message takes from the chat UI to the API and back: how
-        the client sends a message, how the server builds context and streams a response, and what
-        makes this flow reliable and resumable.
+      <h1>What happens when you press send</h1>
+      <p className="text-lg leading-relaxed text-foreground/90">
+        A message has to survive a refresh. Here is how we make sure it does: your words are saved
+        first, the answer streams back as it is written, and if your connection drops the same
+        answer picks up again.
       </p>
 
-      <h2>Problem statement</h2>
+      <BlogFigure>
+        <MermaidDiagram code={CHAT_FLOW_MERMAID} interactive />
+      </BlogFigure>
+
+      <h2>Follow one message</h2>
       <p>
-        We need a reliable, resumable chat flow: the user sends a message, the server builds context
-        (history, summaries, memory), calls the LLM with tools, streams the response, and persists
-        it—with minimal latency and support for refresh or reconnect. The design had to support
-        multiple personas, optional tools (web search, memory), and post-response work (titles,
-        summaries, memory) without blocking the stream.
+        Each step below says what you notice and what the server is doing. Click through them.
       </p>
+      <MessageFlowStepper steps={STEPS} />
 
-      <h2>What&apos;s implemented</h2>
-
-      <h3>Client</h3>
+      <h2>Why it holds up</h2>
       <ul>
         <li>
-          The <strong>Chat</strong> component uses <code>useChat</code> from Vercel&apos;s AI SDK
-          with a default chat transport.
+          <strong>Save first.</strong> Your message is written before the model is called, so no
+          answer can exist for a message the database never saw.
         </li>
-        <li>Requests go to the main chat endpoint (optionally scoped by persona).</li>
         <li>
-          <strong>Chat input</strong> calls <code>sendMessage(&#123; text, files &#125;)</code>,
-          which triggers a POST containing the user&apos;s latest message, selected model, and
-          whether web search, memory, and zero data retention are enabled (plus additional chat
-          settings).
+          <strong>One way in.</strong> Sending goes through a single request. Resuming is a separate
+          read, so reconnecting can never send your message twice.
+        </li>
+        <li>
+          <strong>Status without parsing.</strong> The server tells the interface what it is doing
+          through dedicated events, so “Thinking…” and “Using a tool…” are facts, not guesses from
+          the text.
+        </li>
+        <li>
+          <strong>Nothing slows the stream.</strong> Titles, summaries and memory writes happen
+          after the answer is finished and saved.
         </li>
       </ul>
 
-      <h3>Server</h3>
+      <h2>A few terms</h2>
       <p>
-        <strong>Main chat request flow:</strong>
+        The chat sends a <Term>POST</Term> request and receives the answer over an{" "}
+        <Term>SSE</Term> connection, which the server keeps open and writes to as the model
+        produces words. A <Term>resumable stream</Term> is one the client can reconnect to by id.
       </p>
-      <ol>
-        <li>
-          Auth: Clerk → Supabase.
-          <span className="text-sm block mt-1">
-            Clerk handles authentication.
-            <br />
-            Supabase provides the app-side user mapping and data authorization boundary.
-          </span>
-        </li>
-        <li>Validate the request payload and settings.</li>
-        <li>
-          Save the user&apos;s message right away so the UI and persisted history stay in sync.
-        </li>
-        <li>
-          In parallel: <strong>(a)</strong> Build context by gathering recent messages, conversation
-          summary, optional memory retrieval, and optional persisted schemas. <strong>(b)</strong>{" "}
-          Compile the system prompt using that context plus persona and request settings.
-        </li>
-        <li>
-          Prepare tools for this turn (web search, memory lookup, and conversation-history retrieval
-          when needed).
-        </li>
-        <li>Start model streaming with the selected model, prepared context, and tools.</li>
-        <li>
-          Stream tokens/events back to the UI, including side-channel status updates (for example:
-          processing, reasoning, tool use).
-        </li>
-        <li>
-          On finish, persist the final assistant response, clear active stream state, and kick off
-          post-processing (title generation, summary updates, optional memory writes).
-        </li>
-        <li>
-          Return a resumable stream response so the client can reconnect and continue reading output
-          if needed.
-        </li>
-      </ol>
-
-      <h3>Resume</h3>
-      <ul>
-        <li>
-          <strong>Resume endpoint:</strong> Returns an existing active stream when the client
-          reconnects (for example after a refresh).
-        </li>
-      </ul>
-
-      <p>The following diagram summarizes the main flow in plain terms:</p>
-      <MermaidDiagram code={CHAT_FLOW_MERMAID} />
-
-      <h2>Key features</h2>
-      <ul>
-        <li>
-          <strong>Optimistic save</strong> of the user message before the stream starts.
-        </li>
-        <li>
-          <strong>Context assembly:</strong> The server gathers recent messages, conversation
-          summary, optional memories, and optional persisted schemas, then builds the system prompt.
-        </li>
-        <li>
-          <strong>Tools:</strong> Web search, memory search, and chat-history retrieval tools are
-          compiled server-side and passed to the model stream with tool instructions.
-        </li>
-        <li>
-          <strong>Side-channel events:</strong> The server emits structured UI events (for example:
-          processing, reasoning, tool usage, memory updates, and title-ready notifications) so the
-          interface can show live status without parsing raw model output.
-        </li>
-        <li>
-          <strong>Resumable streams:</strong> Active stream state is saved so the client can
-          reconnect after refresh/disconnect and continue the same response.
-        </li>
-        <li>
-          <strong>Post-response:</strong> Ensure chat title (when ≥4 messages), update conversation
-          summary, optionally add latest messages to memory.
-        </li>
-      </ul>
-
-      <h2>Distinguishing pieces</h2>
-      <ul>
-        <li>
-          <strong>Single write path:</strong> Message sends go through one primary POST flow, while
-          resume reads use a separate GET endpoint.
-        </li>
-        <li>
-          <strong>Resumable delivery:</strong> Stream progress is persisted and can be resumed,
-          improving reliability on refresh or temporary network loss.
-        </li>
-        <li>
-          <strong>Context and tools</strong> are fully server-side; no client-supplied identity
-          beyond authentication.
-        </li>
-        <li>
-          <strong>UI-friendly streaming protocol:</strong> The response includes dedicated
-          status/event messages so the UI can show states like &quot;Thinking…&quot; or &quot;Using
-          tool…&quot; cleanly.
-        </li>
-      </ul>
+      <p>
+        The 10-message window is the default for main Chat. Arcadia and Strata use different
+        history budgets; the note on each surface says which.
+      </p>
     </BlogSection>
   );
 }

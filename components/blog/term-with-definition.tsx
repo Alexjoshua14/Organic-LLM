@@ -133,6 +133,8 @@ const DEFINITIONS: Record<string, string> = {
   plaintext: "Ordinary readable text, before encryption or after decryption.",
   embedding:
     "A list of numbers that stands for the meaning of a piece of text, so similar ideas can be found by comparing numbers.",
+  POST: "The web request a browser makes to send data to a server, here your message.",
+  SSE: "Server-sent events: a long-lived connection the server writes to, so text can arrive as it is produced.",
   "resumable stream":
     "A stream that can be paused and resumed (e.g. after page refresh) by storing a stream ID and reconnecting via GET.",
 };
