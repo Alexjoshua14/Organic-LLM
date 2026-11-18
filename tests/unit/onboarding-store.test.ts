@@ -140,19 +140,63 @@ describe("onboarding store", () => {
   });
 
   test("publishes changes from other tabs", () => {
-    const { hub } = setup();
+    const { hub, local } = setup();
     let notified = 0;
     const unsubscribe = subscribeOnboarding(() => {
       notified += 1;
     });
     const next = { ...createOnboardingState(), migratedLegacy: true, tipsEnabled: false };
 
+    local.setItem(KEY, JSON.stringify(next));
     hub.emit({ key: KEY, newValue: JSON.stringify(next) });
     hub.emit({ key: "unrelated", newValue: "{}" });
     unsubscribe();
 
     expect(notified).toBe(1);
     expect(getOnboardingSnapshot().state.tipsEnabled).toBe(false);
+  });
+
+  test("queued storage events cannot overwrite newer local state", async () => {
+    const { hub, local } = setup();
+
+    await onboardingActions.setTipsEnabled(false);
+    const stale = local.getItem(KEY);
+    await onboardingActions.setTipsEnabled(true);
+    const latest = getOnboardingSnapshot();
+
+    hub.emit({ key: KEY, newValue: stale });
+
+    expect(getOnboardingSnapshot()).toBe(latest);
+    expect(latest.state.tipsEnabled).toBe(true);
+  });
+
+  test("serializes tip claims and rejects delayed writes from a previous account", async () => {
+    const local = new MemoryStorage();
+    const session = new MemoryStorage();
+    const pending: Array<() => void> = [];
+    const locks = {
+      request: (_key: string, callback: () => unknown) =>
+        new Promise((resolve) => pending.push(() => resolve(callback()))),
+    } as Pick<LockManager, "request">;
+
+    connectOnboardingStore(USER, { local, session, locks });
+    pending.shift()?.(); // Migration.
+
+    const first = onboardingActions.claimTip(USER, (state) => state.tipLog.length === 0);
+    const second = onboardingActions.claimTip(USER, (state) => state.tipLog.length === 0);
+
+    expect(getOnboardingSnapshot().state.tipLog).toHaveLength(0);
+    pending.shift()?.();
+    pending.shift()?.();
+    expect(await first).toBe(true);
+    expect(await second).toBe(false);
+
+    const completion = onboardingActions.completeStep("rabbit-hole", USER);
+
+    connectOnboardingStore("another-user", { local, session });
+    pending.shift()?.();
+    expect(await completion).toBe(false);
+    expect(getOnboardingSnapshot().state.checklist.done["rabbit-hole"]).toBeUndefined();
   });
 
   test("falls back to memory when storage writes fail", () => {
@@ -184,7 +228,9 @@ describe("onboarding store", () => {
 
     expect(snapshot.sessionHiddenTips.has("composer-search-memory")).toBe(true);
     expect(snapshot.state.implicitCloses["composer-search-memory"]).toBe(1);
-    expect(session.getItem(`${ONBOARDING_SESSION_PREFIX}${USER}`)).toContain("composer-search-memory");
+    expect(session.getItem(`${ONBOARDING_SESSION_PREFIX}${USER}`)).toContain(
+      "composer-search-memory"
+    );
 
     onboardingActions.replay();
     expect(getOnboardingSnapshot().sessionHiddenTips.size).toBe(0);

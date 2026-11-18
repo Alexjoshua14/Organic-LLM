@@ -13,8 +13,8 @@ import {
  *
  * - One localStorage key per account (`organic-llm-onboarding:<userId>`), versioned JSON.
  * - One sessionStorage key per account for tips hidden "for this visit" (implicit closes).
- * - Writes are read-modify-write against storage, so a stale tab never overwrites newer progress
- *   from another tab; `storage` events from other tabs are published here.
+ * - Web Locks serialize per-account writes across tabs where available. Storage notifications
+ *   trigger a fresh read so delayed events cannot roll back the current snapshot.
  * - When storage is unavailable or throws, state lives in memory for the tab (`persistent: false`).
  *
  * Snapshots are immutable and only replaced on change, as `useSyncExternalStore` requires.
@@ -41,6 +41,7 @@ export type OnboardingStorageEnv = {
   session: Storage | null;
   /** Window to listen on for cross-tab `storage` events. */
   target?: Pick<Window, "addEventListener" | "removeEventListener"> | null;
+  locks?: Pick<LockManager, "request">;
 };
 
 const EMPTY_HIDDEN: ReadonlySet<string> = new Set();
@@ -132,6 +133,7 @@ function defaultEnv(): OnboardingStorageEnv {
     local: pick(() => window.localStorage),
     session: pick(() => window.sessionStorage),
     target: window,
+    locks: window.navigator.locks,
   };
 }
 
@@ -162,7 +164,7 @@ export function connectOnboardingStore(
   let state = parsed ?? createOnboardingState();
   let persistent = readable;
 
-  if (parsed) lastRaw = raw ?? null;
+  lastRaw = raw ?? null;
 
   if (!state.migratedLegacy) {
     state = migrateLegacyOnboarding(
@@ -174,7 +176,7 @@ export function connectOnboardingStore(
       AUTO_FEATURE_TIP_IDS,
       Date.now()
     );
-    if (persistent) {
+    if (persistent && !env.locks) {
       const serialized = JSON.stringify(state);
 
       persistent = safeSet(env.local, localKey(userId), serialized);
@@ -195,17 +197,28 @@ export function connectOnboardingStore(
 
   if (target) {
     const onStorage = (event: StorageEvent) => {
-      if (event.key !== localKey(userId) || snapshot.userId !== userId) return;
+      if (event.key !== localKey(userId) || snapshot.userId !== userId || !snapshot.persistent) {
+        return;
+      }
 
-      const next = parseOnboardingState(event.newValue);
+      const latest = safeGet(storageEnv.local, localKey(userId));
+
+      if (latest == null || latest === lastRaw) return;
+      const next = parseOnboardingState(latest);
 
       if (!next) return;
-      lastRaw = event.newValue;
+      lastRaw = latest;
       publish({ ...snapshot, state: next });
     };
 
     target.addEventListener("storage", onStorage as EventListener);
     detachStorageListener = () => target.removeEventListener("storage", onStorage as EventListener);
+  }
+
+  if (persistent && storageEnv.locks && !parsed?.migratedLegacy) {
+    // Persist migration under the same lock as regular writes. A different tab may have
+    // initialized the account while we waited, in which case its stored state wins.
+    void updateOnboardingState((base) => ({ ...base, migratedLegacy: true }), userId);
   }
 
   const connectedUser = userId;
@@ -219,18 +232,38 @@ export function connectOnboardingStore(
 }
 
 /**
- * Applies a pure reducer. Reads the latest stored state first (another tab may have written), so
- * progress is never lost to a stale copy in memory. No-op while idle or when nothing changes.
+ * Applies a reducer to the latest account state. Resolves true if the reducer changed it.
+ * The fallback for browsers without Web Locks still reads the latest available value first.
  */
-export function updateOnboardingState(reducer: (state: OnboardingState) => OnboardingState): void {
+export async function updateOnboardingState(
+  reducer: (state: OnboardingState) => OnboardingState,
+  userId = snapshot.userId
+): Promise<boolean> {
+  if (!userId || snapshot.userId !== userId) return false;
+
+  const connection = env;
+  const apply = () => {
+    if (env !== connection || snapshot.userId !== userId) return false;
+
+    return applyOnboardingUpdate(reducer, userId);
+  };
+
+  if (snapshot.persistent && connection?.locks) {
+    return connection.locks.request(localKey(userId), apply).catch(() => false);
+  }
+
+  return apply();
+}
+
+function applyOnboardingUpdate(
+  reducer: (state: OnboardingState) => OnboardingState,
+  userId: string
+): boolean {
   const current = snapshot;
-
-  if (current.status !== "ready" || !current.userId) return;
-
   let base = current.state;
 
   if (current.persistent) {
-    const raw = safeGet(env?.local, localKey(current.userId));
+    const raw = safeGet(env?.local, localKey(userId));
 
     // Only a different stored value (another tab wrote) replaces the state in memory.
     if (raw != null && raw !== lastRaw) {
@@ -248,7 +281,7 @@ export function updateOnboardingState(reducer: (state: OnboardingState) => Onboa
   if (next === base) {
     if (base !== current.state) publish({ ...current, state: base });
 
-    return;
+    return false;
   }
 
   let persistent = current.persistent;
@@ -256,11 +289,13 @@ export function updateOnboardingState(reducer: (state: OnboardingState) => Onboa
   if (persistent) {
     const serialized = JSON.stringify(next);
 
-    persistent = safeSet(env?.local, localKey(current.userId), serialized);
+    persistent = safeSet(env?.local, localKey(userId), serialized);
     if (persistent) lastRaw = serialized;
   }
 
   publish({ ...current, persistent, state: next });
+
+  return true;
 }
 
 /** Hides a tip for the rest of this tab session (after an implicit close). */

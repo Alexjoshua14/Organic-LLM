@@ -6,7 +6,7 @@ import type { ChecklistStepId } from "./onboarding-state";
  *
  * - `first-message`: an accepted send in Chat or Arcadia (`components/chat/chat.tsx`).
  * - `try-arcadia`: an accepted send in Arcadia (same place).
- * - `rabbit-hole`: a rabbit hole node is created (`lib/rabbit-holes/useRabbitHoles.ts`).
+ * - `rabbit-hole`: the first research article is accepted for generation.
  * - `switch-ideas`: the ⌘K launcher opens (`components/aion-launcher/aion-launcher.tsx`).
  */
 export type ChecklistStep = {
@@ -21,20 +21,20 @@ export const CHECKLIST_STEPS: ChecklistStep[] = [
   {
     id: "first-message",
     title: "Ask your first question",
-    body: "Start a chat and send anything. Search and Memory are on, so replies can use the web and what Organic learns about you.",
+    body: "Send a question you already have. The Search and Memory buttons control what each reply can draw on.",
     action: { kind: "link", href: "/chat", label: "New chat" },
   },
   {
     id: "try-arcadia",
     title: "Try Arcadia",
-    body: "Send a message in Arcadia for quicker, tool-forward answers. Pick a style first: Standard, Ergon board, Remy or Scribe.",
+    body: "Send a message in Arcadia. It can use tools to do things like organize tasks or plan meals.",
     action: { kind: "link", href: "/sandbox/arcadia", label: "Open Arcadia" },
   },
   {
     id: "rabbit-hole",
     title: "Go down a rabbit hole",
-    body: "Ask a research question and Organic writes a cited article you can branch from.",
-    action: { kind: "link", href: "/rabbitholes/browse", label: "Open Rabbit Holes" },
+    body: "Ask a research question and approve the article when prompted. Follow a related question to branch off.",
+    action: { kind: "link", href: "/rabbitholes", label: "Start a rabbit hole" },
   },
   {
     id: "switch-ideas",

@@ -125,6 +125,8 @@ test("captions are hidden initially, including Theme, and every feature label ca
     expect(view.getByText(caption)).toBeTruthy();
     await act(async () => fireEvent.click(trigger));
     expect(view.queryByText(caption)).toBeNull();
+    // Let the old caption finish its exit before opening the next dismissable layer.
+    await advance(250);
   }
   expect(view.queryByRole("button", { name: "About Ergon background" })).toBeNull();
   expect(view.queryByRole("button", { name: "About Arcadia preview (experimental)" })).toBeNull();

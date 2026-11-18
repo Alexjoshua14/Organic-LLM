@@ -25,6 +25,7 @@ const FAST: TipTiming = {
   ...TIP_TIMING,
   settleMs: 0,
   idleMs: 0,
+  cooldownMs: 0,
   pollMs: 5,
   recheckMs: 20,
   enterMs: 0,
@@ -63,7 +64,12 @@ type Options = {
   children?: ReactNode;
 };
 
-function renderLayer({ pathname = "/chat/abc", overlayOpen = () => false, value, children }: Options = {}) {
+function renderLayer({
+  pathname = "/chat/abc",
+  overlayOpen = () => false,
+  value,
+  children,
+}: Options = {}) {
   return render(
     <PathnameContext.Provider value={pathname}>
       <OnboardingContext.Provider value={{ ...context, ...value }}>
@@ -110,7 +116,9 @@ describe("FeatureTipLayer", () => {
     expect(app.getByRole("status").textContent).toContain("Tip: What informs each reply");
     expect(dialog.contains(document.activeElement)).toBe(false);
     // The anchor's first control is described by the tip while it is open.
-    expect(app.getByRole("button", { name: "Search" }).getAttribute("aria-describedby")).toBeTruthy();
+    expect(
+      app.getByRole("button", { name: "Search" }).getAttribute("aria-describedby")
+    ).toBeTruthy();
     // Exactly one dismiss control: no close icon.
     expect(app.queryByRole("button", { name: /dismiss|close/i })).toBeNull();
   });
@@ -122,7 +130,9 @@ describe("FeatureTipLayer", () => {
 
     await waitFor(() => expect(app.queryByRole("dialog")).toBeNull());
     expect(tipRecord("composer-search-memory")?.outcome).toBe("dismissed");
-    expect(app.getByRole("button", { name: "Search" }).hasAttribute("aria-describedby")).toBe(false);
+    expect(app.getByRole("button", { name: "Search" }).hasAttribute("aria-describedby")).toBe(
+      false
+    );
   });
 
   test("Escape dismisses for good", async () => {
@@ -207,6 +217,75 @@ describe("FeatureTipLayer", () => {
     await waitFor(() => expect(app.queryByRole("dialog", { hidden: true })).toBeNull());
   });
 
+  test("the Arcadia tip waits on the composer and describes the active recipient", async () => {
+    const app = renderLayer({
+      pathname: "/sandbox/arcadia/abc",
+      children: (
+        <div data-multitask-enabled="true">
+          <FeatureTip id="arcadia-multiagent">
+            <div>
+              <button aria-hidden tabIndex={-1} type="button">
+                Orchestrator
+              </button>
+              <button aria-expanded={false} aria-pressed type="button">
+                Researcher
+              </button>
+              <span>0 running</span>
+            </div>
+          </FeatureTip>
+          <form data-onboarding-composer-busy />
+        </div>
+      ),
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(app.queryByRole("dialog")).toBeNull();
+    app.container.querySelector("form")?.removeAttribute("data-onboarding-composer-busy");
+
+    await app.findByRole("dialog", { name: "Choose who hears you" });
+    const recipient = app.getByRole("button", { name: "Researcher" });
+
+    expect(recipient.hasAttribute("aria-describedby")).toBe(true);
+    fireEvent.click(app.getByText("0 running"));
+    expect(tipRecord("arcadia-multiagent")).toBeUndefined();
+    fireEvent.pointerDown(recipient);
+    fireEvent.click(recipient);
+    expect(tipRecord("arcadia-multiagent")?.outcome).toBe("acted");
+  });
+
+  test("skips automatic tips on the first destination after the welcome", async () => {
+    let welcomeShown = true;
+    const consumeWelcomeVisit = () => {
+      const showed = welcomeShown;
+      welcomeShown = false;
+
+      return showed;
+    };
+    const view = (pathname: string) => (
+      <PathnameContext.Provider value={pathname}>
+        <OnboardingContext.Provider value={context}>
+          <FeatureTip id="composer-search-memory">
+            <button type="button">Search</button>
+          </FeatureTip>
+          <FeatureTipLayer
+            anchorProbe={() => true}
+            consumeWelcomeVisit={consumeWelcomeVisit}
+            overlayProbe={() => false}
+            timing={FAST}
+          />
+        </OnboardingContext.Provider>
+      </PathnameContext.Provider>
+    );
+    const app = render(view("/"));
+
+    app.rerender(view("/chat/first"));
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(app.queryByRole("dialog")).toBeNull();
+
+    app.rerender(view("/chat/second"));
+    await app.findByRole("dialog", { name: "What informs each reply" });
+  });
+
   test("shows at most one tip per route visit", async () => {
     const app = renderLayer({
       pathname: "/sandbox/arcadia/abc",
@@ -216,7 +295,11 @@ describe("FeatureTipLayer", () => {
             <button type="button">Search</button>
           </FeatureTip>
           <FeatureTip id="arcadia-multiagent">
-            <button type="button">Orchestrator</button>
+            <div>
+              <button aria-expanded={false} aria-pressed type="button">
+                Orchestrator
+              </button>
+            </div>
           </FeatureTip>
         </>
       ),
@@ -267,7 +350,9 @@ describe("FeatureTipLayer", () => {
     expect(guide.queryByRole("dialog")).toBeNull();
     guide.unmount();
 
-    act(() => onboardingActions.setTipsEnabled(false));
+    await act(async () => {
+      await onboardingActions.setTipsEnabled(false);
+    });
     const off = renderLayer();
 
     await new Promise((resolve) => setTimeout(resolve, 60));

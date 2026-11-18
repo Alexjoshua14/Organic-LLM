@@ -1,5 +1,6 @@
 import {
   clearSessionHiddenTips,
+  getOnboardingSnapshot,
   hideTipForSession,
   updateOnboardingState,
 } from "./onboarding-store";
@@ -13,6 +14,7 @@ import {
   setChecklistHidden,
   setTipsEnabled,
   type ChecklistStepId,
+  type OnboardingState,
   type TipOutcome,
 } from "./onboarding-state";
 
@@ -21,38 +23,49 @@ import {
  * (see `connectOnboardingStore`), so call sites never need to check auth first.
  */
 export const onboardingActions = {
-  tipSeen(id: string, version: number, outcome: TipOutcome) {
-    updateOnboardingState((state) => markTipSeen(state, id, version, outcome, Date.now()));
+  tipSeen(id: string, version: number, outcome: TipOutcome, userId?: string) {
+    return updateOnboardingState(
+      (state) => markTipSeen(state, id, version, outcome, Date.now()),
+      userId
+    );
   },
 
   /** Hides the tip for this tab session; the second implicit close is permanent. */
-  tipClosedImplicitly(id: string, version: number) {
+  tipClosedImplicitly(id: string, version: number, userId = getOnboardingSnapshot().userId) {
+    if (!userId || getOnboardingSnapshot().userId !== userId) return;
     hideTipForSession(id);
-    updateOnboardingState((state) => recordImplicitTipClose(state, id, version, Date.now()));
+    void updateOnboardingState(
+      (state) => recordImplicitTipClose(state, id, version, Date.now()),
+      userId
+    );
   },
 
-  tipShown() {
-    updateOnboardingState((state) => recordTipShown(state, Date.now()));
+  claimTip(userId: string, eligible: (state: OnboardingState, now: number) => boolean) {
+    return updateOnboardingState((state) => {
+      const now = Date.now();
+
+      return eligible(state, now) ? recordTipShown(state, now) : state;
+    }, userId);
   },
 
-  setTipsEnabled(enabled: boolean) {
-    updateOnboardingState((state) => setTipsEnabled(state, enabled));
+  setTipsEnabled(enabled: boolean, userId?: string) {
+    return updateOnboardingState((state) => setTipsEnabled(state, enabled), userId);
   },
 
   dismissWelcome() {
-    updateOnboardingState((state) => dismissWelcome(state, Date.now()));
+    return updateOnboardingState((state) => dismissWelcome(state, Date.now()));
   },
 
-  completeStep(step: ChecklistStepId) {
-    updateOnboardingState((state) => completeChecklistStep(state, step, Date.now()));
+  completeStep(step: ChecklistStepId, userId?: string | null) {
+    return updateOnboardingState((state) => completeChecklistStep(state, step, Date.now()), userId);
   },
 
   setChecklistHidden(hidden: boolean) {
-    updateOnboardingState((state) => setChecklistHidden(state, hidden, Date.now()));
+    return updateOnboardingState((state) => setChecklistHidden(state, hidden, Date.now()));
   },
 
   replay() {
     clearSessionHiddenTips();
-    updateOnboardingState((state) => replayOnboarding(state, Date.now()));
+    return updateOnboardingState((state) => replayOnboarding(state, Date.now()));
   },
 };

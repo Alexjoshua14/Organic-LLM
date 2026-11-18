@@ -32,6 +32,7 @@ import {
 } from "@/lib/onboarding/feature-tips";
 import { onboardingActions } from "@/lib/onboarding/onboarding-actions";
 import { getOnboardingSnapshot } from "@/lib/onboarding/onboarding-store";
+import { isTipSeen } from "@/lib/onboarding/onboarding-state";
 import {
   isAnchorPresentable,
   isBlockingOverlayOpen,
@@ -67,9 +68,34 @@ type ActiveTip = {
   version: number;
   element: HTMLElement;
   pathname: string;
+  userId: string;
   title: string;
   body: string;
 };
+
+function tipControl(id: AutoFeatureTipId, element: HTMLElement) {
+  if (id === "arcadia-multiagent") {
+    return element.querySelector<HTMLElement>('button[aria-expanded="false"][aria-pressed="true"]');
+  }
+
+  return element.matches(FOCUSABLE) ? element : element.querySelector<HTMLElement>(FOCUSABLE);
+}
+
+function isAnchorActivation(tip: ActiveTip, target: EventTarget | null) {
+  if (!(target instanceof Node)) return false;
+
+  return tip.id === "arcadia-multiagent"
+    ? Boolean(tipControl(tip.id, tip.element)?.contains(target))
+    : tip.element.contains(target);
+}
+
+function tipContextBusy(id: AutoFeatureTipId, element: HTMLElement) {
+  if (id !== "arcadia-multiagent") return false;
+
+  const dashboard = element.closest('[data-multitask-enabled="true"]');
+
+  return Boolean(dashboard?.querySelector("[data-onboarding-composer-busy], [data-btw-panel]"));
+}
 
 /**
  * What the popover positions against. Usually the control itself; with `clearOf`, a virtual rect
@@ -95,6 +121,7 @@ function tipAnchor(element: HTMLElement, definition: AutoFeatureTipDefinition) {
 }
 
 type FeatureTipLayerProps = {
+  consumeWelcomeVisit?: () => boolean;
   /** Injectable for tests (JSDOM has no layout). */
   anchorProbe?: AnchorProbe;
   overlayProbe?: OverlayProbe;
@@ -109,6 +136,7 @@ type FeatureTipLayerProps = {
  * waiting to show it attaches no listeners and runs no timers.
  */
 export function FeatureTipLayer({
+  consumeWelcomeVisit,
   anchorProbe = isAnchorPresentable,
   overlayProbe = isBlockingOverlayOpen,
   timing = TIP_TIMING,
@@ -127,7 +155,7 @@ export function FeatureTipLayer({
 
   const openRef = useRef(false);
   const tipRef = useRef<ActiveTip | null>(null);
-  const visitRef = useRef({ pathname, enteredAt: 0, shown: false });
+  const visitRef = useRef({ pathname, enteredAt: 0, shown: false, suppressed: false });
   const lastActivityRef = useRef(0);
   const focusReturnRef = useRef<HTMLElement | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -136,8 +164,16 @@ export function FeatureTipLayer({
   instancesRef.current = instances;
 
   useEffect(() => {
-    visitRef.current = { pathname, enteredAt: Date.now(), shown: false };
-  }, [pathname]);
+    const previous = visitRef.current;
+    const suppressed = previous.pathname === "/" && pathname !== "/" && consumeWelcomeVisit?.();
+
+    visitRef.current = {
+      pathname,
+      enteredAt: Date.now(),
+      shown: false,
+      suppressed: Boolean(suppressed),
+    };
+  }, [consumeWelcomeVisit, pathname]);
 
   const candidates = useMemo(
     () =>
@@ -156,7 +192,13 @@ export function FeatureTipLayer({
   candidatesRef.current = candidates;
 
   const candidateKey = candidates.map((candidate) => candidate.key).join("|");
-  const waiting = !open && !guideOpen && candidates.length > 0;
+  const waiting =
+    pathname !== "/" &&
+    !open &&
+    !guideOpen &&
+    candidates.length > 0 &&
+    (visitRef.current.pathname !== pathname ||
+      (!visitRef.current.shown && !visitRef.current.suppressed));
 
   const close = useCallback((reason: CloseReason) => {
     const active = tipRef.current;
@@ -166,20 +208,23 @@ export function FeatureTipLayer({
 
     switch (reason) {
       case "explicit":
-        onboardingActions.tipSeen(active.id, active.version, "dismissed");
+        onboardingActions.tipSeen(active.id, active.version, "dismissed", active.userId);
         break;
       case "acted":
-        onboardingActions.tipSeen(active.id, active.version, "acted");
+        onboardingActions.tipSeen(active.id, active.version, "acted", active.userId);
         break;
       case "implicit":
-        onboardingActions.tipClosedImplicitly(active.id, active.version);
+        onboardingActions.tipClosedImplicitly(active.id, active.version, active.userId);
         break;
       case "off":
-        onboardingActions.tipSeen(active.id, active.version, "off");
-        onboardingActions.setTipsEnabled(false);
+        onboardingActions.tipSeen(active.id, active.version, "off", active.userId);
+        onboardingActions.setTipsEnabled(false, active.userId);
         toast("Tips are off", {
           description: "Turn them back on from the Guide or Quick settings.",
-          action: { label: "Undo", onClick: () => onboardingActions.setTipsEnabled(true) },
+          action: {
+            label: "Undo",
+            onClick: () => onboardingActions.setTipsEnabled(true, active.userId),
+          },
         });
         break;
       case "silent":
@@ -202,7 +247,7 @@ export function FeatureTipLayer({
   }, []);
 
   const show = useCallback(
-    (candidate: FeatureTipInstance, element: HTMLElement) => {
+    (candidate: FeatureTipInstance, element: HTMLElement, userId: string) => {
       const definition = getAutoFeatureTip(candidate.id);
       const body = featureTipBody(definition, apple);
       const active: ActiveTip = {
@@ -211,6 +256,7 @@ export function FeatureTipLayer({
         version: definition.version,
         element,
         pathname: visitRef.current.pathname,
+        userId,
         title: definition.title,
         body,
       };
@@ -218,7 +264,6 @@ export function FeatureTipLayer({
       visitRef.current.shown = true;
       tipRef.current = active;
       openRef.current = true;
-      onboardingActions.tipShown();
       setTip(active);
       setOpen(true);
       setAnnouncement(`Tip: ${definition.title}. ${body} Press Escape to dismiss.`);
@@ -228,7 +273,7 @@ export function FeatureTipLayer({
 
   // Waiting: one shared listener set and one timer, only while a tip is eligible.
   useEffect(() => {
-    if (!waiting) return;
+    if (!waiting || visitRef.current.suppressed) return;
 
     // The moment a tip becomes relevant counts as activity, so it never fires mid-action.
     lastActivityRef.current = Date.now();
@@ -241,44 +286,74 @@ export function FeatureTipLayer({
     for (const type of ACTIVITY_EVENTS) window.addEventListener(type, markActive, listenerOptions);
 
     let timer = 0;
-    const tick = () => {
-      const now = Date.now();
-      const blocked = tipPacingBlock(
+    let cancelled = false;
+    const userId = onboarding.userId;
+
+    const pacing = (now: number, tipLog: readonly number[]) =>
+      tipPacingBlock(
         {
           now,
           routeEnteredAt: visitRef.current.enteredAt,
           lastActivityAt: lastActivityRef.current,
           documentHidden: document.hidden,
           shownThisVisit: visitRef.current.shown,
-          tipLog: getOnboardingSnapshot().state.tipLog,
+          tipLog,
         },
         timing
       );
 
-      if (!blocked && !overlayProbe(document)) {
+    const tick = async () => {
+      const snapshot = getOnboardingSnapshot();
+
+      if (cancelled || !userId || snapshot.userId !== userId) return;
+      if (!pacing(Date.now(), snapshot.state.tipLog) && !overlayProbe(document)) {
         for (const candidate of candidatesRef.current) {
           const element = candidate.getElement();
+          const version = getAutoFeatureTip(candidate.id).version;
 
-          if (element && anchorProbe(element)) {
-            show(candidate, element);
+          const presentable = () =>
+            element &&
+            element.isConnected &&
+            !tipContextBusy(candidate.id, element) &&
+            (candidate.id !== "arcadia-multiagent" || tipControl(candidate.id, element)) &&
+            anchorProbe(element);
+
+          if (!presentable()) continue;
+
+          const claimed = await onboardingActions.claimTip(
+            userId,
+            (state, now) =>
+              !cancelled &&
+              state.tipsEnabled &&
+              !isTipSeen(state, candidate.id, version) &&
+              !pacing(now, state.tipLog) &&
+              candidatesRef.current.some((entry) => entry.key === candidate.key) &&
+              !getOnboardingSnapshot().sessionHiddenTips.has(candidate.id) &&
+              !overlayProbe(document) &&
+              Boolean(presentable())
+          );
+
+          if (claimed && element && !cancelled && getOnboardingSnapshot().userId === userId) {
+            show(candidate, element, userId);
 
             return;
           }
         }
       }
 
-      timer = window.setTimeout(tick, timing.pollMs);
+      if (!cancelled) timer = window.setTimeout(tick, timing.pollMs);
     };
 
     timer = window.setTimeout(tick, timing.pollMs);
 
     return () => {
+      cancelled = true;
       window.clearTimeout(timer);
       for (const type of ACTIVITY_EVENTS) {
         window.removeEventListener(type, markActive, listenerOptions);
       }
     };
-  }, [anchorProbe, candidateKey, overlayProbe, show, timing, waiting]);
+  }, [anchorProbe, candidateKey, onboarding.userId, overlayProbe, pathname, show, timing, waiting]);
 
   // Visible: close when the anchor goes away, its moment passes, or another layer opens.
   useEffect(() => {
@@ -290,7 +365,8 @@ export function FeatureTipLayer({
 
       const instance = instancesRef.current.find((entry) => entry.key === tip.instanceKey);
 
-      if (!instance?.showWhen || !tip.element.isConnected) return close("implicit");
+      if (!instance?.showWhen || !tip.element.isConnected || tipContextBusy(tip.id, tip.element))
+        return close("implicit");
 
       // Two failed checks in a row (about a second) tolerate a layout animation in between.
       failedChecks = anchorProbe(tip.element) ? 0 : failedChecks + 1;
@@ -298,19 +374,21 @@ export function FeatureTipLayer({
     };
 
     const interval = window.setInterval(check, timing.recheckMs);
-    // Portals mount as body children; react to a dialog or menu opening right away.
     const observer = new MutationObserver(() => {
-      if (overlayProbe(document)) close("implicit");
+      if (overlayProbe(document) || tipContextBusy(tip.id, tip.element)) close("implicit");
     });
 
     observer.observe(document.body, {
       childList: true,
       attributes: true,
-      attributeFilter: ["data-scroll-locked"],
+      subtree: true,
+      attributeFilter: ["data-state", "data-scroll-locked", "data-onboarding-composer-busy"],
     });
 
     // Using the control the tip points at (pointer or keyboard) means it did its job.
-    const onAnchorClick = () => close("acted");
+    const onAnchorClick = (event: MouseEvent) => {
+      if (isAnchorActivation(tip, event.target)) close("acted");
+    };
 
     tip.element.addEventListener("click", onAnchorClick, true);
 
@@ -324,17 +402,16 @@ export function FeatureTipLayer({
   // Leaving the route, turning tips off, or the instance unmounting ends the tip.
   useEffect(() => {
     if (!openRef.current || !tipRef.current) return;
-    if (tipRef.current.pathname !== pathname) close("implicit");
-    else if (!onboarding.state.tipsEnabled || onboarding.status !== "ready") close("silent");
+    if (onboarding.userId !== tipRef.current.userId || !onboarding.state.tipsEnabled)
+      close("silent");
+    else if (tipRef.current.pathname !== pathname) close("implicit");
   }, [close, onboarding, pathname]);
 
   // While open, the anchor's control is described by the tip for screen readers.
   useEffect(() => {
     if (!open || !tip) return;
 
-    const target = tip.element.matches(FOCUSABLE)
-      ? tip.element
-      : tip.element.querySelector<HTMLElement>(FOCUSABLE);
+    const target = tipControl(tip.id, tip.element);
 
     if (!target) return;
 
@@ -414,12 +491,21 @@ export function FeatureTipLayer({
                 }
               }}
               onFocusOutside={(event) => event.preventDefault()}
+              onKeyDownCapture={(event) => {
+                if (event.key === "Tab") {
+                  const controls = event.currentTarget.querySelectorAll(FOCUSABLE);
+                  const edge = controls[event.shiftKey ? 0 : controls.length - 1];
+
+                  // Skip Radix's looping focus scope at either edge. Native Tab can leave the tip.
+                  if (event.target === edge) event.stopPropagation();
+                }
+              }}
               onOpenAutoFocus={(event) => event.preventDefault()}
               onPointerDownOutside={(event) => {
                 const target = event.detail.originalEvent.target;
 
                 // A press on the anchor itself is handled as "acted" by its click listener.
-                if (target instanceof Node && tip.element.contains(target)) {
+                if (isAnchorActivation(tip, target)) {
                   event.preventDefault();
 
                   return;

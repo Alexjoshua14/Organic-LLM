@@ -19,6 +19,8 @@ import {
 import { inlineSubagentDispatch } from "@/lib/arcadia/multitask/inline-dispatches";
 import { resolveSubagentIdentity } from "@/lib/arcadia/multitask/subagent-identity";
 import { isClientPIIRedactionEnabled, redactUIMessages } from "@/lib/pii/redact";
+import { onboardingActions } from "@/lib/onboarding/onboarding-actions";
+import { getOnboardingSnapshot } from "@/lib/onboarding/onboarding-store";
 import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
 import { getSettings } from "@/lib/user-settings";
 import {
@@ -193,6 +195,15 @@ function countSubagentToolSignals(messages: ReadonlyArray<UIMessage>): number {
   return count;
 }
 
+const CREATE_RABBIT_HOLE_NODE_TOOLS = new Set([
+  "generate_rabbit_hole_node",
+  "create_rabbit_hole_node",
+]);
+
+function isRabbitHoleNavigationTool(toolName: string) {
+  return CREATE_RABBIT_HOLE_NODE_TOOLS.has(toolName) || toolName === "navigate_rabbit_hole_node";
+}
+
 function collectCompletedRabbitHoleToolCallIds(messages: ReadonlyArray<UIMessage>): Set<string> {
   const seen = new Set<string>();
 
@@ -203,7 +214,7 @@ function collectCompletedRabbitHoleToolCallIds(messages: ReadonlyArray<UIMessage
       if (part.state !== "output-available") continue;
       const toolName = getToolOrDynamicToolName(part);
 
-      if (toolName !== "generate_rabbit_hole_node" && toolName !== "navigate_rabbit_hole_node") {
+      if (!isRabbitHoleNavigationTool(toolName)) {
         continue;
       }
 
@@ -223,6 +234,7 @@ export function useRabbitHoleSessionChat({
 }: UseRabbitHoleSessionChatOptions) {
   const modelRef = useRef<ChatModel>(DEFAULT_CHAT_MODEL);
   const onNavigateRef = useRef(onNavigate);
+  const sendOwnerRef = useRef<{ userId: string | null; sessionId: string | null } | null>(null);
 
   onNavigateRef.current = onNavigate;
   const handledToolNavCallIdsRef = useRef<Set<string>>(new Set());
@@ -283,6 +295,7 @@ export function useRabbitHoleSessionChat({
     transport: new DefaultChatTransport({
       api: "/api/chat",
       prepareSendMessagesRequest({ messages, id }) {
+        sendOwnerRef.current = { userId: getOnboardingSnapshot().userId, sessionId };
         const lastMessage = messages[messages.length - 1];
         const message = isClientPIIRedactionEnabled()
           ? redactUIMessages([lastMessage])[0]
@@ -334,7 +347,7 @@ export function useRabbitHoleSessionChat({
         if (part.state !== "output-available") continue;
         const toolName = getToolOrDynamicToolName(part);
 
-        if (toolName !== "generate_rabbit_hole_node" && toolName !== "navigate_rabbit_hole_node") {
+        if (!isRabbitHoleNavigationTool(toolName)) {
           continue;
         }
 
@@ -345,17 +358,39 @@ export function useRabbitHoleSessionChat({
         }
 
         const output = part.output as
-          | { ok?: boolean; nodeId?: string; activeNodeId?: string }
+          | {
+              ok?: boolean;
+              nodeId?: string;
+              activeNodeId?: string;
+              createdRoot?: boolean;
+              sessionId?: string;
+            }
           | undefined;
         const targetNodeId = output?.nodeId ?? output?.activeNodeId;
 
         if (output?.ok !== false && typeof targetNodeId === "string" && targetNodeId.length > 0) {
           handledToolNavCallIdsRef.current.add(toolCallId);
-          onNavigateRef.current?.(targetNodeId);
+          const owner = sendOwnerRef.current;
+
+          if (
+            owner &&
+            owner.sessionId === sessionId &&
+            output?.ok === true &&
+            output.createdRoot === true &&
+            output.sessionId === sessionId &&
+            CREATE_RABBIT_HOLE_NODE_TOOLS.has(toolName)
+          ) {
+            void onboardingActions.completeStep("rabbit-hole", owner.userId);
+          }
+
+          // This tool can also target a session other than the one currently open.
+          if (!output?.sessionId || output.sessionId === sessionId) {
+            onNavigateRef.current?.(targetNodeId);
+          }
         }
       }
     }
-  }, [chat.messages]);
+  }, [chat.messages, sessionId]);
 
   // Fetch weekly usage budget snapshot once per session mount and after turns complete.
   useEffect(() => {

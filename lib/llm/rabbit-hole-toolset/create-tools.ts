@@ -220,6 +220,7 @@ export function createRabbitHoleCreateTools({
           ok: true as const,
           sessionId,
           nodeId: drafted.nodeId,
+          createdRoot: drafted.session.rootNodeId === drafted.nodeId,
           parentNodeId: parent ?? null,
           // Display context for the chat card: where the new branch attaches.
           parentTitle: parent ? nodeDisplayTitle(session.nodesById[parent]) : null,

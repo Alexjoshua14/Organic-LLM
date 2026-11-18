@@ -8,6 +8,7 @@ export type OnboardingContextValue = {
   /** Signed in and the account is new enough for the welcome card and automatic tips. */
   autoEligible: boolean;
   signedIn: boolean;
+  markWelcomeShown?: () => void;
   guideOpen: boolean;
   guideTab: GuideTab;
   openGuide: (tab?: GuideTab) => void;

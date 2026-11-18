@@ -56,6 +56,7 @@ const BLOCKING_SELECTORS = [
   '[role="dialog"][data-state="open"]:not([data-feature-tip])',
   '[role="alertdialog"][data-state="open"]',
   '[role="menu"][data-state="open"]',
+  '[role="listbox"][data-state="open"]',
 ].join(",");
 
 /**
@@ -68,14 +69,6 @@ export const isBlockingOverlayOpen: OverlayProbe = (doc) => {
   if (doc.body?.hasAttribute("data-scroll-locked")) return true;
   if (doc.querySelector(BLOCKING_SELECTORS)) return true;
 
-  // Radix floating layers (menus, selects, popovers) mount inside a popper wrapper. Tooltips do
-  // too, but a tooltip is just someone hovering a control (often the tip's own anchor), so it
-  // neither blocks nor closes a tip.
-  for (const wrapper of doc.querySelectorAll("[data-radix-popper-content-wrapper]")) {
-    if (wrapper.querySelector('[data-feature-tip], [role="tooltip"]')) continue;
-
-    return true;
-  }
-
-  return false;
+  // Radix Select can mount its listbox before setting any open-state attributes.
+  return Boolean(doc.querySelector('[data-radix-popper-content-wrapper] [role="listbox"]'));
 };

@@ -29,6 +29,7 @@ import { glass } from "@/components/design-system/primitives";
 import { FeatureTip } from "@/components/onboarding/feature-tip";
 import { KeyboardShortcutKbd } from "@/components/onboarding/keyboard-shortcut-kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/third-party/ui/tooltip";
+import { useIsApplePlatform } from "@/hooks/use-onboarding";
 import { useVoiceSessionOptional } from "@/components/voice/voice-session-provider";
 import {
   isArcadiaSubagentRunning,
@@ -338,7 +339,10 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
             condensed ? "pb-1" : "pb-3"
           )}
         >
-          <FeatureTip id="arcadia-multiagent" showWhen={!viewingSubagentId}>
+          <FeatureTip
+            id="arcadia-multiagent"
+            showWhen={!viewingNowId && !voiceConnecting && !voiceConnected}
+          >
             <div className="min-w-0 flex-1 select-none pr-2">
               <SendTargetPicker
                 agents={agents}
@@ -583,13 +587,14 @@ function PanelToggle({
   children: ReactNode;
 }) {
   const label = `${open ? "Hide" : "Show"} ${panel}`;
+  const apple = useIsApplePlatform();
 
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <button
           aria-expanded={open}
-          aria-keyshortcuts={`Control+${shortcutKey}`}
+          aria-keyshortcuts={apple ? `Control+${shortcutKey}` : undefined}
           className={cn(
             glass({ tone: "brown", opaque: true }),
             "inline-flex min-h-10 items-center gap-1.5 rounded-full border border-border/60 px-2.5 text-xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
@@ -611,10 +616,12 @@ function PanelToggle({
       >
         <span className="flex items-center gap-2">
           {label}
-          <span className="inline-flex items-center gap-1">
-            <KeyboardShortcutKbd>Ctrl</KeyboardShortcutKbd>
-            <KeyboardShortcutKbd>{shortcutKey}</KeyboardShortcutKbd>
-          </span>
+          {apple ? (
+            <span className="inline-flex items-center gap-1">
+              <KeyboardShortcutKbd>Ctrl</KeyboardShortcutKbd>
+              <KeyboardShortcutKbd>{shortcutKey}</KeyboardShortcutKbd>
+            </span>
+          ) : null}
         </span>
       </TooltipContent>
     </Tooltip>

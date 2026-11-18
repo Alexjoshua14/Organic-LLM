@@ -27,8 +27,9 @@ How Organic teaches itself to new people without getting in their way. Code live
 | Feature tips | The moment a feature becomes relevant | A small non-modal popover beside one control. Two exist (Search & Memory after the first reply; the multiagent recipient picker). |
 | Guide | Whenever someone presses **?** | Start here (what Organic is, first steps, surfaces) · Shortcuts · Tips (every tip, the switch, Replay onboarding). |
 
-Accounts older than 30 days never get the welcome card or automatic tips; the Guide is always
-available, and **Replay onboarding** turns both back on (useful before a demo).
+The Guide is always available. Automatic onboarding ends after 30 days unless the person selects
+**Replay onboarding**. The welcome card is the only automatic onboarding on home. When it has
+appeared, the first destination opened from home also skips automatic tips.
 
 ## Tip pacing (approved values)
 
@@ -45,7 +46,8 @@ Source of truth: `lib/onboarding/tip-timing.ts`.
 
 A tip also waits while: a dialog, sheet, menu, popover or select is open (tooltips do not count); the page is
 scroll-locked; another first-visit notice holds onboarding (the anonymous-metrics notice); the tab
-is hidden; the Guide is open; or its anchor is not actually visible (off screen, `opacity: 0`,
+is hidden; the Guide is open; the Arcadia composer has a draft, a reply in flight or a side
+thread; or its anchor is not actually visible (off screen, `opacity: 0`,
 `visibility: hidden`, or covered at its centre).
 
 ## Dismissal
@@ -71,7 +73,8 @@ Exits are faster than entrances; reduced motion keeps the fade and drops the mov
 - Tips are `role="dialog"` popovers that never take focus on open (they would steal the caret
   from the composer). While open, the anchored control is `aria-describedby` the tip's text and a
   polite live region announces it with "Press Escape to dismiss".
-- Escape closes the topmost layer only (Radix dismissable layers).
+- Escape dismisses the topmost layer. When the tip is topmost, Escape marks it seen even if
+  focus is outside the tip. Tab and Shift+Tab can move out of an automatic tip.
 - Focus returns to where it came from only if it was inside the tip when it closed.
 - Every control uses the shared Lumen focus feedback (`organic-focus`); no focus rings.
 - Shortcut chips read as words ("Command K", "Control K") and are labelled for the platform.

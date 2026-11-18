@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { Tabs as TabsPrimitive } from "radix-ui";
 
 import { GuideShortcutsTab } from "./guide-shortcuts-tab";
@@ -33,6 +34,13 @@ function isGuideTab(value: string): value is GuideTab {
  */
 export function OnboardingGuide() {
   const { guideOpen, setGuideOpen, guideTab, setGuideTab } = useOnboarding();
+  const openerRef = useRef<HTMLElement | null>(null);
+  const handoffRef = useRef(false);
+
+  function closeForHandoff() {
+    handoffRef.current = true;
+    setGuideOpen(false);
+  }
 
   return (
     <Dialog open={guideOpen} onOpenChange={setGuideOpen}>
@@ -42,14 +50,32 @@ export function OnboardingGuide() {
           "flex max-h-[min(88dvh,46rem)] w-[calc(100%-1.5rem)] flex-col gap-0 overflow-hidden rounded-2xl p-0 sm:max-w-2xl",
           "shadow-[0_24px_80px_-24px_rgb(0_0_0/0.25)] dark:shadow-[0_24px_80px_-24px_rgb(0_0_0/0.55)]"
         )}
+        closeClassName="organic-focus inset-s-auto inset-e-[2px] top-0.5 right-auto flex size-11 items-center justify-center bg-transparent focus:ring-0 focus:ring-offset-0 data-[state=open]:bg-transparent"
         overlayClassName="bg-black/25 dark:bg-black/60"
+        onOpenAutoFocus={() => {
+          handoffRef.current = false;
+          openerRef.current =
+            document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        }}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          if (handoffRef.current) return;
+
+          const opener = openerRef.current;
+          const target =
+            opener?.isConnected && opener !== document.body
+              ? opener
+              : document.querySelector<HTMLElement>("[data-guide-trigger]");
+
+          target?.focus({ preventScroll: true });
+        }}
       >
         <DialogHeader className="shrink-0 gap-stack-xs space-y-0 px-5 pt-5 pb-stack-md pr-12 text-left sm:px-6 sm:pt-6">
           <DialogTitle className="font-commissioner text-xl font-light tracking-wide sm:text-2xl">
             Guide
           </DialogTitle>
           <DialogDescription className="text-sm leading-relaxed text-muted-foreground">
-            What Organic is, where everything lives, and how to move fast.
+            First steps, keyboard shortcuts, and tips.
           </DialogDescription>
         </DialogHeader>
 
@@ -80,7 +106,7 @@ export function OnboardingGuide() {
 
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain [scrollbar-gutter:stable]">
             <TabsPrimitive.Content className="outline-none" value="start">
-              <GuideStartTab />
+              <GuideStartTab onHandoff={closeForHandoff} />
             </TabsPrimitive.Content>
             <TabsPrimitive.Content className="outline-none" value="shortcuts">
               <GuideShortcutsTab />

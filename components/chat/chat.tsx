@@ -156,9 +156,9 @@ export const Chat: React.FC<ChatProps> = ({
   const experience = resolveChatRuntimeExperience(requestedExperience);
   /** Main chat and Arcadia: the surfaces the Guide's first steps and the composer tip cover. */
   const onboardingSurface =
-    experience === "arcadia"
+    requestedExperience === "arcadia"
       ? "arcadia"
-      : experience === undefined && persona === undefined
+      : requestedExperience === undefined && persona === undefined
         ? "chat"
         : null;
   const { refreshSidebarChats } = useSharedChatContext();

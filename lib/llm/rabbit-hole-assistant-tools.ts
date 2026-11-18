@@ -119,7 +119,13 @@ export function createRabbitHoleAssistantTools({
 
       logger.log("generate_rabbit_hole_node", "scheduled", { nodeId: drafted.nodeId, toolCallId });
 
-      return { ok: true as const, nodeId: drafted.nodeId, sessionId, title: drafted.title };
+      return {
+        ok: true as const,
+        nodeId: drafted.nodeId,
+        sessionId,
+        title: drafted.title,
+        createdRoot: drafted.session.rootNodeId === drafted.nodeId,
+      };
     },
   });
 

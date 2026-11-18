@@ -1282,6 +1282,16 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     <PromptInput
       aria-busy={showSentShimmer ? true : undefined}
       data-dim-background
+      data-onboarding-composer-busy={
+        text.trim() ||
+        disabled ||
+        sideThreadKey ||
+        pendingSend ||
+        status === "submitted" ||
+        status === "streaming"
+          ? ""
+          : undefined
+      }
       globalDrop={variant !== "stage-beta"}
       multiple
       maxFiles={variant === "stage-beta" ? 0 : undefined}

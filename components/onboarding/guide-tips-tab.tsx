@@ -46,9 +46,8 @@ function TipControls() {
           size="sm"
           type="button"
           variant="secondary"
-          onClick={() => {
-            onboardingActions.replay();
-            setReplayed(true);
+          onClick={async () => {
+            if (await onboardingActions.replay()) setReplayed(true);
           }}
         >
           <RotateCcw aria-hidden className="size-3.5" />

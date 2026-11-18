@@ -20,6 +20,7 @@ import { createLogger } from "@/lib/logger";
 import { Result, SimpleResult } from "@/types";
 import { getSessionById, saveSession } from "@/data/supabase/rabbitholes";
 import { clientRandomUUID } from "@/lib/client-uuid";
+import { getOnboardingSnapshot } from "@/lib/onboarding/onboarding-store";
 import { onboardingActions } from "@/lib/onboarding/onboarding-actions";
 
 const logger = createLogger("useRabbitHoles");
@@ -236,6 +237,8 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
       };
     }
 
+    const onboardingUserId = getOnboardingSnapshot().userId;
+
     setIsLoading(true);
     setError(null);
     setPreview(null);
@@ -304,8 +307,7 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
       });
 
       if (res.status === 202) {
-        // The server accepted the node, so the Guide's "rabbit hole" first step is done.
-        onboardingActions.completeStep("rabbit-hole");
+        if (isFirstNode) void onboardingActions.completeStep("rabbit-hole", onboardingUserId);
         const json = (await res.json()) as {
           jobId: string;
           sessionId: string;

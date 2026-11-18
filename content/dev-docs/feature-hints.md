@@ -54,7 +54,7 @@ tip to `GUIDE_ONLY_TIPS` instead.
 | Id | Where | Shows when |
 |----|-------|------------|
 | `composer-search-memory` | Search and Memory toggles | Chat or Arcadia thread has a reply, composer idle and empty, no `/btw` |
-| `arcadia-multiagent` | Multiagent recipient picker | Multiagent dashboard open, not viewing a subagent |
+| `arcadia-multiagent` | Multiagent recipient picker | Multiagent dashboard open, recipient picker collapsed, composer idle and empty, no `/btw` |
 
 Guide-only tips: sidebar surfaces, ⌘K, Auto model, Rabbit Holes reading mode, and (admins) Noesis
 Suggest my reply and Tune.
@@ -68,8 +68,10 @@ Suggest my reply and Tune.
 | `organic-llm-onboarding:<userId>` (localStorage) | Versioned JSON: tips on/off, seen tips and how they ended, implicit-close counts, tip log (pacing), welcome dismissal, checklist progress, replay flag |
 | `organic-llm-onboarding-session:<userId>` (sessionStorage) | Tips hidden for this tab session |
 
-Writes re-read storage first, so two tabs never overwrite each other's progress. If storage is
-unavailable, state lives in memory for the tab and the welcome card stays hidden.
+Writes re-read current storage. Browsers with Web Locks also serialize updates and check pacing
+in the same transaction that records the impression. On browsers without Web Locks, simultaneous
+writes are best effort. If storage is unavailable, state lives in memory for the tab and the welcome
+card stays hidden.
 
 The pre-redesign keys (`organic-llm-feature-hints-dismissed`, `organic-llm-first-session-checklist`)
 are read once per account for migration and left in place for one release.

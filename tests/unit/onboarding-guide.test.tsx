@@ -119,11 +119,26 @@ describe("Guide", () => {
     expect(within(guide).getAllByRole("button", { name: "Close" })).toHaveLength(1);
   });
 
+  test("Escape restores focus to the persistent Guide trigger", async () => {
+    const app = render(<Harness />);
+    const trigger = app.getByRole("button", { name: /open the guide/i });
+
+    trigger.focus();
+    const guide = await openGuide(app);
+
+    await act(async () => fireEvent.keyDown(guide, { key: "Escape" }));
+    await waitFor(() => {
+      expect(document.activeElement === trigger).toBe(true);
+    });
+  });
+
   test("first steps reflect real actions and can be hidden", async () => {
     const app = render(<Harness />);
     const guide = await openGuide(app);
 
-    act(() => onboardingActions.completeStep("first-message"));
+    await act(async () => {
+      await onboardingActions.completeStep("first-message");
+    });
     expect(within(guide).getByText("1 of 4 done")).toBeTruthy();
     expect(within(guide).getByText(/Ask your first question/).textContent).toContain("(done)");
 
@@ -175,7 +190,9 @@ describe("Guide", () => {
     fireEvent.click(within(guide).getByRole("switch"));
     expect(getOnboardingSnapshot().state.tipsEnabled).toBe(false);
 
-    fireEvent.click(within(guide).getByRole("button", { name: /replay onboarding/i }));
+    await act(async () =>
+      fireEvent.click(within(guide).getByRole("button", { name: /replay onboarding/i }))
+    );
 
     const state = getOnboardingSnapshot().state;
 
@@ -201,6 +218,24 @@ describe("Guide", () => {
 });
 
 describe("WelcomeCard", () => {
+  test("replay brings back the welcome even after all steps are done", () => {
+    for (const step of ["first-message", "try-arcadia", "rabbit-hole", "switch-ideas"] as const) {
+      void onboardingActions.completeStep(step);
+    }
+
+    const app = render(
+      <Harness>
+        <WelcomeCard />
+      </Harness>
+    );
+
+    expect(app.queryByText("Welcome to Organic")).toBeNull();
+    act(() => {
+      void onboardingActions.replay();
+    });
+    expect(app.getByText("Welcome to Organic")).toBeTruthy();
+  });
+
   test("shows for a new account and opens the Guide, which retires it", async () => {
     const app = render(
       <Harness>

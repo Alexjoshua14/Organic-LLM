@@ -1,7 +1,7 @@
 "use client";
 
 import { Sparkles, X } from "lucide-react";
-import { useContext, useSyncExternalStore } from "react";
+import { useContext, useEffect, useSyncExternalStore } from "react";
 
 import { useOnboarding } from "./onboarding-context";
 
@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
  * anything and never takes focus.
  */
 export function WelcomeCard({ className }: { className?: string }) {
-  const { autoEligible, signedIn, openGuide } = useOnboarding();
+  const { autoEligible, markWelcomeShown, signedIn, openGuide } = useOnboarding();
   const { status, persistent, recovered, state } = useOnboardingSnapshot();
   const voice = useContext(VoiceSessionContext);
   const held = useSyncExternalStore(subscribeOnboardingHold, isOnboardingHeld, () => true);
@@ -33,9 +33,13 @@ export function WelcomeCard({ className }: { className?: string }) {
     persistent &&
     !recovered &&
     state.welcomeDismissedAt == null &&
-    !checklistProgress(state).complete &&
+    (state.replayRequestedAt != null || !checklistProgress(state).complete) &&
     !voiceLive &&
     !held;
+
+  useEffect(() => {
+    if (visible) markWelcomeShown?.();
+  }, [markWelcomeShown, visible]);
 
   if (!visible) return null;
 
@@ -62,7 +66,7 @@ export function WelcomeCard({ className }: { className?: string }) {
         or a fresh chat. The sidebar holds every other surface, from research to meal plans.
       </p>
       <Button
-        className="mt-stack-md h-9 px-3 text-xs sm:h-8"
+        className="mt-stack-md h-11 px-3 text-xs sm:h-8"
         size="sm"
         type="button"
         variant="secondary"
@@ -75,7 +79,7 @@ export function WelcomeCard({ className }: { className?: string }) {
       </Button>
       <Button
         aria-label="Dismiss welcome"
-        className="absolute top-2 right-2 size-9 text-muted-foreground hover:text-foreground"
+        className="absolute top-1 right-1 size-11 text-muted-foreground hover:text-foreground"
         size="icon"
         type="button"
         variant="ghost"

@@ -18,10 +18,17 @@ import { cn } from "@/lib/utils";
 
 const sectionLabel = "text-2xs font-medium uppercase tracking-[0.16em] text-muted-foreground/80";
 
-function StepAction({ step, done }: { step: ChecklistStep; done: boolean }) {
-  const { setGuideOpen } = useOnboarding();
+function StepAction({
+  step,
+  done,
+  onHandoff,
+}: {
+  step: ChecklistStep;
+  done: boolean;
+  onHandoff: () => void;
+}) {
   const launcher = useAionLauncher();
-  const className = cn("h-9 shrink-0 px-3 text-xs sm:h-8", done && "text-muted-foreground");
+  const className = cn("h-11 shrink-0 px-3 text-xs sm:h-8", done && "text-muted-foreground");
   const variant = done ? "ghost" : "secondary";
 
   if (step.action.kind === "launcher") {
@@ -32,7 +39,7 @@ function StepAction({ step, done }: { step: ChecklistStep; done: boolean }) {
         type="button"
         variant={variant}
         onClick={() => {
-          setGuideOpen(false);
+          onHandoff();
           launcher.setOpen(true);
         }}
       >
@@ -46,7 +53,7 @@ function StepAction({ step, done }: { step: ChecklistStep; done: boolean }) {
       <Link
         href={step.action.href}
         prefetch={threadEntryPrefetch(step.action.href)}
-        onClick={() => setGuideOpen(false)}
+        onClick={onHandoff}
       >
         {step.action.label}
       </Link>
@@ -54,7 +61,7 @@ function StepAction({ step, done }: { step: ChecklistStep; done: boolean }) {
   );
 }
 
-function Checklist() {
+function Checklist({ onHandoff }: { onHandoff: () => void }) {
   const { state } = useOnboardingSnapshot();
   const progress = checklistProgress(state);
 
@@ -131,7 +138,7 @@ function Checklist() {
                     {step.body}
                   </p>
                 </div>
-                <StepAction done={done} step={step} />
+                <StepAction done={done} step={step} onHandoff={onHandoff} />
               </div>
             </li>
           );
@@ -141,8 +148,7 @@ function Checklist() {
   );
 }
 
-function Surfaces() {
-  const { setGuideOpen } = useOnboarding();
+function Surfaces({ onHandoff }: { onHandoff: () => void }) {
   const isAdmin = useIsAdmin() === true;
 
   return (
@@ -151,8 +157,7 @@ function Surfaces() {
         Surfaces
       </h3>
       <p className="text-xs leading-relaxed text-muted-foreground">
-        The tiles at the top of the sidebar switch between them. Threads, memory and settings are
-        shared across all of them.
+        Open the sidebar to switch between these parts of Organic.
       </p>
       <ul className="grid gap-stack-sm sm:grid-cols-2">
         {guideSurfaces({ isAdmin }).map((surface) => (
@@ -164,7 +169,7 @@ function Surfaces() {
               )}
               href={surface.href}
               prefetch={threadEntryPrefetch(surface.href)}
-              onClick={() => setGuideOpen(false)}
+              onClick={onHandoff}
             >
               <span className="min-w-0">
                 <span className="block text-sm font-medium text-foreground">{surface.label}</span>
@@ -185,16 +190,15 @@ function Surfaces() {
 }
 
 /** Guide → Start here: what Organic is, first steps (signed in), and every surface. */
-export function GuideStartTab() {
+export function GuideStartTab({ onHandoff }: { onHandoff: () => void }) {
   const { signedIn } = useOnboarding();
 
   return (
     <div className="flex flex-col gap-stack-2xl px-5 py-5 sm:px-6">
       <section className="flex flex-col gap-stack-sm">
         <p className="text-sm leading-relaxed text-foreground">
-          Organic is an AI workspace where your conversations, research and plans share one memory.
-          Ask in any surface; what you tell it can shape later answers, and you can turn Memory off
-          for any message.
+          Use Organic to ask questions, explore research, and make plans. With Memory enabled,
+          Organic can use what you’ve shared in earlier conversations to inform a reply.
         </p>
         {!signedIn ? (
           <p className="text-xs leading-relaxed text-muted-foreground">
@@ -202,8 +206,8 @@ export function GuideStartTab() {
           </p>
         ) : null}
       </section>
-      {signedIn ? <Checklist /> : null}
-      <Surfaces />
+      {signedIn ? <Checklist onHandoff={onHandoff} /> : null}
+      <Surfaces onHandoff={onHandoff} />
     </div>
   );
 }
