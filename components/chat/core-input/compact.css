@@ -76,6 +76,18 @@
   border-radius: var(--core-input-shell-radius);
   color: var(--popover-foreground);
 }
+/*
+ * The panel takes focus when it opens so the keyboard can move through it. It never shows a
+ * ring for that: in dark mode it glows faintly with Lumen, in light mode it lifts on Lumen's
+ * shadow (docs/design/lumen.md).
+ */
+.core-input-options-panel:focus-visible {
+  outline: none;
+  box-shadow: var(--lumen-shadow-hover);
+}
+.dark .core-input-options-panel:focus-visible {
+  box-shadow: 0 0 var(--spacing-inset-lg) rgb(var(--lumen) / 0.16);
+}
 /* The model & effort selector on the left, context usage in line with it on the right. */
 .core-input-options-model-row {
   display: flex;
