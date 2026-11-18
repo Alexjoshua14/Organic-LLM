@@ -12,6 +12,7 @@ feel — so improvements stay consistent and do not regress quality.
 | [Code blocks](./code-blocks.md) | Default fenced-code block, palettes, highlighting cost and the streaming rule |
 | [Lumen](./lumen.md) | Natural light in dark mode, shadow in light mode: tokens, intensities, rules for new surfaces |
 | [Focus feedback](./focus-feedback.md) | Lumen-based keyboard focus, shared controls and system-color fallback |
+| [Blog layout](./blog-layout.md) | Article shell, reading measure, bento index, glass Lumen cards |
 | [Spacing](./spacing.md) | Card density, stack/gap/inset tokens, gen-ui vertical rhythm |
 | [Switches & quick settings](./switches-and-quick-settings.md) | Compact glass switches, caption popovers, quick-settings density |
 | [Context usage](./context-usage.md) | Composer context charts, source colors, percentage ramp, hover labels |
