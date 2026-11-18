@@ -15,12 +15,40 @@
   --tw-ring-shadow: 0 0 #0000;
   --tw-ring-offset-shadow: 0 0 #0000;
 }
+/*
+ * One line by default: settings, the draft, attachments and mic, then Send. Once the draft needs
+ * more room the row stacks: the draft on top, settings/attachments/mic left and Send right below.
+ * Groups are top-aligned so a growing draft never moves them before the stack settles; the glide
+ * between layouts lives in editor/composer-reflow.ts (docs/design/core-input-compact-reflow.md).
+ */
 .core-input-compact-row {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 8px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-areas: "lead area trail send";
+  align-items: start;
+  column-gap: var(--spacing-inline-xs);
+  padding: var(--spacing-inset-sm);
   min-height: 54px;
+}
+.core-input-compact-row[data-expanded="true"] {
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "area area area area"
+    "lead trail . send";
+  row-gap: var(--spacing-stack-xs);
+}
+.core-input-reflow-lead {
+  grid-area: lead;
+}
+.core-input-reflow-area {
+  grid-area: area;
+  min-width: 0;
+}
+.core-input-reflow-trail {
+  grid-area: trail;
+}
+.core-input-reflow-send {
+  grid-area: send;
 }
 .core-input-condensed textarea {
   flex: 1;
@@ -202,12 +230,6 @@
 @media (prefers-reduced-motion: reduce) {
   .core-input-tune-needle {
     transition: none;
-  }
-}
-@media (max-width: 480px) {
-  .core-input-compact-row {
-    gap: 2px;
-    padding: 8px;
   }
 }
 

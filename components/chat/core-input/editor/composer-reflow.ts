@@ -129,12 +129,15 @@ function textWidth(text: string, element: Element) {
 }
 
 /** Width the text has on one line: the row minus the actions, which hold their size either way. */
-function singleLineTextWidth(row: HTMLElement) {
+function singleLineTextWidth(row: HTMLElement, surface?: Element) {
   const style = getComputedStyle(row);
   const gap = parseFloat(style.columnGap) || 0;
   // The one-line layout pads the text with a token; a hidden probe resolves it to pixels.
   const probe = row.querySelector("[data-pad-probe]");
-  const inlinePad = probe ? parseFloat(getComputedStyle(probe).paddingLeft) || 0 : 0;
+  // A probe resolves the one-line padding when it differs from the current layout's (the lab);
+  // otherwise the editor surface's own padding is the same in both layouts.
+  const padSource = probe ?? surface;
+  const inlinePad = padSource ? parseFloat(getComputedStyle(padSource).paddingLeft) || 0 : 0;
   let used = 0;
   let items = 0;
 
@@ -180,7 +183,10 @@ export function wantsExpanded(
   if (!first.content.size) {
     const width = textWidth(line.getAttribute("data-placeholder") ?? "", line);
 
-    return width > 0 && width > singleLineTextWidth(row) - (expanded ? COMPOSER_FIT_SLACK_PX : 0);
+    return (
+      width > 0 &&
+      width > singleLineTextWidth(row, editor.view.dom) - (expanded ? COMPOSER_FIT_SLACK_PX : 0)
+    );
   }
   const range = document.createRange();
 
@@ -191,5 +197,7 @@ export function wantsExpanded(
   const lineHeight = parseFloat(getComputedStyle(line).lineHeight) || 24;
   const slack = expanded ? COMPOSER_FIT_SLACK_PX : 0;
 
-  return box.height >= lineHeight * 1.5 || box.width > singleLineTextWidth(row) - slack;
+  return (
+    box.height >= lineHeight * 1.5 || box.width > singleLineTextWidth(row, editor.view.dom) - slack
+  );
 }

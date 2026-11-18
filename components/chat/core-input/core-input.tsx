@@ -56,6 +56,8 @@ import { CoreInputOptions } from "./core-input-options";
 import { CoreInputSteerTab, CoreInputStrip } from "./steer-tab";
 import { ComposerAddFilesButton } from "./controls/add-files-button";
 import { ComposerEditor } from "./editor/composer-editor";
+import { LumenSubmit } from "./editor/lumen-submit";
+import { useComposerReflow } from "./editor/use-composer-reflow";
 import { ComposerMicButton } from "./controls/mic-button";
 import "./compact.css";
 import { organicGlassSubmitClassName, PromptInputSubmit } from "./submit/submit-button";
@@ -111,6 +113,7 @@ import { shouldEnqueueInsteadOfSend } from "@/lib/message-queue/dispatch-gates";
 import { glass } from "@/components/design-system/primitives";
 import { ThreadReferenceCard } from "@/components/chat/thread-reference/thread-reference-card";
 import { parseThreadPointer, threadReferenceMarker } from "@/lib/chat/thread-reference";
+import type { Editor } from "@tiptap/core";
 
 type CoreInputProps = {
   /** Validated display seed for this scope, supplied by the request page. */
@@ -225,6 +228,11 @@ type CoreInputProps = {
 let lastDisplayedSettings: CoreInputSettings | null = null;
 
 /** Morph pulses target controls through these `data-core-input-morph-*` names. */
+/** A compact action group: one line of text tall (the send button), every control centred in it. */
+const REFLOW_BAND = "flex min-h-9 items-center gap-inline-xs pointer-coarse:min-h-11";
+/** The draft on the one-line layout: the same band, its single line centred in it. */
+const REFLOW_LINE = "flex min-h-9 flex-col justify-center pointer-coarse:min-h-11";
+
 const MORPH_PULSE_ATTRIBUTE: Record<CoreInputSettingField, string> = {
   modelId: "data-core-input-morph-model",
   effort: "data-core-input-morph-effort",
@@ -384,6 +392,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     setThreadReferences([]);
   }, [chatId, sideThreadKey]);
   const toolsRef = useRef<HTMLDivElement | null>(null);
+  const [composerEditor, setComposerEditor] = useState<Editor | null>(null);
   const { showLabels, isCondensed } = useCoreInputLayout(toolsRef);
   const { enabled: experimentalContextEffort, level: savedContextEffort } =
     useContextEffortSettings(
@@ -1008,7 +1017,6 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     ]
   );
 
-
   const composerStatus = queueEnabled
     ? "ready"
     : pendingSend !== null && pendingSend.threadId === chatId && status === "ready"
@@ -1085,6 +1093,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
           event.stopPropagation();
           addThreadReference(id);
         }}
+        onEditor={setComposerEditor}
         onSelect={autoModelPreview.notifySelectionOrCursorMove}
       />
     );
@@ -1105,6 +1114,10 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     hasSteer: Boolean(onSecondarySubmit),
     showContextEffort,
     hasAttachments: variant !== "stage-beta",
+  }); // Compact: one line until the draft needs more room, then stacked (see the reflow design doc).
+  const stacked = useComposerReflow(toolsRef, composerEditor, {
+    enabled: useCondensedLayout,
+    forced: (enableMarkdownInputPreview && inputMarkdownMode === "preview") || showSentShimmer,
   });
 
   const controlsValue = useMemo<CoreInputControlsValue>(
@@ -1169,8 +1182,10 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       />
     ) : null;
 
+  // The compact send wears the Lumen chip; the full footer keeps its own submit treatment.
+  const SubmitButton = useCondensedLayout && !personaActive ? LumenSubmit : PromptInputSubmit;
   const submitControl = (
-    <PromptInputSubmit
+    <SubmitButton
       // Spread only when set: an explicit `aria-label={undefined}` would override the button's
       // own "Submit"/"Abort" label, which PromptInputSubmit applies before `...props`.
       {...(variant === "stage-beta"
@@ -1190,7 +1205,9 @@ export const CoreInput: React.FC<CoreInputProps> = ({
           organicGlassSubmitClassName,
         personaActive && "overflow-hidden rounded-lg bg-transparent p-0 hover:bg-transparent",
         useCondensedLayout &&
-          cn(glass({ chip: true }), "core-input-compact-submit size-9 rounded-full")
+          (personaActive
+            ? cn(glass({ chip: true }), "core-input-compact-submit size-9 rounded-full")
+            : "core-input-compact-submit size-9 rounded-full")
       )}
       variant={personaActive ? "ghost" : undefined}
       // Multi-mode: always submit (never stop). Default: keep stop available while streaming.
@@ -1229,7 +1246,18 @@ export const CoreInput: React.FC<CoreInputProps> = ({
           }
         />
       ) : undefined}
-    </PromptInputSubmit>
+    </SubmitButton>
+  );
+
+  const composerBody = (
+    <PromptInputBody>
+      {draftRestored ? (
+        <span className="sr-only" aria-live="polite">
+          Draft restored
+        </span>
+      ) : null}
+      {renderComposerBody()}
+    </PromptInputBody>
   );
 
   const composer = (
@@ -1282,38 +1310,44 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       <div
         ref={useCondensedLayout ? toolsRef : undefined}
         className={useCondensedLayout ? "core-input-compact-row" : "contents"}
+        data-expanded={useCondensedLayout ? (stacked ? "true" : "false") : undefined}
       >
         {useCondensedLayout ? (
-          <CoreInputOptions
-            placement={footerPlacement}
-            ready={settingsReady}
-            contextBudget={contextBudgetControl}
-          />
+          <div className={cn(REFLOW_BAND, "core-input-reflow-lead")} data-reflow="lead">
+            <CoreInputOptions
+              placement={footerPlacement}
+              ready={settingsReady}
+              contextBudget={contextBudgetControl}
+            />
+          </div>
         ) : null}
-        <PromptInputBody>
-          {draftRestored ? (
-            <span className="sr-only" aria-live="polite">
-              Draft restored
-            </span>
-          ) : null}
-          {renderComposerBody()}
-        </PromptInputBody>
+        {useCondensedLayout ? (
+          <div className={cn("core-input-reflow-area", !stacked && REFLOW_LINE)} data-reflow="area">
+            {composerBody}
+          </div>
+        ) : (
+          composerBody
+        )}
         {useCondensedLayout ? (
           <>
-            {footerPlacement.addFiles !== "hidden" ||
-            footerPlacement.threadClipboard !== "hidden" ? (
-              <ComposerAddFilesButton
-                files={footerPlacement.addFiles !== "hidden"}
-                onThreadReference={
-                  footerPlacement.threadClipboard !== "hidden" ? addThreadReference : undefined
-                }
-              />
-            ) : null}
-            {voiceControl ??
-              (footerPlacement.mic !== "hidden" ? (
-                <ComposerMicButton textareaRef={textareaRef} onTranscriptionChange={setText} />
-              ) : null)}
-            {submitControl}
+            <div className={cn(REFLOW_BAND, "core-input-reflow-trail")} data-reflow="trail">
+              {footerPlacement.addFiles !== "hidden" ||
+              footerPlacement.threadClipboard !== "hidden" ? (
+                <ComposerAddFilesButton
+                  files={footerPlacement.addFiles !== "hidden"}
+                  onThreadReference={
+                    footerPlacement.threadClipboard !== "hidden" ? addThreadReference : undefined
+                  }
+                />
+              ) : null}
+              {voiceControl ??
+                (footerPlacement.mic !== "hidden" ? (
+                  <ComposerMicButton textareaRef={textareaRef} onTranscriptionChange={setText} />
+                ) : null)}
+            </div>
+            <div className={cn(REFLOW_BAND, "core-input-reflow-send")} data-reflow="send">
+              {submitControl}
+            </div>
           </>
         ) : null}
       </div>
