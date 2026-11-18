@@ -36,6 +36,7 @@ When a task matches a skill below, read its `SKILL.md` before working:
 - Preview branch integration: [preview-branch](.agents/skills/preview-branch/SKILL.md).
 - Dependent PR chains: [stacked-pull-requests](.agents/skills/stacked-pull-requests/SKILL.md).
 - Track and ship a build brief: [ship-from-brief](.agents/skills/ship-from-brief/SKILL.md).
+- Review a blog post with a four-reviewer panel: [blog-review](.agents/skills/blog-review/SKILL.md).
 
 For files matching the `paths` in [design-backbone](.agents/rules/design-backbone.md) or
 [subagent-card-lab](.agents/rules/subagent-card-lab.md), read and follow the matching rules before editing. `.agents/rules/` is routed here explicitly; do not
