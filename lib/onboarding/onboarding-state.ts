@@ -164,9 +164,7 @@ export function setChecklistHidden(
 ): OnboardingState {
   if (hidden === (state.checklist.hiddenAt != null)) return state;
 
-  const { hiddenAt: _previous, ...rest } = state.checklist;
-
-  return { ...state, checklist: hidden ? { ...rest, hiddenAt: now } : rest };
+  return { ...state, checklist: { ...state.checklist, hiddenAt: hidden ? now : undefined } };
 }
 
 /**
@@ -174,17 +172,15 @@ export function setChecklistHidden(
  * the account-age window is bypassed. Checklist progress is kept (it records real actions).
  */
 export function replayOnboarding(state: OnboardingState, now: number): OnboardingState {
-  const { welcomeDismissedAt: _welcome, ...rest } = state;
-  const { hiddenAt: _hidden, ...checklist } = state.checklist;
-
   return {
-    ...rest,
+    ...state,
+    welcomeDismissedAt: undefined,
     tipsEnabled: true,
     replayRequestedAt: now,
     tips: {},
     implicitCloses: {},
     tipLog: [],
-    checklist,
+    checklist: { ...state.checklist, hiddenAt: undefined },
   };
 }
 
