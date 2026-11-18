@@ -81,9 +81,7 @@ export function ChatMessageFlowContent() {
       </BlogFigure>
 
       <h2>Follow one message</h2>
-      <p>
-        Each step below says what you notice and what the server is doing. Click through them.
-      </p>
+      <p>Each step below says what you notice and what the server is doing. Click through them.</p>
       <MessageFlowStepper steps={STEPS} />
 
       <h2>Why it holds up</h2>
@@ -109,13 +107,13 @@ export function ChatMessageFlowContent() {
 
       <h2>A few terms</h2>
       <p>
-        The chat sends a <Term>POST</Term> request and receives the answer over an{" "}
-        <Term>SSE</Term> connection, which the server keeps open and writes to as the model
-        produces words. A <Term>resumable stream</Term> is one the client can reconnect to by id.
+        The chat sends a <Term>POST</Term> request and receives the answer over an <Term>SSE</Term>{" "}
+        connection, which the server keeps open and writes to as the model produces words. A{" "}
+        <Term>resumable stream</Term> is one the client can reconnect to by id.
       </p>
       <p>
-        The 10-message window is the default for main Chat. Arcadia and Strata use different
-        history budgets; the note on each surface says which.
+        The 10-message window is the default for main Chat. Arcadia and Strata use different history
+        budgets; the note on each surface says which.
       </p>
     </BlogSection>
   );
