@@ -28,7 +28,10 @@ function StepAction({
   onHandoff: () => void;
 }) {
   const launcher = useAionLauncher();
-  const className = cn("h-11 shrink-0 px-3 text-xs sm:h-8", done && "text-muted-foreground");
+  const className = cn(
+    "h-11 shrink-0 px-3 text-xs sm:h-8",
+    done && "text-muted-foreground max-sm:-ml-3"
+  );
   const variant = done ? "ghost" : "secondary";
 
   if (step.action.kind === "launcher") {
@@ -70,7 +73,7 @@ function Checklist({ onHandoff }: { onHandoff: () => void }) {
       <p className="text-xs text-muted-foreground">
         First steps are hidden.{" "}
         <button
-          className="organic-focus cursor-pointer rounded-sm text-foreground underline decoration-foreground/30 underline-offset-2 hover:decoration-foreground"
+          className="organic-focus inline-flex min-h-11 cursor-pointer items-center rounded-sm text-foreground underline decoration-foreground/30 underline-offset-2 hover:decoration-foreground sm:min-h-0"
           type="button"
           onClick={() => onboardingActions.setChecklistHidden(false)}
         >
@@ -82,16 +85,16 @@ function Checklist({ onHandoff }: { onHandoff: () => void }) {
 
   return (
     <section aria-labelledby="guide-first-steps" className="flex flex-col gap-stack-sm">
-      <div className="flex items-baseline justify-between gap-inline-sm">
+      <div className="flex items-center justify-between gap-inline-sm">
         <h3 className={sectionLabel} id="guide-first-steps">
           First steps
         </h3>
-        <div className="flex items-baseline gap-inline-sm text-xs text-muted-foreground">
+        <div className="flex items-center gap-inline-sm text-xs text-muted-foreground">
           <span aria-live="polite" className="tabular-nums">
             {progress.complete ? "All done" : `${progress.done} of ${progress.total} done`}
           </span>
           <button
-            className="organic-focus cursor-pointer rounded-sm px-1 py-1 hover:text-foreground"
+            className="organic-focus min-h-11 cursor-pointer rounded-sm px-2 hover:text-foreground sm:min-h-0 sm:py-1"
             type="button"
             onClick={() => onboardingActions.setChecklistHidden(true)}
           >

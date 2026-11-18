@@ -91,6 +91,9 @@ function renderLayer({
 const tipRecord = (id: string) => getOnboardingSnapshot().state.tips[id];
 
 beforeEach(() => {
+  // Radix measures the popover arrow with browser animation-frame APIs.
+  window.requestAnimationFrame ??= globalThis.requestAnimationFrame;
+  window.cancelAnimationFrame ??= globalThis.cancelAnimationFrame;
   // JSDOM reports a hidden document unless told it is visual; tips never show in background tabs.
   Object.defineProperty(document, "hidden", { configurable: true, get: () => false });
   connectOnboardingStore("user_layer", {

@@ -38,7 +38,7 @@ export function FeatureTipCard({
         <Sparkles aria-hidden className="mt-0.5 size-3.5 shrink-0 text-lumen" strokeWidth={1.75} />
         <span>{title}</span>
       </p>
-      <p className="text-[13px] leading-relaxed text-muted-foreground" id={bodyId}>
+      <p className="text-xs leading-relaxed text-muted-foreground" id={bodyId}>
         {body}
       </p>
       <div className="mt-stack-xs flex items-center justify-between gap-inline-sm">

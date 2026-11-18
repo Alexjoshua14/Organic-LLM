@@ -98,10 +98,10 @@ function tipContextBusy(id: AutoFeatureTipId, element: HTMLElement) {
 }
 
 /**
- * What the popover positions against. Usually the control itself; with `clearOf`, a virtual rect
- * that keeps the control's horizontal span but sits on the ancestor's edge, so the tip never
- * covers that ancestor (the composer's text box). `contextElement` lets Floating UI keep tracking
- * scroll and resize of the real control.
+ * A regular tip uses its control as the anchor. With `clearOf`, the virtual rectangle spans
+ * the ancestor’s height, aligns at its leading edge, and centers the arrow over the first
+ * control. Floating UI can flip the tip without covering the composer and can still track the
+ * real control through scroll and resize.
  */
 function tipAnchor(element: HTMLElement, definition: AutoFeatureTipDefinition) {
   const container = definition.clearOf ? element.closest(definition.clearOf) : null;
@@ -111,11 +111,16 @@ function tipAnchor(element: HTMLElement, definition: AutoFeatureTipDefinition) {
   return {
     contextElement: element,
     getBoundingClientRect: () => {
-      const own = element.getBoundingClientRect();
+      const control = tipControl(definition.id, element) ?? element;
+      const own = control.getBoundingClientRect();
       const outer = container.getBoundingClientRect();
-      const y = definition.side === "top" ? outer.top : outer.bottom;
 
-      return DOMRect.fromRect({ x: own.left, y, width: own.width, height: 0 });
+      // Keep the start of the tip flush with the composer. Its virtual midpoint is directly
+      // above the first control so Radix can place the arrow while tracking collisions.
+      const center = own.left + own.width / 2;
+      const width = 2 * Math.max(0, center - outer.left);
+
+      return DOMRect.fromRect({ x: outer.left, y: outer.top, width, height: outer.height });
     },
   };
 }
@@ -469,7 +474,7 @@ export function FeatureTipLayer({
               collisionPadding={12}
               data-feature-tip={tip.id}
               side={definition.side}
-              sideOffset={10}
+              sideOffset={6}
               style={
                 {
                   "--tip-enter-ms": `${timing.enterMs}ms`,
@@ -514,6 +519,7 @@ export function FeatureTipLayer({
                 close("implicit");
               }}
             >
+              <Popover.Arrow aria-hidden className="fill-background" height={7} width={14} />
               <FeatureTipCard
                 body={tip.body}
                 bodyId={bodyId}

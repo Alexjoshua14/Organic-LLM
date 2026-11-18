@@ -57,8 +57,7 @@ export type AutoFeatureTipDefinition = FeatureTipDefinition & {
   pathPrefix?: string;
   /**
    * Closest ancestor (CSS selector) the tip must not cover. The tip keeps pointing at its control
-   * horizontally but sits outside this ancestor's edge, e.g. above the whole composer instead of
-   * over the text box someone is about to type in.
+   * horizontally but sits outside this ancestor, keeping the composer accessible when the tip flips.
    */
   clearOf?: string;
 };
@@ -76,7 +75,7 @@ export const AUTO_FEATURE_TIPS: Record<AutoFeatureTipId, AutoFeatureTipDefinitio
     body: "Search adds fresh web results. Memory adds what Organic has learned about you. Both are on by default; turn either off for the next message.",
     where: "Composer · Chat and Arcadia",
     audience: "everyone",
-    side: "top",
+    side: "bottom",
     align: "start",
     clearOf: "form",
   },

@@ -67,14 +67,14 @@ export function GuideTipsTab() {
   return (
     <div className="flex flex-col gap-stack-2xl px-5 py-5 sm:px-6">
       {signedIn ? <TipControls /> : null}
-      <ul className="flex flex-col gap-stack-lg">
+      <ul className="divide-y divide-border/30">
         {guideTipList({ isAdmin }).map((tip) => (
-          <li key={tip.id} className="flex flex-col gap-stack-xs">
+          <li key={tip.id} className="flex flex-col gap-stack-xs py-stack-md first:pt-0 last:pb-0">
             <p className="text-2xs font-medium uppercase tracking-[0.16em] text-muted-foreground/80">
               {tip.where}
             </p>
             <p className="text-sm font-medium text-foreground">{tip.title}</p>
-            <p className="text-sm leading-relaxed text-muted-foreground">
+            <p className="text-xs leading-relaxed text-muted-foreground">
               {featureTipBody(tip, apple)}
             </p>
           </li>
