@@ -852,6 +852,24 @@ body.font-theme-commissioner {
   box-shadow: var(--lumen-shadow-hover);
 }
 
+/*
+ * The card's own edge (style cards, Launchpad starters, task rows). Dark: a lit card has a warm
+ * Kelvin edge and a top highlight, and an unlit card's edge warms on hover. Light: the edge stays
+ * neutral; a lit card lifts with the shadow above, and an unlit one with the resting shadow on hover.
+ */
+.dark .chat-style-card-stage:has(> .chat-style-lumen-rim) .chat-style-card {
+  border-color: rgb(var(--lumen-rim) / 0.28);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.14);
+}
+
+.dark .chat-style-card-stage:not(:has(> .chat-style-lumen-rim)) button.chat-style-card:hover {
+  border-color: rgb(var(--lumen-rim) / 0.2);
+}
+
+:root:not(.dark) .chat-style-card-stage:not(:has(> .chat-style-lumen-rim)) button.chat-style-card:hover {
+  box-shadow: var(--lumen-shadow-rest);
+}
+
 @media (prefers-reduced-motion: reduce) {
   :root:not(.dark) .home-composer-lumen-stage:has(> .home-composer-lumen-rim) {
     transition: none;

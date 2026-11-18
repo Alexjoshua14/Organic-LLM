@@ -44,9 +44,8 @@ export function ChatStyleCard({
         "chat-style-card group relative z-10 grid grid-rows-[1fr_1fr_2fr] min-w-0 w-full h-full cursor-pointer flex-col items-start gap-1 rounded-xl border p-2 text-left transition-[border-color,box-shadow,transform] duration-200 sm:gap-1.5 sm:p-3",
         glass({ opaque: true }),
         "motion-safe:hover:scale-[1.01] motion-safe:active:scale-[0.99]",
-        selected
-          ? "border-[color:rgb(var(--lumen-rim)/0.28)] shadow-[inset_0_1px_0_rgb(255_255_255/0.14)]"
-          : "border-border/50 hover:border-[color:rgb(var(--lumen-rim)/0.18)]"
+        // The lit edge and hover are Lumen's, per theme (globals.css, "The card's own edge").
+        "border-border/50"
       )}
       role="radio"
       tabIndex={tabIndex}

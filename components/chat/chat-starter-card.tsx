@@ -27,9 +27,9 @@ export function ChatStarterCard({ label, selected, onToggle, tabIndex = 0 }: Cha
             "chat-style-card line-clamp-2 relative z-10 w-full min-w-0 cursor-pointer rounded-lg border px-3 py-2 text-left text-xs leading-snug transition-[border-color,box-shadow,transform] duration-200 sm:rounded-xl sm:px-3.5 sm:py-2.5 sm:text-sm",
             glass({ opaque: true }),
             "motion-safe:hover:translate-x-0.5 motion-safe:active:scale-[0.995]",
-            selected
-              ? "border-[color:rgb(var(--lumen-rim)/0.28)] text-foreground shadow-[inset_0_1px_0_rgb(255_255_255/0.14)]"
-              : "border-border/50 text-foreground/90 hover:border-[color:rgb(var(--lumen-rim)/0.2)] hover:text-foreground"
+            // The lit edge and hover are Lumen's, per theme (globals.css, "The card's own edge").
+            "border-border/50",
+            selected ? "text-foreground" : "text-foreground/90 hover:text-foreground"
           )}
           tabIndex={tabIndex}
           type="button"

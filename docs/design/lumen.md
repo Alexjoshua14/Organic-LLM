@@ -57,13 +57,13 @@ shadow is removed when focus leaves.
 
 Every Lumen surface is one of these. Use one before inventing another; add a new one here first.
 
-| Variant         | Classes                                                      | Use                                                                                       |
-| --------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
-| **Chip rim**    | `composer-tool-chip-host` › `-stage` › `lumen-rim-backlight` | Buttons and toggles: on (engaged) or a hover peek                                         |
-| **Shell rim**   | `HomeComposerLumenShell` (`home-composer-lumen-*`)           | The prompt shell; sized from its resting height so a growing composer keeps the same glow |
-| **Card rim**    | `chat-style-card-host` › `-stage` › `chat-style-lumen-rim`   | A selected or chosen card                                                                 |
-| **Orb**         | `lumen-orb`, colour via `--lumen-orb-color`                  | Lumen shown on its own, such as Kelvin swatches; dark surfaces only                       |
-| **Panel focus** | `.core-input-options-panel:focus-visible`                    | A panel that takes focus: a faint glow in dark, the hover shadow in light, never a ring   |
+| Variant         | Classes                                                                                       | Use                                                                                                                                                                              |
+| --------------- | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Chip rim**    | `composer-tool-chip-host` › `-stage` › `lumen-rim-backlight`                                  | Buttons and toggles: on (engaged) or a hover peek                                                                                                                                |
+| **Shell rim**   | `HomeComposerLumenShell` (`home-composer-lumen-*`)                                            | The prompt shell; sized from its resting height so a growing composer keeps the same glow                                                                                        |
+| **Card rim**    | `chat-style-card-host` › `-stage` › `chat-style-lumen-rim`, the card itself `chat-style-card` | A selected or chosen card (style cards, Launchpad starters, active task rows). The card's own edge is Lumen's too: warm in dark, neutral in light; never set it in the component |
+| **Orb**         | `lumen-orb`, colour via `--lumen-orb-color`                                                   | Lumen shown on its own, such as Kelvin swatches; dark surfaces only                                                                                                              |
+| **Panel focus** | `.core-input-options-panel:focus-visible`                                                     | A panel that takes focus: a faint glow in dark, the hover shadow in light, never a ring                                                                                          |
 
 ## Rules for a new lumen surface
 
@@ -71,6 +71,8 @@ Every Lumen surface is one of these. Use one before inventing another; add a new
 2. In light mode hide the rim and put the shadow on the surface's own stage, using its radius
    variable (`--composer-radius`, `--chip-radius`).
 3. Do not tint the light shadow warm, and do not stack a rim and a shadow in one theme.
+   That includes the surface's own border: a warm `--lumen-rim` border written into a component
+   shows in light mode too. Put a lit edge in the variant's CSS, per theme.
 4. Use `--lumen-shadow-*` and `--background-dark`; do not write a new shadow literal. If the
    depth you need does not fit these two steps, ask whether to change or add a token (see
    [Spacing](./spacing.md#when-a-request-does-not-fit-the-tokens)).
