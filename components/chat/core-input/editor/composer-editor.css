@@ -361,3 +361,17 @@
 .organic-composer .editor-pad-probe {
   padding-inline: var(--spacing-inset-sm);
 }
+
+/*
+ * CoreInput's surface: the textarea's footprint (one line, growing with the draft) instead of the
+ * lab's taller card. It shows far more of a long draft before scrolling (40% of the screen, against
+ * the old five rows).
+ */
+.organic-composer.composer-editor .editor-surface {
+  min-height: 0;
+  max-height: min(40dvh, 24rem);
+  margin-block: var(--spacing-stack-xs);
+  padding: var(--spacing-stack-xs) var(--spacing-inset-md);
+  font-size: inherit;
+  outline: none;
+}

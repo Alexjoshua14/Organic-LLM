@@ -15,6 +15,7 @@ import { coreInputScopes, type CoreInputScope } from "@/lib/core-input/scopes";
 import { FeatureHintRegistryProvider } from "@/lib/onboarding/feature-hint-context";
 import { ChatContext, type ChatContextValue } from "@/lib/context/chat-context";
 import { defaultUserSettings, type UserSettings } from "@/lib/schemas/userSettings";
+import { composerField, setComposerText } from "../helpers/composer";
 
 // ---------------------------------------------------------------------------
 // Browser globals the shared jsdom install leaves out. Installed for this file only and
@@ -777,7 +778,7 @@ describe("CoreInput shared compact layout", () => {
             />
           </Providers>
         );
-        const input = app.getByRole("textbox") as HTMLTextAreaElement;
+        const input = composerField(app.container);
         fireEvent.change(input, { target: { value: "Keep this draft" } });
         expect(app.container.querySelector(".core-input-compact-row")).toBeTruthy();
         expect(
@@ -808,7 +809,7 @@ describe("CoreInput shared compact layout", () => {
         expect(within(panel).getByRole("button", { name: "Web search on" })).toBeTruthy();
         fireEvent.click(within(panel).getByRole("button", { name: "Memory off" }));
         expect(within(panel).getByRole("button", { name: "Memory on" })).toBeTruthy();
-        expect(app.getByRole("textbox") === input).toBe(true);
+        expect(composerField(app.container) === input).toBe(true);
         expect(input.value).toBe("Keep this draft");
         // No heading or close button: Escape dismisses the panel and returns focus to the trigger.
         expect(within(panel).queryByRole("button", { name: "Close composer settings" })).toBeNull();
@@ -932,7 +933,7 @@ describe("CoreInput steer tab", () => {
         // Empty draft: present but disabled, so the tab never shifts the layout.
         expect(steer.hasAttribute("disabled")).toBe(true);
 
-        const input = app.getByRole("textbox") as HTMLTextAreaElement;
+        const input = composerField(app.container);
 
         fireEvent.change(input, { target: { value: "Keep it brief" } });
         await waitFor(() => expect(steer.hasAttribute("disabled")).toBe(false));
@@ -984,7 +985,7 @@ describe("CoreInput steer tab", () => {
 
       expect(steer.closest("[data-core-input-tab]")).toBeNull();
       expect(steer.hasAttribute("disabled")).toBe(true);
-      fireEvent.change(app.getByRole("textbox"), { target: { value: "Hello" } });
+      setComposerText(app.container, "Hello");
       await waitFor(() => expect(steer.hasAttribute("disabled")).toBe(false));
     } finally {
       rect.mockRestore();

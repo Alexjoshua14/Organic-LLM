@@ -16,7 +16,6 @@ import {
   CSSProperties,
   SetStateAction,
   FormEvent,
-  KeyboardEventHandler,
   useCallback,
   useEffect,
   useMemo,
@@ -37,7 +36,6 @@ import {
   PromptInputAttachment,
   PromptInputBody,
   PromptInputMessage,
-  PromptInputTextarea,
 } from "../../third-party/ai-elements/prompt-input";
 import ShinyText from "../../ShinyText";
 import { ChatMessageMarkdown } from "../chat-message-markdown";
@@ -57,6 +55,7 @@ import { resolveFooterPlacement } from "./footer/footer-placement";
 import { CoreInputOptions } from "./core-input-options";
 import { CoreInputSteerTab, CoreInputStrip } from "./steer-tab";
 import { ComposerAddFilesButton } from "./controls/add-files-button";
+import { ComposerEditor } from "./editor/composer-editor";
 import { ComposerMicButton } from "./controls/mic-button";
 import "./compact.css";
 import { organicGlassSubmitClassName, PromptInputSubmit } from "./submit/submit-button";
@@ -1009,14 +1008,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     ]
   );
 
-  const handleTextareaKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = useCallback(
-    (e) => {
-      if (!(e.metaKey || e.ctrlKey) || e.key !== "Enter") return;
-      e.preventDefault();
-      runSecondarySubmit();
-    },
-    [runSecondarySubmit]
-  );
+
   const composerStatus = queueEnabled
     ? "ready"
     : pendingSend !== null && pendingSend.threadId === chatId && status === "ready"
@@ -1070,19 +1062,21 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     }
 
     const editBody = (
-      <PromptInputTextarea
-        ref={textareaRef}
-        value={text}
-        {...(variant === "stage-beta"
-          ? { disabled, maxLength: 7800, "aria-label": "Message Organic" }
-          : {})}
+      <ComposerEditor
+        aria-label={variant === "stage-beta" ? "Message Organic" : undefined}
         className={cn(
-          variant === "compact" && "min-h-8 max-h-24 resize-none",
+          "text-base md:text-sm",
+          variant === "compact" && "[&_.editor-surface]:max-h-24",
           // The corner badge widens to show the draft's token count; wrap text before it.
           showContextBudget && text.trim() && CONTEXT_BUDGET_DRAFT_RESERVE_CLASS
         )}
+        disabled={variant === "stage-beta" ? disabled : false}
+        maxLength={variant === "stage-beta" ? 7800 : undefined}
+        textareaRef={textareaRef}
+        value={text}
         {...(placeholder ? { placeholder } : {})}
         onChange={handleInputChange}
+        onModEnter={onSecondarySubmit ? runSecondarySubmit : undefined}
         onPasteCapture={(event) => {
           const id = parseThreadPointer(event.clipboardData.getData("text/plain"));
 
@@ -1091,7 +1085,6 @@ export const CoreInput: React.FC<CoreInputProps> = ({
           event.stopPropagation();
           addThreadReference(id);
         }}
-        onKeyDown={onSecondarySubmit ? handleTextareaKeyDown : undefined}
         onSelect={autoModelPreview.notifySelectionOrCursorMove}
       />
     );
