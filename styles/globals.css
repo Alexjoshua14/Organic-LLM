@@ -34,6 +34,20 @@
   --spacing-inset-md: 0.75rem;
   --spacing-inset-lg: 1rem;
 
+  /*
+   * Composer (CoreInput) — docs/design/core-input-compact-reflow.md.
+   * A draft grows to 40% of the screen (at most the 96 step) before it scrolls.
+   */
+  --composer-draft-max: min(40dvh, calc(var(--spacing) * 96));
+  /* Inline code in the composer, in em so it scales with the text around it. */
+  --code-inline-size: 0.9em;
+  --code-inline-pad-block: 0.1em;
+  --code-inline-pad-inline: 0.25em;
+  /* Inline padding that holds the editable backtick glyphs, so entering code never reflows. */
+  --code-inline-delimiter-room: 0.65em;
+  --code-inline-delimiter-size: 0.85em;
+  --code-inline-delimiter-inset: 0.1em;
+
   --radius-sm: calc(var(--radius) - 4px);
 
   --radius-md: calc(var(--radius) - 2px);
@@ -194,6 +208,9 @@
   --lumen-deep: 255 168 92;
   --lumen-rim-oklch: oklch(0.835 0.07 68);
   --lumen-oklch: oklch(0.805 0.075 65);
+  /* Lumen's fade, shared by the rim, the light-mode shadow and their demos. */
+  --lumen-duration: 200ms;
+  --lumen-ease: cubic-bezier(0.25, 0.46, 0.45, 0.94);
   --lumen-deep-oklch: oklch(0.78 0.08 62);
 
   /* Static fallback while Liquid Chrome WebGL initializes (matches AdaptiveLiquidChrome reduced-motion). */
@@ -513,9 +530,9 @@ body.font-theme-commissioner {
 }
 :root:not(.dark) .composer-tool-chip {
   transition:
-    color 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
-    opacity 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
-    box-shadow 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    color var(--lumen-duration) var(--lumen-ease),
+    opacity var(--lumen-duration) var(--lumen-ease),
+    box-shadow var(--lumen-duration) var(--lumen-ease);
 }
 :root:not(.dark) .composer-tool-chip-active {
   box-shadow:

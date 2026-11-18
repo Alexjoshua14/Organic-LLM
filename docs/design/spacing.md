@@ -95,3 +95,7 @@ and value proposed), or record a documented **one-off exception**. Then update t
 doc in the same change. Example: the `inline-*` scale started at 8px, so a 4px gap between inline
 controls needed that decision (it became `inline-xs`); it must not be a hard-coded 4px or a
 `stack-xs` stand-in.
+
+Prototypes in `app/sandbox/` may use one-off values (and still take an existing token where it
+matches). Promotion to production turns each of those values into a token first; see design-backbone
+rule 10.

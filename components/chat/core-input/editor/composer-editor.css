@@ -1,6 +1,8 @@
 .organic-composer {
   --editor-feedback-ms: 120ms;
   --editor-enter-ms: 180ms;
+  /* The lab's simulated live-voice dot: one slow breath. */
+  --editor-voice-pulse-ms: 1.4s;
 }
 
 .organic-composer .editor-shell {
@@ -11,7 +13,7 @@
 
 .organic-composer .editor-surface {
   min-height: calc(var(--spacing) * 12);
-  max-height: min(40dvh, calc(var(--spacing) * 96));
+  max-height: var(--composer-draft-max);
   overflow-y: auto;
   overflow-wrap: anywhere;
   padding: var(--spacing-inset-md);
@@ -52,15 +54,15 @@
   padding-left: calc(var(--spacing) * 6);
 }
 .organic-composer .editor-surface blockquote {
-  border-left: 2px solid var(--border);
+  border-left: calc(var(--spacing-stack-xs) / 2) solid var(--border);
   padding-left: var(--spacing-inset-lg);
   color: var(--muted-foreground);
 }
 .organic-composer .editor-surface code {
   background: var(--muted);
   border-radius: var(--radius-sm);
-  padding: 0.1em 0.25em;
-  font-size: 0.9em;
+  padding: var(--code-inline-pad-block) var(--code-inline-pad-inline);
+  font-size: var(--code-inline-size);
 }
 .organic-composer .editor-surface pre {
   background: var(--muted);
@@ -101,12 +103,12 @@
   animation: editor-hint-in var(--editor-enter-ms) ease-out;
 }
 .organic-composer .editor-voice-dot {
-  animation: editor-voice-pulse 1.4s ease-in-out infinite;
+  animation: editor-voice-pulse var(--editor-voice-pulse-ms) ease-in-out infinite;
 }
 @keyframes editor-hint-in {
   from {
     opacity: 0;
-    transform: translateY(2px);
+    transform: translateY(calc(var(--spacing-stack-xs) / 2));
   }
   to {
     opacity: 1;
@@ -133,7 +135,7 @@
   background: var(--code-muted);
   color: var(--code-foreground);
   font-family: var(--code-mono, ui-monospace, monospace);
-  padding: 0.1em 0.65em;
+  padding: var(--code-inline-pad-block) var(--code-inline-delimiter-room);
 }
 .organic-composer .editor-code-delimiter-anchor {
   position: relative;
@@ -143,16 +145,16 @@
   top: 0;
   color: var(--code-muted-foreground);
   font:
-    0.85em ui-monospace,
+    var(--code-inline-delimiter-size) ui-monospace,
     monospace;
   cursor: text;
   user-select: none;
 }
 .organic-composer .editor-code-delimiter-open {
-  left: 0.1em;
+  left: var(--code-inline-delimiter-inset);
 }
 .organic-composer .editor-code-delimiter-close {
-  right: 0.1em;
+  right: var(--code-inline-delimiter-inset);
 }
 .organic-composer .editor-code-block {
   margin-block: var(--spacing-stack-sm);
@@ -369,7 +371,7 @@
  */
 .organic-composer.composer-editor .editor-surface {
   min-height: 0;
-  max-height: min(40dvh, calc(var(--spacing) * 96));
+  max-height: var(--composer-draft-max);
   margin-block: var(--spacing-stack-xs);
   padding: var(--spacing-stack-xs) var(--spacing-inset-md);
   font-size: inherit;

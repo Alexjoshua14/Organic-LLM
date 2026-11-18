@@ -157,6 +157,7 @@ function EditorStageBody() {
 
   return (
     <CoreInputControlsProvider value={controls}>
+      {/* design-guard: allow-next-line prototype one-off (owner, 2026-11-18): lab side panel width */}
       <div className="organic-composer grid min-w-0 gap-stack-2xl lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-start">
         <section aria-label="Editor prototype stage" className="min-w-0">
           <div className="mb-stack-lg flex flex-wrap items-center justify-between gap-inline-sm text-xs text-muted-foreground">

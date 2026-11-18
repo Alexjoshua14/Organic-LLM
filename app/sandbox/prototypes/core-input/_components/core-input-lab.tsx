@@ -40,6 +40,7 @@ const LAB_INTRO_SECTION_GAP_CLASS = "mb-4 sm:mb-6";
 
 /** Clear the fixed control cluster (16px offset + 56px height), including safe areas. */
 const LAB_NAV_CLEARANCE_CLASS =
+  // design-guard: allow-next-line prototype one-off (owner, 2026-11-18): lab header clearance under the fixed controls
   "pt-[calc(5rem+env(safe-area-inset-top,0px))] md:pt-[calc(5rem+env(safe-area-inset-top,0px))]";
 
 export function CoreInputLab() {
@@ -131,6 +132,7 @@ export function CoreInputLab() {
           {view === "editor" ? (
             <EditorStage />
           ) : (
+            // design-guard: allow-next-line prototype one-off (owner, 2026-11-18): lab side panel width
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-start">
               <div className="min-w-0">
                 {!hydrated ? (

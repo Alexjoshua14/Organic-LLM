@@ -38,3 +38,9 @@ Before changing motion, typography animation, chat loading / status labels, spac
    Do not pick a literal, borrow a token from another role (a `stack-*` value as an inline gap),
    or go below a documented minimum on your own. Once the user decides, update the token and
    `docs/design/spacing.md` (or the matching doc) in the same change.
+10. **Prototypes may use one-offs; production may not.** A sandbox prototype may use a one-off
+    value, but still uses an existing token wherever one matches. When a prototype is promoted to
+    production, every value it brings along becomes a real token (instantiate it in
+    `styles/globals.css` or the matching token module, documented with its reason) and the shipped
+    code uses the token. A one-off that stays in the lab is marked
+    `design-guard: allow-next-line prototype one-off (<who>, <date>): <reason>`.
