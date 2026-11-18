@@ -17,7 +17,7 @@ type CodeTableProps = {
  */
 export function CodeTable({ caption, children }: CodeTableProps) {
   return (
-    <table className={styles.table}>
+    <table className={styles.table} data-code-table="">
       {caption ? <caption className={styles.srOnly}>{caption}</caption> : null}
       <tbody>{children}</tbody>
     </table>

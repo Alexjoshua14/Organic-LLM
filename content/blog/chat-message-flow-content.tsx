@@ -11,8 +11,8 @@ const CHAT_FLOW_MERMAID = `flowchart TD
   save["Save your message"]
   context["Gather context: recent messages, summary, memories"]
   model["The model answers, streaming"]
-  screen["The answer appears on your screen"]
-  after["Save the answer, then tidy up: title, summary, memory"]
+  screen["Shown on your screen"]
+  after["Save, then tidy up"]
   send --> check
   check --> save
   save --> context

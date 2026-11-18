@@ -111,7 +111,8 @@ export const articleContent = {
   /** Inline <code> only — fenced blocks use shared CodeBlock (see RabbitHoleArticle useLayoutEffect). */
   code: "text-sm [&_p>code]:break-words [&_p>code]:font-mono [&_p>code]:text-sm [&_li>code]:break-words [&_li>code]:font-mono [&_li>code]:text-sm",
   img: "[&_img]:max-w-full [&_img]:h-auto",
-  table: "[&_table]:block [&_table]:w-full [&_table]:overflow-x-auto",
+  table:
+    "[&_table:not([data-code-table])]:block [&_table:not([data-code-table])]:w-full [&_table:not([data-code-table])]:overflow-x-auto",
   strong: "[&_strong]:font-medium [&_strong]:text-foreground/85",
   em: "[&_em]:italic",
   blockquote:
@@ -184,10 +185,10 @@ export const blogArticle = {
   link: "[&_a]:text-foreground [&_a]:underline [&_a]:underline-offset-2 [&_a]:decoration-muted-foreground/30 [&_a]:transition-colors hover:[&_a]:decoration-muted-foreground",
   rule: "[&_hr]:my-8 [&_hr]:border-border/50",
   table: {
-    wrap: "[&_table]:w-full [&_table]:text-sm",
-    thead: "[&_thead]:text-foreground/90",
-    th: "[&_th]:border [&_th]:border-border/40 [&_th]:px-3 [&_th]:py-2.5 [&_th]:text-left [&_th]:font-medium",
-    td: "[&_td]:border [&_td]:border-border/40 [&_td]:px-3 [&_td]:py-2.5",
+    wrap: "[&_table:not([data-code-table])]:w-full [&_table:not([data-code-table])]:text-sm",
+    thead: "[&_table:not([data-code-table])_thead]:text-foreground/90",
+    th: "[&_table:not([data-code-table])_th]:border [&_table:not([data-code-table])_th]:border-border/40 [&_table:not([data-code-table])_th]:px-3 [&_table:not([data-code-table])_th]:py-2.5 [&_table:not([data-code-table])_th]:text-left [&_table:not([data-code-table])_th]:font-medium",
+    td: "[&_table:not([data-code-table])_td]:border [&_table:not([data-code-table])_td]:border-border/40 [&_table:not([data-code-table])_td]:px-3 [&_table:not([data-code-table])_td]:py-2.5",
   },
   /**
    * Mermaid (and similar block figures) in BlogProse — vertical gutter + width clamp.
