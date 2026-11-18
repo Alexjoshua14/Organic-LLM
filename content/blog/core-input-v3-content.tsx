@@ -1,9 +1,20 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 import Image from "next/image";
 import Link from "next/link";
+import {
+  AlignVerticalJustifyCenter,
+  EyeOff,
+  Ghost,
+  Hand,
+  MoveVertical,
+  PanelLeftClose,
+  Type,
+  type LucideIcon,
+} from "lucide-react";
 
 import styles from "./core-input-v3.module.css";
+import { Reveal, Stagger, StaggerItem } from "./core-input-v3-motion";
 
 import { BlogSection } from "@/components/blog/blog-section";
 import { glass } from "@/components/design-system/primitives";
@@ -22,7 +33,11 @@ const PHONE = { width: 423, frame: "mx-auto w-full max-w-md" } as const;
 
 /** Section wrapper: one owner for vertical rhythm (the article's stack), so headings start flush. */
 function Section({ children }: { children: ReactNode }) {
-  return <BlogSection className="[&>h2:first-child]:mt-0">{children}</BlogSection>;
+  return (
+    <Reveal>
+      <BlogSection className="[&>h2:first-child]:mt-0">{children}</BlogSection>
+    </Reveal>
+  );
 }
 
 /** Inline code in JSX gets the same chip as Markdown inline code in `BlogProse`. */
@@ -53,7 +68,7 @@ function Screenshot({
   frame?: string;
 }) {
   return (
-    <figure className={cn("not-prose", frame)}>
+    <Reveal as="figure" className={cn("not-prose", frame)}>
       <div className={cn(glass({ opaque: true }), "overflow-hidden rounded-2xl")}>
         <Image
           alt={dark.alt}
@@ -71,7 +86,7 @@ function Screenshot({
         />
       </div>
       <Caption badge={badge}>{caption}</Caption>
-    </figure>
+    </Reveal>
   );
 }
 
@@ -95,44 +110,82 @@ function Caption({ badge, children }: { badge?: "v2" | "v3"; children: ReactNode
   );
 }
 
-/** The stacking transition, recorded in dark mode. Reduced motion shows the end state instead. */
-function StackingClip() {
+/** One theme's clip of the stacking transition. */
+function Clip({ scheme, className }: { scheme: "dark" | "light"; className: string }) {
   return (
-    <figure className={cn("not-prose", PHONE.frame)}>
-      <div className="dark overflow-hidden rounded-2xl border border-border/60 bg-background">
-        <video
-          aria-label="Typing a long message into CoreInput v3: it starts as one line, then stacks"
-          autoPlay
-          className="h-auto w-full motion-reduce:hidden"
-          height={252}
-          loop
-          muted
-          playsInline
-          preload="metadata"
-          src={`${SHOTS}/v3-stacking-dark.mp4`}
-          width={PHONE.width}
-        />
-        <Image
-          alt="CoreInput v3 stacked around a long message"
-          className="hidden h-auto w-full motion-reduce:block"
-          height={252}
-          src={`${SHOTS}/v3-phone-draft-dark.png`}
-          width={PHONE.width}
-        />
-      </div>
-      <Caption badge="v3">
-        Typing past the end of the line: the text, the buttons and the box move together.
-      </Caption>
-    </figure>
+    <>
+      <video
+        aria-label="Typing a long message into CoreInput v3: it starts as one line, then stacks"
+        autoPlay
+        className={cn("h-auto w-full motion-reduce:hidden", className)}
+        height={214}
+        loop
+        muted
+        playsInline
+        preload="metadata"
+        src={`${SHOTS}/v3-stacking-${scheme}.mp4`}
+        width={PHONE.width}
+      />
+      <Image
+        alt="CoreInput v3 stacked around a long message"
+        className={cn("hidden h-auto w-full motion-reduce:block", className)}
+        height={214}
+        src={`${SHOTS}/v3-stacking-end-${scheme}.png`}
+        width={PHONE.width}
+      />
+    </>
   );
 }
 
-function Issue({ title, children }: { title: string; children: ReactNode }) {
+/**
+ * The stacking transition, rendered frame by frame from the real animation at 60fps so the clip
+ * shows the motion exactly as designed. Reduced motion shows the end state instead.
+ */
+function StackingClip() {
   return (
-    <li className="border-b border-border/50 py-stack-md last:border-b-0">
-      <p className="font-medium text-foreground">{title}</p>
-      <p className="mt-stack-xs text-sm leading-relaxed text-muted-foreground">{children}</p>
-    </li>
+    <Reveal as="figure" className={cn("not-prose", PHONE.frame)}>
+      <div className={cn(glass({ opaque: true }), "overflow-hidden rounded-2xl")}>
+        <div className="hidden dark:block">
+          <Clip className="" scheme="dark" />
+        </div>
+        <div className="dark:hidden">
+          <Clip className="" scheme="light" />
+        </div>
+      </div>
+      <Caption badge="v3">
+        Typing past the end of the line: the text settles, the buttons dip out and land in their new
+        places, and the box grows with them.
+      </Caption>
+    </Reveal>
+  );
+}
+
+/** One v2 problem: an icon, a short title and one line, arriving in turn with the rest. */
+function Issue({
+  icon: Icon,
+  title,
+  wide = false,
+  children,
+}: {
+  icon: LucideIcon;
+  title: string;
+  wide?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <StaggerItem
+      as="li"
+      className={cn(
+        "rounded-xl border border-border/50 bg-secondary/20 p-inset-md",
+        wide && "sm:col-span-2"
+      )}
+    >
+      <p className="flex items-center gap-inline-sm text-sm font-medium text-foreground">
+        <Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+        {title}
+      </p>
+      <p className="mt-stack-xs text-sm leading-snug text-muted-foreground">{children}</p>
+    </StaggerItem>
   );
 }
 
@@ -176,30 +229,37 @@ const WEIGHED: Array<{ name: string; take: string; verdict: string }> = [
 
 function Options() {
   return (
-    <div className="not-prose space-y-stack-sm">
-      <div
-        className={cn(
-          glass({ opaque: true }),
-          "rounded-xl border-[color:rgb(var(--lumen-rim)/0.35)] p-inset-lg"
-        )}
+    <Reveal className="not-prose space-y-stack-sm">
+      {/* The chosen option wears Lumen's card rim, the same treatment as a selected card. */}
+      <span className="chat-style-card-host block w-full">
+        <span className="chat-style-card-stage relative block w-full">
+          <span aria-hidden className="chat-style-lumen-rim" />
+          <div className={cn(glass({ opaque: true }), "relative z-10 rounded-xl p-inset-lg")}>
+            <div className="flex items-baseline justify-between gap-inline-sm">
+              <p className="font-medium text-foreground">
+                {CHOSEN.name}{" "}
+                <span className="text-sm font-normal text-muted-foreground">{CHOSEN.detail}</span>
+              </p>
+              <p className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">
+                Prototyped
+              </p>
+            </div>
+            <p className="mt-stack-xs text-sm leading-relaxed text-muted-foreground">
+              {CHOSEN.take}
+            </p>
+            <p className="mt-stack-xs text-sm leading-relaxed text-muted-foreground/80">
+              {CHOSEN.verdict}
+            </p>
+          </div>
+        </span>
+      </span>
+      <Stagger
+        as="ul"
+        className="list-none divide-y divide-border/50 rounded-xl border border-border/60 p-0"
       >
-        <div className="flex items-baseline justify-between gap-inline-sm">
-          <p className="font-medium text-foreground">
-            {CHOSEN.name}{" "}
-            <span className="text-sm font-normal text-muted-foreground">{CHOSEN.detail}</span>
-          </p>
-          <p className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">
-            Prototyped
-          </p>
-        </div>
-        <p className="mt-stack-xs text-sm leading-relaxed text-muted-foreground">{CHOSEN.take}</p>
-        <p className="mt-stack-xs text-sm leading-relaxed text-muted-foreground/80">
-          {CHOSEN.verdict}
-        </p>
-      </div>
-      <ul className="list-none divide-y divide-border/50 rounded-xl border border-border/60 p-0">
         {WEIGHED.map((option) => (
-          <li
+          <StaggerItem
+            as="li"
             key={option.name}
             className="grid gap-stack-xs px-inset-md py-inset-md sm:grid-cols-[10rem_1fr] sm:gap-inline-md sm:px-inset-lg"
           >
@@ -208,10 +268,10 @@ function Options() {
               <p className="text-muted-foreground">{option.take}</p>
               <p className="text-muted-foreground/80">{option.verdict}</p>
             </div>
-          </li>
+          </StaggerItem>
         ))}
-      </ul>
-    </div>
+      </Stagger>
+    </Reveal>
   );
 }
 
@@ -228,20 +288,22 @@ function Timing() {
   ];
 
   return (
-    <dl className="not-prose divide-y divide-border/50 rounded-xl border border-border/60">
-      {rows.map(([term, value, why]) => (
-        <div
-          key={term}
-          className="grid gap-stack-xs px-inset-md py-inset-md text-sm sm:grid-cols-[9rem_auto_1fr] sm:items-baseline sm:gap-inline-md sm:px-inset-lg"
-        >
-          <div className="flex items-baseline justify-between gap-inline-sm sm:contents">
-            <dt className="font-medium text-foreground">{term}</dt>
-            <dd className="font-mono text-xs text-foreground/90">{value}</dd>
+    <Stagger as="div" className="not-prose">
+      <dl className="divide-y divide-border/50 rounded-xl border border-border/60">
+        {rows.map(([term, value, why]) => (
+          <div
+            key={term}
+            className="grid gap-stack-xs px-inset-md py-inset-md text-sm sm:grid-cols-[9rem_auto_1fr] sm:items-baseline sm:gap-inline-md sm:px-inset-lg"
+          >
+            <div className="flex items-baseline justify-between gap-inline-sm sm:contents">
+              <dt className="font-medium text-foreground">{term}</dt>
+              <dd className="font-mono text-xs text-foreground/90">{value}</dd>
+            </div>
+            <dd className="text-muted-foreground">{why}</dd>
           </div>
-          <dd className="text-muted-foreground">{why}</dd>
-        </div>
-      ))}
-    </dl>
+        ))}
+      </dl>
+    </Stagger>
   );
 }
 
@@ -254,7 +316,7 @@ const KELVINS = [
 /** The self-contained Lumen explainer: what it is in each theme, shown rather than told. */
 function WhatIsLumen() {
   return (
-    <aside className="not-prose overflow-hidden rounded-2xl border border-border/60">
+    <Reveal as="aside" className="not-prose overflow-hidden rounded-2xl border border-border/60">
       <div className="grid sm:grid-cols-2">
         <div className="dark bg-background p-inset-lg text-foreground sm:p-stack-2xl">
           <p className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">
@@ -280,8 +342,8 @@ function WhatIsLumen() {
               <div key={kelvin} className="flex flex-col items-center gap-stack-xs">
                 <span
                   aria-hidden
-                  className="size-8 rounded-full"
-                  style={{ background: kelvinToCss(kelvin) }}
+                  className="lumen-orb"
+                  style={{ "--lumen-orb-color": kelvinToCss(kelvin) } as CSSProperties}
                 />
                 <span className="text-2xs text-foreground/80">{label}</span>
                 <span className="text-2xs text-muted-foreground">{kelvin.toLocaleString()}K</span>
@@ -327,14 +389,14 @@ function WhatIsLumen() {
           line between technology and nature.
         </p>
       </div>
-    </aside>
+    </Reveal>
   );
 }
 
 export function CoreInputV3Content() {
   return (
     <div className="space-y-stack-3xl">
-      <header className="not-prose space-y-stack-md">
+      <Reveal as="header" className="not-prose space-y-stack-md">
         <p className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">
           Design · November 2026
         </p>
@@ -351,7 +413,7 @@ export function CoreInputV3Content() {
           composer I landed on. Along the way I also settled what Lumen, the app&apos;s warm glow
           for whatever is active, should be in light mode.
         </p>
-      </header>
+      </Reveal>
 
       <Section>
         <h2>Where v2 was struggling</h2>
@@ -362,38 +424,34 @@ export function CoreInputV3Content() {
         </p>
       </Section>
 
-      <div className="not-prose rounded-2xl border border-border/60 bg-secondary/20 px-inset-lg py-inset-sm">
-        <ul className="list-none p-0">
-          <Issue title="Mic and Send sat side by side">
-            Reaching for the mic could hit Send instead, and a message sent too early is the
-            costliest mistake a message box can make.
-          </Issue>
-          <Issue title="The typing area was squeezed">
-            On a phone the mic and attachments took roughly a third of the row.
-          </Issue>
-          <Issue title="Long drafts disappeared">
-            Only about the last 23 words were visible. I couldn&apos;t reread what I&apos;d written
-            before sending.
-          </Issue>
-          <Issue title="Buttons floated in the middle">
-            Settings, mic and Send were centred against the whole draft, not lined up with the text.
-          </Issue>
-          <Issue title="Typed text ghosted">
-            Bits of what I&apos;d typed sometimes lingered as a faint copy for a moment before
-            clearing. I never pinned down the cause, which was one more reason to leave the
-            textarea.
-          </Issue>
-          <Issue title="The first line break jumped">
-            Going from one line to two shifted the whole box, and on narrow screens the placeholder
-            wrapped onto a second line.
-          </Issue>
-          <Issue title="It could only ever be plain text">
-            I wanted slash commands, inline code, code blocks and formatting as you type, with room
-            for micro-animation and, eventually, turning into the controls bar of Speak, the
-            app&apos;s voice mode.
-          </Issue>
-        </ul>
-      </div>
+      <Stagger as="ul" className="not-prose grid list-none gap-inline-sm p-0 sm:grid-cols-2">
+        <Issue icon={Hand} title="Mic and Send sat side by side">
+          Reaching for the mic could hit Send instead, and a message sent too early is the costliest
+          mistake a message box can make.
+        </Issue>
+        <Issue icon={PanelLeftClose} title="The typing area was squeezed">
+          On a phone the mic and attachments took roughly a third of the row.
+        </Issue>
+        <Issue icon={EyeOff} title="Long drafts disappeared">
+          Only about the last 23 words were visible, so I couldn&apos;t reread what I&apos;d
+          written.
+        </Issue>
+        <Issue icon={AlignVerticalJustifyCenter} title="Buttons floated in the middle">
+          They were centred against the whole draft, not lined up with the text.
+        </Issue>
+        <Issue icon={Ghost} title="Typed text ghosted">
+          A faint copy of what I&apos;d typed sometimes lingered for a moment. I never pinned down
+          why, one more reason to leave the textarea.
+        </Issue>
+        <Issue icon={MoveVertical} title="The first line break jumped">
+          Two lines shifted the whole box, and on narrow screens the placeholder wrapped.
+        </Issue>
+        <Issue icon={Type} title="It could only ever be plain text" wide>
+          I wanted slash commands, inline code, code blocks and formatting as you type, with room
+          for micro-animation and, one day, turning into the controls of Speak, the app&apos;s voice
+          mode.
+        </Issue>
+      </Stagger>
 
       <Screenshot
         badge="v2"
@@ -604,12 +662,12 @@ export function CoreInputV3Content() {
         caption="Stacked, with a Python code block, coloured as you type."
         dark={{
           src: `${SHOTS}/v3-phone-stacked-dark.png`,
-          height: 282,
+          height: 312,
           alt: "CoreInput v3 stacked with a question and a highlighted Python code block",
         }}
         light={{
           src: `${SHOTS}/v3-phone-stacked-light.png`,
-          height: 282,
+          height: 312,
           alt: "CoreInput v3 stacked with a question and a highlighted Python code block, light mode",
         }}
       />
