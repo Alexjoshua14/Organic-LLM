@@ -11,14 +11,16 @@ import type {
 import type { AppCommand, EditorCommand, SlashMatch } from "./editor-model";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { Selection } from "@tiptap/pm/state";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Markdown } from "@tiptap/markdown";
-import { Placeholder } from "@tiptap/extensions";
+import { CharacterCount, Placeholder } from "@tiptap/extensions";
 
 import { ComposerCodeBlock } from "./code-block-editor";
 import { EditableCodeDelimiters, EditorCodeHighlight } from "./code-editing";
 import { useContainedScroll } from "./contained-scroll";
+import { PLACEHOLDER_CHANGED } from "./use-composer-reflow";
 import {
   findEditorSlash,
   handleEditorCodeFenceEnter,
@@ -160,6 +162,7 @@ export function ComposerEditor({
     slash,
     active,
     appCommands,
+    placeholder,
   });
 
   latest.current = {
@@ -171,6 +174,7 @@ export function ComposerEditor({
     slash,
     active,
     appCommands,
+    placeholder,
   };
 
   /** Mirror Markdown into the hidden textarea and report it the way a textarea change would. */
@@ -210,7 +214,10 @@ export function ComposerEditor({
       EditableCodeDelimiters,
       EditorCodeHighlight,
       Markdown,
-      Placeholder.configure({ placeholder }),
+      // Read live: the placeholder changes with context (a `/btw` side question).
+      Placeholder.configure({ placeholder: () => latest.current.placeholder }),
+      // The limit stops typing at the edge, so the draft on screen is the draft that sends.
+      ...(maxLength ? [CharacterCount.configure({ limit: maxLength })] : []),
     ],
     content: value,
     contentType: "markdown",
@@ -350,6 +357,19 @@ export function ComposerEditor({
     editor?.setEditable(!disabled);
   }, [editor, disabled]);
 
+  // The editor's attributes are set when it is created; keep the ones that follow props current.
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+    const dom = editor.view.dom;
+
+    dom.setAttribute("aria-label", ariaLabel ?? placeholder);
+    dom.setAttribute("enterkeyhint", canSubmit ? "send" : "enter");
+    // Redraw the placeholder decoration with the new text.
+    editor.view.dispatch(
+      editor.state.tr.setMeta("addToHistory", false).setMeta(PLACEHOLDER_CHANGED, true)
+    );
+  }, [editor, ariaLabel, placeholder, canSubmit]);
+
   // Leaving the app (switching apps on a phone) blurs the editor, but the OS can keep the keyboard
   // up on return, typing into nothing. If the draft had focus when the page went away, give it
   // focus back, at the same caret, when the page returns.
@@ -376,6 +396,13 @@ export function ComposerEditor({
     const onPointerDown = () => {
       resume = false;
     };
+    // Some phones blur the draft before the page reports hiding; a blur while the page has no
+    // focus is the page going away, not the person leaving the draft.
+    const onEditorBlur = () => {
+      if (document.visibilityState === "hidden" || !document.hasFocus()) resume = true;
+    };
+
+    editor.on("blur", onEditorBlur);
 
     document.addEventListener("visibilitychange", onLeave);
     document.addEventListener("visibilitychange", onReturn);
@@ -393,6 +420,7 @@ export function ComposerEditor({
       window.removeEventListener("focus", onReturn);
       window.removeEventListener("pageshow", onReturn);
       document.removeEventListener("pointerdown", onPointerDown, true);
+      editor.off("blur", onEditorBlur);
     };
   }, [editor]);
 
@@ -401,7 +429,16 @@ export function ComposerEditor({
   useEffect(() => {
     if (!editor || editor.isDestroyed || value === emitted.current) return;
     emitted.current = value;
-    editor.commands.setContent(value, { contentType: "markdown", emitUpdate: false });
+    editor
+      .chain()
+      .setContent(value, { contentType: "markdown", emitUpdate: false })
+      // Continue after the new text (dictation streaming in, a restored draft), not before it.
+      .command(({ tr }) => {
+        tr.setSelection(Selection.atEnd(tr.doc));
+
+        return true;
+      })
+      .run();
   }, [editor, value]);
 
   const commands = slash ? matchingEditorCommands(slash.query, appCommands, slash) : [];

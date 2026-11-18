@@ -307,6 +307,43 @@ test.describe("phone (touch)", () => {
     await expect(page.locator('[data-row] [role="textbox"]')).toHaveText("Half a thought!");
   });
 
+  test("a draft changed from outside (dictation) continues after the new text", async ({ page }) => {
+    const draft = page.locator('[data-row] [role="textbox"]');
+
+    await draft.click();
+    await page.keyboard.type("abc");
+    await page.keyboard.press("Home");
+    await page.evaluate(() =>
+      (window as unknown as { __setText: (value: string) => void }).__setText("Dictated words")
+    );
+    await expect(draft).toHaveText("Dictated words");
+    await page.keyboard.type("!");
+    await expect(draft).toHaveText("Dictated words!");
+  });
+
+  test("a new placeholder (a /btw side question) shows, labels the draft and is measured", async ({
+    page,
+  }) => {
+    const draft = page.locator('[data-row] [role="textbox"]');
+    const line = draft.locator("p").first();
+
+    await expect(line).toHaveAttribute("data-placeholder", "Drop a thought");
+    await page.evaluate(() =>
+      (window as unknown as { __setPlaceholder: (value: string) => void }).__setPlaceholder(
+        "Ask a side question…"
+      )
+    );
+    await expect(line).toHaveAttribute("data-placeholder", "Ask a side question…");
+    await expect(draft).toHaveAttribute("aria-label", "Ask a side question…");
+    // A placeholder far too long for one line stacks the empty composer.
+    await page.evaluate(() =>
+      (window as unknown as { __setPlaceholder: (value: string) => void }).__setPlaceholder(
+        "Ask anything about this thread without adding it to the conversation"
+      )
+    );
+    await expect(page.locator("[data-row]")).toHaveAttribute("data-expanded", "true");
+  });
+
   test("a draft that was not focused stays unfocused when the app returns", async ({ page }) => {
     await page.evaluate(() => {
       Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });

@@ -1,6 +1,7 @@
 "use client";
 
 import type { Editor } from "@tiptap/core";
+import type { Transaction } from "@tiptap/pm/state";
 import type { RefObject } from "react";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -26,6 +27,8 @@ export const REFLOW_FLAP_WINDOW_MS = 1000;
  * collapses and re-stacks within a frame or two. Stacking is never delayed.
  */
 export const REFLOW_COLLAPSE_SETTLE_MS = 350;
+/** Transaction meta the editor sets when its placeholder text changes, so the layout re-measures. */
+export const PLACEHOLDER_CHANGED = "composerPlaceholderChanged";
 
 /**
  * Drives the compact composer's one-line → stacked layout (docs/design/core-input-compact-reflow.md).
@@ -107,10 +110,14 @@ export function useComposerReflow(
   useEffect(() => {
     if (!editor || !enabled) return;
     const onUpdate = () => evaluate();
+    const onTransaction = ({ transaction }: { transaction: Transaction }) => {
+      if (transaction.getMeta(PLACEHOLDER_CHANGED)) requestAnimationFrame(() => evaluate());
+    };
     const onCompositionEnd = () => requestAnimationFrame(() => evaluate());
     const dom = editor.view.dom;
 
     editor.on("update", onUpdate);
+    editor.on("transaction", onTransaction);
     dom.addEventListener("compositionend", onCompositionEnd);
     const row = rowRef.current;
     const observer =
@@ -125,6 +132,7 @@ export function useComposerReflow(
 
     return () => {
       editor.off("update", onUpdate);
+      editor.off("transaction", onTransaction);
       dom.removeEventListener("compositionend", onCompositionEnd);
       observer?.disconnect();
       if (collapseTimer.current) clearTimeout(collapseTimer.current);

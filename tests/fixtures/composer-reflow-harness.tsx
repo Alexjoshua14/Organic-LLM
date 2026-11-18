@@ -54,6 +54,12 @@ function ReflowHarness() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [editor, setEditor] = useState<Editor | null>(null);
   const [text, setText] = useState("");
+  const [placeholder, setPlaceholder] = useState<string | undefined>(undefined);
+  // For the spec: change the draft from outside (as dictation does) and the placeholder (as /btw does).
+  const w = window as unknown as Record<string, unknown>;
+
+  w.__setText = setText;
+  w.__setPlaceholder = setPlaceholder;
   useContainedScroll(rootRef);
   const stacked = useComposerReflow(rowRef, editor, { enabled: true, forced: false });
   const controls = useMemo<CoreInputControlsValue>(
@@ -112,6 +118,7 @@ function ReflowHarness() {
                   commands={[{ kind: "app", id: "btw", label: "By the way", hint: "Ask aside" }]}
                   textareaRef={textareaRef}
                   value={text}
+                  {...(placeholder ? { placeholder } : {})}
                   onChange={(event) => setText(event.target.value)}
                   onEditor={setEditor}
                 />
