@@ -13,8 +13,8 @@ import { Term } from "@/components/blog/term-with-definition";
 const LAYERS_MERMAID = `flowchart TD
   config["Config: root secret, active key id, key registry"]
   crypto["Crypto module: derive a key per user, encrypt, decrypt"]
-  data["Data layer: messages and summaries"]
-  llm["LLM layer: summaries for context"]
+  data["Data layer"]
+  llm["LLM layer"]
   config --> crypto
   crypto --> data
   crypto --> llm
@@ -120,7 +120,7 @@ export function MemoryEncryptionOutroContent() {
         </p>
 
         <h3>Where it runs</h3>
-        <BlogFigure caption="Three layers, one job each. The LLM layer decrypts a summary for context and encrypts it again after an update.">
+        <BlogFigure caption="Three layers, one job each. The data layer holds messages and both summaries. The LLM layer decrypts a summary for context and encrypts it again after an update.">
           <MermaidDiagram code={LAYERS_MERMAID} />
         </BlogFigure>
 
