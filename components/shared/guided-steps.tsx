@@ -52,12 +52,14 @@ export function GuidedSteps({
             type="button"
             onClick={() => setIndex(i)}
           >
-            <span className="relative block h-1.5 w-full overflow-hidden rounded-full bg-border transition-[height] duration-200 group-hover/seg:h-2">
+            <span className="relative block h-1.5 w-full overflow-hidden rounded-full bg-border/40 transition-[height] duration-200 group-hover/seg:h-2">
               <span
                 className={cn(
-                  "absolute inset-0 origin-left bg-lumen-deep transition-transform duration-500 motion-reduce:transition-none",
+                  "absolute inset-0 origin-left bg-lumen/45 transition-transform duration-500 motion-reduce:transition-none",
                   EASE,
-                  i <= index ? "scale-x-100" : "scale-x-0"
+                  i <= index ? "scale-x-100" : "scale-x-0",
+                  // The current step is the only one with a little more presence.
+                  i === index && "bg-lumen/70"
                 )}
               />
             </span>

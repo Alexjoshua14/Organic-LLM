@@ -139,14 +139,14 @@ export function LiquidChromeTimingDemo() {
         </div>
 
         <div>
-          <div aria-hidden className="flex h-1.5 overflow-hidden rounded-full bg-border/60">
+          <div aria-hidden className="flex h-1.5 gap-0.5 overflow-hidden rounded-full">
             {LEGS.map((leg, i) => (
               <div
                 key={leg.label}
-                className={cn("h-full border-r border-background last:border-r-0")}
+                className={cn("h-full rounded-full")}
                 style={{
                   width: `${(leg.ms / TOTAL_MS) * 100}%`,
-                  background: `rgb(var(--lumen-deep) / ${0.35 + i * 0.3})`,
+                  background: `rgb(var(--lumen) / ${0.25 + i * 0.2})`,
                 }}
               />
             ))}
