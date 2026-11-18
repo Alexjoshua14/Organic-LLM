@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { BlogCard } from "@/components/blog/blog-card";
+import { BlogPostCard } from "@/components/blog/blog-card";
 import blogStyles from "@/components/blog/blog-article.module.css";
 import { PageContentFrame } from "@/components/layout/page-content-frame";
 import { BLOG_POSTS } from "@/lib/blog/posts";
@@ -42,11 +42,11 @@ export default function BlogPage() {
           <section aria-label="Start here">
             <ul className={blogIndex.bento}>
               <li className={cn("flex min-w-0", blogIndex.bentoFeature)}>
-                <BlogCard index={0} post={feature} variant="feature" />
+                <BlogPostCard index={0} post={feature} variant="feature" />
               </li>
               {secondary.map((post, i) => (
                 <li key={post.slug} className={cn("flex min-w-0", blogIndex.bentoSecondary)}>
-                  <BlogCard index={i + 1} post={post} variant="secondary" />
+                  <BlogPostCard index={i + 1} post={post} variant="secondary" />
                 </li>
               ))}
             </ul>
@@ -58,7 +58,7 @@ export default function BlogPage() {
               <ul className={blogIndex.grid}>
                 {more.map((post, i) => (
                   <li key={post.slug} className="flex min-w-0">
-                    <BlogCard index={i + 3} post={post} variant="standard" />
+                    <BlogPostCard index={i + 3} post={post} variant="standard" />
                   </li>
                 ))}
               </ul>

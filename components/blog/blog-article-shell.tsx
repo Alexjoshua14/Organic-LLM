@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { BlogCard } from "./blog-card";
+import { BlogPostCard } from "./blog-card";
 import styles from "./blog-article.module.css";
 import { BlogToc } from "./blog-toc";
 
@@ -20,8 +20,12 @@ type BlogArticleShellProps = {
   children: ReactNode;
   /** Back link. Defaults to the blog index; surface posts point at their own index. */
   back?: { href: string; label: string };
-  /** Hide the "keep reading" footer (for pages that are not registry posts). */
+  /** Replace the footer's registry-post cards (surface posts show related surfaces instead). */
+  footer?: ReactNode;
+  /** Hide the "keep reading" footer entirely. */
   hideRelated?: boolean;
+  /** Replaces the meta line above the title. Pass `null` for none. Defaults to the registry's. */
+  meta?: ReactNode | null;
 };
 
 /**
@@ -33,11 +37,13 @@ export function BlogArticleShell({
   slug,
   children,
   back = { href: "/blog", label: "← Blog" },
+  footer,
   hideRelated,
+  meta,
 }: BlogArticleShellProps) {
   const post = getBlogPost(slug);
   const articleId = `blog-article-${slug}`;
-  const related = hideRelated ? [] : relatedBlogPosts(slug);
+  const related = hideRelated || footer ? [] : relatedBlogPosts(slug);
 
   return (
     <>
@@ -49,7 +55,9 @@ export function BlogArticleShell({
 
         <div className={styles.layout}>
           <article className={cn(styles.article, "text-foreground")} id={articleId}>
-            {post ? (
+            {meta !== undefined ? (
+              meta
+            ) : post ? (
               <p className={styles.meta}>
                 <span>{BLOG_CATEGORY_LABELS[post.category]}</span>
                 <span aria-hidden className={styles.metaDot} />
@@ -65,12 +73,19 @@ export function BlogArticleShell({
             <BlogToc articleId={articleId} />
           </aside>
 
+          {footer ? (
+            <section aria-label="Keep reading" className={cn(styles.after, styles.keepReading)}>
+              <h2 className={styles.keepReadingLabel}>Keep reading</h2>
+              <div className={styles.keepReadingGrid}>{footer}</div>
+            </section>
+          ) : null}
+
           {related.length > 0 ? (
             <section aria-label="Keep reading" className={cn(styles.after, styles.keepReading)}>
               <h2 className={styles.keepReadingLabel}>Keep reading</h2>
               <div className={styles.keepReadingGrid}>
                 {related.map((p, i) => (
-                  <BlogCard key={p.slug} index={i} post={p} variant="standard" />
+                  <BlogPostCard key={p.slug} index={i} post={p} variant="standard" />
                 ))}
               </div>
             </section>

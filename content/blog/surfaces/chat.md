@@ -1,23 +1,18 @@
 # Chat
 
-Chat is your everyday assistant surface: threaded conversations, long-term memory, inspectable tools, and model choice per thread.
+Chat is the everyday assistant: threaded conversations that remember you, tools you can see working, and a choice of model for each thread.
 
 ## What it is for
 
-- Daily questions, drafting, and follow-ups in one place
-- Memory retrieval across threads — the assistant can recall what you saved before
-- Web search, Gen UI in-thread, and streaming replies you can read aloud
-- The same thread spine shared with specialized chat experiences (see below)
+- Questions, drafting and follow-ups in one place
+- Memory across threads, so you do not re-explain yourself
+- Web search, generated interface blocks inside the thread, and replies you can have read aloud
+- Talking instead of typing: the same thread works by voice (see [Talking to Organic LLM](/blog/realtime-voice))
 
-## Chat experiences (variants today)
+## What makes it different
 
-Arcadia and Noesis live on separate rail segments for now. They use the same underlying thread model but tune the composer and reply style for different jobs:
+Every tool the assistant uses shows up in the thread, so you can see what it searched and what it remembered. By default it keeps the latest 10 messages in view and leans on a running summary and your memory for the rest.
 
-- **Arcadia** — fast, tool-forward answers when you want to move quickly
-- **Noesis** — topic exploration with sparks and suggested replies
+## Where it leads
 
-We plan to collapse these variants into one Chat surface soon. Until then, treat them as subcategories under Chat — switch from the sidebar rail without losing your thread history.
-
-## When to use Chat
-
-Reach for main Chat when you want the full assistant: memory, search, tools, and a general-purpose composer. Use Arcadia or Noesis when the job fits their narrower focus; you can always return here.
+Chat is the front door. **Arcadia** and **Noesis** are chat experiences with their own composers and reply styles, but they use the same threads, memory and encryption, so switching from the side menu does not lose your history. **Rabbit Holes**, **Strata**, **Ergon** and **Remy** are different shapes of work, listed below.

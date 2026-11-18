@@ -1,17 +1,22 @@
 # Arcadia
 
-Arcadia is a chat experience tuned for concise, tool-forward replies — a sandbox lab on the same thread spine as main Chat.
+Arcadia is where Organic LLM works on several things at once. You talk to one orchestrator; it hands work to subagents you can watch, steer and even talk to.
 
 ## What it is for
 
-- Quick answers when you do not need the full main-chat ceremony
-- Experimenting with how an idea unfolds — mind-map style thinking
-- Stable ideas that may graduate back to main Chat later
+- Longer, multi-part jobs where one reply is not enough: research here, a draft there, a check on both
+- Seeing the work as it happens: a Multiagent dashboard shows each subagent's status, and assignments appear inline in the conversation
+- Talking to a specific subagent, by voice or text, without interrupting the others
+- A lab for new ideas about context and tools, which graduate into main Chat once they prove themselves
 
-## How it differs from main Chat
+## How it works
 
-Arcadia prioritizes speed and direct tool use over the broader memory-and-search workflow. It shares encryption, persistence, and thread history with Chat, but the composer and default reply style are leaner.
+The orchestrator writes each subagent's brief itself, along with the context that subagent needs: your own words (each quote is checked against the thread), other subagents' output, and memories. It can keep reusable bundles of context on a private worktable and re-send them. Subagents see only what they are sent. Delegation only happens while the thread's Multiagent switch is on; with it off, Arcadia answers directly.
 
-## When to use Arcadia
+## Memory that scales to the question
 
-Use Arcadia when you want to move fast on a focused question or prototype a line of thought. Switch back to main Chat when you need deeper memory retrieval or a longer-running thread.
+A context-effort control sets how hard Arcadia works to recall relevant memory before it replies: **Instant** skips planning for speed, **Quick** (the default) balances, and **Heavy** searches harder. Arcadia also keeps a much larger window of the thread than main Chat: a 50,000-token history budget instead of the latest 10 messages.
+
+## When to use it
+
+Reach for Arcadia when a task has parts. Use main Chat for a quick question or a focused conversation.

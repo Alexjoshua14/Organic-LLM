@@ -120,6 +120,128 @@ function Export() {
   );
 }
 
+function Chat() {
+  // Two bubbles, one lit: the reply.
+  return (
+    <>
+      <path
+        className={styles.stroke}
+        d="M20 24 h58 a8 8 0 0 1 8 8 v14 a8 8 0 0 1 -8 8 H44 l-12 10 v-10 h-12 a8 8 0 0 1 -8 -8 V32 a8 8 0 0 1 8 -8z"
+      />
+      <rect className={styles.lumen} height={26} rx={8} width={66} x={78} y={52} />
+      <line className={styles.stroke} x1={30} x2={64} y1={39} y2={39} />
+      <line className={styles.lumen} x1={88} x2={132} y1={65} y2={65} />
+    </>
+  );
+}
+
+function Arcadia() {
+  // One orchestrator, four subagents; one is speaking.
+  const nodes: Array<[number, number]> = [
+    [30, 24],
+    [130, 24],
+    [30, 78],
+    [130, 78],
+  ];
+
+  return (
+    <>
+      {nodes.map(([x, y], i) => (
+        <g key={`${x}-${y}`}>
+          <line className={styles.stroke} x1={80} x2={x} y1={51} y2={y} />
+          <circle className={i === 3 ? styles.lumen : styles.stroke} cx={x} cy={y} r={8} />
+        </g>
+      ))}
+      <circle className={styles.lumenFill} cx={80} cy={51} r={9} />
+    </>
+  );
+}
+
+function Noesis() {
+  // Sparks rising from a line of thought.
+  return (
+    <>
+      <path className={styles.stroke} d="M16 76 C48 76 56 58 82 58 S120 50 144 40" />
+      {[
+        [44, 40],
+        [66, 26],
+        [100, 30],
+        [122, 18],
+      ].map(([x, y]) => (
+        <path
+          key={`${x}-${y}`}
+          className={styles.stroke}
+          d={`M${x} ${y - 6} v12 M${x - 6} ${y} h12`}
+        />
+      ))}
+      <path className={styles.lumen} d="M144 28 v24 M132 40 h24" />
+    </>
+  );
+}
+
+function Strata() {
+  // Rough lines resolving into ordered sections; the middle one is open.
+  return (
+    <>
+      <path className={styles.stroke} d="M16 26 l8 -6 l8 6 l8 -6 l8 6" opacity={0.6} />
+      <rect className={styles.stroke} height={14} rx={4} width={96} x={48} y={14} />
+      <rect className={styles.lumen} height={22} rx={4} width={96} x={48} y={38} />
+      <rect className={styles.stroke} height={14} rx={4} width={96} x={48} y={68} />
+      <line className={styles.lumen} x1={58} x2={112} y1={49} y2={49} />
+    </>
+  );
+}
+
+function Rabbit() {
+  // A question branching into a tree; one branch is being followed.
+  return (
+    <>
+      <circle className={styles.stroke} cx={24} cy={50} r={6} />
+      <path className={styles.stroke} d="M30 50 C52 50 52 26 74 26 M30 50 C52 50 52 74 74 74" />
+      <circle className={styles.stroke} cx={80} cy={26} r={6} />
+      <circle className={styles.lumen} cx={80} cy={74} r={6} />
+      <path
+        className={styles.stroke}
+        d="M86 26 C108 26 108 14 130 14 M86 26 C108 26 108 38 130 38"
+      />
+      <path
+        className={styles.lumen}
+        d="M86 74 C108 74 108 62 130 62 M86 74 C108 74 108 86 130 86"
+      />
+      <circle className={styles.stroke} cx={136} cy={14} r={4} />
+      <circle className={styles.stroke} cx={136} cy={38} r={4} />
+      <circle className={styles.lumenFill} cx={136} cy={62} r={4} />
+    </>
+  );
+}
+
+function Ergon() {
+  // A checklist; the next one is the lit one.
+  return (
+    <>
+      <rect className={styles.stroke} height={14} rx={4} width={14} x={24} y={20} />
+      <polyline className={styles.stroke} points="28,27 32,31 38,23" />
+      <line className={styles.stroke} x1={50} x2={130} y1={27} y2={27} />
+      <rect className={styles.lumen} height={14} rx={4} width={14} x={24} y={43} />
+      <line className={styles.lumen} x1={50} x2={116} y1={50} y2={50} />
+      <rect className={styles.stroke} height={14} rx={4} width={14} x={24} y={66} />
+      <line className={styles.stroke} x1={50} x2={124} y1={73} y2={73} />
+    </>
+  );
+}
+
+function Remy() {
+  // A plate and a fork; the plate rim is lit.
+  return (
+    <>
+      <circle className={styles.stroke} cx={72} cy={52} r={30} />
+      <circle className={styles.lumen} cx={72} cy={52} r={20} />
+      <line className={styles.stroke} x1={120} x2={120} y1={20} y2={84} />
+      <path className={styles.stroke} d="M112 20 v16 a8 8 0 0 0 16 0 V20" />
+    </>
+  );
+}
+
 const ART: Record<BlogArtId, () => React.JSX.Element> = {
   voice: Voice,
   surfaces: Surfaces,
@@ -128,6 +250,13 @@ const ART: Record<BlogArtId, () => React.JSX.Element> = {
   memory: Memory,
   chrome: Chrome,
   export: Export,
+  chat: Chat,
+  arcadia: Arcadia,
+  noesis: Noesis,
+  strata: Strata,
+  rabbit: Rabbit,
+  ergon: Ergon,
+  remy: Remy,
 };
 
 export function BlogArt({ id }: { id: BlogArtId }) {

@@ -9,7 +9,22 @@
 export type BlogCategory = "voice" | "surfaces" | "architecture" | "design";
 
 /** Which abstract line drawing a card wears (see `components/blog/blog-art.tsx`). */
-export type BlogArtId = "voice" | "surfaces" | "flow" | "vault" | "memory" | "chrome" | "export";
+export type BlogArtId =
+  | "voice"
+  | "surfaces"
+  | "flow"
+  | "vault"
+  | "memory"
+  | "chrome"
+  | "export"
+  // One per surface, for the surfaces index.
+  | "chat"
+  | "arcadia"
+  | "noesis"
+  | "strata"
+  | "rabbit"
+  | "ergon"
+  | "remy";
 
 export type BlogPost = {
   slug: string;
