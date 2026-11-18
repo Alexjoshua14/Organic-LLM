@@ -171,8 +171,8 @@ test.describe("phone (touch)", () => {
     await page.locator('[data-row] [role="textbox"]').click();
     await typeSlowly(page, DRAFT);
     expect(await stacked(page)).toBe(true);
-    await page.keyboard.press("ControlOrMeta+a");
-    await page.keyboard.press("Backspace");
+    // One fast burst of deletes (WebKit has no select-all shortcut here).
+    for (let i = 0; i < DRAFT.length; i += 1) await page.keyboard.press("Backspace");
     await frames(page);
     // Fits now, but stays stacked until the pause.
     expect(await stacked(page)).toBe(true);
@@ -236,8 +236,10 @@ test.describe("phone (touch)", () => {
     page,
   }) => {
     await page.locator('[data-row] [role="textbox"]').click();
-    await page.keyboard.type("A short thought");
-    await frames(page);
+    // Short enough for one line in any font. Without Satoshi (CI) the placeholder alone may
+    // stack the empty composer; the word brings it back once typing rests.
+    await page.keyboard.type("A thought");
+    await page.waitForTimeout(SETTLE_MS);
     expect(await stacked(page)).toBe(false);
     let fill = await draftFill(page);
 
@@ -278,7 +280,8 @@ test.describe("phone (touch)", () => {
     await frames(page);
     expect(await focusedOnDraft(page)).toBe(true);
     await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
-    await page.locator('[data-reflow="trail"] button').last().tap();
+    // The attach button: the mic would start dictation, which WebKit blocks on.
+    await page.locator('[data-reflow="trail"] button').first().tap();
     await frames(page);
     expect(await focusedOnDraft(page)).toBe(false);
   });
