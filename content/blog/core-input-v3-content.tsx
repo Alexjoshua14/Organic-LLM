@@ -696,10 +696,9 @@ export function CoreInputV3Content() {
       <Section>
         <h2>What&apos;s next</h2>
         <p>
-          v3 is moving from its prototype page into the message box people actually use. Everything
-          the old box did (saving drafts, voice dictation, pasting, redirecting the assistant
-          mid-reply, previewing formatting) moves over to the new editor, and every part of the app
-          that uses the composer comes along.
+          v3 is now the message box people actually use. Everything the old box did (saving drafts,
+          voice dictation, pasting, redirecting the assistant mid-reply, previewing formatting)
+          moved over to the new editor, and every part of the app that uses the composer came along.
         </p>
         <p>
           Then come the four tests on real phones and tablets: keyboards, autocorrect, IME (the

@@ -6,8 +6,9 @@ settings, attachments and mic along the left underneath, Send on the right.
 
 **Related code**
 
-- Layout and timing: [`composer-reflow.ts`](../../app/sandbox/prototypes/core-input/_components/editor-prototype/composer-reflow.ts)
-- Grid: `.editor-row` in [`editor-prototype.css`](../../app/sandbox/prototypes/core-input/_components/editor-prototype/editor-prototype.css)
+- Layout and timing: [`composer-reflow.ts`](../../components/chat/core-input/editor/composer-reflow.ts)
+- CoreInput's driver: [`use-composer-reflow.ts`](../../components/chat/core-input/editor/use-composer-reflow.ts), grid in `.core-input-compact-row` ([`compact.css`](../../components/chat/core-input/compact.css))
+- The lab's version: `.editor-row` in [`composer-editor.css`](../../components/chat/core-input/editor/composer-editor.css)
 
 ## When it stacks
 
@@ -21,7 +22,9 @@ boundary cannot flap between the two.
 ## The motion
 
 Everything that changes place moves in one gesture: the text, the three actions and the row's
-own height. When only the buttons glide, the text and the shell snap beside them, and that
+own height. The text never slides sideways (it re-wraps at once, so sliding would drag it under
+the buttons): it settles vertically and fades up from 40%. The actions dip out at 40% of their
+path and land back in, so they never visibly cross the text. When only the buttons glide, the text and the shell snap beside them, and that
 mismatch is what reads as a jolt.
 
 | Token                        | Value                            | Why                                                                                                      |
