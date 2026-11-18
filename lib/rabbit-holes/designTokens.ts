@@ -164,14 +164,14 @@ export const blogArticle = {
       "[&_h3]:font-commissioner [&_h3]:text-lg [&_h3]:font-light [&_h3]:mt-6 [&_h3]:mb-2 [&_h3]:text-foreground",
   },
   p: {
-    desktop: "[&_p]:mb-4 [&_p]:text-base [&_p]:leading-[1.5]",
-    compact: "[&_p]:mb-3.5 [&_p]:text-base [&_p]:leading-[1.5]",
+    desktop: "[&_p]:mb-4 [&_p]:text-base [&_p]:leading-relaxed",
+    compact: "[&_p]:mb-3.5 [&_p]:text-base [&_p]:leading-relaxed",
   },
   /** List blocks (GFM / MDX) */
   list: {
     ul: "[&_ul]:mb-4 [&_ul]:ml-0 [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:space-y-1.5 [&_ul]:text-muted-foreground",
     ol: "[&_ol]:mb-4 [&_ol]:ml-0 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:space-y-1.5 [&_ol]:text-muted-foreground",
-    li: "[&_li]:text-base [&_li]:leading-[1.5]",
+    li: "[&_li]:text-base [&_li]:leading-relaxed",
   },
   blockquote:
     "[&_blockquote]:my-5 [&_blockquote]:border-l-2 [&_blockquote]:border-border/50 [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_blockquote]:italic",
@@ -187,9 +187,11 @@ export const blogArticle = {
    * Mermaid (and similar block figures) in BlogProse — vertical gutter + width clamp.
    * Pair with `data-syntax-highlighted` on the same node so the markdown <pre> unwrapper runs.
    */
-  mermaidBlock: "my-5 w-full min-w-0 max-w-full",
+  mermaidBlock: "my-stack-2xl w-full min-w-0 max-w-full",
   /** Fenced `CodeBlock` bottom spacing inside blog markdown */
-  codeBlockContainer: "mb-3 max-w-full min-w-0 last:mb-0",
+  codeBlockContainer: "mb-stack-md max-w-full min-w-0 last:mb-0",
+  /** Tables step out of the column like diagrams; wrapper carries `data-blog-wide`. */
+  tableBlock: "my-stack-2xl min-w-0 max-w-full overflow-x-auto",
 } as const;
 
 /** Layout-only classes merged with `blogArticleContentClasses()` for /blog body wrappers. */
@@ -235,9 +237,36 @@ export function blogArticleContentClasses(): string[] {
  * → design body → outro) without editing magic numbers in each `page.tsx`.
  */
 export const blogArticlePage = {
-  navToContent: "mb-6",
-  /** Between major sibling blocks inside `<article>` */
-  blockStack: "space-y-8",
+  /** Back link → article meta line (`stack-2xl`, 24px) */
+  navToContent: "mb-stack-2xl",
+  /** Between major sibling blocks inside `<article>` (`stack-3xl`, 32px) */
+  blockStack: "space-y-stack-3xl",
+} as const;
+
+/**
+ * Blog index and surfaces index: the header, and the gaps between the header, the bento and the
+ * grid. Container-query steps (`@3xl:`) follow the page frame, not the viewport, so they stay
+ * right when the sidebar is open. Titles are Commissioner light, as on the admin and sandbox
+ * galleries.
+ */
+export const blogIndex = {
+  /** Header → bento → grid (`stack-4xl`, 48px) */
+  sectionGap: "space-y-stack-4xl",
+  /** Kicker → title → lede (`stack-lg`, 16px) */
+  headerStack: "space-y-stack-lg",
+  kicker: "text-2xs font-medium uppercase tracking-widest text-muted-foreground",
+  title:
+    "font-commissioner text-4xl font-extralight tracking-tight text-foreground text-balance @3xl:text-5xl",
+  lede: "max-w-xl text-base leading-relaxed text-muted-foreground text-pretty @3xl:text-lg",
+  /** Section label above a grid (`stack-xl` below it) */
+  sectionLabel: "mb-stack-xl text-2xs font-medium uppercase tracking-widest text-muted-foreground",
+  /** Bento: one column on phones, two on tablets, a 12-column grid with the feature spanning two rows. */
+  bento:
+    "grid grid-cols-1 gap-inline-md @xl:grid-cols-2 @3xl:grid-cols-12 @3xl:auto-rows-fr @3xl:gap-inline-lg",
+  bentoFeature: "@xl:col-span-2 @3xl:col-span-7 @3xl:row-span-2",
+  bentoSecondary: "@3xl:col-span-5",
+  /** The calm grid below the bento: two columns, then four on wide frames. */
+  grid: "grid grid-cols-1 gap-inline-md @xl:grid-cols-2 @6xl:grid-cols-4 @3xl:gap-inline-lg",
 } as const;
 
 // ─── Key Takeaways list items ────────────────────────────────────────────────

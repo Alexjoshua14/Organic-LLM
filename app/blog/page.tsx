@@ -1,112 +1,71 @@
-import Link from "next/link";
+import type { Metadata } from "next";
 
+import { BlogCard } from "@/components/blog/blog-card";
+import blogStyles from "@/components/blog/blog-article.module.css";
 import { PageContentFrame } from "@/components/layout/page-content-frame";
+import { BLOG_POSTS } from "@/lib/blog/posts";
+import { blogIndex } from "@/lib/rabbit-holes/designTokens";
+import { cn } from "@/lib/utils";
 
-const CATEGORIES = ["surfaces", "architecture", "design"] as const;
-
-type Category = (typeof CATEGORIES)[number];
-
-const POSTS: Array<{
-  slug: string;
-  title: string;
-  description: string;
-  category: Category;
-  /** When set, links to this href instead of `/blog/{slug}`. */
-  href?: string;
-}> = [
-  {
-    slug: "surfaces",
-    title: "Surfaces",
-    description:
-      "What each workspace mode is for — Chat (with Arcadia & Noesis variants), Strata, Rabbit Holes, Ergon, and Remy.",
-    category: "surfaces",
-    href: "/blog/surfaces",
-  },
-  {
-    slug: "how-we-secure-memory",
-    title: "How we protect your memories",
-    description:
-      "Why memory matters, what we encrypt in the memory database, how access and logging work, and what we do not claim.",
-    category: "architecture",
-  },
-  {
-    slug: "memory-encryption",
-    title: "Memory Encryption",
-    description:
-      "How Organic LLM encrypts messages and summaries at rest: research, design choices, implemented solution, and how long-term memory fits in.",
-    category: "architecture",
-  },
-  {
-    slug: "chat-message-flow",
-    title: "Chat Message Flow",
-    description:
-      "From chat UI to the API: the main message path, context assembly, resumable streams, and key features.",
-    category: "architecture",
-  },
-  {
-    slug: "core-input-v3",
-    title: "CoreInput v3",
-    description:
-      "Rebuilding the composer: what v2 got wrong on mobile, the editors weighed, the one-line-to-stacked v3 design, and Lumen's light-mode answer.",
-    category: "design",
-  },
-  {
-    slug: "adaptive-liquid-chrome",
-    title: "Adaptive Liquid Chrome",
-    description:
-      "Documentation for the full-viewport adaptive background that dims on hover/focus and brightens in two phases.",
-    category: "design",
-  },
-  {
-    slug: "export-prompt-presets",
-    title: "Export Prompt Presets",
-    description:
-      "How Organic LLM generates app-specific external prompts with minimalist CTA buttons and structured output contracts.",
-    category: "design",
-  },
-];
-
-const CATEGORY_LABELS: Record<Category, string> = {
-  surfaces: "Surfaces",
-  architecture: "Architecture",
-  design: "Design",
+export const metadata: Metadata = {
+  title: "Blog · Organic LLM",
+  description:
+    "Short write-ups on how Organic LLM works and why it is built this way: voice, memory, privacy and the interface that ties them together.",
 };
 
+/**
+ * The blog index, composed to lead the eye. The glow and the title are met first; the feature card
+ * is the largest, warmest thing on the page, so the eye lands there next; the two cards beside it
+ * are the next step down; the quiet grid below is for browsing. Prominence falls by material
+ * (size, light, type) in reading order, left to right and top to bottom, and the entrance
+ * stagger follows the same path.
+ */
 export default function BlogPage() {
+  const [feature, ...rest] = BLOG_POSTS;
+  const secondary = rest.slice(0, 2);
+  const more = rest.slice(2);
+
   return (
-    <PageContentFrame maxWidth="2xl">
-      <h1 className="text-2xl font-normal text-foreground mb-2">Blog</h1>
-      <p className="text-secondary-foreground text-sm mb-8">
-        Design and implementation notes. Not linked in the main UI yet.
-      </p>
-      <div className="space-y-10">
-        {CATEGORIES.map((category) => {
-          const postsInCategory = POSTS.filter((p) => p.category === category);
+    <>
+      <div aria-hidden className={blogStyles.glow} />
+      <PageContentFrame className="@container relative z-10" maxWidth="7xl">
+        <div className={blogIndex.sectionGap}>
+          <header className={blogIndex.headerStack}>
+            <p className={blogIndex.kicker}>Coalescence Labs · Notes</p>
+            <h1 className={blogIndex.title}>How Organic LLM is built</h1>
+            <p className={blogIndex.lede}>
+              Short write-ups on how Organic LLM works and why: voice, memory, privacy, and the
+              interface that ties them together.
+            </p>
+          </header>
 
-          if (postsInCategory.length === 0) return null;
+          <section aria-label="Start here">
+            <ul className={blogIndex.bento}>
+              <li className={cn("flex min-w-0", blogIndex.bentoFeature)}>
+                <BlogCard index={0} post={feature} variant="feature" />
+              </li>
+              {secondary.map((post, i) => (
+                <li key={post.slug} className={cn("flex min-w-0", blogIndex.bentoSecondary)}>
+                  <BlogCard index={i + 1} post={post} variant="secondary" />
+                </li>
+              ))}
+            </ul>
+          </section>
 
-          return (
-            <section key={category}>
-              <h2 className="text-lg font-medium text-foreground mb-4">
-                {CATEGORY_LABELS[category]}
-              </h2>
-              <ul className="space-y-4">
-                {postsInCategory.map((post) => (
-                  <li key={post.slug}>
-                    <Link
-                      className="block rounded-lg border border-border bg-secondary p-4 transition-colors hover:bg-secondary/80 text-foreground no-underline"
-                      href={post.href ?? `/blog/${post.slug}`}
-                    >
-                      <h3 className="font-medium text-foreground">{post.title}</h3>
-                      <p className="text-sm text-muted-foreground mt-1">{post.description}</p>
-                    </Link>
+          {more.length > 0 ? (
+            <section aria-label="More notes">
+              <h2 className={blogIndex.sectionLabel}>More notes</h2>
+              <ul className={blogIndex.grid}>
+                {more.map((post, i) => (
+                  <li key={post.slug} className="flex min-w-0">
+                    <BlogCard index={i + 3} post={post} variant="standard" />
                   </li>
                 ))}
               </ul>
             </section>
-          );
-        })}
-      </div>
-    </PageContentFrame>
+          ) : null}
+        </div>
+      </PageContentFrame>
+    </>
   );
 }

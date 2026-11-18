@@ -57,7 +57,11 @@ export function BlogProse({ content, className }: { content: string; className?:
 
             if (isMermaid) {
               return (
-                <div data-syntax-highlighted className={blogArticle.mermaidBlock}>
+                <div
+                  data-blog-wide
+                  data-syntax-highlighted
+                  className={blogArticle.mermaidBlock}
+                >
                   <MermaidDiagram code={raw.trim()} />
                 </div>
               );
@@ -66,7 +70,7 @@ export function BlogProse({ content, className }: { content: string; className?:
               const codeText = raw.trim();
 
               return (
-                <div data-syntax-highlighted>
+                <div data-blog-wide data-syntax-highlighted>
                   <CodeBlock containerClassName={blogArticle.codeBlockContainer}>
                     <code
                       className={cn(
@@ -116,6 +120,11 @@ export function BlogProse({ content, className }: { content: string; className?:
               <CodeBlock containerClassName={blogArticle.codeBlockContainer}>{children}</CodeBlock>
             );
           },
+          table: ({ children }) => (
+            <div data-blog-wide className={blogArticle.tableBlock}>
+              <table>{children}</table>
+            </div>
+          ),
           h1: ({ children, ...hProps }) => (
             <h1 className={blogArticle.h1.element} {...hProps}>
               {children}

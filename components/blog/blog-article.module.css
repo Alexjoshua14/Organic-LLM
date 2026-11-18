@@ -1,0 +1,214 @@
+/*
+ * Blog article shell. One reading column, wider "figures", and a quiet rail on wide screens.
+ *
+ *   phone / tablet   column fills the frame (capped at the measure); figures fit the column
+ *   >= 64rem         figures (tables, diagrams, code) step out to --blog-wide, centred on the column
+ *   >= 80rem         a sticky "On this page" rail appears to the right of the column
+ *
+ * Every step is a CONTAINER query on the page frame (`@container`), not a viewport query: with the
+ * sidebar open the page is narrower than the screen, and the layout must follow the page.
+ *
+ * The measure is ~70 characters of Satoshi at the article body size; wider than that and the eye
+ * loses its line on the return sweep. Figures are the exception because they are not read
+ * line by line.
+ */
+
+.layout {
+  --blog-measure: 42rem;
+  --blog-wide: 54rem;
+  /* The rail starts clear of the widest figure's overhang so they never touch. */
+  --blog-rail-gap: 7rem;
+
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  row-gap: var(--spacing-stack-4xl, 3rem);
+}
+
+.article {
+  min-width: 0;
+  width: 100%;
+  max-width: var(--blog-measure);
+  margin-inline: auto;
+}
+
+/* ---------- figures ---------- */
+
+@container (min-width: 64rem) {
+  .article [data-blog-wide] {
+    --w: min(var(--blog-wide), 100cqw);
+
+    width: var(--w);
+    max-width: none;
+    margin-inline: calc((100% - var(--w)) / 2);
+  }
+}
+
+/* ---------- rail ---------- */
+
+.rail {
+  display: none;
+}
+
+@container (min-width: 80rem) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr) minmax(0, var(--blog-measure)) minmax(0, 1fr);
+    column-gap: var(--spacing-inset-2xl, 2rem);
+    align-items: start;
+  }
+
+  .article {
+    grid-column: 2;
+    grid-row: 1;
+    max-width: none;
+  }
+
+  .rail {
+    display: block;
+    grid-column: 3;
+    grid-row: 1;
+    align-self: stretch;
+    padding-inline-start: var(--blog-rail-gap);
+    max-width: calc(var(--blog-rail-gap) + 13rem);
+  }
+
+  /* Footer lines up with the column, not the rail. */
+  .after {
+    grid-column: 2;
+  }
+}
+
+.after {
+  min-width: 0;
+}
+
+/* ---------- meta line above the title ---------- */
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-inline-sm, 0.5rem);
+  margin-bottom: var(--spacing-stack-lg, 1rem);
+  font-size: var(--text-2xs, 0.625rem);
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.metaDot {
+  width: 0.1875rem;
+  height: 0.1875rem;
+  border-radius: 9999px;
+  background: rgb(var(--lumen-deep));
+}
+
+.metaItem {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- keep reading ---------- */
+
+.keepReading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-stack-xl, 1.25rem);
+  padding-top: var(--spacing-stack-3xl, 2rem);
+  border-top: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+}
+
+.keepReadingLabel {
+  font-size: var(--text-2xs, 0.625rem);
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.keepReadingGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--spacing-inline-md, 0.75rem);
+}
+
+@container (min-width: 36rem) {
+  .keepReadingGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ---------- table of contents ---------- */
+
+.toc {
+  position: sticky;
+  top: var(--spacing-stack-5xl, 4rem);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-stack-md, 0.75rem);
+  max-height: calc(100dvh - 8rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.tocLabel {
+  font-size: var(--text-2xs, 0.625rem);
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.tocList {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-inline-start: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+}
+
+.tocLink {
+  display: block;
+  margin-inline-start: -1px;
+  padding: var(--spacing-stack-xs, 0.25rem) var(--spacing-inline-md, 0.75rem);
+  border-inline-start: 1px solid transparent;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: color-mix(in oklab, var(--muted-foreground) 85%, transparent);
+  text-decoration: none;
+  text-wrap: pretty;
+  transition:
+    color 160ms cubic-bezier(0.23, 1, 0.32, 1),
+    border-color 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.tocLink:hover {
+  color: var(--foreground);
+}
+
+/* Where you are: the text brightens and a Lumen thread marks the line. No motion. */
+.tocLink[aria-current="true"] {
+  color: var(--foreground);
+  border-inline-start-color: rgb(var(--lumen-deep));
+}
+
+/* ---------- page glow ---------- */
+
+/*
+ * A faint warm light falling from the top-left, behind the title. It is the first thing the eye
+ * meets and it points down and right, toward where the reading starts. It scrolls away with the
+ * header, so it never sits behind the text you are reading.
+ */
+.glow {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 32rem;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    55% 70% at 18% 0%,
+    rgb(var(--lumen) / 0.09),
+    transparent 70%
+  );
+}
