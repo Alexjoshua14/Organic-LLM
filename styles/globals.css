@@ -111,7 +111,9 @@
   --color-lumen-deep: var(--lumen-deep-oklch);
 }
 
-:root {
+/* `.light` scopes the light palette inside a dark page (side-by-side theme demos). */
+:root,
+.light {
   --radius: 0.625rem;
 
   --background: oklch(1 0 0);

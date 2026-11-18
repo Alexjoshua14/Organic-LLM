@@ -44,6 +44,13 @@ const POSTS: Array<{
     category: "architecture",
   },
   {
+    slug: "core-input-v3",
+    title: "CoreInput v3",
+    description:
+      "Rebuilding the composer: what v2 got wrong on mobile, the editors weighed, the one-line-to-stacked v3 design, and Lumen's light-mode answer.",
+    category: "design",
+  },
+  {
     slug: "adaptive-liquid-chrome",
     title: "Adaptive Liquid Chrome",
     description:
