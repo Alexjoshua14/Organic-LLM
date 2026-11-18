@@ -130,7 +130,7 @@ export function HowWeSecureMemoryContent() {
           would rather say that than imply it.
         </p>
 
-        <h2>What we claim, and what we do not</h2>
+        <h2>What we claim, and where it fits</h2>
         <ul>
           <li>
             <strong>We do claim</strong> a real layer of protection for the stored text of memories
@@ -138,8 +138,10 @@ export function HowWeSecureMemoryContent() {
             server boundary: authentication, limits, validation and ownership checks.
           </li>
           <li>
-            <strong>We do not claim</strong> that encryption replaces TLS, authentication, secure
-            hosting or careful configuration. It is defense in depth, not a single switch.
+            <strong>Encryption is one layer, not the whole.</strong> Organic LLM is served over TLS,
+            sign-in is handled by a dedicated identity service, and the hosting and configuration
+            are set up with care. The encryption described here sits behind those, for the case
+            where one of them fails. It adds to them and does not replace them.
           </li>
         </ul>
       </BlogSection>
