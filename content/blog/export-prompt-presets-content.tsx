@@ -8,7 +8,7 @@ const CONTRACT = `type ExportIntentPreset = {
   buttonLabel: string; // what the user reads
   question: string; // what we ask the other AI
   requestedFormat: string; // the shape we want back
-  validate?: (sourceText: string) => { ok: true } | { ok: false; message: string };
+  validate?: (sourceText: string) => ValidationResult; // optional pre-flight check
 };`;
 
 export function ExportPromptPresetsContent() {

@@ -195,7 +195,7 @@ export const blogArticle = {
    */
   mermaidBlock: "my-stack-2xl w-full min-w-0 max-w-full",
   /** Fenced `CodeBlock` bottom spacing inside blog markdown */
-  codeBlockContainer: "mb-stack-md max-w-full min-w-0 last:mb-0",
+  codeBlockContainer: "mb-stack-xl max-w-full min-w-0 last:mb-0",
   /** Tables step out of the column like diagrams; wrapper carries `data-blog-wide`. */
   tableBlock: "my-stack-2xl min-w-0 max-w-full overflow-x-auto",
 } as const;
