@@ -25,6 +25,7 @@
   --spacing-stack-2xl: 1.5rem; /* 24px */
   --spacing-stack-3xl: 2rem; /* 32px */
 
+  --spacing-inline-xs: 0.25rem; /* 4px — compact icon clusters only; below the 8px touch gap */
   --spacing-inline-sm: 0.5rem; /* 8px — min touch gap (Apple HIG) */
   --spacing-inline-md: 0.75rem; /* 12px */
   --spacing-inline-lg: 1rem; /* 16px */
@@ -181,6 +182,11 @@
    * RGB channels for glows/shadows (rgb(var(--lumen) / α)); oklch for solid fills (text-lumen, bg-lumen).
    * Kelvin reference: rim 3200K · base 3000K · deep 2800K.
    */
+  /* Dark theme's background, so light mode can borrow it for shadows. Single source: `.dark` reads it. */
+  --background-dark: oklch(0.141 0.005 285.823); /* #141516 */
+  /* Light mode has no rim (it washes out); chips lift with a soft shadow of that colour instead. */
+  --lumen-shadow-rest: 0 2px 8px -2px color-mix(in oklch, var(--background-dark) 14%, transparent);
+  --lumen-shadow-hover: 0 2px 8px -2px color-mix(in oklch, var(--background-dark) 24%, transparent);
   --lumen-rim: 255 188 115;
   --lumen: 255 178 102;
   --lumen-deep: 255 168 92;
@@ -203,7 +209,7 @@
 
 .dark {
   --context-usage-amber: #bb8334;
-  --background: oklch(0.141 0.005 285.823); /* #141516 */
+  --background: var(--background-dark); /* #141516 */
 
   --foreground: oklch(0.96 0.003 145); /* #F3F4F3 - slight green tint */
 
@@ -496,6 +502,33 @@ body.font-theme-commissioner {
   animation: lumen-rim-breathe 2.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
 }
 
+/*
+ * Light mode: the warm rim does not read on a light surface, so the chips lift with a gentle
+ * shadow of the dark theme's background (--lumen-shadow-*) instead of a glow.
+ */
+:root:not(.dark) .composer-tool-chip-stage > .lumen-rim-backlight {
+  display: none;
+}
+:root:not(.dark) .composer-tool-chip {
+  transition:
+    color 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    opacity 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    box-shadow 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+:root:not(.dark) .composer-tool-chip-active {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.22),
+    var(--lumen-shadow-rest);
+}
+:root:not(.dark) .composer-tool-chip-host:hover .composer-tool-chip:not(:disabled) {
+  box-shadow: var(--lumen-shadow-hover);
+}
+:root:not(.dark) .composer-tool-chip-host:hover .composer-tool-chip-active:not(:disabled) {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.22),
+    var(--lumen-shadow-hover);
+}
+
 /* Gen UI Lab — Reforge-style full-page gallery snap (native, not wheel-hijack). */
 .gen-ui-gallery-scroll {
   scroll-snap-type: y mandatory;
@@ -712,6 +745,59 @@ body.font-theme-commissioner {
 .dark .chat-style-lumen-rim {
   border-color: rgb(var(--lumen) / 0.19);
   opacity: 0.36;
+}
+
+/*
+ * Light mode, every rim-style lumen: the warm glow does not read on a light surface, so each
+ * hides its rim and the surface lifts with a gentle shadow of the dark theme's background
+ * (--lumen-shadow-rest / --lumen-shadow-hover) instead. Dark mode is unchanged.
+ */
+:root:not(.dark) .home-composer-lumen-rim,
+:root:not(.dark) .chat-style-lumen-rim {
+  display: none;
+}
+
+/* Prompt shell (CoreInput, homepage composer): a shadow at rest, deeper while focused or hovered. */
+:root:not(.dark) .home-composer-lumen-stage:has(> .home-composer-lumen-rim) {
+  border-radius: var(--composer-radius, 0.75rem);
+  box-shadow: var(--lumen-shadow-rest);
+  transition: box-shadow 320ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+:root:not(.dark)
+  .home-composer-lumen-host:focus-within
+  .home-composer-lumen-stage:has(> .home-composer-lumen-rim),
+:root:not(.dark)
+  .home-composer-lumen-host--interactive:not(:has(:disabled)):hover
+  .home-composer-lumen-stage:has(> .home-composer-lumen-rim) {
+  box-shadow: var(--lumen-shadow-hover);
+}
+
+:root:not(.dark)
+  .home-composer-lumen-host--interactive
+  .home-composer-lumen-stage:has(> .home-composer-lumen-rim) {
+  transition:
+    box-shadow 320ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    transform 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* Memory retrieval on: the halo reads as the deeper shadow, even unfocused. */
+:root:not(.dark)
+  .core-input-memory-lumen
+  .home-composer-lumen-stage:has(> .home-composer-lumen-rim) {
+  box-shadow: var(--lumen-shadow-hover);
+}
+
+/* Selected chat-style cards and active task rows. */
+:root:not(.dark) .chat-style-card-stage:has(> .chat-style-lumen-rim) {
+  border-radius: var(--chip-radius, 0.75rem);
+  box-shadow: var(--lumen-shadow-hover);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not(.dark) .home-composer-lumen-stage:has(> .home-composer-lumen-rim) {
+    transition: none;
+  }
 }
 
 /* A small dark-mode lift beneath the material; both renderers retain linked dot opacity. */
