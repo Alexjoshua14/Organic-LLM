@@ -18,17 +18,23 @@ export type FlowStep = {
 };
 
 /**
- * Follow one message from the send button to a finished, saved answer. The steps are data, so the
+ * Follow one exchange from the first action to a finished, saved result. The steps are data, so the
  * post owns its words; this owns the interaction. Controls are real buttons with real labels, the
  * current step is announced, and nothing animates, so it needs no reduced-motion branch.
  */
-export function MessageFlowStepper({ steps }: { steps: readonly FlowStep[] }) {
+export function MessageFlowStepper({
+  steps,
+  caption = "Click through one message, from send to saved.",
+}: {
+  steps: readonly FlowStep[];
+  caption?: string;
+}) {
   const [index, setIndex] = useState(0);
   const step = steps[index];
   const last = steps.length - 1;
 
   return (
-    <BlogFigure caption="Click through one message, from send to saved.">
+    <BlogFigure caption={caption}>
       <div className="rounded-xl border border-border bg-secondary/40 p-inset-xl">
         <ol
           aria-label="Steps"
