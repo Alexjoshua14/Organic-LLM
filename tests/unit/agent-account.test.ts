@@ -48,6 +48,7 @@ describe("agent account allowlist", () => {
   test("voice session start and TTS are denied; other voice routes are not", () => {
     expect(isAgentDeniedPath("/api/ai/speak/realtime/session")).toBe(true);
     expect(isAgentDeniedPath("/api/ai/tts")).toBe(true);
+    expect(isAgentDeniedPath("/api/ai/tts-v2")).toBe(true);
     expect(isAgentDeniedPath("/api/ai/ttsx")).toBe(false);
     expect(isAgentDeniedPath("/api/chat")).toBe(false);
   });
@@ -100,15 +101,10 @@ describe("agent account throttle", () => {
     expect(limit.mock.calls.map(([entry]) => entry.id)).toContain("agent.write.day");
   });
 
-  test("a full bucket refuses with the longest wait as Retry-After", async () => {
-    const limit = limiter((entry) => {
-      const resets: Record<string, number> = {
-        [AGENT_ALL_MINUTE_RATE_LIMIT.id]: NOW + 5_000,
-        [AGENT_WRITE_DAY_RATE_LIMIT.id]: NOW + 3_600_000,
-      };
-
-      return entry.id in resets ? { success: false, reset: resets[entry.id] } : {};
-    });
+  test("the first full bucket refuses, and the rest are not consulted", async () => {
+    const limit = limiter((entry) =>
+      entry.id === AGENT_ALL_MINUTE_RATE_LIMIT.id ? { success: false, reset: NOW + 5_000 } : {}
+    );
     const decision = await checkAgentAccountRequest(
       { clerkUserId: AGENT, method: "POST", pathname: "/api/chat", now: NOW },
       limit
@@ -118,9 +114,28 @@ describe("agent account throttle", () => {
       ok: false,
       status: 429,
       code: "agent_rate_limit",
-      error: AGENT_WRITE_DAY_RATE_LIMIT.error,
-      retryAfter: 3_600,
+      error: AGENT_ALL_MINUTE_RATE_LIMIT.error,
+      retryAfter: 5,
     });
+    // A retrying agent costs one Redis call per attempt while the minute bucket is closed.
+    expect(limit).toHaveBeenCalledTimes(1);
+  });
+
+  test("a full daily write bucket refuses writes with its own wait", async () => {
+    const limit = limiter((entry) =>
+      entry.id === AGENT_WRITE_DAY_RATE_LIMIT.id ? { success: false, reset: NOW + 3_600_000 } : {}
+    );
+    const write = await checkAgentAccountRequest(
+      { clerkUserId: AGENT, method: "POST", pathname: "/api/chat", now: NOW },
+      limit
+    );
+    const read = await checkAgentAccountRequest(
+      { clerkUserId: AGENT, method: "GET", pathname: "/chat", now: NOW },
+      limit
+    );
+
+    expect(write).toMatchObject({ ok: false, status: 429, retryAfter: 3_600 });
+    expect(read).toEqual({ ok: true });
   });
 
   test("fails closed when Upstash errors or only admitted on timeout", async () => {

@@ -14,13 +14,13 @@ that list, makes an account an agent account. While listed, it gets:
 | All requests (pages, API, server actions) | 20/min, 200/hour, 1,000/day | `lib/rate-limit/catalog.ts` (`agent.all.*`) |
 | Writes (any non-GET/HEAD/OPTIONS) | 6/min, 60/day | `agent.write.*` |
 | Simultaneous LLM streams | 1 on the chat gate's pre-check | `lib/plans/plan-capacity.ts` |
-| Voice | Speak Realtime session start and TTS return 403 | `lib/agent-account/agent-account.ts` |
+| Voice | Speak Realtime session start and both TTS routes return 403 | `lib/agent-account/agent-account.ts` |
 | Unfinished surfaces | sandbox, labs, prototypes, Stage | `lib/admin/lab-access.ts` |
 
 The throttle runs in `proxy.ts` before any route, so it also protects Clerk, Supabase, Redis
 and the services behind the app. If Upstash can't be reached, agent requests get a 503 rather
-than going through unthrottled. An agent account is **not** an admin: `/admin`, `/status`, admin
-APIs and admin-only models stay closed.
+than going through unthrottled. An agent account is **not** an admin, even if it has an
+`admin_access` row: `/admin`, `/status`, admin APIs and admin-only models stay closed.
 
 When a limit is hit, API calls get `429` JSON with `code` `agent_rate_limit` (or
 `plan_limit` for the weekly budget) and a `Retry-After` header. Wait that long; don't retry
@@ -37,7 +37,22 @@ in a loop. Refused requests still count against the limits.
 4. Give agents `E2E_CLERK_EMAIL` and `E2E_CLERK_PASSWORD` through their local environment.
    Never commit them, and never put the Clerk id in source: this repository is public.
 
-Unset the variable to turn an account back into an ordinary `free` account.
+Unsetting the variable lifts every agent limit at once. The account then goes back to
+whatever plan it would otherwise have: its stored entitlement (`free` unless someone set
+another), or `max` if it is on `MAX_PLAN_CLERK_USER_IDS`. Use a fresh Clerk user for agents,
+never one with a paid plan, a max override or `admin_access`. Admin access is ignored while
+the account is listed, but comes back when it isn't.
+
+## Known limits
+
+- Routes that reserve a stream slot in the database still allow 5 streams. Per-step budget
+  checks and the write limit bound them.
+- Clerk's own sign-in endpoints don't go through the app. Session reuse (below) keeps
+  sign-ins rare.
+- Next's image optimizer (`/_next/image`) bypasses the proxy. It only resizes the app's own
+  images (no remote image hosts are configured), so it costs local CPU, not a paid service.
+- The Stage demo's scene router checks the plan budget, but its small model call isn't
+  recorded in the usage ledger.
 
 ## Signing in as an agent
 
@@ -49,7 +64,8 @@ PLAYWRIGHT_BASE_URL=http://localhost:3000 AGENT_SAVE_SESSION=1 \
 ```
 
 That runs `tests/e2e/agent-session.spec.ts`, which signs in with `E2E_CLERK_EMAIL` /
-`E2E_CLERK_PASSWORD` and writes `.private/agent-storage-state.json` (gitignored). Without
+`E2E_CLERK_PASSWORD`, checks that `/api/usage` reports the `agent` plan (so it never saves an
+ordinary account's session), and writes `.private/agent-storage-state.json` (gitignored). Without
 `AGENT_SAVE_SESSION=1` it is skipped, so normal e2e runs don't sign in an extra time.
 `PLAYWRIGHT_BASE_URL` points at the server that is already running; without it Playwright
 would start its own.

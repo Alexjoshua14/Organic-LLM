@@ -1,11 +1,9 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 
+import type { AgentRequestDecision } from "@/lib/rate-limit/agent-account";
+
 import { isAgentAccount, isAgentWriteRequest } from "@/lib/agent-account/agent-account";
-import {
-  checkAgentAccountRequest,
-  type AgentRequestDecision,
-} from "@/lib/rate-limit/agent-account";
 
 // Require sign-in for product + APIs. Intentionally public (not listed here): `/`,
 // `/blog(.*)`, `/privacy-and-security`, `/showcase(.*)` — add a pattern above when
@@ -81,6 +79,8 @@ export default clerkMiddleware(async (auth, req) => {
   const { userId } = await auth();
 
   if (isAgentAccount(userId)) {
+    // Loaded only for agents: the Redis client it builds must never affect anyone else's request.
+    const { checkAgentAccountRequest } = await import("@/lib/rate-limit/agent-account");
     const decision = await checkAgentAccountRequest({
       clerkUserId: userId!,
       method: req.method,

@@ -124,6 +124,20 @@ describe("agent test plan", () => {
     expect(budget.canDispatch).toBe(false);
   });
 
+  test("a profile with no Clerk id blocks instead of falling back to free", async () => {
+    const budget = await getPlanBudgetForUser(
+      { ownerId: "o1", now: NOW },
+      deps({
+        agentEnvRaw: "user_agent",
+        readEntitlement: async () => ({ status: "absent" }),
+        sumCost: async () => ({ status: "ok", usd: 0 }),
+      })
+    );
+
+    expect(budget.status).toBe("unavailable");
+    expect(budget.canDispatch).toBe(false);
+  });
+
   test("no identity lookup when no agent account is configured", async () => {
     const d = deps();
 

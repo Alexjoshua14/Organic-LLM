@@ -10,6 +10,9 @@ process.env.NEXT_PUBLIC_SUPABASE_URL =
   process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://test.supabase.co";
 process.env.SUPABASE_SERVICE_ROLE_KEY =
   process.env.SUPABASE_SERVICE_ROLE_KEY ?? "test-service-role-key";
+// Bun loads .env.local into tests. A developer's agent allowlist would turn fixture users into
+// agent accounts and change admin, plan and gate outcomes, so tests always start without it.
+delete process.env.AGENT_TEST_CLERK_USER_IDS;
 
 import { registerUpstashRateLimitMocks } from "./helpers/rate-limit-upstash";
 

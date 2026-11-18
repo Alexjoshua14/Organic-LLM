@@ -10,17 +10,26 @@
 /** Comma-separated Clerk user ids. Unset in normal operation; set it where agents sign in. */
 export const AGENT_TEST_CLERK_USER_IDS_ENV = "AGENT_TEST_CLERK_USER_IDS";
 
+let cached: { raw: string | undefined; ids: Set<string> } | null = null;
+
+/** Parsed once per distinct value: `proxy.ts` calls this on every signed-in request. */
 export function parseAgentClerkUserIds(
   raw: string | undefined = process.env[AGENT_TEST_CLERK_USER_IDS_ENV]
 ): Set<string> {
-  if (!raw || !raw.trim()) return new Set();
+  if (cached && cached.raw === raw) return cached.ids;
+  const ids =
+    !raw || !raw.trim()
+      ? new Set<string>()
+      : new Set(
+          raw
+            .split(",")
+            .map((id) => id.trim())
+            .filter((id) => id.length > 0)
+        );
 
-  return new Set(
-    raw
-      .split(",")
-      .map((id) => id.trim())
-      .filter((id) => id.length > 0)
-  );
+  cached = { raw, ids };
+
+  return ids;
 }
 
 /** True when this deployment has any agent test account configured. */
@@ -41,6 +50,7 @@ export function isAgentAccount(clerkUserId: string | null | undefined, raw?: str
 export const AGENT_DENIED_PATH_PREFIXES = [
   "/api/ai/speak/realtime/session",
   "/api/ai/tts",
+  "/api/ai/tts-v2",
 ] as const;
 
 export function isAgentDeniedPath(pathname: string): boolean {

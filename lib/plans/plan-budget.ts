@@ -45,7 +45,7 @@ const defaultDeps: PlanBudgetDeps = {
  * - Entitlement or spend unreadable → blocked until it recovers. Never authorize on stale spend.
  * - Agent test account → the hidden `agent` plan with no resets. Background callers that pass
  *   only `ownerId` get the Clerk id looked up whenever agent accounts are configured, so an
- *   agent's background work cannot fall through to `free`; an unreadable id blocks.
+ *   agent's background work cannot fall through to `free`; a missing or unreadable id blocks.
  */
 export async function getPlanBudgetForUser(
   args: { clerkUserId?: string; ownerId: string; now?: Date },
@@ -57,7 +57,11 @@ export async function getPlanBudgetForUser(
 
   try {
     if (!clerkUserId && hasAgentAccounts(deps.agentEnvRaw)) {
-      clerkUserId = (await deps.clerkUserIdForProfile(args.ownerId)) ?? "";
+      const found = await deps.clerkUserIdForProfile(args.ownerId);
+
+      // No identity means the plan can't be resolved: block rather than fall back to free.
+      if (!found) throw new Error("No Clerk id for profile");
+      clerkUserId = found;
     }
     read = await deps.readEntitlement(args.ownerId);
   } catch {

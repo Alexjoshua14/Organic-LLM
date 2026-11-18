@@ -12,8 +12,10 @@ import {
 /**
  * Whole-account throttle for agent test accounts, run by `proxy.ts` before any route. Every
  * matched request spends one token from each `agent.all.*` bucket; writes also spend one from
- * each `agent.write.*` bucket. Tokens are spent in parallel, so a denied request still counts:
- * an agent that keeps retrying stays blocked instead of slipping through at the window edge.
+ * each `agent.write.*` bucket. Buckets are checked one at a time, shortest window first, and
+ * the first full one refuses the request without consulting the rest, so an agent retrying
+ * against a closed bucket costs one Redis call per attempt. A refused request still spends a
+ * token from every bucket checked before the one that refused it.
  *
  * Fails closed: if Upstash errors or times out, the agent's request is refused. Other accounts
  * never reach this code.
@@ -73,50 +75,54 @@ export async function checkAgentAccountRequest(
     };
   }
 
-  const entries: RateLimitCatalogEntry[] = [
-    ...AGENT_ALL_RATE_LIMITS,
-    ...(isAgentWriteRequest(input.method) ? AGENT_WRITE_RATE_LIMITS : []),
-  ];
-  let results: AgentLimiterResult[];
+  const now = input.now ?? Date.now();
 
-  try {
-    results = await Promise.all(entries.map((entry) => limit(entry, input.clerkUserId)));
-  } catch (error) {
-    logger.error("checkAgentAccountRequest", "Agent throttle unavailable; refusing request", {
-      errorName: error instanceof Error ? error.name : typeof error,
+  for (const entry of bucketsFor(input.method)) {
+    let result: AgentLimiterResult;
+
+    try {
+      result = await limit(entry, input.clerkUserId);
+    } catch (error) {
+      logger.error("checkAgentAccountRequest", "Agent throttle unavailable; refusing request", {
+        errorName: error instanceof Error ? error.name : typeof error,
+      });
+
+      return unavailable();
+    }
+
+    if (result.reason === "timeout") {
+      logger.warn("checkAgentAccountRequest", "Agent throttle timed out; refusing request");
+
+      return unavailable();
+    }
+    if (result.success) continue;
+
+    logger.warn("checkAgentAccountRequest", "Agent account throttled", {
+      limiter: entry.id,
+      cap: entry.cap,
+      window: entry.window,
     });
 
-    return unavailable();
+    return {
+      ok: false,
+      status: 429,
+      code: "agent_rate_limit",
+      error: entry.error,
+      retryAfter: Math.max(1, Math.ceil((result.reset - now) / 1000)),
+    };
   }
 
-  if (results.some((result) => result.reason === "timeout")) {
-    logger.warn("checkAgentAccountRequest", "Agent throttle timed out; refusing request");
+  return { ok: true };
+}
 
-    return unavailable();
-  }
+/** Shortest window first: the bucket most likely to be full is checked before the others. */
+function bucketsFor(method: string): RateLimitCatalogEntry[] {
+  const [allMinute, allHour, allDay] = AGENT_ALL_RATE_LIMITS;
+  const [writeMinute, writeDay] = AGENT_WRITE_RATE_LIMITS;
 
-  const now = input.now ?? Date.now();
-  const denied = entries
-    .map((entry, index) => ({ entry, result: results[index]! }))
-    .filter(({ result }) => !result.success)
-    // Report the bucket that stays closed longest, so Retry-After is honest.
-    .sort((a, b) => b.result.reset - a.result.reset)[0];
-
-  if (!denied) return { ok: true };
-
-  logger.warn("checkAgentAccountRequest", "Agent account throttled", {
-    limiter: denied.entry.id,
-    cap: denied.entry.cap,
-    window: denied.entry.window,
-  });
-
-  return {
-    ok: false,
-    status: 429,
-    code: "agent_rate_limit",
-    error: denied.entry.error,
-    retryAfter: Math.max(1, Math.ceil((denied.result.reset - now) / 1000)),
-  };
+  return isAgentWriteRequest(method)
+    ? [allMinute, writeMinute, allHour, allDay, writeDay]
+    : [allMinute, allHour, allDay];
 }
 
 function unavailable(): AgentRequestDecision {
