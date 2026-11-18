@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import type { Editor } from "@tiptap/core";
-import type { SlashMatch } from "./editor-model";
+import type { SlashMatch } from "@/components/chat/core-input/editor/editor-model";
 
 import { createPortal } from "react-dom";
 import { memo, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
@@ -17,11 +17,11 @@ import {
   runEditorCommand,
   handleEditorCodeFenceEnter,
   handleEditorLineShortcut,
-} from "./editor-model";
-import { EditableCodeDelimiters, EditorCodeHighlight } from "./code-editing";
-import { ComposerCodeBlock } from "./code-block-editor";
-import { LumenSubmit } from "./lumen-submit";
-import { playReflow, snapshotReflow, wantsExpanded, type ReflowSnapshot } from "./composer-reflow";
+} from "@/components/chat/core-input/editor/editor-model";
+import { EditableCodeDelimiters, EditorCodeHighlight } from "@/components/chat/core-input/editor/code-editing";
+import { ComposerCodeBlock } from "@/components/chat/core-input/editor/code-block-editor";
+import { LumenSubmit } from "@/components/chat/core-input/editor/lumen-submit";
+import { playReflow, snapshotReflow, wantsExpanded, type ReflowSnapshot } from "@/components/chat/core-input/editor/composer-reflow";
 
 import { useSubmitOnEnter } from "@/hooks/use-mobile";
 import { Button } from "@/components/third-party/ui/button";

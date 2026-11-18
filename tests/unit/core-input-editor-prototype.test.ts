@@ -10,13 +10,13 @@ import {
   findEditorSlash,
   matchingEditorCommands,
   runEditorCommand,
-} from "@/app/sandbox/prototypes/core-input/_components/editor-prototype/editor-model";
+} from "@/components/chat/core-input/editor/editor-model";
 
-import { ComposerCodeBlock } from "@/app/sandbox/prototypes/core-input/_components/editor-prototype/code-block-editor";
+import { ComposerCodeBlock } from "@/components/chat/core-input/editor/code-block-editor";
 import {
   EditableCodeDelimiters,
   EditorCodeHighlight,
-} from "@/app/sandbox/prototypes/core-input/_components/editor-prototype/code-editing";
+} from "@/components/chat/core-input/editor/code-editing";
 
 const editors: Editor[] = [];
 

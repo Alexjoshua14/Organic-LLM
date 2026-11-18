@@ -1,15 +1,15 @@
-.core-editor-prototype {
+.organic-composer {
   --editor-feedback-ms: 120ms;
   --editor-enter-ms: 180ms;
 }
 
-.core-editor-prototype .editor-shell {
+.organic-composer .editor-shell {
   transition:
     border-color var(--editor-feedback-ms),
     box-shadow var(--editor-feedback-ms);
 }
 
-.core-editor-prototype .editor-surface {
+.organic-composer .editor-surface {
   min-height: 3rem;
   max-height: min(40dvh, 24rem);
   overflow-y: auto;
@@ -20,60 +20,60 @@
   white-space: pre-wrap;
 }
 
-.core-editor-prototype .editor-surface > * + * {
+.organic-composer .editor-surface > * + * {
   margin-top: var(--spacing-stack-sm);
 }
-.core-editor-prototype .editor-surface p {
+.organic-composer .editor-surface p {
   margin-bottom: 0;
 }
-.core-editor-prototype .editor-surface :is(h1, h2, h3, h4, h5, h6) {
+.organic-composer .editor-surface :is(h1, h2, h3, h4, h5, h6) {
   font-weight: 600;
   line-height: 1.25;
 }
 /* A short scale so # and ## and ### read as different levels inside a small composer. */
-.core-editor-prototype .editor-surface h1 {
+.organic-composer .editor-surface h1 {
   font-size: 1.6em;
 }
-.core-editor-prototype .editor-surface h2 {
+.organic-composer .editor-surface h2 {
   font-size: 1.35em;
 }
-.core-editor-prototype .editor-surface h3 {
+.organic-composer .editor-surface h3 {
   font-size: 1.15em;
 }
-.core-editor-prototype .editor-surface :is(h4, h5, h6) {
+.organic-composer .editor-surface :is(h4, h5, h6) {
   font-size: 1em;
 }
-.core-editor-prototype .editor-surface ul {
+.organic-composer .editor-surface ul {
   list-style: disc;
   padding-left: 1.5em;
 }
-.core-editor-prototype .editor-surface ol {
+.organic-composer .editor-surface ol {
   list-style: decimal;
   padding-left: 1.5em;
 }
-.core-editor-prototype .editor-surface blockquote {
+.organic-composer .editor-surface blockquote {
   border-left: 2px solid var(--border);
   padding-left: 1em;
   color: var(--muted-foreground);
 }
-.core-editor-prototype .editor-surface code {
+.organic-composer .editor-surface code {
   background: var(--muted);
   border-radius: 0.25rem;
   padding: 0.1em 0.25em;
   font-size: 0.9em;
 }
-.core-editor-prototype .editor-surface pre {
+.organic-composer .editor-surface pre {
   background: var(--muted);
   border-radius: 0.5rem;
   padding: var(--spacing-inset-sm);
   white-space: pre;
   overflow-x: auto;
 }
-.core-editor-prototype .editor-surface pre code {
+.organic-composer .editor-surface pre code {
   padding: 0;
   background: transparent;
 }
-.core-editor-prototype .editor-surface a {
+.organic-composer .editor-surface a {
   text-decoration: underline;
 }
 /*
@@ -82,10 +82,10 @@
  * composer (composer-reflow.ts) to get the full width; if it still cannot fit, it ends in an
  * ellipsis rather than being cut off.
  */
-.core-editor-prototype .editor-surface p.is-editor-empty:first-child {
+.organic-composer .editor-surface p.is-editor-empty:first-child {
   position: relative;
 }
-.core-editor-prototype .editor-surface p.is-editor-empty:first-child::before {
+.organic-composer .editor-surface p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   position: absolute;
   inset: 0 0 auto 0;
@@ -97,10 +97,10 @@
   animation: editor-hint-in var(--editor-enter-ms) ease-out;
 }
 
-.core-editor-prototype .editor-feedback {
+.organic-composer .editor-feedback {
   animation: editor-hint-in var(--editor-enter-ms) ease-out;
 }
-.core-editor-prototype .editor-voice-dot {
+.organic-composer .editor-voice-dot {
   animation: editor-voice-pulse 1.4s ease-in-out infinite;
 }
 @keyframes editor-hint-in {
@@ -120,25 +120,25 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .core-editor-prototype *,
-  .core-editor-prototype *::before {
+  .organic-composer *,
+  .organic-composer *::before {
     animation: none !important;
     transition: none !important;
   }
 }
 
 /* Inline code follows the shared code palette; active delimiters stay reversible UI. */
-.core-editor-prototype .editor-surface :not(pre) > code {
+.organic-composer .editor-surface :not(pre) > code {
   border: 1px solid var(--code-border);
   background: var(--code-muted);
   color: var(--code-foreground);
   font-family: var(--code-mono, ui-monospace, monospace);
   padding: 0.1em 0.65em;
 }
-.core-editor-prototype .editor-code-delimiter-anchor {
+.organic-composer .editor-code-delimiter-anchor {
   position: relative;
 }
-.core-editor-prototype .editor-code-delimiter {
+.organic-composer .editor-code-delimiter {
   position: absolute;
   top: 0;
   color: var(--code-muted-foreground);
@@ -148,16 +148,16 @@
   cursor: text;
   user-select: none;
 }
-.core-editor-prototype .editor-code-delimiter-open {
+.organic-composer .editor-code-delimiter-open {
   left: 0.1em;
 }
-.core-editor-prototype .editor-code-delimiter-close {
+.organic-composer .editor-code-delimiter-close {
   right: 0.1em;
 }
-.core-editor-prototype .editor-code-block {
+.organic-composer .editor-code-block {
   margin-block: var(--spacing-stack-sm);
 }
-.core-editor-prototype .editor-code-language {
+.organic-composer .editor-code-language {
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -166,13 +166,13 @@
   border-radius: 5px;
   cursor: pointer;
 }
-.core-editor-prototype .editor-code-language:hover {
+.organic-composer .editor-code-language:hover {
   color: var(--code-foreground);
 }
-.core-editor-prototype .editor-code-language:has(select:focus-visible) {
+.organic-composer .editor-code-language:has(select:focus-visible) {
   background: var(--code-muted);
 }
-.core-editor-prototype .editor-code-language-select {
+.organic-composer .editor-code-language-select {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -181,11 +181,11 @@
   cursor: pointer;
   font: inherit;
 }
-.core-editor-prototype .editor-code-actions button {
+.organic-composer .editor-code-actions button {
   min-inline-size: 28px;
   justify-content: center;
 }
-.core-editor-prototype .editor-code-actions button > span {
+.organic-composer .editor-code-actions button > span {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -195,20 +195,20 @@
   white-space: nowrap;
 }
 @media (pointer: coarse) {
-  .core-editor-prototype .editor-code-language,
-  .core-editor-prototype .editor-code-actions button {
+  .organic-composer .editor-code-language,
+  .organic-composer .editor-code-actions button {
     min-height: 44px;
   }
-  .core-editor-prototype .editor-code-actions button {
+  .organic-composer .editor-code-actions button {
     min-inline-size: 44px;
   }
 }
 @media (forced-colors: active) {
-  .core-editor-prototype .editor-code-language:has(select:focus-visible) {
+  .organic-composer .editor-code-language:has(select:focus-visible) {
     outline: 2px solid Highlight;
   }
 }
-.core-editor-prototype .editor-surface pre.editor-code-body {
+.organic-composer .editor-surface pre.editor-code-body {
   background: transparent;
   padding: var(--spacing-inset-md);
   margin: 0;
@@ -218,36 +218,36 @@
   tab-size: 4;
   white-space: pre;
 }
-.core-editor-prototype .editor-surface pre.editor-code-body code {
+.organic-composer .editor-surface pre.editor-code-body code {
   font: inherit;
   white-space: inherit;
 }
-.core-editor-prototype [data-wrap="true"] pre.editor-code-body {
+.organic-composer [data-wrap="true"] pre.editor-code-body {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-.core-editor-prototype .editor-surface {
+.organic-composer .editor-surface {
   padding-block: var(--spacing-inset-sm);
 }
 
-.core-editor-prototype .editor-shell {
+.organic-composer .editor-shell {
   container-type: inline-size;
 }
-.core-editor-prototype .editor-footer {
+.organic-composer .editor-footer {
   position: relative;
 }
 @container (max-width: 600px) {
-  .core-editor-prototype .editor-control-label {
+  .organic-composer .editor-control-label {
     display: none;
   }
 }
 
 /* Editing uses the caret; avoid treating the typing surface like a focused button. */
-.core-editor-prototype .editor-text-focus:focus-visible {
+.organic-composer .editor-text-focus:focus-visible {
   outline: none;
 }
 @media (forced-colors: active) {
-  .core-editor-prototype .editor-text-focus:focus-visible {
+  .organic-composer .editor-text-focus:focus-visible {
     outline: 2px solid Highlight;
     outline-offset: -2px;
     box-shadow: none;
@@ -255,34 +255,34 @@
 }
 
 /* Reuse the composer's rim behind the entire glass shell, visible only while focused. */
-.core-editor-prototype .editor-focus-lumen:not(:focus-within) .home-composer-lumen-rim {
+.organic-composer .editor-focus-lumen:not(:focus-within) .home-composer-lumen-rim {
   opacity: 0;
 }
 
-.core-editor-prototype .editor-focus-lumen .home-composer-lumen-rim {
+.organic-composer .editor-focus-lumen .home-composer-lumen-rim {
   animation: none;
 }
 
 /* Light mode has a shadow instead of a rim; it follows the same rule: only while focused. */
 :root:not(.dark)
-  .core-editor-prototype
+  .organic-composer
   .editor-focus-lumen:not(:focus-within)
   .home-composer-lumen-stage:has(> .home-composer-lumen-rim) {
   box-shadow: none;
 }
 
-.core-editor-prototype .editor-literal-backticks,
-.core-editor-prototype textarea.editor-surface {
+.organic-composer .editor-literal-backticks,
+.organic-composer textarea.editor-surface {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 /* Embedded code borrows CoreInput's glass instead of adding another framed well. */
-.core-editor-prototype .editor-code-block [data-embedded] {
+.organic-composer .editor-code-block [data-embedded] {
   border-color: transparent;
   border-radius: 0;
   background: transparent;
 }
-.core-editor-prototype .editor-code-header {
+.organic-composer .editor-code-header {
   background: transparent;
   border-bottom-color: color-mix(in oklab, var(--foreground) 8%, transparent);
 }
@@ -293,7 +293,7 @@
  * layouts so a growing editor never moves them before the stack settles; the glide between the
  * two layouts is scripted in composer-reflow.ts.
  */
-.core-editor-prototype .editor-row {
+.organic-composer .editor-row {
   display: grid;
   align-items: start;
   column-gap: var(--spacing-inline-sm);
@@ -304,45 +304,45 @@
  * Each action centers in a band one line tall (`min-h-11` in the markup, the 44px target), so the
  * icons and the text share a center line whatever size the button inside happens to be.
  */
-.core-editor-prototype :is(.editor-lead, .editor-trail, .editor-send) {
+.organic-composer :is(.editor-lead, .editor-trail, .editor-send) {
   display: flex;
   align-items: center;
 }
-.core-editor-prototype .editor-lead {
+.organic-composer .editor-lead {
   grid-area: lead;
   margin: var(--spacing-inset-sm) 0 var(--spacing-inset-sm) var(--spacing-inset-sm);
 }
-.core-editor-prototype .editor-area {
+.organic-composer .editor-area {
   grid-area: area;
   min-width: 0;
   margin-block: var(--spacing-inset-sm);
 }
-.core-editor-prototype .editor-trail {
+.organic-composer .editor-trail {
   grid-area: trail;
   margin-block: var(--spacing-inset-sm);
 }
-.core-editor-prototype .editor-send {
+.organic-composer .editor-send {
   grid-area: send;
   margin: var(--spacing-inset-sm) var(--spacing-inset-sm) var(--spacing-inset-sm) 0;
 }
 /* One line: the area (min-h-11) centers the text; the surface adds only inline padding. */
-.core-editor-prototype .editor-row[data-expanded="false"] .editor-area {
+.organic-composer .editor-row[data-expanded="false"] .editor-area {
   display: flex;
   flex-direction: column;
   justify-content: center;
 }
-.core-editor-prototype .editor-row[data-expanded="false"] .editor-surface {
+.organic-composer .editor-row[data-expanded="false"] .editor-surface {
   min-height: 0;
   padding-block: 0;
   padding-inline: var(--spacing-inset-sm);
 }
-.core-editor-prototype .editor-row[data-expanded="true"] {
+.organic-composer .editor-row[data-expanded="true"] {
   grid-template-columns: auto auto minmax(0, 1fr) auto;
   grid-template-areas:
     "area area area area"
     "lead trail . send";
 }
-.core-editor-prototype .editor-row[data-expanded="true"] .editor-area {
+.organic-composer .editor-row[data-expanded="true"] .editor-area {
   margin-block: 0;
 }
 
@@ -350,14 +350,14 @@
  * On one line the actions sit closer together: the gap between them and before the text drops from
  * `inline-sm` to `inline-xs`. Each button keeps its own hit area.
  */
-.core-editor-prototype .editor-row[data-expanded="false"] {
+.organic-composer .editor-row[data-expanded="false"] {
   column-gap: var(--spacing-inline-xs);
 }
-.core-editor-prototype .editor-row[data-expanded="false"] .editor-trail > * {
+.organic-composer .editor-row[data-expanded="false"] .editor-trail > * {
   gap: var(--spacing-inline-xs);
 }
 
 /* Resolves the one-line text padding token to pixels for the fit measurement; never shown. */
-.core-editor-prototype .editor-pad-probe {
+.organic-composer .editor-pad-probe {
   padding-inline: var(--spacing-inset-sm);
 }

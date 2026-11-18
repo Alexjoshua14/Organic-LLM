@@ -5,9 +5,9 @@ import { Mic, X } from "lucide-react";
 
 import { LabPanel, PanelSection, SegmentedRow } from "../lab-panel";
 
-import { EDITOR_FIXTURES } from "./editor-model";
+import { EDITOR_FIXTURES } from "@/components/chat/core-input/editor/editor-model";
 import { RichComposer } from "./rich-composer";
-import "./editor-prototype.css";
+import "@/components/chat/core-input/editor/composer-editor.css";
 
 import {
   CoreInputControlsProvider,
@@ -157,7 +157,7 @@ function EditorStageBody() {
 
   return (
     <CoreInputControlsProvider value={controls}>
-      <div className="core-editor-prototype grid min-w-0 gap-stack-2xl lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-start">
+      <div className="organic-composer grid min-w-0 gap-stack-2xl lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-start">
         <section aria-label="Editor prototype stage" className="min-w-0">
           <div className="mb-stack-lg flex flex-wrap items-center justify-between gap-inline-sm text-xs text-muted-foreground">
             <span>Editor prototype</span>
