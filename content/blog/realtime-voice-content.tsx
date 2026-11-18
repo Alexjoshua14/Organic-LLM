@@ -3,36 +3,9 @@ import Link from "next/link";
 import { BlogCode } from "@/components/blog/blog-code";
 import { BlogFigure } from "@/components/blog/blog-figure";
 import { BlogSection } from "@/components/blog/blog-section";
-import { MermaidDiagram } from "@/components/blog/mermaid-diagram";
 import { MessageFlowStepper, type FlowStep } from "@/components/blog/message-flow-stepper";
+import { VoiceLayersFigure } from "@/components/blog/voice-layers-figure";
 import { VoiceRibbonDemo } from "@/components/blog/voice-ribbon-demo";
-
-/** Who does what. The browser and our server are ours; the speech model is OpenAI's. */
-const ARCHITECTURE_MERMAID = `flowchart TD
-  subgraph browser ["Your browser (ours)"]
-    provider["Voice session, kept alive across pages"]
-    transport["Transport seam"]
-    classifier["Event classifier"]
-    visuals["Live bar and stage"]
-  end
-
-  subgraph server ["Organic LLM server (ours)"]
-    mint["Session mint: instructions, tools, voice"]
-    tools["Tool execution"]
-    store["Threads, transcripts, memory"]
-  end
-
-  subgraph openai ["OpenAI Realtime API (theirs)"]
-    model["Speech in, speech out, turn taking"]
-  end
-
-  provider --> mint
-  mint -->|"short-lived client secret"| provider
-  transport <-->|"WebRTC audio and events"| model
-  classifier --> tools
-  tools --> store
-  classifier --> visuals
-`;
 
 const STEPS: readonly FlowStep[] = [
   {
@@ -195,9 +168,7 @@ export function RealtimeVoiceContent() {
         </p>
       </BlogSection>
 
-      <BlogFigure caption="The three layers and who owns each.">
-        <MermaidDiagram code={ARCHITECTURE_MERMAID} interactive />
-      </BlogFigure>
+      <VoiceLayersFigure />
 
       <BlogFigure>
         <div className="overflow-hidden rounded-xl border border-border bg-secondary/40">
