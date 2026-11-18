@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { routeStageDemo } from "@/lib/stage/demo/router";
 import { STAGE_DEMO_SCENES } from "@/lib/stage/demo/scenes";
-import { isAdminUser } from "@/data/supabase/profiles";
+import { canSeeLabs } from "@/lib/admin/lab-access";
 
 const Body = z
   .object({
@@ -17,7 +17,7 @@ const Body = z
 export async function POST(req: Request) {
   const { userId } = await auth();
 
-  if (!userId || !(await isAdminUser(userId)))
+  if (!userId || !(await canSeeLabs(userId)))
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = Body.safeParse(await req.json().catch(() => null));
 

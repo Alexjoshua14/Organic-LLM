@@ -9,6 +9,7 @@ import {
   formatResetCountdown,
 } from "@/lib/plans/budget-cycle";
 import { getPlanBudgetForUser, type PlanBudgetDeps } from "@/lib/plans/plan-budget";
+import { isPlanId, resolvePlan } from "@/lib/plans/plan-tags";
 
 const ANCHOR = new Date("2026-10-01T09:30:00.000Z");
 const NOW = new Date("2026-10-10T12:00:00.000Z");
@@ -67,9 +68,85 @@ function deps(overrides: Partial<PlanBudgetDeps> = {}) {
       },
     })),
     sumCost: mock<PlanBudgetDeps["sumCost"]>(async () => ({ status: "ok", usd: 4 })),
+    clerkUserIdForProfile: mock<PlanBudgetDeps["clerkUserIdForProfile"]>(async () => null),
+    // Explicit, so a developer's own allowlist in .env.local never changes these tests.
+    agentEnvRaw: "",
     ...overrides,
   };
 }
+
+describe("agent test plan", () => {
+  test("an allowlisted account is on the hidden agent plan: $0.50 a week, no resets", async () => {
+    const d = deps({ agentEnvRaw: "user_agent" });
+    const budget = await getPlanBudgetForUser(
+      { clerkUserId: "user_agent", ownerId: "o1", now: NOW },
+      d
+    );
+
+    expect(budget.plan).toBe("agent");
+    expect(budget.source).toBe("override");
+    expect(budget.capUsd).toBe(0.5);
+    // The stored row says pro with 25 resets; the agent plan ignores both.
+    expect(budget.resetsRemaining).toBe(0);
+    expect(budget.canDispatch).toBe(false);
+    expect(budget.holdReason).toContain("($0.50)");
+  });
+
+  test("background work without a Clerk id is still resolved to the agent plan", async () => {
+    const clerkUserIdForProfile = mock(async () => "user_agent");
+    const budget = await getPlanBudgetForUser(
+      { ownerId: "o1", now: NOW },
+      deps({
+        agentEnvRaw: "user_agent",
+        clerkUserIdForProfile,
+        sumCost: async () => ({ status: "ok", usd: 0.1 }),
+      })
+    );
+
+    expect(clerkUserIdForProfile).toHaveBeenCalledWith("o1");
+    expect(budget.plan).toBe("agent");
+    expect(budget.canDispatch).toBe(true);
+    expect(budget.remainingUsd).toBeCloseTo(0.4);
+  });
+
+  test("an unreadable identity blocks while agent accounts are configured", async () => {
+    const budget = await getPlanBudgetForUser(
+      { ownerId: "o1", now: NOW },
+      deps({
+        agentEnvRaw: "user_agent",
+        clerkUserIdForProfile: async () => {
+          throw new Error("down");
+        },
+      })
+    );
+
+    expect(budget.status).toBe("unavailable");
+    expect(budget.canDispatch).toBe(false);
+  });
+
+  test("no identity lookup when no agent account is configured", async () => {
+    const d = deps();
+
+    await getPlanBudgetForUser({ ownerId: "o1", now: NOW }, d);
+    expect(d.clerkUserIdForProfile).not.toHaveBeenCalled();
+  });
+
+  test("the agent list beats the max break-glass list", () => {
+    expect(
+      resolvePlan({
+        clerkUserId: "user_x",
+        storedPlan: "max",
+        envRaw: "user_x",
+        agentEnvRaw: "user_x",
+      })
+    ).toBe("agent");
+    expect(
+      resolvePlan({ clerkUserId: "user_x", storedPlan: "pro", envRaw: "", agentEnvRaw: "" })
+    ).toBe("pro");
+    // Not storable: an entitlement row can never claim the agent plan by itself.
+    expect(isPlanId("agent")).toBe(false);
+  });
+});
 
 describe("plan budget gate", () => {
   test("the verified plan, its weekly cap, and resets left decide", async () => {

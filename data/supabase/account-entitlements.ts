@@ -74,6 +74,28 @@ export async function readAccountEntitlement(profileId: string): Promise<Entitle
   };
 }
 
+/**
+ * The Clerk id for a profile, for plan checks that only know the profile id (background LLM
+ * work). Null when there is no such profile; throws when it cannot be read, so the caller can
+ * fail closed.
+ */
+export async function readClerkUserIdForProfile(profileId: string): Promise<string | null> {
+  const { data, error } = await supabaseAdmin
+    .from("profiles")
+    .select("clerk_user_id")
+    .eq("id", profileId)
+    .maybeSingle();
+
+  if (error) {
+    logger.warn("readClerkUserIdForProfile", error.message);
+    throw new Error("Unable to read profile identity.");
+  }
+
+  return typeof data?.clerk_user_id === "string" && data.clerk_user_id
+    ? data.clerk_user_id
+    : null;
+}
+
 export type ConsumeResetResult =
   | { status: "ok"; resetsRemaining: number; cycleAnchor: Date }
   | { status: "conflict" }

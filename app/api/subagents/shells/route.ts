@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { createHardSetShellThread } from "@/data/supabase/subagent-shells";
-import { isAdminUser } from "@/lib/admin/read-admin-profile";
+import { canSeeLabs } from "@/lib/admin/lab-access";
 import { getHardSetSubagent } from "@/lib/llm/subagents/hard-set/registry";
 
 export const maxDuration = 15;
@@ -13,13 +13,13 @@ const BodySchema = z.object({ agentId: z.string().min(1).max(128) });
 
 /**
  * POST /api/subagents/shells — open a new shell thread for one hard-set subagent (Subagent lab).
- * Admin only: these are subagents in development.
+ * Admins and agent test accounts only: these are subagents in development.
  */
 export async function POST(req: Request) {
   const clerkUser = await auth();
 
   if (!clerkUser?.userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!(await isAdminUser(clerkUser.userId))) {
+  if (!(await canSeeLabs(clerkUser.userId))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

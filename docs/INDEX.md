@@ -5,6 +5,7 @@
 - **[Product hub](./hub/README.md)** — product canon: ownership, maintenance protocol, surface adapters. Read before product or feature-spec work.
 - [Contributing](../CONTRIBUTING.md) — setup, code boundaries, pull requests
 - [Thread & session architecture](./thread-session-architecture.md) — persistence, encryption, sidebar contract
+- [Agent test account](./agent-test-account.md) — coding agents' limited sign-in: hidden plan, throttle, session reuse
 - [Multi-mode message send queue](./message-send-queue.md) — composer enqueue + server dispatch + plan budget
 - [Usage ledger and entitlements](./architecture/decisions/20261010-usage-ledger-and-entitlements.md) — weekly authorization, immutable spending history, resets, and admin corrections
 - [Context building](./architecture/context-building.md) — how chat context is assembled before `streamText`

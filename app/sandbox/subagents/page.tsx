@@ -7,7 +7,7 @@ import { OpenShellButton } from "./open-shell-button";
 import { glass } from "@/components/design-system/primitives";
 import Page from "@/components/layout/page";
 import { PageContentFrame } from "@/components/layout/page-content-frame";
-import { isAdminUser } from "@/lib/admin/read-admin-profile";
+import { canSeeLabs } from "@/lib/admin/lab-access";
 import { HARD_SET_SUBAGENTS } from "@/lib/llm/subagents/hard-set/registry";
 import { cn } from "@/lib/utils";
 
@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 export default async function SubagentLabPage() {
   const { userId } = await auth();
 
-  if (!userId || !(await isAdminUser(userId))) notFound();
+  if (!userId || !(await canSeeLabs(userId))) notFound();
 
   return (
     <Page className="items-stretch justify-start overflow-hidden">

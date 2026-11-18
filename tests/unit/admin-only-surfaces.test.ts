@@ -29,7 +29,7 @@ const { default: AdminOnlyLayout } = await import("@/lib/admin/admin-only-layout
 
 // Finished surfaces that invited (non-admin) accounts may open under /sandbox.
 const OPEN_SANDBOX_SURFACES = new Set(["arcadia"]);
-const GATE = /admin-only-layout|requireAdmin\(\)/;
+const GATE = /admin-only-layout|requireAdmin\(\)|requireLabAccess\(\)/;
 
 describe("admin-only surfaces", () => {
   test("the layout 404s for everyone but admins", async () => {

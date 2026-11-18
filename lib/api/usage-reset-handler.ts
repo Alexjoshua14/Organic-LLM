@@ -53,6 +53,9 @@ export function createUsageResetHandler(deps: ResetDeps) {
 
     if (before.status === "unavailable")
       return json({ error: "Usage is unavailable. No reset was spent." }, { status: 503 });
+    // The agent test plan has no resets, whatever credits its entitlement row still holds.
+    if (before.plan === "agent")
+      return json({ error: "Resets are not available on this plan." }, { status: 403 });
     const result = await deps.consumeUsageReset(ownerId, parsed.data.resetVersion);
 
     if (result.status === "conflict") {
