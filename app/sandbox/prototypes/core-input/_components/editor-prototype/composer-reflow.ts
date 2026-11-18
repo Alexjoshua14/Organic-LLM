@@ -14,6 +14,13 @@ export const COMPOSER_COLLAPSE_MS = 170;
 export const COMPOSER_REFLOW_EASING = "cubic-bezier(0.32, 0.72, 0, 1)";
 /** Each action starts this much after the one before it, so they trail rather than move as a block. */
 export const COMPOSER_REFLOW_STAGGER_MS = 24;
+/** The text fades up from this opacity as it settles, softening its instant re-wrap. */
+export const COMPOSER_REFLOW_AREA_FADE_FROM = 0.4;
+/**
+ * The actions are fully faded at this share of their path left to travel (offset 1 − this), so
+ * they never visibly slide across the text, then fade back in as they land.
+ */
+export const COMPOSER_REFLOW_DIP_AT = 0.6;
 /** Back to one line only once the text clears the narrow width by this much, so it cannot flap. */
 export const COMPOSER_FIT_SLACK_PX = 16;
 
@@ -57,14 +64,40 @@ export function playReflow(row: HTMLElement, from: ReflowSnapshot, expanding: bo
     const dy = before.y - (rect.top - origin.top);
 
     if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) continue;
-    item.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }], {
+    const timing: KeyframeAnimationOptions = {
       duration,
       delay:
         Math.max(0, order.indexOf(key as (typeof REFLOW_ORDER)[number])) *
         COMPOSER_REFLOW_STAGGER_MS,
       easing: COMPOSER_REFLOW_EASING,
       fill: "backwards",
-    });
+    };
+
+    if (key === "area") {
+      // The text re-wraps to its new width at once, so sliding it sideways would drag
+      // full-width text under the buttons. It only settles vertically, fading up as it lands.
+      item.animate(
+        [
+          { transform: `translateY(${dy}px)`, opacity: COMPOSER_REFLOW_AREA_FADE_FROM },
+          { transform: "none", opacity: 1 },
+        ],
+        timing
+      );
+      continue;
+    }
+    // The actions cross over the text on their way, so they dip out and land back in.
+    item.animate(
+      [
+        { transform: `translate(${dx}px, ${dy}px)`, opacity: 1 },
+        {
+          transform: `translate(${dx * COMPOSER_REFLOW_DIP_AT}px, ${dy * COMPOSER_REFLOW_DIP_AT}px)`,
+          opacity: 0,
+          offset: 1 - COMPOSER_REFLOW_DIP_AT,
+        },
+        { transform: "none", opacity: 1 },
+      ],
+      timing
+    );
   }
   // The shell follows the row, so tweening its height grows the whole composer instead of snapping.
   if (Math.abs(from.height - origin.height) >= 0.5) {
