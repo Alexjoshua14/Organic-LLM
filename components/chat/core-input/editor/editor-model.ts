@@ -14,14 +14,24 @@ export const EDITOR_FIXTURES = {
   ).join("\n\n"),
 } as const;
 
+/** Markdown formatting the editor applies in place. */
 export const EDITOR_COMMANDS = [
-  { id: "code", label: "Code block", hint: "Write a snippet" },
-  { id: "list", label: "Bullet list", hint: "Break a thought into parts" },
-  { id: "quote", label: "Quote", hint: "Bring in a passage" },
-  { id: "heading", label: "Heading", hint: "Give a thought a title" },
+  { kind: "markdown", id: "code", label: "Code block", hint: "Write a snippet" },
+  { kind: "markdown", id: "list", label: "Bullet list", hint: "Break a thought into parts" },
+  { kind: "markdown", id: "numbered", label: "Numbered list", hint: "Put steps in order" },
+  { kind: "markdown", id: "quote", label: "Quote", hint: "Bring in a passage" },
+  { kind: "markdown", id: "heading", label: "Heading", hint: "Give a thought a title" },
+  { kind: "markdown", id: "subheading", label: "Subheading", hint: "A smaller title" },
+  { kind: "markdown", id: "divider", label: "Divider", hint: "Separate two thoughts" },
 ] as const;
 
-export type EditorCommand = (typeof EDITOR_COMMANDS)[number];
+export type MarkdownCommand = (typeof EDITOR_COMMANDS)[number];
+/**
+ * A command CoreInput runs instead of sending (`/btw`). Choosing it writes `/name ` so the rest
+ * of the draft becomes its argument; sending runs it.
+ */
+export type AppCommand = { kind: "app"; id: string; label: string; hint: string };
+export type EditorCommand = MarkdownCommand | AppCommand;
 /** `split`: the line follows a Shift+Enter break, so `from` includes it and running splits the block. */
 export type SlashMatch = { from: number; to: number; query: string; split?: boolean };
 
@@ -62,11 +72,33 @@ export function findEditorSlash(editor: Editor): SlashMatch | null {
   return { from: line.from, to: $from.pos, query: match[1].toLowerCase(), split: line.split };
 }
 
-export function matchingEditorCommands(query: string) {
-  return EDITOR_COMMANDS.filter((command) => command.id.startsWith(query));
+/** A command only runs when the draft starts with it, so it is offered only on the first line. */
+function startsDraft(match: SlashMatch) {
+  return !match.split && match.from <= 1;
+}
+
+/**
+ * The commands for a slash query: CoreInput's commands first (only at the start of the draft),
+ * then Markdown formatting.
+ */
+export function matchingEditorCommands(
+  query: string,
+  appCommands: readonly AppCommand[] = [],
+  match?: SlashMatch | null
+): EditorCommand[] {
+  const apps = !match || startsDraft(match) ? appCommands : [];
+
+  return [...apps, ...EDITOR_COMMANDS].filter((command) => command.id.startsWith(query));
 }
 
 export function runEditorCommand(editor: Editor, match: SlashMatch, command: EditorCommand) {
+  if (command.kind === "app") {
+    return editor
+      .chain()
+      .focus()
+      .insertContentAt({ from: match.from, to: match.to }, `/${command.id} `)
+      .run();
+  }
   let chain = editor.chain().focus().deleteRange({ from: match.from, to: match.to });
 
   if (match.split) chain = chain.splitBlock();
@@ -76,10 +108,16 @@ export function runEditorCommand(editor: Editor, match: SlashMatch, command: Edi
       return chain.setCodeBlock().run();
     case "list":
       return chain.toggleBulletList().run();
+    case "numbered":
+      return chain.toggleOrderedList().run();
     case "quote":
       return chain.setBlockquote().run();
     case "heading":
       return chain.setHeading({ level: 2 }).run();
+    case "subheading":
+      return chain.setHeading({ level: 3 }).run();
+    case "divider":
+      return chain.setHorizontalRule().run();
   }
 }
 

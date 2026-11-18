@@ -286,6 +286,38 @@ test.describe("phone (touch)", () => {
     expect(await focusedOnDraft(page)).toBe(false);
   });
 
+  test("leaving the app and coming back returns focus to the draft", async ({ page }) => {
+    await page.locator('[data-row] [role="textbox"]').click();
+    await page.keyboard.type("Half a thought");
+    // Switching apps: the page hides and the editor loses focus; then the page returns.
+    const setVisibility = (state: "hidden" | "visible") =>
+      page.evaluate((value) => {
+        Object.defineProperty(document, "visibilityState", { value, configurable: true });
+        document.dispatchEvent(new Event("visibilitychange"));
+        if (value === "hidden") (document.activeElement as HTMLElement | null)?.blur();
+      }, state);
+
+    await setVisibility("hidden");
+    expect(await focusedOnDraft(page)).toBe(false);
+    await setVisibility("visible");
+    await frames(page);
+    expect(await focusedOnDraft(page)).toBe(true);
+    // The caret is back where it was: typing continues the draft.
+    await page.keyboard.type("!");
+    await expect(page.locator('[data-row] [role="textbox"]')).toHaveText("Half a thought!");
+  });
+
+  test("a draft that was not focused stays unfocused when the app returns", async ({ page }) => {
+    await page.evaluate(() => {
+      Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+      Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await frames(page);
+    expect(await focusedOnDraft(page)).toBe(false);
+  });
+
   test("the settings panel centres over the composer on xs screens", async ({ page }) => {
     await page.locator('[aria-label="Composer options"]').tap();
     const panel = page.locator(".core-input-options-panel");
@@ -334,6 +366,70 @@ test.describe("phone keyboard composition (Chromium)", () => {
 
 test.describe("desktop (mouse)", () => {
   test.use({ viewport: { width: 1280, height: 800 } });
+
+  test("scrolling over CoreInput and its slash menu never scrolls the page", async ({ page }) => {
+    // Room above for the menu, and a page that can scroll both ways.
+    await page.evaluate(() => {
+      document.body.style.paddingTop = "600px";
+      document.body.style.minHeight = "300vh";
+      window.scrollTo(0, 300);
+    });
+    await page.locator('[data-row] [role="textbox"]').click();
+    await page.keyboard.type("/");
+    const menu = page.locator('[role="listbox"][aria-label="Slash commands"]');
+
+    await expect(menu).toBeVisible();
+    await expect(menu.getByRole("group")).toHaveCount(2);
+    await expect(menu.getByRole("group").first()).toContainText("Commands");
+    await expect(menu.getByRole("group").last()).toContainText("Markdown");
+    const scrollY = () => page.evaluate(() => window.scrollY);
+    const before = await scrollY();
+    const box = (await menu.boundingBox())!;
+
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    // Down past the menu's end, then up past its start: the menu scrolls, the page never does.
+    for (let i = 0; i < 6; i += 1) await page.mouse.wheel(0, 200);
+    await frames(page);
+    expect(await menu.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+    expect(await scrollY()).toBe(before);
+    for (let i = 0; i < 6; i += 1) await page.mouse.wheel(0, -200);
+    await frames(page);
+    expect(await menu.evaluate((el) => el.scrollTop)).toBe(0);
+    expect(await scrollY()).toBe(before);
+    // Over the composer itself (a short draft that does not scroll), the page stays put too.
+    await page.keyboard.press("Escape");
+    const row = (await page.locator("[data-row]").boundingBox())!;
+
+    await page.mouse.move(row.x + row.width / 2, row.y + row.height / 2);
+    await page.mouse.wheel(0, 300);
+    await page.mouse.wheel(0, -300);
+    await frames(page);
+    expect(await scrollY()).toBe(before);
+  });
+
+  test("arrow keys keep the active slash command in view inside the menu", async ({ page }) => {
+    await page.evaluate(() => {
+      document.body.style.paddingTop = "600px";
+    });
+    await page.locator('[data-row] [role="textbox"]').click();
+    await page.keyboard.type("/");
+    const menu = page.locator('[role="listbox"][aria-label="Slash commands"]');
+
+    await expect(menu).toBeVisible();
+    const scrollY = await page.evaluate(() => window.scrollY);
+
+    for (let i = 0; i < 7; i += 1) await page.keyboard.press("ArrowDown");
+    await frames(page);
+    const inView = await menu.evaluate((el) => {
+      const option = el.querySelector('[aria-selected="true"]')!.getBoundingClientRect();
+      const box = el.getBoundingClientRect();
+
+      return option.top >= box.top - 1 && option.bottom <= box.bottom + 1;
+    });
+
+    expect(inView).toBe(true);
+    expect(await page.evaluate(() => window.scrollY)).toBe(scrollY);
+  });
 
   test("the settings panel keeps to the composer's left edge from sm up", async ({ page }) => {
     await page.locator('[aria-label="Composer options"]').click();

@@ -58,6 +58,14 @@
   padding-left: var(--spacing-inset-lg);
   color: var(--muted-foreground);
 }
+.organic-composer .editor-surface hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin-block: var(--spacing-stack-sm);
+}
+.organic-composer .editor-surface hr.ProseMirror-selectednode {
+  border-top-color: var(--muted-foreground);
+}
 .organic-composer .editor-surface code {
   background: var(--muted);
   border-radius: var(--radius-sm);

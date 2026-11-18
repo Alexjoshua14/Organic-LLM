@@ -54,6 +54,7 @@ import { CoreInputSteerTab, CoreInputStrip } from "./steer-tab";
 import { ComposerAddFilesButton } from "./controls/add-files-button";
 import { ComposerEditor, focusDraftFromShell } from "./editor/composer-editor";
 import { LumenSubmit } from "./editor/lumen-submit";
+import { useContainedScroll } from "./editor/contained-scroll";
 import { useComposerReflow } from "./editor/use-composer-reflow";
 import {
   COMPACT_ROW_BAND,
@@ -97,7 +98,7 @@ import { writeSettingsCookie } from "@/lib/core-input/settings-cookie";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { coreInputSnapshots } from "@/lib/core-input/snapshot-store";
 import { coreInputSnapshotSync } from "@/lib/core-input/snapshot-sync";
-import { parseSlashCommand } from "@/lib/chat/slash-command";
+import { parseSlashCommand, SLASH_COMMAND_DETAILS } from "@/lib/chat/slash-command";
 import { useContextEffortSettings } from "@/hooks/use-context-effort-settings";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { deleteEmptyChat } from "@/data/supabase/chat";
@@ -830,6 +831,22 @@ export const CoreInput: React.FC<CoreInputProps> = ({
         statusRef.current === "streaming" ||
         (pendingSendRef.current !== null && pendingSendRef.current.threadId === chatId)));
 
+  // Scrolling over CoreInput (the draft, its padding, the settings panel) stays in CoreInput.
+  useContainedScroll(morphRootRef);
+
+  // The commands this surface runs, for the slash menu (Markdown formatting is always offered).
+  const menuCommands = useMemo(
+    () =>
+      Object.keys(slashCommands ?? {}).flatMap((name) => {
+        const details = SLASH_COMMAND_DETAILS[name];
+
+        return details && slashCommands?.[name]
+          ? [{ kind: "app" as const, id: name, ...details }]
+          : [];
+      }),
+    [slashCommands]
+  );
+
   const matchSlashCommand = (raw: string) => {
     const command = parseSlashCommand(raw);
     const run = command ? slashCommands?.[command.name] : undefined;
@@ -1081,6 +1098,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
         )}
         disabled={variant === "stage-beta" ? disabled : false}
         maxLength={variant === "stage-beta" ? 7800 : undefined}
+        commands={menuCommands}
         textareaRef={textareaRef}
         value={text}
         {...(placeholder ? { placeholder } : {})}

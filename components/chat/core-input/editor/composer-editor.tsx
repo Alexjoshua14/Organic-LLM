@@ -8,7 +8,7 @@ import type {
   ReactNode,
   RefObject,
 } from "react";
-import type { SlashMatch } from "./editor-model";
+import type { AppCommand, EditorCommand, SlashMatch } from "./editor-model";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
@@ -18,6 +18,7 @@ import { Placeholder } from "@tiptap/extensions";
 
 import { ComposerCodeBlock } from "./code-block-editor";
 import { EditableCodeDelimiters, EditorCodeHighlight } from "./code-editing";
+import { useContainedScroll } from "./contained-scroll";
 import {
   findEditorSlash,
   handleEditorCodeFenceEnter,
@@ -36,6 +37,12 @@ import { cn } from "@/lib/utils";
 
 export const COMPOSER_DEFAULT_PLACEHOLDER = "Drop a thought";
 
+const NO_COMMANDS: readonly AppCommand[] = [];
+const COMMAND_GROUPS = [
+  { kind: "app", label: "Commands" },
+  { kind: "markdown", label: "Markdown" },
+] as const;
+
 /** Anything that handles its own tap; a tap anywhere else in the composer goes to the draft. */
 const OWNS_TAP =
   'button, a[href], input, select, textarea, label, summary, [contenteditable="true"], [role="button"], [role="switch"], [role="option"], [role^="menuitem"], [role="slider"], [role="tab"], [data-composer-own-tap]';
@@ -50,6 +57,42 @@ export function focusDraftFromShell(target: EventTarget | null, editor: Editor |
   if (!(target instanceof Element) || target.closest(OWNS_TAP)) return;
   if (window.getSelection()?.toString()) return;
   editor.commands.focus("end");
+}
+
+function SlashOption({
+  command,
+  active,
+  id,
+  onChoose,
+}: {
+  command: EditorCommand;
+  active: boolean;
+  id: string;
+  onChoose: () => void;
+}) {
+  return (
+    <button
+      aria-selected={active}
+      className={cn(
+        "organic-focus flex min-h-11 w-full items-center justify-between gap-inline-sm rounded-lg px-inset-sm text-left text-sm",
+        active && "bg-muted"
+      )}
+      id={id}
+      role="option"
+      title={command.hint}
+      type="button"
+      onClick={onChoose}
+      onMouseDown={(event) => event.preventDefault()}
+    >
+      <span className="flex min-w-0 flex-col">
+        <span>{command.label}</span>
+        {command.kind === "app" ? (
+          <span className="truncate text-xs text-muted-foreground">{command.hint}</span>
+        ) : null}
+      </span>
+      <span className="shrink-0 text-xs text-muted-foreground">/{command.id}</span>
+    </button>
+  );
 }
 
 type ComposerEditorProps = {
@@ -74,6 +117,8 @@ type ComposerEditorProps = {
   onSelect?: () => void;
   /** The live editor, for layout measurement. */
   onEditor?: (editor: Editor | null) => void;
+  /** Commands the surface runs on send (`/btw`), offered in the slash menu above Markdown. */
+  commands?: readonly AppCommand[];
   children?: ReactNode;
 };
 
@@ -91,8 +136,14 @@ export function ComposerEditor({
   onModEnter,
   onSelect,
   onEditor,
+  commands: appCommands = NO_COMMANDS,
 }: ComposerEditorProps) {
   const menuId = useId();
+  const [menu, setMenu] = useState<HTMLDivElement | null>(null);
+  const [root, setRoot] = useState<HTMLDivElement | null>(null);
+
+  // Scrolling the draft or the slash menu never carries on into the page behind.
+  useContainedScroll(root);
   const controller = useOptionalController();
   const attachments = usePromptInputAttachments();
   const canSubmit = useSubmitOnEnter();
@@ -100,9 +151,27 @@ export function ComposerEditor({
   const [active, setActive] = useState(0);
   const emitted = useRef(value);
   const pointerFocus = useRef(false);
-  const latest = useRef({ onChange, onModEnter, onSelect, canSubmit, disabled, slash, active });
+  const latest = useRef({
+    onChange,
+    onModEnter,
+    onSelect,
+    canSubmit,
+    disabled,
+    slash,
+    active,
+    appCommands,
+  });
 
-  latest.current = { onChange, onModEnter, onSelect, canSubmit, disabled, slash, active };
+  latest.current = {
+    onChange,
+    onModEnter,
+    onSelect,
+    canSubmit,
+    disabled,
+    slash,
+    active,
+    appCommands,
+  };
 
   /** Mirror Markdown into the hidden textarea and report it the way a textarea change would. */
   const emit = useCallback(
@@ -173,7 +242,9 @@ export function ComposerEditor({
         const target = editorRef.current;
 
         if (!target || current.disabled) return false;
-        const commands = current.slash ? matchingEditorCommands(current.slash.query) : [];
+        const commands = current.slash
+          ? matchingEditorCommands(current.slash.query, current.appCommands, current.slash)
+          : [];
         const inCode = Boolean(view.state.selection.$from.parent.type.spec.code);
 
         if (current.slash) {
@@ -279,6 +350,52 @@ export function ComposerEditor({
     editor?.setEditable(!disabled);
   }, [editor, disabled]);
 
+  // Leaving the app (switching apps on a phone) blurs the editor, but the OS can keep the keyboard
+  // up on return, typing into nothing. If the draft had focus when the page went away, give it
+  // focus back, at the same caret, when the page returns.
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+    let resume = false;
+    const hadFocus = () =>
+      editor.isFocused || editor.view.dom.contains(document.activeElement as Node | null);
+    const onLeave = () => {
+      if (document.visibilityState === "hidden" || !document.hasFocus()) resume ||= hadFocus();
+    };
+    const onReturn = () => {
+      if (!resume || document.visibilityState !== "visible") return;
+      resume = false;
+      requestAnimationFrame(() => {
+        if (editor.isDestroyed || !editor.isEditable || hadFocus()) return;
+        // Only if nothing else took focus meanwhile.
+        const current = document.activeElement;
+
+        if (current && current !== document.body) return;
+        editor.commands.focus();
+      });
+    };
+    const onPointerDown = () => {
+      resume = false;
+    };
+
+    document.addEventListener("visibilitychange", onLeave);
+    document.addEventListener("visibilitychange", onReturn);
+    window.addEventListener("blur", onLeave);
+    window.addEventListener("pagehide", onLeave);
+    window.addEventListener("focus", onReturn);
+    window.addEventListener("pageshow", onReturn);
+    document.addEventListener("pointerdown", onPointerDown, true);
+
+    return () => {
+      document.removeEventListener("visibilitychange", onLeave);
+      document.removeEventListener("visibilitychange", onReturn);
+      window.removeEventListener("blur", onLeave);
+      window.removeEventListener("pagehide", onLeave);
+      window.removeEventListener("focus", onReturn);
+      window.removeEventListener("pageshow", onReturn);
+      document.removeEventListener("pointerdown", onPointerDown, true);
+    };
+  }, [editor]);
+
   // A value set from outside (cleared after send, a restored draft, dictation) replaces the
   // content. The editor's own edits come back as the value it just emitted and are ignored.
   useEffect(() => {
@@ -287,7 +404,21 @@ export function ComposerEditor({
     editor.commands.setContent(value, { contentType: "markdown", emitUpdate: false });
   }, [editor, value]);
 
-  const commands = slash ? matchingEditorCommands(slash.query) : [];
+  const commands = slash ? matchingEditorCommands(slash.query, appCommands, slash) : [];
+
+  // Arrow keys move through the menu; keep the active option in view inside it.
+  useEffect(() => {
+    // Options render in the same order as `active` counts them.
+    const option = menu?.querySelectorAll<HTMLElement>('[role="option"]')[active];
+
+    if (!menu || !option) return;
+    // Scroll the menu alone (scrollIntoView would also move the page).
+    const top = option.getBoundingClientRect().top - menu.getBoundingClientRect().top;
+    const bottom = top + option.offsetHeight;
+
+    if (top < 0) menu.scrollTop += top;
+    else if (bottom > menu.clientHeight) menu.scrollTop += bottom - menu.clientHeight;
+  }, [menu, active]);
 
   useEffect(() => {
     if (!editor || editor.isDestroyed) return;
@@ -304,37 +435,52 @@ export function ComposerEditor({
 
   return (
     <div
+      ref={setRoot}
       className={cn("organic-composer composer-editor relative w-full min-w-0", className)}
       onPasteCapture={onPasteCapture}
     >
       {slash && commands.length ? (
         <div
+          ref={setMenu}
           aria-label="Slash commands"
-          className="absolute bottom-full left-0 z-20 mb-stack-sm w-full max-w-xs rounded-xl border border-border bg-background p-inset-sm shadow-sm"
+          className="absolute bottom-full left-0 z-20 mb-stack-sm max-h-72 w-full max-w-xs overflow-y-auto overscroll-contain rounded-xl border border-border bg-background p-inset-sm shadow-sm"
           id={menuId}
           role="listbox"
         >
-          {commands.map((command, index) => (
-            <button
-              key={command.id}
-              aria-selected={active === index}
-              className={cn(
-                "organic-focus flex min-h-11 w-full items-center justify-between gap-inline-sm rounded-lg px-inset-sm text-left text-sm",
-                active === index && "bg-muted"
-              )}
-              id={`${menuId}-${index}`}
-              role="option"
-              type="button"
-              onClick={() => {
-                if (editor) runEditorCommand(editor, slash, command);
-                setSlash(null);
-              }}
-              onMouseDown={(event) => event.preventDefault()}
-            >
-              <span>{command.label}</span>
-              <span className="text-xs text-muted-foreground">/{command.id}</span>
-            </button>
-          ))}
+          {COMMAND_GROUPS.map((group) => {
+            const items = commands.filter((command) => command.kind === group.kind);
+
+            if (!items.length) return null;
+            const labelId = `${menuId}-${group.kind}`;
+
+            return (
+              <div key={group.kind} aria-labelledby={labelId} role="group">
+                <div
+                  className="px-inset-sm pt-stack-xs pb-stack-xs text-xs text-muted-foreground"
+                  id={labelId}
+                  role="presentation"
+                >
+                  {group.label}
+                </div>
+                {items.map((command) => {
+                  const index = commands.indexOf(command);
+
+                  return (
+                    <SlashOption
+                      key={`${command.kind}-${command.id}`}
+                      active={active === index}
+                      command={command}
+                      id={`${menuId}-${index}`}
+                      onChoose={() => {
+                        if (editor) runEditorCommand(editor, slash, command);
+                        setSlash(null);
+                      }}
+                    />
+                  );
+                })}
+              </div>
+            );
+          })}
         </div>
       ) : null}
       <EditorContent editor={editor} />

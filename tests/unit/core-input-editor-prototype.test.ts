@@ -12,6 +12,7 @@ import {
   runEditorCommand,
 } from "@/components/chat/core-input/editor/editor-model";
 
+import { parseSlashCommand } from "@/lib/chat/slash-command";
 import { ComposerCodeBlock } from "@/components/chat/core-input/editor/code-block-editor";
 import {
   EditableCodeDelimiters,
@@ -70,6 +71,60 @@ describe("CoreInput editor prototype", () => {
 
       editor.commands.setTextSelection(Math.max(1, editor.state.doc.content.size - 1));
       expect(findEditorSlash(editor)).toBeNull();
+    }
+  });
+
+  const BTW = {
+    kind: "app",
+    id: "btw",
+    label: "By the way",
+    hint: "Ask aside",
+  } as const;
+
+  test("a surface's commands come first, and choosing one writes it for its argument", () => {
+    const editor = createEditor("/b");
+
+    editor.commands.setTextSelection(3);
+    const slash = findEditorSlash(editor)!;
+    const commands = matchingEditorCommands("b", [BTW], slash);
+
+    expect(commands.map((command) => `${command.kind}:${command.id}`)).toEqual(["app:btw"]);
+    runEditorCommand(editor, slash, commands[0]);
+    editor.commands.insertContent("what does this mean?");
+    expect(editor.getMarkdown().trim()).toBe("/btw what does this mean?");
+    expect(parseSlashCommand(editor.getMarkdown())).toEqual({
+      name: "btw",
+      argument: "what does this mean?",
+    });
+  });
+
+  test("a surface's commands are offered only at the start of the draft", () => {
+    const editor = createEditor("First thought\n\n/b");
+
+    editor.commands.setTextSelection(editor.state.doc.content.size - 1);
+    const slash = findEditorSlash(editor)!;
+
+    expect(slash.query).toBe("b");
+    expect(matchingEditorCommands("b", [BTW], slash)).toEqual([]);
+  });
+
+  test("every Markdown command applies its block", () => {
+    const expected: Record<string, string> = {
+      code: "codeBlock",
+      list: "bulletList",
+      numbered: "orderedList",
+      quote: "blockquote",
+      heading: "heading",
+      subheading: "heading",
+      divider: "horizontalRule",
+    };
+
+    for (const command of matchingEditorCommands("")) {
+      const editor = createEditor(`/${command.id}`);
+
+      editor.commands.setTextSelection(command.id.length + 2);
+      runEditorCommand(editor, findEditorSlash(editor)!, command);
+      expect(editor.getJSON().content?.[0].type, command.id).toBe(expected[command.id]);
     }
   });
 

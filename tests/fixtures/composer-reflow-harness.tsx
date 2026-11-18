@@ -18,6 +18,7 @@ import {
   ComposerEditor,
   focusDraftFromShell,
 } from "@/components/chat/core-input/editor/composer-editor";
+import { useContainedScroll } from "@/components/chat/core-input/editor/contained-scroll";
 import { LumenSubmit } from "@/components/chat/core-input/editor/lumen-submit";
 import { useComposerReflow } from "@/components/chat/core-input/editor/use-composer-reflow";
 import { resolveFooterPlacement } from "@/components/chat/core-input/footer/footer-placement";
@@ -48,10 +49,12 @@ const placement = resolveFooterPlacement({
  * `data-expanded`, counts layout changes, measures buttons and opens the settings panel.
  */
 function ReflowHarness() {
+  const rootRef = useRef<HTMLDivElement>(null);
   const rowRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [editor, setEditor] = useState<Editor | null>(null);
   const [text, setText] = useState("");
+  useContainedScroll(rootRef);
   const stacked = useComposerReflow(rowRef, editor, { enabled: true, forced: false });
   const controls = useMemo<CoreInputControlsValue>(
     () => ({
@@ -79,7 +82,7 @@ function ReflowHarness() {
 
   return (
     <CoreInputControlsProvider value={controls}>
-      <div className="relative z-40 w-full min-w-0" data-core-input-root="">
+      <div ref={rootRef} className="relative z-40 w-full min-w-0" data-core-input-root="">
         <div className="contents" data-core-input-panel-slot="" />
         <form
           className="core-input-condensed relative z-10 w-full"
@@ -106,6 +109,7 @@ function ReflowHarness() {
                     condensed: true,
                     reserveBudget: Boolean(text.trim()),
                   })}
+                  commands={[{ kind: "app", id: "btw", label: "By the way", hint: "Ask aside" }]}
                   textareaRef={textareaRef}
                   value={text}
                   onChange={(event) => setText(event.target.value)}
