@@ -750,6 +750,45 @@ body.font-theme-commissioner {
 }
 
 /*
+ * Lumen orb — Lumen shown on its own (Kelvin swatches, demos): a point of light with a bright
+ * core and a soft halo, never a solid fill. Set --lumen-orb-color to a Kelvin colour; it defaults
+ * to the base Lumen. Dark surfaces only; it breathes on the shell rim's 4.2s rhythm.
+ */
+.lumen-orb {
+  display: inline-block;
+  width: var(--spacing-stack-3xl);
+  height: var(--spacing-stack-3xl);
+  border-radius: 9999px;
+  background: radial-gradient(
+    circle,
+    color-mix(in oklab, var(--lumen-orb-color, rgb(var(--lumen))) 85%, transparent) 0%,
+    color-mix(in oklab, var(--lumen-orb-color, rgb(var(--lumen))) 32%, transparent) 38%,
+    transparent 70%
+  );
+  filter: blur(var(--lumen-blur, 1.5px));
+  animation: lumen-orb-breathe 4.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
+}
+
+@keyframes lumen-orb-breathe {
+  0%,
+  100% {
+    opacity: 0.78;
+    transform: scale(0.96);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lumen-orb {
+    animation: none;
+  }
+}
+
+/*
  * Light mode, every rim-style lumen: the warm glow does not read on a light surface, so each
  * hides its rim and the surface lifts with a gentle shadow of the dark theme's background
  * (--lumen-shadow-rest / --lumen-shadow-hover) instead. Dark mode is unchanged.

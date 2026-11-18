@@ -17,6 +17,7 @@ the object. Nothing in light mode is tinted warm.
 - Rim, shadow and tokens: [`styles/globals.css`](../../styles/globals.css) (`--lumen*`, `--lumen-shadow-*`, `--background-dark`)
 - Chip geometry and canonical spec: [`components/chat/use-composer-chip-lumen.ts`](../../components/chat/use-composer-chip-lumen.ts)
 - Prompt shell: [`components/chat/home-composer-lumen-shell.tsx`](../../components/chat/home-composer-lumen-shell.tsx)
+- Shared buttons, selectors and menu rows: `organic-lumen-interactive` in `styles/globals.css` (dark rim, light shadow; menu navigation uses neutral glass and a contained rim to avoid clipping).
 - Chips and actions: [`components/chat/composer-action-button.tsx`](../../components/chat/composer-action-button.tsx)
 
 ## Dark: natural light
@@ -51,6 +52,18 @@ The shell's breathing is dark-only; the shadow is static. Reduced motion removes
 
 A surface that shows a shadow only while focused (the editor lab's shell) keeps that rule: the
 shadow is removed when focus leaves.
+
+## Variants
+
+Every Lumen surface is one of these. Use one before inventing another; add a new one here first.
+
+| Variant         | Classes                                                      | Use                                                                                       |
+| --------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| **Chip rim**    | `composer-tool-chip-host` › `-stage` › `lumen-rim-backlight` | Buttons and toggles: on (engaged) or a hover peek                                         |
+| **Shell rim**   | `HomeComposerLumenShell` (`home-composer-lumen-*`)           | The prompt shell; sized from its resting height so a growing composer keeps the same glow |
+| **Card rim**    | `chat-style-card-host` › `-stage` › `chat-style-lumen-rim`   | A selected or chosen card                                                                 |
+| **Orb**         | `lumen-orb`, colour via `--lumen-orb-color`                  | Lumen shown on its own, such as Kelvin swatches; dark surfaces only                       |
+| **Panel focus** | `.core-input-options-panel:focus-visible`                    | A panel that takes focus: a faint glow in dark, the hover shadow in light, never a ring   |
 
 ## Rules for a new lumen surface
 
