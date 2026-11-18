@@ -55,6 +55,12 @@ export type AutoFeatureTipDefinition = FeatureTipDefinition & {
   align: "start" | "center" | "end";
   /** Only eligible on routes under this prefix. */
   pathPrefix?: string;
+  /**
+   * Closest ancestor (CSS selector) the tip must not cover. The tip keeps pointing at its control
+   * horizontally but sits outside this ancestor's edge, e.g. above the whole composer instead of
+   * over the text box someone is about to type in.
+   */
+  clearOf?: string;
 };
 
 export type GuideOnlyTipDefinition = FeatureTipDefinition & { auto: false };
@@ -72,6 +78,7 @@ export const AUTO_FEATURE_TIPS: Record<AutoFeatureTipId, AutoFeatureTipDefinitio
     audience: "everyone",
     side: "top",
     align: "start",
+    clearOf: "form",
   },
   "arcadia-multiagent": {
     id: "arcadia-multiagent",

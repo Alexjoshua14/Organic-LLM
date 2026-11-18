@@ -27,6 +27,7 @@ import {
 import {
   featureTipBody,
   getAutoFeatureTip,
+  type AutoFeatureTipDefinition,
   type AutoFeatureTipId,
 } from "@/lib/onboarding/feature-tips";
 import { onboardingActions } from "@/lib/onboarding/onboarding-actions";
@@ -69,6 +70,29 @@ type ActiveTip = {
   title: string;
   body: string;
 };
+
+/**
+ * What the popover positions against. Usually the control itself; with `clearOf`, a virtual rect
+ * that keeps the control's horizontal span but sits on the ancestor's edge, so the tip never
+ * covers that ancestor (the composer's text box). `contextElement` lets Floating UI keep tracking
+ * scroll and resize of the real control.
+ */
+function tipAnchor(element: HTMLElement, definition: AutoFeatureTipDefinition) {
+  const container = definition.clearOf ? element.closest(definition.clearOf) : null;
+
+  if (!container || (definition.side !== "top" && definition.side !== "bottom")) return element;
+
+  return {
+    contextElement: element,
+    getBoundingClientRect: () => {
+      const own = element.getBoundingClientRect();
+      const outer = container.getBoundingClientRect();
+      const y = definition.side === "top" ? outer.top : outer.bottom;
+
+      return DOMRect.fromRect({ x: own.left, y, width: own.width, height: 0 });
+    },
+  };
+}
 
 type FeatureTipLayerProps = {
   /** Injectable for tests (JSDOM has no layout). */
@@ -324,8 +348,11 @@ export function FeatureTipLayer({
     };
   }, [bodyId, open, tip]);
 
-  const anchorRef = useMemo(() => ({ current: tip?.element ?? null }), [tip]);
   const definition = tip ? getAutoFeatureTip(tip.id) : null;
+  const anchorRef = useMemo(
+    () => ({ current: tip && definition ? tipAnchor(tip.element, definition) : null }),
+    [definition, tip]
+  );
 
   return (
     <>
@@ -351,7 +378,9 @@ export function FeatureTipLayer({
               className={cn(
                 glass({ opaque: true }),
                 TIP_Z_INDEX_CLASS,
-                "w-[min(20rem,calc(100vw-2rem))] rounded-xl p-inset-lg shadow-[0_18px_48px_-24px_rgb(0_0_0/0.45)] outline-none",
+                "w-[min(20rem,calc(100vw-2rem))] rounded-xl p-inset-lg outline-none",
+                "shadow-[0_18px_48px_-24px_rgb(0_0_0/0.45)] dark:shadow-[0_18px_48px_-20px_rgb(0_0_0/0.8)]",
+                "ring-1 ring-inset ring-white/50 dark:ring-white/10",
                 "data-[state=open]:animate-in data-[state=open]:fade-in-0",
                 "motion-safe:data-[state=open]:data-[side=top]:slide-in-from-bottom-1",
                 "motion-safe:data-[state=open]:data-[side=bottom]:slide-in-from-top-1",

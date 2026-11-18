@@ -115,19 +115,24 @@ function Checklist() {
               >
                 {done ? <Check className="size-3.5" strokeWidth={2} /> : index + 1}
               </span>
-              <div className="min-w-0 flex-1">
-                <p
-                  className={cn(
-                    "text-sm font-medium",
-                    done ? "text-muted-foreground" : "text-foreground"
-                  )}
-                >
-                  {step.title}
-                  {done ? <span className="sr-only"> (done)</span> : null}
-                </p>
-                <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{step.body}</p>
+              {/* Narrow screens stack the action under the text so the text keeps its width. */}
+              <div className="flex min-w-0 flex-1 flex-col items-start gap-stack-sm sm:flex-row sm:justify-between sm:gap-inline-md">
+                <div className="min-w-0">
+                  <p
+                    className={cn(
+                      "text-sm font-medium",
+                      done ? "text-muted-foreground" : "text-foreground"
+                    )}
+                  >
+                    {step.title}
+                    {done ? <span className="sr-only"> (done)</span> : null}
+                  </p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                    {step.body}
+                  </p>
+                </div>
+                <StepAction done={done} step={step} />
               </div>
-              <StepAction done={done} step={step} />
             </li>
           );
         })}

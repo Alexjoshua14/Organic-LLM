@@ -21,7 +21,8 @@ export function GuideShortcutsTab() {
   return (
     <div className="flex flex-col gap-stack-2xl px-5 py-5 sm:px-6">
       <p className="text-xs leading-relaxed text-muted-foreground">
-        Shortcuts work with a keyboard on desktop. {apple ? "⌘ is Command." : "Ctrl is Control."}
+        Shortcuts work with a keyboard on desktop.
+        {apple ? " ⌘ is Command, ⌥ is Option, ⇧ is Shift and ⌃ is Control." : null}
       </p>
       {KEYBOARD_SHORTCUT_SCOPES.map((scope) => {
         const rows = keyboardShortcutsByScope(scope, audience);
