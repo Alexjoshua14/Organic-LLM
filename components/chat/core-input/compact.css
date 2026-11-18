@@ -55,7 +55,15 @@
   aspect-ratio: 1;
 }
 .core-input-options-panel {
-  z-index: 40;
+  /*
+   * One step below the composer shell. The CoreInput root is z-40 in the app and is a stacking
+   * layer of its own; inside it the shell's wrapper is z-10 and the live voice / steer strip is
+   * z-0. The panel is portaled into that root, so it shares the shell's level on the page and
+   * sits at 9: above the strip, under the shell, which covers the few pixels the panel tucks
+   * under it. It stays outside the lumen shell, because inside it the backdrop blur stopped
+   * working. Keep this one below the shell wrapper's z-index in `core-input.tsx`.
+   */
+  z-index: 9;
   width: min(340px, calc(100vw - 32px));
   max-height: min(70dvh, var(--radix-popover-content-available-height));
   overflow: auto;
@@ -82,7 +90,7 @@
   /* Stay on the right when the model selector is absent. */
   margin-left: auto;
 }
-/* Context effort on the left, the toggles pushed to the right, on one row with no labels. */
+/* Context effort on the left and the toggles on the right; without context effort the toggles sit on the left. One row, no labels. */
 .core-input-options-toggle-row {
   display: flex;
   flex-wrap: wrap;
@@ -95,8 +103,6 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--spacing-inline-sm);
-  /* Stay on the right when context effort is absent. */
-  margin-left: auto;
 }
 /* Each toggle is a 1:1 square, the same 32px as the compact row's icon buttons. */
 .core-input-options-toggles .composer-tool-chip {

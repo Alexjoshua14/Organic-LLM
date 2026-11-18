@@ -1360,8 +1360,9 @@ export const CoreInput: React.FC<CoreInputProps> = ({
           the composer mid-morph fast-forwards the morph (see morph-timing). */}
       <div
         ref={morphRootRef}
-        className="relative w-full min-w-0"
+        className="relative z-40 w-full min-w-0"
         data-core-input-morph={morphing ? "running" : undefined}
+        data-core-input-root=""
         style={{ "--core-input-morph-pulse-ms": `${CORE_INPUT_MORPH_PULSE_MS}ms` } as CSSProperties}
         onKeyDownCapture={fastForwardMorph}
         onPointerDownCapture={fastForwardMorph}
@@ -1385,7 +1386,12 @@ export const CoreInput: React.FC<CoreInputProps> = ({
         ) : (
           <CoreInputVoiceDrawerSlot includePending={variant === "stage-beta"} />
         )}
-        <div className="relative">
+        {/* The options panel portals here, outside the lumen shell so its backdrop blur sees the
+            page. See `.core-input-options-panel` for how its level relates to the shell's. */}
+        <div className="contents" data-core-input-panel-slot="" />
+        {/* The shell's own level inside the CoreInput root (itself z-40 in the app). The options
+            panel sits one step below this. */}
+        <div className="relative z-10">
           {shell}
           {morphing ? <span aria-hidden className="core-input-morph-sheen" /> : null}
         </div>
