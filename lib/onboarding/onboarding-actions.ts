@@ -33,7 +33,6 @@ export const onboardingActions = {
   /** Hides the tip for this tab session; the second implicit close is permanent. */
   tipClosedImplicitly(id: string, version: number, userId = getOnboardingSnapshot().userId) {
     if (!userId || getOnboardingSnapshot().userId !== userId) return;
-
     hideTipForSession(id);
     void updateOnboardingState(
       (state) => recordImplicitTipClose(state, id, version, Date.now()),
@@ -67,6 +66,7 @@ export const onboardingActions = {
 
   replay() {
     clearSessionHiddenTips();
+
     return updateOnboardingState((state) => replayOnboarding(state, Date.now()));
   },
 };
