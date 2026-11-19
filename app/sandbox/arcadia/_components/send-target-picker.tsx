@@ -12,7 +12,7 @@ import {
   SEND_TARGET_EASE,
 } from "./send-target-picker-motion";
 
-import { glass } from "@/components/design-system/primitives";
+import { ComposerActionButton } from "@/components/chat/composer-action-button";
 import { cn } from "@/lib/utils";
 
 type SendTargetPickerProps = {
@@ -51,7 +51,12 @@ export function SendTargetPicker({
   useLayoutEffect(() => {
     const measure = () => {
       const next = Object.fromEntries(
-        targets.map(({ id }) => [id, buttonRefs.current.get(id)?.offsetLeft ?? 0])
+        targets.map(({ id }) => {
+          const button = buttonRefs.current.get(id);
+          const stage = button?.closest<HTMLElement>("[data-send-target-slot]");
+
+          return [id, stage?.offsetLeft ?? 0];
+        })
       );
 
       setOffsets((previous) =>
@@ -89,66 +94,67 @@ export function SendTargetPicker({
       ref={rootRef}
       aria-label="Message recipient"
       className={cn(
-        "min-w-0 select-none py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+        "min-w-0 select-none p-inset-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
         expanded ? "overflow-x-auto" : "overflow-x-hidden",
         className
       )}
       role="group"
     >
-      <div className="relative flex w-max items-center gap-2" id={rowId}>
+      <div className="relative flex w-max items-center gap-inline-sm" id={rowId}>
         {targets.map(({ id, name, target }) => {
           const active = activeId === id;
           const visible = expanded || active;
 
           return (
-            <motion.button
+            <motion.span
               key={id}
-              ref={(node) => {
-                if (node) buttonRefs.current.set(id, node);
-                else buttonRefs.current.delete(id);
-              }}
+              data-send-target-slot
               animate={{ x: expanded ? 0 : -(offsets[id] ?? 0), opacity: visible ? 1 : 0 }}
-              aria-controls={active ? rowId : undefined}
-              aria-expanded={active ? expanded : undefined}
-              aria-hidden={!visible}
-              aria-pressed={active}
-              className={cn(
-                glass({ tone: active ? "brown" : "default" }),
-                "inline-flex min-h-10 shrink-0 cursor-pointer items-center whitespace-nowrap rounded-full px-3 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring",
-                active ? "z-10 border-amber-800/35 text-foreground" : "text-muted-foreground",
-                expanded &&
-                  (active
-                    ? "hover:border-amber-800/50 hover:bg-background-secondary/45 dark:hover:border-amber-200/25"
-                    : "hover:border-border hover:bg-background/45 hover:text-foreground"),
-                !visible && "pointer-events-none"
-              )}
               initial={false}
-              tabIndex={visible ? 0 : -1}
+              className={cn("inline-flex shrink-0", !visible && "pointer-events-none")}
               transition={{
                 duration: reduceMotion
                   ? 0
                   : (expanded ? SEND_TARGET_ENTER_MS : SEND_TARGET_EXIT_MS) / 1000,
                 ease: SEND_TARGET_EASE,
               }}
-              type="button"
-              onKeyDown={(event) => {
-                if (event.key !== "Escape" || !expanded) return;
-
-                event.preventDefault();
-                event.stopPropagation();
-                setExpanded(false);
-                buttonRefs.current.get(activeId)?.focus();
-              }}
-              onClick={() => {
-                if (active) setExpanded((previous) => !previous);
-                else {
-                  onChange(target);
-                  setExpanded(false);
-                }
-              }}
             >
-              {name}
-            </motion.button>
+              <ComposerActionButton
+                engaged={active}
+                className={cn(
+                  "h-10 w-auto min-w-0 rounded-full px-3 text-sm font-medium",
+                  active ? "text-foreground" : "border-border/50 text-muted-foreground",
+                  !visible && "pointer-events-none"
+                )}
+                ref={(node) => {
+                  if (node) buttonRefs.current.set(id, node);
+                  else buttonRefs.current.delete(id);
+                }}
+                aria-controls={active ? rowId : undefined}
+                aria-expanded={active ? expanded : undefined}
+                aria-hidden={!visible}
+                aria-pressed={active}
+                tabIndex={visible ? 0 : -1}
+                type="button"
+                onKeyDown={(event) => {
+                  if (event.key !== "Escape" || !expanded) return;
+
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setExpanded(false);
+                  buttonRefs.current.get(activeId)?.focus();
+                }}
+                onClick={() => {
+                  if (active) setExpanded((previous) => !previous);
+                  else {
+                    onChange(target);
+                    setExpanded(false);
+                  }
+                }}
+              >
+                {name}
+              </ComposerActionButton>
+            </motion.span>
           );
         })}
       </div>
