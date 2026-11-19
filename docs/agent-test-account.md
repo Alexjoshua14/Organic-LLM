@@ -15,7 +15,7 @@ that list, makes an account an agent account. While listed, it gets:
 | Writes (any non-GET/HEAD/OPTIONS) | 6/min, 60/day | `agent.write.*` |
 | Simultaneous LLM streams | 1 on the chat gate's pre-check | `lib/plans/plan-capacity.ts` |
 | Voice | Speak Realtime session start and both TTS routes return 403 | `lib/agent-account/agent-account.ts` |
-| Unfinished surfaces | sandbox, labs, prototypes, Stage | `lib/admin/lab-access.ts` |
+| Unfinished surfaces | sandbox, labs, prototypes, Stage, through its own `lab_access` row (setup step 4) | `lib/admin/lab-access.ts` |
 
 The throttle runs in `proxy.ts` before any route, so it also protects Clerk, Supabase, Redis
 and the services behind the app. If Upstash can't be reached, agent requests get a 503 rather
@@ -34,12 +34,17 @@ in a loop. Refused requests still count against the limits.
 2. Sign in once in a browser so the app creates its profile.
 3. Put the user's Clerk id (`user_…`) in the checkout's `.env.local`:
    `AGENT_TEST_CLERK_USER_IDS=user_…`, then restart `bun dev`.
-4. Give agents `E2E_CLERK_EMAIL` and `E2E_CLERK_PASSWORD` through their local environment.
+4. Grant labs with a `public.lab_access` row for the user's profile, as postgres. Apply
+   `docs/migrations/lab_access.sql` once if the table doesn't exist yet; the grant block at its
+   end adds the row from the Clerk id. Lab access is a database grant with the same controls as
+   `admin_access`. It is not part of the agent list, and it doesn't make the account an admin.
+5. Give agents `E2E_CLERK_EMAIL` and `E2E_CLERK_PASSWORD` through their local environment.
    Never commit them, and never put the Clerk id in source: this repository is public.
 
-Unsetting the variable lifts every agent limit at once. The account then goes back to
-whatever plan it would otherwise have: its stored entitlement (`free` unless someone set
-another), or `max` if it is on `MAX_PLAN_CLERK_USER_IDS`. Use a fresh Clerk user for agents,
+Unsetting the variable lifts every agent limit at once but leaves lab access; delete the
+`lab_access` row to take that away. The account then goes back to whatever plan it would
+otherwise have: its stored entitlement (`free` unless someone set another), or `max` if it is
+on `MAX_PLAN_CLERK_USER_IDS`. Use a fresh Clerk user for agents,
 never one with a paid plan, a max override or `admin_access`. Admin access is ignored while
 the account is listed, but comes back when it isn't.
 

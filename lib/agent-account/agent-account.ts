@@ -1,7 +1,8 @@
 /**
  * Agent test accounts: signed-in accounts that AI coding agents use to try Organic. They get
  * the hidden `agent` plan (lib/usage/plans.ts), a whole-account request throttle in `proxy.ts`
- * (lib/rate-limit/agent-account.ts), no voice, and access to unfinished surfaces (labs).
+ * (lib/rate-limit/agent-account.ts) and no voice. Labs are a separate database grant
+ * (`lab_access`, lib/admin/lab-access.ts), not part of this list.
  *
  * Assigned only by env, so a mistake can only make an account more limited. Never put a Clerk
  * id in source: this repository is public. Imported by `proxy.ts`, so no `server-only`.
