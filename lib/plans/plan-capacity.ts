@@ -7,7 +7,7 @@
  * --- Estimators (single source; do not duplicate token prices elsewhere) ---
  *
  * Rabbit hole (estimate):
- *   Generation uses openai/gpt-6-sol for the article body (lib/llm/rabbit-hole/generation.ts).
+ *   Generation uses openai/gpt-6.2-sol for the article body (lib/llm/rabbit-hole/generation.ts).
  *   Assumed typical usage per hole: 8_000 input + 4_000 output tokens.
  *   At list rates ($2 / $10 per 1M): 8k×$2/1M + 4k×$10/1M = $0.016 + $0.040 = $0.056.
  *   Budget headroom: FREE $10/week / $0.056 ≈ 178 holes. Published layman figure: 120
@@ -47,8 +47,8 @@ export const MAX_PLAN_MAX_SIMULTANEOUS_STREAMS = FREE_PLAN_MAX_SIMULTANEOUS_STRE
  */
 export const AGENT_PLAN_MAX_SIMULTANEOUS_STREAMS = 1;
 
-/** Rabbit-hole article model used by generation.ts (openai.sol → gpt-6-sol). */
-export const PLAN_CAPACITY_RABBIT_HOLE_MODEL_ID = "openai/gpt-6-sol";
+/** Rabbit-hole article model used by generation.ts (openai.sol → gpt-6.2-sol). */
+export const PLAN_CAPACITY_RABBIT_HOLE_MODEL_ID = "openai/gpt-6.2-sol";
 
 /** Default Speak Realtime model id (matches getSpeakRealtimeModel fallback). */
 export const PLAN_CAPACITY_REALTIME_MODEL_ID = "gpt-realtime-2.1-mini";

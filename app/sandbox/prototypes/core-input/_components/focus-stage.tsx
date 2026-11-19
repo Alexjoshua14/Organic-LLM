@@ -534,7 +534,7 @@ function PreviewChipCard({ value }: CardContext) {
 }
 
 function ModelEffortCard({ value }: CardContext) {
-  const noEffortModel = chatModelById("perplexity/sonar-pro") ?? value.model;
+  const noEffortModel = chatModelById("perplexity/sonar") ?? value.model;
 
   return (
     <>
