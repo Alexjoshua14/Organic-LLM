@@ -3,16 +3,16 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 import * as navigation from "next/navigation";
-import * as requireAdminModule from "@/lib/admin/require-admin";
+import * as labAccessModule from "@/lib/admin/lab-access";
 import { mockModulePreservingReal } from "../helpers/module-mock";
 
-let admin: { clerkUserId: string; sbUserId: string } | null = null;
+let lab: { clerkUserId: string; sbUserId: string } | null = null;
 
 // Restored in afterAll: mock.module is process-wide, and a stub left behind changes
-// requireAdmin and notFound for every later test file (file order differs on the Linux runner).
+// requireLabAccess and notFound for every later test file (file order differs on the Linux runner).
 const restores = [
-  mockModulePreservingReal("@/lib/admin/require-admin", requireAdminModule, {
-    requireAdmin: async () => admin,
+  mockModulePreservingReal("@/lib/admin/lab-access", labAccessModule, {
+    requireLabAccess: async () => lab,
   }),
   mockModulePreservingReal("next/navigation", navigation, {
     notFound: () => {
@@ -32,10 +32,10 @@ const OPEN_SANDBOX_SURFACES = new Set(["arcadia"]);
 const GATE = /admin-only-layout|requireAdmin\(\)|requireLabAccess\(\)/;
 
 describe("admin-only surfaces", () => {
-  test("the layout 404s for everyone but admins", async () => {
-    admin = null;
+  test("the layout 404s for everyone without lab access", async () => {
+    lab = null;
     await expect(AdminOnlyLayout({ children: "lab" })).rejects.toThrow("NEXT_NOT_FOUND");
-    admin = { clerkUserId: "admin", sbUserId: "sb_admin" };
+    lab = { clerkUserId: "member", sbUserId: "sb_member" };
     expect(await AdminOnlyLayout({ children: "lab" })).toBe("lab");
   });
 

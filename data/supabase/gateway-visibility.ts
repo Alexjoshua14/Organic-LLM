@@ -3,8 +3,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
 
-import { readAdminProfile } from "@/lib/admin/read-admin-profile";
-import { isAgentAccount } from "@/lib/agent-account/agent-account";
+import { readLabProfileId } from "@/lib/admin/lab-access";
 
 const identitySchema = z
   .object({
@@ -31,9 +30,6 @@ export async function getGatewayVisibilityForCurrentUser(
     }
   }
 
-  // Agent test accounts see unfinished surfaces too (lib/admin/lab-access.ts).
-  if (isAgentAccount(userId)) return true;
-  const profile = await readAdminProfile(userId);
-
-  return profile?.admin === true;
+  // Admins and lab members (lib/admin/lab-access.ts). A failed read throws so the client retries.
+  return (await readLabProfileId(userId)) !== null;
 }

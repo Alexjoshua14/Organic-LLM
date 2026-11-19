@@ -240,16 +240,17 @@ describe("server-rendered seed", () => {
 
 describe("resolveInitialGatewayVisibility", () => {
   test("seeds nothing when signed out, without reading", async () => {
-    const read = mock(async () => ({ id: "p", admin: true }));
+    const read = mock(async () => "p");
 
     expect(await resolveInitialGatewayVisibility(null, read)).toBeNull();
     expect(read).not.toHaveBeenCalled();
   });
 
-  test("seeds the admin read for the signed-in user", async () => {
-    expect(
-      await resolveInitialGatewayVisibility("user_a", async () => ({ id: "p", admin: true }))
-    ).toEqual({ userId: "user_a", visible: true });
+  test("seeds the lab read for the signed-in user", async () => {
+    expect(await resolveInitialGatewayVisibility("user_a", async () => "p")).toEqual({
+      userId: "user_a",
+      visible: true,
+    });
     expect(await resolveInitialGatewayVisibility("user_a", async () => null)).toEqual({
       userId: "user_a",
       visible: false,
