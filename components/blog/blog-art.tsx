@@ -128,6 +128,19 @@ function Export() {
   );
 }
 
+function Composer() {
+  // The message box: a wide rounded bar, a short line of text in it, and Lumen on the send mark.
+  return (
+    <>
+      <rect className={styles.stroke} height={44} rx={14} width={124} x={18} y={34} />
+      <line className={styles.stroke} opacity={0.6} x1={32} x2={74} y1={52} y2={52} />
+      <line className={styles.stroke} opacity={0.35} x1={32} x2={54} y1={62} y2={62} />
+      <circle className={styles.lumen} cx={124} cy={56} r={9} />
+      <polyline className={styles.lumen} points="120,59 124,53 128,59" />
+    </>
+  );
+}
+
 function Chat() {
   // Two bubbles, one lit: the reply.
   return (
@@ -258,6 +271,7 @@ const ART: Record<BlogArtId, () => React.JSX.Element> = {
   memory: Memory,
   chrome: Chrome,
   export: Export,
+  composer: Composer,
   chat: Chat,
   arcadia: Arcadia,
   noesis: Noesis,

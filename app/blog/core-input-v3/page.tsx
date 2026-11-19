@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
+import { BlogArticleShell } from "@/components/blog/blog-article-shell";
 import { CoreInputV3Content } from "@/content/blog/core-input-v3-content";
-import { PageContentFrame, PageNavBack } from "@/components/layout/page-content-frame";
 
 export const metadata: Metadata = {
   title: "CoreInput v3",
@@ -9,13 +9,11 @@ export const metadata: Metadata = {
     "Rebuilding Organic LLM's composer: what v2 got wrong on mobile, the editors weighed, the v3 design, and Lumen's light-mode answer.",
 };
 
+/** The post carries its own kicker and header, so the shell's meta line is left out. */
 export default function CoreInputV3PostPage() {
   return (
-    <PageContentFrame maxWidth="2xl">
-      <PageNavBack href="/blog">← Blog</PageNavBack>
-      <article className="p-inset-md text-foreground sm:p-inset-lg">
-        <CoreInputV3Content />
-      </article>
-    </PageContentFrame>
+    <BlogArticleShell meta={null} slug="core-input-v3">
+      <CoreInputV3Content />
+    </BlogArticleShell>
   );
 }

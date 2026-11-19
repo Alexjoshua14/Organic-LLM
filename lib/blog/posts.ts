@@ -17,6 +17,7 @@ export type BlogArtId =
   | "memory"
   | "chrome"
   | "export"
+  | "composer"
   // One per surface, for the surfaces index.
   | "chat"
   | "arcadia"
@@ -55,6 +56,16 @@ export const BLOG_POSTS: readonly BlogPost[] = [
     category: "voice",
     art: "voice",
     readMinutes: 8,
+    updated: "2026-11-18",
+  },
+  {
+    slug: "core-input-v3",
+    title: "CoreInput v3",
+    description:
+      "Rebuilding the message box: what went wrong on a phone, the editors we weighed, and the one-line-to-stacked design that replaced it.",
+    category: "design",
+    art: "composer",
+    readMinutes: 6,
     updated: "2026-11-18",
   },
   {
