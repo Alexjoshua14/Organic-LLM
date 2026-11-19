@@ -37,6 +37,11 @@ When a task matches a skill below, read its `SKILL.md` before working:
 - Dependent PR chains: [stacked-pull-requests](.agents/skills/stacked-pull-requests/SKILL.md).
 - Track and ship a build brief: [ship-from-brief](.agents/skills/ship-from-brief/SKILL.md).
 - Review a blog post with a four-reviewer panel: [blog-review](.agents/skills/blog-review/SKILL.md).
+- Write a blog post from finished work: [blog-from-work](.agents/skills/blog-from-work/SKILL.md).
+- Audit a UI diff for token, Lumen, focus and scope violations: [design-guard](.agents/skills/design-guard/SKILL.md).
+- Turn a brain dump into a reviewed plan in Ergon: [dump-to-plan](.agents/skills/dump-to-plan/SKILL.md).
+- Build in a sandbox lab, then promote to production: [lab-promote](.agents/skills/lab-promote/SKILL.md).
+- Know which other agents are running and claim paths and ports: [agent-radar](.agents/skills/agent-radar/SKILL.md).
 
 For files matching the `paths` in [design-backbone](.agents/rules/design-backbone.md) or
 [subagent-card-lab](.agents/rules/subagent-card-lab.md), read and follow the matching rules before editing. `.agents/rules/` is routed here explicitly; do not
