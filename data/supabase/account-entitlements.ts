@@ -91,9 +91,7 @@ export async function readClerkUserIdForProfile(profileId: string): Promise<stri
     throw new Error("Unable to read profile identity.");
   }
 
-  return typeof data?.clerk_user_id === "string" && data.clerk_user_id
-    ? data.clerk_user_id
-    : null;
+  return typeof data?.clerk_user_id === "string" && data.clerk_user_id ? data.clerk_user_id : null;
 }
 
 export type ConsumeResetResult =

@@ -1,7 +1,7 @@
+import type { AgentRequestDecision } from "@/lib/rate-limit/agent-account";
+
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
-
-import type { AgentRequestDecision } from "@/lib/rate-limit/agent-account";
 
 import { isAgentAccount, isAgentWriteRequest } from "@/lib/agent-account/agent-account";
 
