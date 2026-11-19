@@ -93,6 +93,13 @@ const tipRecord = (id: string) => getOnboardingSnapshot().state.tips[id];
 // Radix may keep the closed dialog mounted for its exit animation.
 const isTipOpen = () => document.querySelector('[data-feature-tip][data-state="open"]') !== null;
 
+/**
+ * Waits for the tip itself to open. Every test file shares one document, so a bare
+ * `findByRole("dialog")` can match a dialog left there by another file and return before the tip
+ * shows.
+ */
+const findOpenTip = () => waitFor(() => expect(isTipOpen()).toBe(true));
+
 beforeEach(() => {
   // Radix measures the popover arrow with browser animation-frame APIs.
   window.requestAnimationFrame ??= globalThis.requestAnimationFrame;
@@ -142,9 +149,9 @@ describe("FeatureTipLayer", () => {
   });
 
   test("Escape dismisses for good", async () => {
-    const app = renderLayer();
+    renderLayer();
 
-    await app.findByRole("dialog");
+    await findOpenTip();
     fireEvent.keyDown(document.body, { key: "Escape" });
 
     await waitFor(() => expect(isTipOpen()).toBe(false));
@@ -168,7 +175,7 @@ describe("FeatureTipLayer", () => {
       ),
     });
 
-    await app.findByRole("dialog");
+    await findOpenTip();
     // Radix registers the outside pointer listener on the next task after the layer mounts.
     await act(() => new Promise<void>((resolve) => setTimeout(resolve, 0)));
 
@@ -189,7 +196,7 @@ describe("FeatureTipLayer", () => {
   test("using the anchored control counts as acted", async () => {
     const app = renderLayer();
 
-    await app.findByRole("dialog");
+    await findOpenTip();
 
     const search = app.getByRole("button", { name: "Search" });
 
@@ -212,13 +219,14 @@ describe("FeatureTipLayer", () => {
 
   test("waits while another layer is open, then closes if one opens", async () => {
     let overlay = true;
-    const app = renderLayer({ overlayOpen: () => overlay });
+
+    renderLayer({ overlayOpen: () => overlay });
 
     await new Promise((resolve) => setTimeout(resolve, 60));
     expect(isTipOpen()).toBe(false);
 
     overlay = false;
-    await app.findByRole("dialog");
+    await findOpenTip();
 
     overlay = true;
     await waitFor(() =>
@@ -334,7 +342,7 @@ describe("FeatureTipLayer", () => {
 
     const app = renderLayer({ children: <Harness show /> });
 
-    await app.findByRole("dialog");
+    await findOpenTip();
     app.rerender(
       <PathnameContext.Provider value="/chat/abc">
         <OnboardingContext.Provider value={context}>

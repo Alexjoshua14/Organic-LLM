@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 
 import { replayHotkeyAction } from "@/components/showcase/replay/use-replay-hotkeys";
 
@@ -23,14 +23,23 @@ function key({ key, target = document.body, ...rest }: KeyInit) {
   };
 }
 
+const hosts: HTMLElement[] = [];
+
 function element(html: string, selector: string): HTMLElement {
   const host = document.createElement("div");
 
   host.innerHTML = html;
   document.body.appendChild(host);
+  hosts.push(host);
 
   return host.querySelector(selector) as HTMLElement;
 }
+
+// Every test file shares one document. A leftover role="dialog" made other files' `findByRole`
+// match it instead of their own dialog.
+afterEach(() => {
+  for (const host of hosts.splice(0)) host.remove();
+});
 
 describe("replayHotkeyAction", () => {
   test("maps play, restart, and chapter keys from the page", () => {
