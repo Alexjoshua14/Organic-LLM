@@ -169,16 +169,20 @@ describe("FeatureTipLayer", () => {
     });
 
     await app.findByRole("dialog");
+    // Radix registers the outside pointer listener on the next task after the layer mounts.
+    await act(() => new Promise<void>((resolve) => setTimeout(resolve, 0)));
 
     const other = app.getByRole("button", { name: "Other control" });
 
     fireEvent.pointerDown(other);
     fireEvent.click(other);
 
-    await waitFor(() => expect(isTipOpen()).toBe(false));
+    await waitFor(() =>
+      expect(getOnboardingSnapshot().sessionHiddenTips.has("composer-search-memory")).toBe(true)
+    );
+    expect(isTipOpen()).toBe(false);
     expect(clicked).toBe(1);
     expect(tipRecord("composer-search-memory")).toBeUndefined();
-    expect(getOnboardingSnapshot().sessionHiddenTips.has("composer-search-memory")).toBe(true);
     expect(getOnboardingSnapshot().state.implicitCloses["composer-search-memory"]).toBe(1);
   });
 
