@@ -16,8 +16,20 @@ export const spacing = {
     xl: "space-y-stack-xl",
     "2xl": "space-y-stack-2xl",
     "3xl": "space-y-stack-3xl",
+    "4xl": "space-y-stack-4xl",
+    "5xl": "space-y-stack-5xl",
+  },
+  /** Padding. Pair a phone value with an `sm:`/`@xl:` step up for one notch of breathing room. */
+  inset: {
+    sm: "p-inset-sm",
+    md: "p-inset-md",
+    lg: "p-inset-lg",
+    xl: "p-inset-xl",
+    "2xl": "p-inset-2xl",
   },
   gap: {
+    /** Compact icon clusters whose buttons carry their own padding (e.g. the one-line composer) */
+    xs: "gap-inline-xs",
     sm: "gap-inline-sm",
     md: "gap-inline-md",
     lg: "gap-inline-lg",

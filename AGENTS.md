@@ -19,6 +19,7 @@ Route to the doc that owns the topic. Do not re-derive what is already written d
 | Chat tools and the assistant toolbelt | [`docs/chat-tools.md`](docs/chat-tools.md) |
 | A new hard-set subagent (Subagent lab) | [`lib/llm/subagents/hard-set/README.md`](lib/llm/subagents/hard-set/README.md) |
 | Threads, persistence, encryption | [`docs/thread-session-architecture.md`](docs/thread-session-architecture.md) |
+| Signing in to check your work (agent test account) | [`docs/agent-test-account.md`](docs/agent-test-account.md) |
 | Setup, env vars, PRs | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
 
 ## Shared agent instructions
@@ -36,6 +37,12 @@ When a task matches a skill below, read its `SKILL.md` before working:
 - Preview branch integration: [preview-branch](.agents/skills/preview-branch/SKILL.md).
 - Dependent PR chains: [stacked-pull-requests](.agents/skills/stacked-pull-requests/SKILL.md).
 - Track and ship a build brief: [ship-from-brief](.agents/skills/ship-from-brief/SKILL.md).
+- Review a blog post with a four-reviewer panel: [blog-review](.agents/skills/blog-review/SKILL.md).
+- Write a blog post from finished work: [blog-from-work](.agents/skills/blog-from-work/SKILL.md).
+- Audit a UI diff for token, Lumen, focus and scope violations: [design-guard](.agents/skills/design-guard/SKILL.md).
+- Turn a brain dump into a reviewed plan in Ergon: [dump-to-plan](.agents/skills/dump-to-plan/SKILL.md).
+- Build in a sandbox lab, then promote to production: [lab-promote](.agents/skills/lab-promote/SKILL.md).
+- Know which other agents are running and claim paths and ports: [agent-radar](.agents/skills/agent-radar/SKILL.md).
 
 For files matching the `paths` in [design-backbone](.agents/rules/design-backbone.md) or
 [subagent-card-lab](.agents/rules/subagent-card-lab.md), read and follow the matching rules before editing. `.agents/rules/` is routed here explicitly; do not
@@ -79,6 +86,11 @@ run; `-t "name"` filters by test name.
 
 ## Style
 
+- Design values come from the token system, not literals: spacing, gap, inset, size, radius,
+  color, type and timing use `@theme` primitives, `lib/design-tokens/`, the Tailwind scale already
+  in use, and the shared timing modules. Never hard-code `px`/`rem`/hex, in sandbox prototypes too.
+  When a request needs a value no token provides, ask the user whether to change a token or add
+  one; see [design-backbone](.agents/rules/design-backbone.md) rules 8-9.
 - Keyboard focus follows [Focus feedback](docs/design/focus-feedback.md): use Lumen or clear
   surface/text feedback instead of default focus rings. Never remove focus visibility.
 
@@ -125,6 +137,7 @@ run; `-t "name"` filters by test name.
 **Ask first**
 
 - New dependencies.
+- A design value no token provides: whether to change a token or add one, before writing it.
 - Fundamental or architectural changes: root providers and layouts, rendering or caching
   strategy, auth wiring, data loading, persistence, or anything most of the app depends on.
   These need the user's explicit approval before any code. Request it with a proposal in

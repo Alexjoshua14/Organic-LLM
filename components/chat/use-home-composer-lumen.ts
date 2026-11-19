@@ -21,6 +21,10 @@ export function useHomeComposerLumen(hostRef: RefObject<HTMLSpanElement | null>,
 
     if (!host || !enabled) return;
 
+    // The rim is sized from the shell's resting height. A composer that grows while you type
+    // would otherwise widen and blur its glow into a smudge (the band scales with size).
+    let restingHeight = Infinity;
+
     const sync = () => {
       const shell = host.querySelector<HTMLElement>("[data-prompt-input-shell]");
 
@@ -29,8 +33,9 @@ export function useHomeComposerLumen(hostRef: RefObject<HTMLSpanElement | null>,
       const { width, height } = shell.getBoundingClientRect();
 
       if (width < 1 || height < 1) return;
+      if (restingHeight === Infinity) restingHeight = height;
 
-      const min = Math.min(width, height);
+      const min = Math.min(width, height, restingHeight);
       const inset = min * LUMEN_INSET_RATIO;
       const outset = min * LUMEN_OUTSET_RATIO;
       const blur = min * LUMEN_BLUR_RATIO;

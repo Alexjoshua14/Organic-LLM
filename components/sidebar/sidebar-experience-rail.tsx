@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
-import { FeatureHint } from "@/components/onboarding/feature-hint";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { Logger } from "@/lib/logger";
 import { PERF_PHASES } from "@/lib/perf/journeys";
@@ -92,7 +91,7 @@ const segmentClass = cn(
   "flex-1 min-w-0 cursor-pointer select-none text-center text-2xs font-medium leading-tight",
   "px-1.5 py-2.5 sm:px-2 sm:py-3 sm:text-xs",
   "bg-background-tertiary text-foreground transition-colors",
-  "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+  "organic-lumen-interactive hover:text-sidebar-accent-foreground",
   "active:bg-sidebar-accent active:text-sidebar-accent-foreground",
   "focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
   "data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground",
@@ -102,7 +101,7 @@ const segmentClass = cn(
 /**
  * Experimental segmented rail: grouped rows of contiguous strips (no gutter between cells).
  * Hover uses the same fill as the sidebar “active” treatment (`bg-sidebar-accent`).
- * Surface descriptions live in onboarding guides — not hover tooltips here.
+ * Surface descriptions live in the Guide (Start here → Surfaces) — not hover tooltips here.
  */
 export function SidebarExperienceRail() {
   const router = useRouter();
@@ -182,18 +181,16 @@ export function SidebarExperienceRail() {
   };
 
   return (
-    <FeatureHint id="experience-rail">
-      <div className="flex w-full min-w-0 flex-col gap-1" data-sidebar-experience-rail>
-        {rows.map((row, rowIndex) => (
-          <div
-            key={row.map((item) => item.id).join("-")}
-            className="flex w-full min-w-0 overflow-hidden rounded-md"
-            data-sidebar-experience-rail-row={rowIndex}
-          >
-            {row.map(renderItem)}
-          </div>
-        ))}
-      </div>
-    </FeatureHint>
+    <div className="flex w-full min-w-0 flex-col gap-1" data-sidebar-experience-rail>
+      {rows.map((row, rowIndex) => (
+        <div
+          key={row.map((item) => item.id).join("-")}
+          className="flex w-full min-w-0 overflow-hidden rounded-md"
+          data-sidebar-experience-rail-row={rowIndex}
+        >
+          {row.map(renderItem)}
+        </div>
+      ))}
+    </div>
   );
 }

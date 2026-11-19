@@ -7,6 +7,7 @@ import { XIcon } from "lucide-react";
 import { useEffect, useRef } from "react";
 
 import { ChatMessageMarkdown } from "../chat-message-markdown";
+import { ComposerActionButton } from "../composer-action-button";
 
 import ShinyText from "@/components/ShinyText";
 import { glass } from "@/components/design-system/primitives";
@@ -92,15 +93,15 @@ export function BtwPanel({
         <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
           {contextDescription}
         </p>
-        <button
+        {/* The composer's own chip: a Lumen rim on hover and keyboard focus, never a fill or ring. */}
+        <ComposerActionButton
           aria-label="Close side question"
-          className="-mr-1 inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+          className="size-7 min-w-7 p-0"
           title="Close (Esc)"
-          type="button"
           onClick={onClose}
         >
           <XIcon className="size-4" />
-        </button>
+        </ComposerActionButton>
       </header>
       {/* Announce the state, not every streamed chunk. */}
       <span aria-live="polite" className="sr-only" role="status">

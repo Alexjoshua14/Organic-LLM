@@ -12,7 +12,7 @@ import { DEFAULT_CONTEXT_EFFORT } from "@/lib/memory/context-effort";
 import { DEFAULT_CHAT_EFFORT } from "@/lib/schemas/chat-effort";
 import { AUTO_CHAT_MODEL_ID } from "@/lib/schemas/chat-model-ids";
 
-export type LabView = "product" | "focus";
+export type LabView = "product" | "focus" | "editor";
 export type LabBackdrop = "chat" | "chrome";
 export type LabSendOutcome = "complete" | "error";
 /** The live voice bar above the composer: off, or one of the states the real bar shows. */
@@ -95,7 +95,7 @@ export const STAGE_WIDTH_PRESETS = [
   { label: "Wide", widthPx: 960 },
 ] as const;
 
-/** Matches what `components/chat/chat.tsx` passes for an Arcadia thread, minus coachmarks. */
+/** Matches what `components/chat/chat.tsx` passes for an Arcadia thread, minus the feature tip. */
 export const DEFAULT_PRODUCT_STATE: ProductLabState = {
   stageWidthPx: 768,
   showStageBounds: true,

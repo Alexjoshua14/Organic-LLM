@@ -95,6 +95,7 @@ import {
   useMultitaskConversationHidden,
 } from "@/app/sandbox/arcadia/_components/multitask-composer-slot";
 import { useArcadiaMultitaskOptional } from "@/app/sandbox/arcadia/_components/multitask-provider";
+import { onboardingActions } from "@/lib/onboarding/onboarding-actions";
 const logger = createLogger("components/chat/chat");
 
 function createChatTransport({
@@ -153,6 +154,13 @@ export const Chat: React.FC<ChatProps> = ({
   onStatusChange,
 }) => {
   const experience = resolveChatRuntimeExperience(requestedExperience);
+  /** Main chat and Arcadia: the surfaces the Guide's first steps and the composer tip cover. */
+  const onboardingSurface =
+    requestedExperience === "arcadia"
+      ? "arcadia"
+      : requestedExperience === undefined && persona === undefined
+        ? "chat"
+        : null;
   const { refreshSidebarChats } = useSharedChatContext();
   /**
    * The unified persona rides along on the main chat and Arcadia (no `persona` prop); the
@@ -241,9 +249,13 @@ export const Chat: React.FC<ChatProps> = ({
 
   useEffect(() => {
     const id = requestAnimationFrame(() => {
-      completeForJourney(["load", "to-chat", "to-arcadia", "thread-switch"], PERF_PHASES.chatReady, {
-        experience: experience ?? "chat",
-      });
+      completeForJourney(
+        ["load", "to-chat", "to-arcadia", "thread-switch"],
+        PERF_PHASES.chatReady,
+        {
+          experience: experience ?? "chat",
+        }
+      );
     });
 
     return () => cancelAnimationFrame(id);
@@ -655,13 +667,16 @@ export const Chat: React.FC<ChatProps> = ({
       const submission = { threadId: current.id };
 
       pendingSendRef.current = submission;
+      // An accepted send completes the matching first steps in the Guide.
+      if (onboardingSurface) onboardingActions.completeStep("first-message");
+      if (onboardingSurface === "arcadia") onboardingActions.completeStep("try-arcadia");
       try {
         await sendMessageWithPersona(...args);
       } finally {
         if (pendingSendRef.current === submission) pendingSendRef.current = null;
       }
     },
-    [sendMessageWithPersona]
+    [onboardingSurface, sendMessageWithPersona]
   );
 
   useEffect(() => {
@@ -852,7 +867,6 @@ export const Chat: React.FC<ChatProps> = ({
                     ? () => (
                         <ChatStylePicker
                           chatId={id}
-                          showStartersHint={messages.length === 0}
                           starterKey={arcadiaStarterKey}
                           onStarterKeyChange={setArcadiaStarterKey}
                         />
@@ -926,7 +940,11 @@ export const Chat: React.FC<ChatProps> = ({
                     experience === "arcadia" && experimentalArcadiaMarkdownPreview
                   }
                   error={btw.isOpen ? btw.error : (error ?? chatError)}
-                  featureHints={!(experience === "arcadia" && messages.length === 0)}
+                  featureHints={
+                    onboardingSurface != null &&
+                    !btw.isOpen &&
+                    messages.some((message) => message.role === "assistant")
+                  }
                   hideWebMemorySpeechToggles={
                     experience === "strata_page" && Boolean(assistantSession)
                   }

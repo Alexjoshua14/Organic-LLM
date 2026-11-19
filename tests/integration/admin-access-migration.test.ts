@@ -21,21 +21,23 @@ async function expectDenied(tx: TransactionSQL, query: string, code = "42501") {
   expect(failure).toMatchObject({ errno: code });
 }
 
-databaseTest(
-  "admin-access migration enforces database permissions and account isolation",
-  async () => {
-    const db = new SQL(databaseUrl!);
-    const schema = `admin_access_test_${crypto.randomUUID().replaceAll("-", "")}`;
-    const rolledBack = new Error("Verification complete; roll back fixture schema");
-    const migration = await Bun.file(
-      new URL("../../docs/migrations/admin_access.sql", import.meta.url)
-    ).text();
+// lab_access copies admin_access's controls line for line, so both run the same checks.
+for (const table of ["admin_access", "lab_access"] as const) {
+  databaseTest(
+    `${table} migration enforces database permissions and account isolation`,
+    async () => {
+      const db = new SQL(databaseUrl!);
+      const schema = `${table}_test_${crypto.randomUUID().replaceAll("-", "")}`;
+      const rolledBack = new Error("Verification complete; roll back fixture schema");
+      const migration = await Bun.file(
+        new URL(`../../docs/migrations/${table}.sql`, import.meta.url)
+      ).text();
 
-    try {
-      await db.begin(async (tx) => {
-        await tx
-          .unsafe(
-            `
+      try {
+        await db.begin(async (tx) => {
+          await tx
+            .unsafe(
+              `
         CREATE SCHEMA ${schema};
         GRANT USAGE ON SCHEMA ${schema} TO anon, authenticated, service_role;
         CREATE TABLE ${schema}.profiles (
@@ -55,88 +57,87 @@ databaseTest(
           ('${OTHER_ADMIN}', 'migration_other_admin'),
           ('${MEMBER}', 'migration_member');
       `
-          )
-          .simple();
+            )
+            .simple();
 
-        // Keep transaction control in this test; schema names are generated internally.
-        await tx
-          .unsafe(
-            migration
-              .replace(/^BEGIN;$/gm, "")
-              .replace(/^COMMIT;$/gm, "")
-              .replaceAll("public.", `${schema}.`)
-          )
-          .simple();
-        expect(await tx.unsafe(`SELECT * FROM ${schema}.admin_access`)).toHaveLength(0);
+          // Keep transaction control in this test; schema names are generated internally.
+          await tx
+            .unsafe(
+              migration
+                .replace(/^BEGIN;$/gm, "")
+                .replace(/^COMMIT;$/gm, "")
+                .replaceAll("public.", `${schema}.`)
+            )
+            .simple();
+          expect(await tx.unsafe(`SELECT * FROM ${schema}.${table}`)).toHaveLength(0);
 
-        await tx.unsafe("SET LOCAL ROLE service_role");
-        await tx.unsafe(
-          `INSERT INTO ${schema}.admin_access (profile_id) VALUES ('${ADMIN}'), ('${OTHER_ADMIN}')`
-        );
-        const grants = await tx.unsafe(`SELECT * FROM ${schema}.admin_access`);
-        expect(grants).toHaveLength(2);
-        expect(grants.every((grant: { granted_at: unknown }) => grant.granted_at != null)).toBe(
-          true
-        );
-        await expectDenied(
-          tx,
-          `INSERT INTO ${schema}.admin_access (profile_id) VALUES ('${ADMIN}')`,
-          "23505"
-        );
-        await expectDenied(
-          tx,
-          `INSERT INTO ${schema}.admin_access (profile_id) VALUES ('dddddddd-dddd-4ddd-8ddd-dddddddddddd')`,
-          "23503"
-        );
-
-        await tx.unsafe("SET LOCAL ROLE authenticated");
-        await tx`SELECT set_config('request.jwt.claims', ${JSON.stringify({ sub: "migration_admin", role: "authenticated" })}, true)`;
-        const own = await tx.unsafe(`SELECT profile_id FROM ${schema}.admin_access`);
-        expect(own).toEqual([{ profile_id: ADMIN }]);
-        expect(
+          await tx.unsafe("SET LOCAL ROLE service_role");
           await tx.unsafe(
-            `SELECT * FROM ${schema}.admin_access WHERE profile_id = '${OTHER_ADMIN}'`
-          )
-        ).toHaveLength(0);
-        await expectDenied(
-          tx,
-          `INSERT INTO ${schema}.admin_access (profile_id) VALUES ('${MEMBER}')`
-        );
-        await expectDenied(tx, `UPDATE ${schema}.admin_access SET profile_id = '${MEMBER}'`);
-        await expectDenied(tx, `DELETE FROM ${schema}.admin_access WHERE profile_id = '${ADMIN}'`);
-        await expectDenied(tx, `TRUNCATE ${schema}.admin_access`);
-        await expectDenied(
-          tx,
-          `INSERT INTO ${schema}.admin_access (profile_id) VALUES ('${ADMIN}') ON CONFLICT (profile_id) DO UPDATE SET granted_at = now()`
-        );
+            `INSERT INTO ${schema}.${table} (profile_id) VALUES ('${ADMIN}'), ('${OTHER_ADMIN}')`
+          );
+          const grants = await tx.unsafe(`SELECT * FROM ${schema}.${table}`);
+          expect(grants).toHaveLength(2);
+          expect(grants.every((grant: { granted_at: unknown }) => grant.granted_at != null)).toBe(
+            true
+          );
+          await expectDenied(
+            tx,
+            `INSERT INTO ${schema}.${table} (profile_id) VALUES ('${ADMIN}')`,
+            "23505"
+          );
+          await expectDenied(
+            tx,
+            `INSERT INTO ${schema}.${table} (profile_id) VALUES ('dddddddd-dddd-4ddd-8ddd-dddddddddddd')`,
+            "23503"
+          );
 
-        await tx`SELECT set_config('request.jwt.claims', ${JSON.stringify({ sub: "migration_member", role: "authenticated" })}, true)`;
-        expect(await tx.unsafe(`SELECT * FROM ${schema}.admin_access`)).toHaveLength(0);
+          await tx.unsafe("SET LOCAL ROLE authenticated");
+          await tx`SELECT set_config('request.jwt.claims', ${JSON.stringify({ sub: "migration_admin", role: "authenticated" })}, true)`;
+          const own = await tx.unsafe(`SELECT profile_id FROM ${schema}.${table}`);
+          expect(own).toEqual([{ profile_id: ADMIN }]);
+          expect(
+            await tx.unsafe(`SELECT * FROM ${schema}.${table} WHERE profile_id = '${OTHER_ADMIN}'`)
+          ).toHaveLength(0);
+          await expectDenied(
+            tx,
+            `INSERT INTO ${schema}.${table} (profile_id) VALUES ('${MEMBER}')`
+          );
+          await expectDenied(tx, `UPDATE ${schema}.${table} SET profile_id = '${MEMBER}'`);
+          await expectDenied(tx, `DELETE FROM ${schema}.${table} WHERE profile_id = '${ADMIN}'`);
+          await expectDenied(tx, `TRUNCATE ${schema}.${table}`);
+          await expectDenied(
+            tx,
+            `INSERT INTO ${schema}.${table} (profile_id) VALUES ('${ADMIN}') ON CONFLICT (profile_id) DO UPDATE SET granted_at = now()`
+          );
 
-        await tx.unsafe("SET LOCAL ROLE anon");
-        await expectDenied(tx, `SELECT * FROM ${schema}.admin_access`);
-        await expectDenied(
-          tx,
-          `INSERT INTO ${schema}.admin_access (profile_id) VALUES ('${MEMBER}')`
-        );
+          await tx`SELECT set_config('request.jwt.claims', ${JSON.stringify({ sub: "migration_member", role: "authenticated" })}, true)`;
+          expect(await tx.unsafe(`SELECT * FROM ${schema}.${table}`)).toHaveLength(0);
 
-        await tx.unsafe("SET LOCAL ROLE service_role");
-        await tx.unsafe(`DELETE FROM ${schema}.admin_access WHERE profile_id = '${ADMIN}'`);
-        await tx.unsafe("SET LOCAL ROLE authenticated");
-        await tx`SELECT set_config('request.jwt.claims', ${JSON.stringify({ sub: "migration_admin", role: "authenticated" })}, true)`;
-        expect(await tx.unsafe(`SELECT * FROM ${schema}.admin_access`)).toHaveLength(0);
+          await tx.unsafe("SET LOCAL ROLE anon");
+          await expectDenied(tx, `SELECT * FROM ${schema}.${table}`);
+          await expectDenied(
+            tx,
+            `INSERT INTO ${schema}.${table} (profile_id) VALUES ('${MEMBER}')`
+          );
 
-        await tx.unsafe("SET LOCAL ROLE service_role");
-        await tx.unsafe(`DELETE FROM ${schema}.profiles WHERE id = '${OTHER_ADMIN}'`);
-        expect(await tx.unsafe(`SELECT * FROM ${schema}.admin_access`)).toHaveLength(0);
+          await tx.unsafe("SET LOCAL ROLE service_role");
+          await tx.unsafe(`DELETE FROM ${schema}.${table} WHERE profile_id = '${ADMIN}'`);
+          await tx.unsafe("SET LOCAL ROLE authenticated");
+          await tx`SELECT set_config('request.jwt.claims', ${JSON.stringify({ sub: "migration_admin", role: "authenticated" })}, true)`;
+          expect(await tx.unsafe(`SELECT * FROM ${schema}.${table}`)).toHaveLength(0);
 
-        throw rolledBack;
-      });
-    } catch (error) {
-      if (error !== rolledBack) throw error;
-    } finally {
-      await db.close();
-    }
-  },
-  15_000
-);
+          await tx.unsafe("SET LOCAL ROLE service_role");
+          await tx.unsafe(`DELETE FROM ${schema}.profiles WHERE id = '${OTHER_ADMIN}'`);
+          expect(await tx.unsafe(`SELECT * FROM ${schema}.${table}`)).toHaveLength(0);
+
+          throw rolledBack;
+        });
+      } catch (error) {
+        if (error !== rolledBack) throw error;
+      } finally {
+        await db.close();
+      }
+    },
+    15_000
+  );
+}

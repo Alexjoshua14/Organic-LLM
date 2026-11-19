@@ -400,12 +400,7 @@ export function ContextBudgetPopover({ budget }: { budget: ContextBudgetEstimate
   );
 }
 
-/**
- * Right padding a textarea needs so typed text wraps before the badge while the draft count
- * shows. Sized for the widest label `formatTokenCount` gives below 1M ("9,999 tok", 54px at
- * 10px mono) plus the ring, gap, button padding, and corner offset (~86px), with a little air.
- */
-export const CONTEXT_BUDGET_DRAFT_RESERVE_CLASS = "pr-[5.75rem]";
+export { CONTEXT_BUDGET_DRAFT_RESERVE_CLASS } from "./context-budget-reserve";
 
 /**
  * Badge + hover card for a resolved budget. No data fetching — the indicator below pairs

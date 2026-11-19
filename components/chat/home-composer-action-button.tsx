@@ -31,7 +31,7 @@ export function HomeComposerActionButton({
             "w-full cursor-pointer border-0 bg-transparent px-4 py-2.5 shadow-none outline-none",
             "text-sm font-medium tracking-tight text-foreground",
             "transition-opacity duration-200",
-            "focus-visible:ring-2 focus-visible:ring-border/80 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent",
+            "organic-focus",
             "disabled:pointer-events-none disabled:opacity-50",
             className
           )}

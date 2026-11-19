@@ -226,6 +226,8 @@ export function getEffortCapabilityForModel(modelId: string): EffortCapability {
     if (slug.includes("3.1-pro") || (slug.includes("3-pro") && !slug.includes("flash"))) {
       return GOOGLE_PRO_LEVELS;
     }
+    // Gemini 4 (Argon, Carbon, Hydrogen, Neon): low–high thinking levels, no `minimal`.
+    if (slug.includes("gemini-4")) return GOOGLE_PRO_LEVELS;
     // 3.8 Flash: gateway + Gemini API reject `minimal`.
     if (slug.includes("3.8-flash")) return GOOGLE_PRO_LEVELS;
     if (slug.includes("gemini-3") || slug.includes("3.5-flash") || slug.includes("3-flash")) {
@@ -339,7 +341,12 @@ function anthropicCanDisableThinking(slug: string): boolean {
 }
 
 function googleUsesThinkingLevel(slug: string): boolean {
-  return slug.includes("gemini-3") || /gemini-3\./.test(slug) || slug.startsWith("3.");
+  return (
+    slug.includes("gemini-3") ||
+    slug.includes("gemini-4") ||
+    /gemini-3\./.test(slug) ||
+    slug.startsWith("3.")
+  );
 }
 
 /** Map a unified effort level to provider-specific streamText options for the given model. */

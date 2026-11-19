@@ -38,6 +38,8 @@ Stripe, and WCAG target-spacing guidance (2026 research pass).
 | `stack-xl` | 20 | Legacy “comfortable” section (avoid in dense chat UI) |
 | `stack-2xl` | 24 | Major page sections |
 | `stack-3xl` | 32 | Layout / hero margins |
+| `stack-4xl` | 48 | Page sections (blog index, article chapters) |
+| `stack-5xl` | 64 | Hero to content on wide layouts |
 
 ### Semantic aliases (`spacing.card.*`)
 
@@ -56,7 +58,7 @@ Use in gen-ui and chat cards instead of ad-hoc `space-y-5`:
 1. **Semantic over primitive** when the UI context is known (Polaris pattern).
 2. **Component vs layout** — `stack-*` / `inline-*` for inside components; `stack-2xl`+ for page layout (Carbon).
 3. **Step down at breakpoints** — same token names, one notch tighter on `sm+` for dense desktop cards (Material, Carbon).
-4. **8px between tappable controls** — `gap-inline-sm`; keep 44px hit areas on primary actions (Apple HIG, WCAG 2.5.8).
+4. **8px between tappable controls** — `gap-inline-sm`; keep 44px hit areas on primary actions (Apple HIG, WCAG 2.5.8). The one exception is `gap-inline-xs` (4px), for a compact cluster of icon buttons whose hit areas already carry their own padding, such as attach, mic and Send on the one-line composer ([compact reflow](./core-input-compact-reflow.md)). Do not use it between text-labelled controls.
 5. **Line-height ≥ 1.5** and flexible containers — spacing tokens must not fight WCAG 1.4.12 text-spacing overrides.
 
 ---
@@ -65,6 +67,8 @@ Use in gen-ui and chat cards instead of ad-hoc `space-y-5`:
 
 Expanded desktop body uses `spacing.card.section` instead of `space-y-5` (20px).
 Action chips keep `gap-inline-sm` (8px) — already aligned with touch-gap guidance.
+
+`--spacing-inset-*` also has `xl` (24px, card padding on phones) and `2xl` (32px, feature cards and desktop gutters); `spacing.inset` aliases them. See [Blog layout](./blog-layout.md) for the first wide-layout consumer.
 
 Feature-local tokens (e.g. [`lib/rabbit-holes/designTokens.ts`](../../lib/rabbit-holes/designTokens.ts))
 remain until a follow-up aliases them to these globals.
@@ -78,8 +82,24 @@ remain until a follow-up aliases them to these globals.
 | Section stack (expanded card) | `spacing.card.section` | 12 (`stack-md`) |
 | Section stack (mobile) | same, default breakpoint | 16 (`stack-lg`) |
 | Action row gap | `spacing.gap.sm` | 8 |
+| Compact icon cluster gap | `spacing.gap.xs` | 4 |
 | Label → content (Hours, Menu) | `spacing.card.labelStack` | 4 |
 | Subsection header → expandable body | `spacing.card.block` | 12 |
 | Menu → review pills (extra) | `spacing.card.sourcesLead` | +4 on section gap |
 
-Do not go below **8px** between distinct interactive rows.
+Do not go below **8px** between distinct interactive rows, except `inline-xs` as described in principle 4.
+
+---
+
+## When a request does not fit the tokens
+
+Do not pick a nearby literal or borrow a token from another role. Ask which of these the user
+wants: **change** an existing token (and accept every place it is used), **add** a new token (name
+and value proposed), or record a documented **one-off exception**. Then update the token and this
+doc in the same change. Example: the `inline-*` scale started at 8px, so a 4px gap between inline
+controls needed that decision (it became `inline-xs`); it must not be a hard-coded 4px or a
+`stack-xs` stand-in.
+
+Prototypes in `app/sandbox/` may use one-off values (and still take an existing token where it
+matches). Promotion to production turns each of those values into a token first; see design-backbone
+rule 10.

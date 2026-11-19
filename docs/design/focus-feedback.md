@@ -1,5 +1,7 @@
 # Keyboard focus feedback
 
+For what Lumen means in each theme (natural light in dark, shadow in light), see [Lumen](./lumen.md). This document covers its use as keyboard focus.
+
 **Locked owner direction — 2026-11-11.** Organic uses Lumen, surface changes and text cues
 for keyboard focus. Do not introduce surrounding focus rings as the default treatment.
 

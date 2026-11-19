@@ -4,7 +4,6 @@ import type { ReactNode } from "react";
 
 import { ChatStylePicker } from "@/components/chat/chat-style-picker";
 import { getChatStyle, setChatStyle } from "@/lib/chat/chat-style-store";
-import { FeatureHintRegistryProvider } from "@/lib/onboarding/feature-hint-context";
 import { render } from "../helpers/render";
 
 const THREAD_UUID = "00000000-0000-4000-8000-000000000099";
@@ -12,11 +11,7 @@ const THREAD_UUID = "00000000-0000-4000-8000-000000000099";
 const originalFetch = globalThis.fetch;
 
 function renderPicker(ui: ReactNode) {
-  return render(ui, {
-    wrapper: ({ children }) => (
-      <FeatureHintRegistryProvider>{children}</FeatureHintRegistryProvider>
-    ),
-  });
+  return render(ui);
 }
 
 beforeEach(() => {

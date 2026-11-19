@@ -1,17 +1,21 @@
 # Ergon
 
-Ergon is a durable, keyboard-first todo list — tasks that survive beyond a single chat session.
+Ergon is a durable, keyboard-first task list inside Organic LLM. It is for doing, where Chat is for thinking.
 
 ## What it is for
 
-- Capturing and completing work items without mixing them into conversation
-- Fast keyboard navigation and edits
-- A separate surface so Chat stays for thinking, Ergon for doing
+- Capturing action items without burying them in a conversation
+- Moving fast: every list, edit and completion is reachable from the keyboard
+- Keeping tasks that outlive any single chat session
 
 ## How it differs from Chat
 
-Ergon is not a conversational interface. It is a task list with persistence and focus on execution, not generation.
+Ergon is not conversational. It is a persistent list, so the work you decided on is still there tomorrow. Chat is where you work out what to do. Ergon keeps what you decided.
 
-## When to use Ergon
+## Connecting a tracker
 
-Move action items here when they need to stick. Use Chat or other surfaces to figure out what to do; use Ergon to track that you did it.
+If you use the separate Ergon engineering tracker, you can connect it from **Settings, Connectors**. Once connected, the assistant can read and, with your permission, write tickets for you.
+
+## When to use it
+
+Move an action item here as soon as it needs to stick.

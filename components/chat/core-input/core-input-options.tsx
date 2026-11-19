@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import type { FooterPlacementMap } from "./footer/footer-placement";
 
-import { useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Popover } from "radix-ui";
 
 import { ComposerActionButton } from "../composer-action-button";
@@ -13,6 +13,7 @@ import { ComposerModelEffortSelect } from "./controls/model-effort-select";
 import { ComposerPreviewChip } from "./controls/preview-chip";
 import { ComposerToolToggleGroup } from "./controls/tool-toggle-group";
 import { ComposerOptionsIcon } from "./options-icon";
+import { PANEL_COLLISION_PADDING_PX, PANEL_OVERLAP_PX, panelAlign } from "./panel-placement";
 
 import { homeComposerGlassSurface } from "@/components/design-system/primitives";
 import { ComposerPersonaChip } from "@/components/personas/persona-chip";
@@ -30,10 +31,34 @@ export function CoreInputOptions({
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
+  const [align, setAlign] = useState<"start" | "center">("start");
+  const [shell, setShell] = useState<HTMLElement | null>(null);
+  const [root, setRoot] = useState<HTMLElement | null>(null);
   const available = (id: keyof FooterPlacementMap) => placement[id] !== "hidden";
 
+  // Layout-neutral marker used to find the prompt shell (the panel's anchor) and the CoreInput
+  // panel slot (the portal container, which keeps the panel in the shell's stacking context and
+  // just before it in paint order).
+  const hostRef = useCallback((el: HTMLElement | null) => {
+    setShell(el?.closest<HTMLElement>("[data-prompt-input-shell]") ?? null);
+    setRoot(
+      el
+        ?.closest<HTMLElement>("[data-core-input-root]")
+        ?.querySelector<HTMLElement>("[data-core-input-panel-slot]") ?? null
+    );
+  }, []);
+  const anchorRef = useMemo(() => ({ current: shell }), [shell]);
+
   return (
-    <Popover.Root open={open} onOpenChange={setOpen}>
+    <Popover.Root
+      open={open}
+      onOpenChange={(next) => {
+        if (next) setAlign(panelAlign());
+        setOpen(next);
+      }}
+    >
+      <span ref={hostRef} className="contents" />
+      {shell ? <Popover.Anchor virtualRef={anchorRef} /> : null}
       <ComposerActionButton
         wrapTrigger={Popover.Trigger}
         aria-label="Composer options"
@@ -43,14 +68,14 @@ export function CoreInputOptions({
       >
         <ComposerOptionsIcon open={open} />
       </ComposerActionButton>
-      <Popover.Portal>
+      <Popover.Portal container={root}>
         <Popover.Content
           ref={panelRef}
           aria-label="Composer settings"
-          align="start"
+          align={align}
           side="top"
-          sideOffset={8}
-          collisionPadding={16}
+          sideOffset={-PANEL_OVERLAP_PX}
+          collisionPadding={PANEL_COLLISION_PADDING_PX}
           className={cn(homeComposerGlassSurface, "core-input-options-panel")}
           onOpenAutoFocus={(event) => {
             // Opening settings should not immediately open a caption or a nested picker.

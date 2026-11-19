@@ -27,6 +27,8 @@ import { QuickSettingRow } from "@/components/settings/quick-setting-row";
 import { SettingsHelp } from "@/components/settings/settings-help";
 import { SettingsRow } from "@/components/settings/SettingsRow";
 import { ThemeSwitch } from "@/components/shared/theme-switch";
+import { useOnboardingSnapshot } from "@/hooks/use-onboarding";
+import { onboardingActions } from "@/lib/onboarding/onboarding-actions";
 import { getSettings, setSettings } from "@/lib/user-settings";
 import { cn } from "@/lib/utils";
 
@@ -41,6 +43,7 @@ export default function SettingsPage() {
   const [coalescenceMode, setCoalescenceMode] = useState(false);
   const [experimentalArcadiaMarkdownPreview, setExperimentalArcadiaMarkdownPreview] =
     useState(false);
+  const onboarding = useOnboardingSnapshot();
   const [experimentalContextEffort, setExperimentalContextEffort] = useState(false);
   const [experimentalKnowledgeCapsuleTitles, setExperimentalKnowledgeCapsuleTitles] =
     useState(false);
@@ -226,6 +229,18 @@ export default function SettingsPage() {
                 </QuickSettingRow>
                 <LightweightModeSetting compact />
               </section>
+              {onboarding.status === "ready" ? (
+                <QuickSettingRow
+                  caption="Show occasional tips. Read or replay them from the Guide (?)."
+                  label="Feature tips"
+                >
+                  <Switch
+                    aria-label="Feature tips"
+                    isSelected={onboarding.state.tipsEnabled}
+                    onValueChange={(enabled) => onboardingActions.setTipsEnabled(enabled)}
+                  />
+                </QuickSettingRow>
+              ) : null}
               <FontSetting />
               <SettingsHelp title="Experimental appearance">
                 <div className="space-y-stack-sm">

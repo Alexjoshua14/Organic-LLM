@@ -75,7 +75,7 @@ export function ThreadReferenceCard({ id, onRemove }: { id: string; onRemove?: (
           aria-label="Start a new voice conversation from this thread"
           title="Speak from this thread · starts a new voice conversation"
           disabled={voicePending || voice.connecting}
-          className="grid size-6 shrink-0 place-content-center rounded hover:bg-accent/15 disabled:opacity-40 focus-visible:outline focus-visible:outline-2"
+          className="grid size-6 shrink-0 place-content-center rounded organic-lumen-interactive disabled:opacity-40 focus-visible:outline focus-visible:outline-2"
           type="button"
           onClick={() => {
             void speak();
@@ -87,7 +87,7 @@ export function ThreadReferenceCard({ id, onRemove }: { id: string; onRemove?: (
       {onRemove ? (
         <button
           aria-label="Remove thread reference"
-          className="grid size-6 shrink-0 place-content-center rounded hover:bg-accent/15 focus-visible:outline focus-visible:outline-2"
+          className="grid size-6 shrink-0 place-content-center rounded organic-lumen-interactive focus-visible:outline focus-visible:outline-2"
           type="button"
           onClick={onRemove}
         >

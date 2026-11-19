@@ -12,9 +12,9 @@ import { ChatModels } from "@/lib/schemas/chat";
 import { DEFAULT_COMPOSER_MODEL } from "@/lib/chat/composer-tool-defaults";
 import { coreInputSnapshots } from "@/lib/core-input/snapshot-store";
 import { coreInputScopes, type CoreInputScope } from "@/lib/core-input/scopes";
-import { FeatureHintRegistryProvider } from "@/lib/onboarding/feature-hint-context";
 import { ChatContext, type ChatContextValue } from "@/lib/context/chat-context";
 import { defaultUserSettings, type UserSettings } from "@/lib/schemas/userSettings";
+import { composerField, setComposerText } from "../helpers/composer";
 
 // ---------------------------------------------------------------------------
 // Browser globals the shared jsdom install leaves out. Installed for this file only and
@@ -210,7 +210,7 @@ const chatContextValue = {
 function Providers({ children }: { children: ReactNode }) {
   return (
     <ChatContext.Provider value={chatContextValue}>
-      <FeatureHintRegistryProvider>{children}</FeatureHintRegistryProvider>
+      {children}
     </ChatContext.Provider>
   );
 }
@@ -477,9 +477,11 @@ describe("CoreInput lab", () => {
       await userEvent.setup().type(view.container.querySelector("textarea")!, "Queue this turn");
       await userEvent.setup().click(view.getByRole("button", { name: "Submit" }));
       expect(sendMessage).not.toHaveBeenCalled();
-      expect(fetchSpy.mock.calls.filter(([, options]) => options?.method === "POST")).toHaveLength(
-        1
-      );
+      expect(
+        fetchSpy.mock.calls.filter(
+          ([url, options]) => url === "/api/chat/queue" && options?.method === "POST"
+        )
+      ).toHaveLength(1);
     } finally {
       fetchSpy.mockRestore();
     }
@@ -777,7 +779,7 @@ describe("CoreInput shared compact layout", () => {
             />
           </Providers>
         );
-        const input = app.getByRole("textbox") as HTMLTextAreaElement;
+        const input = composerField(app.container);
         fireEvent.change(input, { target: { value: "Keep this draft" } });
         expect(app.container.querySelector(".core-input-compact-row")).toBeTruthy();
         expect(
@@ -808,7 +810,7 @@ describe("CoreInput shared compact layout", () => {
         expect(within(panel).getByRole("button", { name: "Web search on" })).toBeTruthy();
         fireEvent.click(within(panel).getByRole("button", { name: "Memory off" }));
         expect(within(panel).getByRole("button", { name: "Memory on" })).toBeTruthy();
-        expect(app.getByRole("textbox") === input).toBe(true);
+        expect(composerField(app.container) === input).toBe(true);
         expect(input.value).toBe("Keep this draft");
         // No heading or close button: Escape dismisses the panel and returns focus to the trigger.
         expect(within(panel).queryByRole("button", { name: "Close composer settings" })).toBeNull();
@@ -932,7 +934,7 @@ describe("CoreInput steer tab", () => {
         // Empty draft: present but disabled, so the tab never shifts the layout.
         expect(steer.hasAttribute("disabled")).toBe(true);
 
-        const input = app.getByRole("textbox") as HTMLTextAreaElement;
+        const input = composerField(app.container);
 
         fireEvent.change(input, { target: { value: "Keep it brief" } });
         await waitFor(() => expect(steer.hasAttribute("disabled")).toBe(false));
@@ -984,7 +986,7 @@ describe("CoreInput steer tab", () => {
 
       expect(steer.closest("[data-core-input-tab]")).toBeNull();
       expect(steer.hasAttribute("disabled")).toBe(true);
-      fireEvent.change(app.getByRole("textbox"), { target: { value: "Hello" } });
+      setComposerText(app.container, "Hello");
       await waitFor(() => expect(steer.hasAttribute("disabled")).toBe(false));
     } finally {
       rect.mockRestore();

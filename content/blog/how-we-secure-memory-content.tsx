@@ -1,148 +1,149 @@
 import Link from "next/link";
 
+import { BlogFigure } from "@/components/blog/blog-figure";
 import { BlogSection } from "@/components/blog/blog-section";
+import { Term } from "@/components/blog/term-with-definition";
 
-function DatabaseVsAppComparison() {
-  const rows: [string, string][] = [
-    ["Encrypted blobs", "Your memories, readable"],
-    ["Search numbers", "Relevant results"],
-    ["No readable text", "Normal experience"],
+/** What a copy of the memory database holds, next to what you see in the app. */
+function DatabaseVsApp() {
+  const rows: ReadonlyArray<readonly [attacker: string, you: string]> = [
+    ["Scrambled blocks of text", "Your memories, readable"],
+    ["Lists of numbers used for search", "Relevant results when you ask"],
+    ["No readable text to read", "A normal conversation"],
   ];
 
   return (
-    <figure className="not-prose my-8 overflow-hidden rounded-xl border border-border bg-muted/10">
-      <figcaption className="border-b border-border bg-muted/30 px-4 py-2.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        What a database-only attacker does not get
-      </figcaption>
-      <div className="grid grid-cols-2 divide-x divide-border">
-        <div className="bg-secondary/25 px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:text-sm">
-          Without app keys
-        </div>
-        <div className="bg-secondary/25 px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:text-sm">
-          With Organic LLM
-        </div>
-      </div>
-      <div className="divide-y divide-border">
-        {rows.map(([left, right]) => (
-          <div key={left} className="grid grid-cols-2 divide-x divide-border">
-            <div className="px-4 py-3 text-center text-sm text-foreground/90">{left}</div>
-            <div className="px-4 py-3 text-center text-sm text-foreground/90">{right}</div>
+    <BlogFigure caption="The database holds the left column. The app, with its keys, shows you the right.">
+      <div className="overflow-hidden rounded-xl border border-border bg-secondary/40">
+        <div className="grid grid-cols-2 divide-x divide-border bg-secondary/60 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          <div className="px-inset-lg py-stack-md text-center">
+            Someone with a database copy sees
           </div>
-        ))}
+          <div className="px-inset-lg py-stack-md text-center">You see</div>
+        </div>
+        <div className="divide-y divide-border/60">
+          {rows.map(([attacker, you]) => (
+            <div key={attacker} className="grid grid-cols-2 divide-x divide-border/60">
+              <div className="px-inset-lg py-stack-md text-center text-sm text-foreground/90">
+                {attacker}
+              </div>
+              <div className="px-inset-lg py-stack-md text-center text-sm text-foreground/90">
+                {you}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
-    </figure>
+    </BlogFigure>
   );
 }
 
+const GLANCE: ReadonlyArray<readonly [label: string, body: string]> = [
+  [
+    "Access",
+    "Memory requests are tied to the signed-in user on the server. A client cannot claim to be someone else, and a delete only works on what already belongs to you.",
+  ],
+  [
+    "Abuse",
+    "Rate limits and checks on every response stop a buggy or automated client from hammering memory or receiving malformed data.",
+  ],
+  [
+    "Storage",
+    "When encryption keys are configured, the readable text of a memory is encrypted with AES-256-GCM before it is saved and decrypted by the app when you need it. Keys are kept apart from the data, so a copy of the database alone is not enough.",
+  ],
+  ["Logging", "By design we log metadata, not the content of your memories."],
+];
+
 export function HowWeSecureMemoryContent() {
   return (
-    <div className="space-y-10">
+    <div className="space-y-stack-3xl">
       <BlogSection>
         <h1>How we protect your memories</h1>
-        <div className="not-prose -mt-2 mb-5 text-xs text-muted-foreground">
-          Last updated: May 2026
-        </div>
         <p className="text-lg leading-relaxed text-foreground/90">
-          Organic LLM treats long-term memory as sensitive data. We combine strict access controls
-          on the server with application-layer encryption for the human-readable text we store in
-          the memory database alongside the numeric fingerprints we use for search—so a storage leak
-          is much less likely to spill readable conversations and summaries.
+          Organic LLM remembers things about you so it can help you better. We treat that memory as
+          sensitive. The readable text of a memory is encrypted before it reaches the memory
+          database.
+        </p>
+        <p>
+          This post is about the <strong>memory store</strong>. Chat messages and summaries have
+          their own protection, covered in{" "}
+          <Link href="/blog/memory-encryption">Memory encryption, in depth</Link>.
         </p>
 
         <h2>Why this matters</h2>
         <p>
-          Memory systems remember context across sessions: preferences, projects, and phrasing that
-          is inherently personal. That usefulness creates risk if data is ever exposed through a
-          misconfiguration, a compromised host, or an upstream incident. We invest here because
-          trust is part of the product, not an afterthought.
+          Memory holds preferences, projects and phrasing that are personal. That is what makes it
+          useful, and it is what makes a leak costly, whether from a misconfiguration, a compromised
+          host or an incident upstream. Trust is part of the product, so we start from the
+          assumption that the database could be exposed.
         </p>
       </BlogSection>
 
-      <div className="not-prose rounded-xl border border-border bg-secondary/40 px-5 py-6 sm:px-6 sm:py-7">
-        <h2 className="text-base font-semibold text-foreground tracking-tight">At a glance</h2>
-        <ul className="mt-4 list-none space-y-0 p-0 text-sm leading-relaxed">
-          <li className="grid grid-cols-1 gap-1 border-b border-border/50 py-3.5 first:pt-0 sm:grid-cols-[7rem_1fr] sm:items-start sm:gap-x-6 sm:gap-y-0">
-            <span className="font-medium text-foreground">Access</span>
-            <span className="text-foreground/90">
-              Memory APIs resolve the signed-in user on the server only; clients do not supply
-              identity for reads or writes. Deletes are checked against what already belongs to you.
-            </span>
-          </li>
-          <li className="grid grid-cols-1 gap-1 border-b border-border/50 py-3.5 sm:grid-cols-[7rem_1fr] sm:items-start sm:gap-x-6 sm:gap-y-0">
-            <span className="font-medium text-foreground">Abuse</span>
-            <span className="text-foreground/90">
-              Rate limits and response validation sit at the public boundary so automated or buggy
-              clients cannot hammer memory or receive malformed payloads unchecked.
-            </span>
-          </li>
-          <li className="grid grid-cols-1 gap-1 border-b border-border/50 py-3.5 sm:grid-cols-[7rem_1fr] sm:items-start sm:gap-x-6 sm:gap-y-0">
-            <span className="font-medium text-foreground">Storage</span>
-            <span className="text-foreground/90">
-              When enabled, sensitive text fields in the memory database are encrypted with
-              AES-256-GCM before persistence and decrypted inside the app when search or UI needs
-              the text. Keys are versioned deployment secrets so we can rotate without rewriting the
-              whole system in one shot.
-            </span>
-          </li>
-          <li className="grid grid-cols-1 gap-1 py-3.5 pb-0 sm:grid-cols-[7rem_1fr] sm:items-start sm:gap-x-6 sm:gap-y-0">
-            <span className="font-medium text-foreground">Logging</span>
-            <span className="text-foreground/90">
-              We do not log raw memory content in production.
-            </span>
-          </li>
-        </ul>
-      </div>
+      <BlogFigure>
+        <div className="rounded-xl border border-border bg-secondary/40 p-inset-xl">
+          <h2 className="text-base font-semibold tracking-tight text-foreground">At a glance</h2>
+          <dl className="mt-stack-lg divide-y divide-border/50 text-sm leading-relaxed">
+            {GLANCE.map(([label, body]) => (
+              <div
+                key={label}
+                className="grid grid-cols-1 gap-stack-xs py-stack-lg first:pt-0 last:pb-0 sm:grid-cols-[7rem_1fr] sm:gap-x-inline-lg"
+              >
+                <dt className="font-medium text-foreground">{label}</dt>
+                <dd className="text-foreground/90">{body}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      </BlogFigure>
 
       <BlogSection>
         <h2>How it fits together</h2>
         <p>
-          Organic LLM uses Mem0 with a memory database (Qdrant in our setup). Mem0 still writes
-          numeric fingerprints for semantic search; what we additionally protect is the readable
-          text stored with those records—for example the main memory text. A thin wrapper encrypts
-          those fields on the way into the memory database and decrypts them on the way out, so the
-          rest of the application keeps a normal Mem0 mental model.
+          Organic LLM uses Mem0, a memory layer, on top of Qdrant, a database built for searching by
+          meaning. To search by meaning, each memory is stored with an <Term>embedding</Term>. We
+          additionally protect the readable text kept with it. A thin wrapper encrypts that text on
+          the way in and decrypts it on the way out, so the rest of the app can treat memory like
+          any other Mem0 store.
         </p>
-        <p className="text-sm text-muted-foreground">
-          Those search fingerprints stay readable at the database layer by design: locking them down
-          would break ordinary similarity search. The tradeoff is intentional—we reduce exposure of{" "}
-          <em>readable</em> memory text at rest while keeping relevance and performance.
-        </p>
-
-        <DatabaseVsAppComparison />
-
-        <h2>Deletion and retention</h2>
         <p>
-          When you delete individual memories or wipe memory in the product, we remove those records
-          from the memory database on the backend. Full account deletion is available on request
-          through our privacy contact flow.
+          The embeddings stay readable on purpose, because encrypting them would break similarity
+          search. They are numbers, not words, but they can still hint at what a memory is about. We
+          chose to protect the <em>readable text</em> and keep relevance and speed, and we want you
+          to know that is the trade.
         </p>
 
-        <h2>What we claim—and what we do not</h2>
+        <DatabaseVsApp />
+
+        <h2>Who can read what</h2>
+        <p>
+          The app server decrypts memory in order to use it, so the people who run Organic LLM can
+          technically read it. Memory text is also included in the prompt sent to the model provider
+          when it is relevant to your question. Encryption at rest protects you if the database is
+          exposed. It is not a promise that nobody inside the system can ever read your memory.
+        </p>
+
+        <h2>Deleting memories</h2>
+        <p>
+          When you delete a memory, or clear memory in the product, we remove those records from the
+          memory database. Account deletion is available on request through our privacy contact
+          flow. We have not described how long backups or provider-side copies persist here, and we
+          would rather say that than imply it.
+        </p>
+
+        <h2>What we claim, and where it fits</h2>
         <ul>
           <li>
-            <strong>We do claim</strong> a meaningful layer of protection for stored memory{" "}
-            <em>text</em> if someone obtains database payloads without application keys, plus a
-            disciplined server boundary (auth, limits, validation, ownership checks).
+            <strong>We do claim</strong> a real layer of protection for the stored text of memories
+            if someone obtains the database without the application keys, along with a careful
+            server boundary: authentication, limits, validation and ownership checks.
           </li>
           <li>
-            <strong>We do not claim</strong> that encryption replaces TLS, authentication, secure
-            hosting, or careful vendor configuration. It is defense in depth, not a single magic
-            switch.
+            <strong>Encryption is one layer, not the whole.</strong> Organic LLM is served over TLS,
+            sign-in is handled by a dedicated identity service, and the hosting and configuration
+            are set up with care. The encryption described here sits behind those, for the case
+            where one of them fails. It adds to them and does not replace them.
           </li>
         </ul>
-
-        <h2>Further reading</h2>
-        <p>
-          For more depth on the problem space, industry context, and design tradeoffs—including how
-          we chose our encryption approach, how it deploys, and where it lives in the stack—see{" "}
-          <Link
-            className="underline decoration-foreground/40 hover:decoration-foreground"
-            href="/blog/memory-encryption"
-          >
-            Memory Encryption
-          </Link>
-          .
-        </p>
       </BlogSection>
     </div>
   );

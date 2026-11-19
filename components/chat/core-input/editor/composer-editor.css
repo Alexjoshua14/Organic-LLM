@@ -1,0 +1,394 @@
+.organic-composer {
+  --editor-feedback-ms: 120ms;
+  --editor-enter-ms: 180ms;
+  /* The lab's simulated live-voice dot: one slow breath. */
+  --editor-voice-pulse-ms: 1.4s;
+}
+
+.organic-composer .editor-shell {
+  transition:
+    border-color var(--editor-feedback-ms),
+    box-shadow var(--editor-feedback-ms);
+}
+
+.organic-composer .editor-surface {
+  min-height: calc(var(--spacing) * 12);
+  max-height: var(--composer-draft-max);
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  padding: var(--spacing-inset-md);
+  font-size: var(--text-base);
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.organic-composer .editor-surface > * + * {
+  margin-top: var(--spacing-stack-sm);
+}
+.organic-composer .editor-surface p {
+  margin-bottom: 0;
+}
+.organic-composer .editor-surface :is(h1, h2, h3, h4, h5, h6) {
+  font-weight: 600;
+  line-height: 1.25;
+}
+/* A short scale so # and ## and ### read as different levels inside a small composer. */
+.organic-composer .editor-surface h1 {
+  font-size: var(--text-xl);
+}
+.organic-composer .editor-surface h2 {
+  font-size: var(--text-lg);
+}
+.organic-composer .editor-surface h3 {
+  font-size: var(--text-base);
+}
+.organic-composer .editor-surface :is(h4, h5, h6) {
+  font-size: inherit;
+}
+.organic-composer .editor-surface ul {
+  list-style: disc;
+  padding-left: calc(var(--spacing) * 6);
+}
+.organic-composer .editor-surface ol {
+  list-style: decimal;
+  padding-left: calc(var(--spacing) * 6);
+}
+.organic-composer .editor-surface blockquote {
+  border-left: calc(var(--spacing-stack-xs) / 2) solid var(--border);
+  padding-left: var(--spacing-inset-lg);
+  color: var(--muted-foreground);
+}
+/*
+ * A slash command in the draft (slash-highlight.ts): the warm accent on the typed `/query` and a
+ * leading surface command (`/btw`), and a muted variant for the completion after the caret.
+ */
+.organic-composer .composer-slash-token {
+  color: var(--accent-warm);
+}
+.organic-composer .composer-slash-ghost {
+  color: color-mix(in oklch, var(--accent-warm) 45%, transparent);
+  pointer-events: none;
+  user-select: none;
+}
+.organic-composer .editor-surface hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin-block: var(--spacing-stack-sm);
+}
+.organic-composer .editor-surface hr.ProseMirror-selectednode {
+  border-top-color: var(--muted-foreground);
+}
+.organic-composer .editor-surface code {
+  background: var(--muted);
+  border-radius: var(--radius-sm);
+  padding: var(--code-inline-pad-block) var(--code-inline-pad-inline);
+  font-size: var(--code-inline-size);
+}
+.organic-composer .editor-surface pre {
+  background: var(--muted);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-inset-sm);
+  white-space: pre;
+  overflow-x: auto;
+}
+.organic-composer .editor-surface pre code {
+  padding: 0;
+  background: transparent;
+}
+.organic-composer .editor-surface a {
+  text-decoration: underline;
+}
+/*
+ * The placeholder overlays the empty line instead of taking part in its layout, so the caret
+ * keeps its normal place on the first line. A placeholder too long for the line stacks the
+ * composer (composer-reflow.ts) to get the full width; if it still cannot fit, it ends in an
+ * ellipsis rather than being cut off.
+ */
+.organic-composer .editor-surface p.is-editor-empty:first-child {
+  position: relative;
+}
+.organic-composer .editor-surface p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  position: absolute;
+  inset: 0 0 auto 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+  color: var(--muted-foreground);
+  animation: editor-hint-in var(--editor-enter-ms) ease-out;
+}
+
+.organic-composer .editor-feedback {
+  animation: editor-hint-in var(--editor-enter-ms) ease-out;
+}
+.organic-composer .editor-voice-dot {
+  animation: editor-voice-pulse var(--editor-voice-pulse-ms) ease-in-out infinite;
+}
+@keyframes editor-hint-in {
+  from {
+    opacity: 0;
+    transform: translateY(calc(var(--spacing-stack-xs) / 2));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes editor-voice-pulse {
+  50% {
+    opacity: 0.4;
+    transform: scale(0.8);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .organic-composer *,
+  .organic-composer *::before {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* Inline code follows the shared code palette; active delimiters stay reversible UI. */
+.organic-composer .editor-surface :not(pre) > code {
+  border: 1px solid var(--code-border);
+  background: var(--code-muted);
+  color: var(--code-foreground);
+  font-family: var(--code-mono, ui-monospace, monospace);
+  padding: var(--code-inline-pad-block) var(--code-inline-delimiter-room);
+}
+.organic-composer .editor-code-delimiter-anchor {
+  position: relative;
+}
+.organic-composer .editor-code-delimiter {
+  position: absolute;
+  top: 0;
+  color: var(--code-muted-foreground);
+  font:
+    var(--code-inline-delimiter-size) ui-monospace,
+    monospace;
+  cursor: text;
+  user-select: none;
+}
+.organic-composer .editor-code-delimiter-open {
+  left: var(--code-inline-delimiter-inset);
+}
+.organic-composer .editor-code-delimiter-close {
+  right: var(--code-inline-delimiter-inset);
+}
+.organic-composer .editor-code-block {
+  margin-block: var(--spacing-stack-sm);
+}
+.organic-composer .editor-code-language {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: calc(var(--spacing) * 7);
+  max-width: calc(var(--spacing) * 48);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.organic-composer .editor-code-language:hover {
+  color: var(--code-foreground);
+}
+.organic-composer .editor-code-language:has(select:focus-visible) {
+  background: var(--code-muted);
+}
+.organic-composer .editor-code-language-select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  font: inherit;
+}
+.organic-composer .editor-code-actions button {
+  min-inline-size: calc(var(--spacing) * 7);
+  justify-content: center;
+}
+.organic-composer .editor-code-actions button > span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+@media (pointer: coarse) {
+  .organic-composer .editor-code-language,
+  .organic-composer .editor-code-actions button {
+    min-height: calc(var(--spacing) * 11);
+  }
+  .organic-composer .editor-code-actions button {
+    min-inline-size: calc(var(--spacing) * 11);
+  }
+}
+@media (forced-colors: active) {
+  .organic-composer .editor-code-language:has(select:focus-visible) {
+    outline: 2px solid Highlight;
+  }
+}
+.organic-composer .editor-surface pre.editor-code-body {
+  background: transparent;
+  padding: var(--spacing-inset-md);
+  margin: 0;
+  border-radius: 0;
+  color: var(--code-foreground);
+  font: var(--code-size) / var(--code-line) var(--code-mono);
+  tab-size: 4;
+  white-space: pre;
+}
+.organic-composer .editor-surface pre.editor-code-body code {
+  font: inherit;
+  white-space: inherit;
+}
+.organic-composer [data-wrap="true"] pre.editor-code-body {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.organic-composer .editor-surface {
+  padding-block: var(--spacing-inset-sm);
+}
+
+.organic-composer .editor-shell {
+  container-type: inline-size;
+}
+.organic-composer .editor-footer {
+  position: relative;
+}
+@container (max-width: 600px) {
+  .organic-composer .editor-control-label {
+    display: none;
+  }
+}
+
+/* Editing uses the caret; avoid treating the typing surface like a focused button. */
+.organic-composer .editor-text-focus:focus-visible {
+  outline: none;
+}
+@media (forced-colors: active) {
+  .organic-composer .editor-text-focus:focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+    box-shadow: none;
+  }
+}
+
+/* Reuse the composer's rim behind the entire glass shell, visible only while focused. */
+.organic-composer .editor-focus-lumen:not(:focus-within) .home-composer-lumen-rim {
+  opacity: 0;
+}
+
+.organic-composer .editor-focus-lumen .home-composer-lumen-rim {
+  animation: none;
+}
+
+/* Light mode has a shadow instead of a rim; it follows the same rule: only while focused. */
+:root:not(.dark)
+  .organic-composer
+  .editor-focus-lumen:not(:focus-within)
+  .home-composer-lumen-stage:has(> .home-composer-lumen-rim) {
+  box-shadow: none;
+}
+
+.organic-composer .editor-literal-backticks,
+.organic-composer textarea.editor-surface {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+/* Embedded code borrows CoreInput's glass instead of adding another framed well. */
+.organic-composer .editor-code-block [data-embedded] {
+  border-color: transparent;
+  border-radius: 0;
+  background: transparent;
+}
+.organic-composer .editor-code-header {
+  background: transparent;
+  border-bottom-color: color-mix(in oklab, var(--foreground) 8%, transparent);
+}
+
+/*
+ * One line by default: [options] [text] [attach, mic] [send]. Once the text stops fitting, the row
+ * stacks (text on top; options, attach, mic left, send right). Items are top-aligned in both
+ * layouts so a growing editor never moves them before the stack settles; the glide between the
+ * two layouts is scripted in composer-reflow.ts.
+ */
+.organic-composer .editor-row {
+  display: grid;
+  align-items: start;
+  column-gap: var(--spacing-inline-sm);
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-areas: "lead area trail send";
+}
+/*
+ * Each action centers in a band one line tall (`min-h-11` in the markup, the 44px target), so the
+ * icons and the text share a center line whatever size the button inside happens to be.
+ */
+.organic-composer :is(.editor-lead, .editor-trail, .editor-send) {
+  display: flex;
+  align-items: center;
+}
+.organic-composer .editor-lead {
+  grid-area: lead;
+  margin: var(--spacing-inset-sm) 0 var(--spacing-inset-sm) var(--spacing-inset-sm);
+}
+.organic-composer .editor-area {
+  grid-area: area;
+  min-width: 0;
+  margin-block: var(--spacing-inset-sm);
+}
+.organic-composer .editor-trail {
+  grid-area: trail;
+  margin-block: var(--spacing-inset-sm);
+}
+.organic-composer .editor-send {
+  grid-area: send;
+  margin: var(--spacing-inset-sm) var(--spacing-inset-sm) var(--spacing-inset-sm) 0;
+}
+/* One line: the area (min-h-11) centers the text; the surface adds only inline padding. */
+.organic-composer .editor-row[data-expanded="false"] .editor-area {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.organic-composer .editor-row[data-expanded="false"] .editor-surface {
+  min-height: 0;
+  padding-block: 0;
+  padding-inline: var(--spacing-inset-sm);
+}
+.organic-composer .editor-row[data-expanded="true"] {
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "area area area area"
+    "lead trail . send";
+}
+.organic-composer .editor-row[data-expanded="true"] .editor-area {
+  margin-block: 0;
+}
+
+/*
+ * On one line the actions sit closer together: the gap between them and before the text drops from
+ * `inline-sm` to `inline-xs`. Each button keeps its own hit area.
+ */
+.organic-composer .editor-row[data-expanded="false"] {
+  column-gap: var(--spacing-inline-xs);
+}
+.organic-composer .editor-row[data-expanded="false"] .editor-trail > * {
+  gap: var(--spacing-inline-xs);
+}
+
+/*
+ * CoreInput's surface: the textarea's footprint (one line, growing with the draft) instead of the
+ * lab's taller card. It shows far more of a long draft before scrolling (40% of the screen, against
+ * the old five rows).
+ */
+.organic-composer.composer-editor .editor-surface {
+  min-height: 0;
+  max-height: var(--composer-draft-max);
+  margin-block: var(--spacing-stack-xs);
+  padding: var(--spacing-stack-xs) var(--spacing-inset-md);
+  font-size: inherit;
+  outline: none;
+}

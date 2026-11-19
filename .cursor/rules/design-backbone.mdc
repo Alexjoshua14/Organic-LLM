@@ -1,6 +1,6 @@
 ---
-description: Design backbone — consult before motion, loading-state, or UI-feel changes
-globs: components/**/*.tsx,styles/**/*.css,lib/chat/**/*.ts,lib/homepage/**/*.ts,lib/rabbit-holes/**/*.ts,lib/rabbit-holes/**/*.tsx,app/sandbox/prototypes/**/*.tsx,docs/design/**/*.md
+description: Design backbone — consult before motion, loading-state, spacing, or UI-feel changes; use tokens, not literals
+globs: components/**/*.tsx,styles/**/*.css,lib/chat/**/*.ts,lib/homepage/**/*.ts,lib/rabbit-holes/**/*.ts,lib/rabbit-holes/**/*.tsx,app/sandbox/prototypes/**/*.tsx,app/sandbox/prototypes/**/*.ts,app/sandbox/prototypes/**/*.css,docs/design/**/*.md
 alwaysApply: false
 ---
 

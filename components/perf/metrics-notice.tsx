@@ -8,6 +8,7 @@ import { usePerfConsent } from "./use-perf-consent";
 
 import { glassPreview } from "@/components/design-system/primitives";
 import { Button } from "@/components/third-party/ui/button";
+import { holdOnboarding } from "@/lib/onboarding/onboarding-blockers";
 import { setPerfConsent } from "@/lib/perf/consent";
 import { PERF_CODE_LINKS, PERF_PRIVACY_ANCHOR } from "@/lib/perf/disclosure-links";
 import { cn } from "@/lib/utils";
@@ -40,6 +41,9 @@ export function PerfMetricsNotice() {
     claimed.current = true;
     setVisible(true);
   }, [isLoaded, isSignedIn, state]);
+
+  // A new account sees one first-visit notice at a time: onboarding waits while this is up.
+  useEffect(() => (visible ? holdOnboarding("perf-metrics-notice") : undefined), [visible]);
 
   // Start collecting only after the notice is on screen.
   useEffect(() => {

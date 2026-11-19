@@ -1,17 +1,19 @@
 # Strata
 
-Strata is an editorial canvas — rough notes become structured sections you can refine, elaborate, and update with AI on each page.
+Strata turns rough notes into structured sections on an editorial canvas. It is document-shaped, not message-shaped: the unit is the page, not the turn.
+
+> **Status:** Strata is in development and limited to invited accounts, so there is no Open button here.
 
 ## What it is for
 
-- Turning messy drafts into ordered sections
-- Snap-scroll editing across section cards
-- AI-assisted create and update per section without losing the whole document
+- Pasting messy notes and watching them become an ordered outline of sections
+- Refining and elaborating each section on its own, with AI help that never rewrites the whole document
+- Keeping notes private: Strata's local notes are encrypted on your device with a key that stays there
 
-## How it differs from Chat
+## A small example
 
-Strata is document-shaped, not message-shaped. You work in sections on a canvas rather than a back-and-forth thread. Memory and threads still connect to the rest of the workspace, but the primary unit is the page, not the turn.
+Start with raw lines such as "idea spark is strong", "scope keeps creeping" and "no audience defined". Strata groups them into sections you can then refine one at a time, and elaborate where it matters.
 
-## When to use Strata
+## When to use it
 
-Use Strata when you are shaping long-form or multi-part content — outlines, articles, specs — and want structure to emerge from raw text.
+Use Strata for long-form or multi-part work: an outline, an article, a spec. Use Chat for back-and-forth.

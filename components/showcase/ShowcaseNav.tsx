@@ -11,13 +11,14 @@ export function ShowcaseNav() {
   const pathname = usePathname();
   const { isSignedIn } = useAuth();
   const inShowcase = pathname === "/showcase" || pathname?.startsWith("/showcase/");
+  const inBlog = pathname === "/blog" || pathname?.startsWith("/blog/");
 
   return (
     <header className="showcase-nav">
       <Link className="showcase-wordmark" href="/">
         Organic LLM
       </Link>
-      <nav aria-label="Showcase navigation" className="showcase-nav-links">
+      <nav aria-label="Public site navigation" className="showcase-nav-links">
         <Link
           aria-current={pathname === "/showcase" ? "page" : undefined}
           className="showcase-nav-detail"
@@ -25,6 +26,14 @@ export function ShowcaseNav() {
           href="/showcase"
         >
           Showcase
+        </Link>
+        <Link
+          aria-current={pathname === "/blog" ? "page" : undefined}
+          className="showcase-nav-detail"
+          data-active={inBlog ? "true" : undefined}
+          href="/blog"
+        >
+          Blog
         </Link>
         <a
           aria-label="Organic LLM on GitHub"

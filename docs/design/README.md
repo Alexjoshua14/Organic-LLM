@@ -10,7 +10,9 @@ feel — so improvements stay consistent and do not regress quality.
 |-----|----------------|
 | [Stage grid](./stage-grid.md) | Quiet grid entry/exit, compositor-only layers, no interaction delay |
 | [Code blocks](./code-blocks.md) | Default fenced-code block, palettes, highlighting cost and the streaming rule |
+| [Lumen](./lumen.md) | Natural light in dark mode, shadow in light mode: tokens, intensities, rules for new surfaces |
 | [Focus feedback](./focus-feedback.md) | Lumen-based keyboard focus, shared controls and system-color fallback |
+| [Blog layout](./blog-layout.md) | Article shell, reading measure, bento index, glass Lumen cards |
 | [Spacing](./spacing.md) | Card density, stack/gap/inset tokens, gen-ui vertical rhythm |
 | [Switches & quick settings](./switches-and-quick-settings.md) | Compact glass switches, caption popovers, quick-settings density |
 | [Context usage](./context-usage.md) | Composer context charts, source colors, percentage ramp, hover labels |
@@ -22,9 +24,11 @@ feel — so improvements stay consistent and do not regress quality.
 | [Welcome scene](./welcome-scene.md) | Photographic pane projection, camera motion, and themed floor continuity |
 | [Glass distortion](./glass-distortion.md) | Opt-in refraction of owned backgrounds, Safari compatibility |
 | [Liquid chrome materials](./liquid-chrome-materials.md) | Light-mode paper and ink, dark-mode preservation, refraction and fallback parity |
+| [CoreInput compact reflow](./core-input-compact-reflow.md) | One-line composer that stacks as text grows: layout, when it stacks, glide timing |
 | [CoreInput snapshot morph](./core-input-morph.md) | Composer settings morphing between threads, areas, and `/btw`; fast-forward on touch |
 | [Motion & character text timing](./motion-and-text-timing.md) | Any char-by-char / stagger / status-label / loading-state animation |
 | [Sidebar session signals](./sidebar-session-signals.md) | Sidebar rows: experience glyphs, working / new / live signals, gaze hierarchy |
+| [Onboarding](./onboarding.md) | Welcome card, the Guide, feature tips: pacing, dismissal, non-blocking presentation |
 | [⌘K launcher](./launcher.md) | The idea switcher: real homepage input, recent-idea cards, no-scroll layout, in-memory cues |
 | [Adaptive background](../adaptive-background.md) + [timing](../adaptive-background-timing.md) | Ambient dim / focus atmospheres |
 | [Organic presence](../organic-presence.md) | Presence indicators and ambient life |

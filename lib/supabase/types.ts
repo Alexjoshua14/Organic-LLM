@@ -445,6 +445,29 @@ export type Database = {
           },
         ]
       }
+      lab_access: {
+        Row: {
+          granted_at: string
+          profile_id: string
+        }
+        Insert: {
+          granted_at?: string
+          profile_id: string
+        }
+        Update: {
+          granted_at?: string
+          profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lab_access_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       llm_usage_adjustments: {
         Row: {
           created_at: string

@@ -5,27 +5,44 @@ import * as health from "@/lib/health/run-health-checks";
 
 import { GET as getStatus } from "@/app/api/status/route";
 import { getGatewayVisibilityForCurrentUser } from "@/data/supabase/gateway-visibility";
+import { canSeeLabs, requireLabAccess } from "@/lib/admin/lab-access";
 import { isAdminUser } from "@/lib/admin/read-admin-profile";
 import { requireAdmin } from "@/lib/admin/require-admin";
 import { mockModulePreservingReal } from "../helpers/module-mock";
 
 const identity = { userId: "user_test", sessionId: "session_test" };
 let authIdentity: { userId: string | null; sessionId: string | null };
+// `membership` and `dbError` answer admin_access reads; `labMembership` and `labError` answer
+// lab_access reads.
 let membership: Record<string, unknown> | null;
 let dbError: { message: string; code?: string } | null;
+let labMembership: Record<string, unknown> | null;
+let labError: { message: string; code?: string } | null;
 let dbThrows: boolean;
 let restore: Array<() => void>;
+let table = "";
 const select = mock((_fields: string) => ({ eq }));
-const eq = mock((_field: string, _value: string) => ({
-  maybeSingle: async () => ({ data: membership, error: dbError }),
-}));
-const from = mock((_table: string) => ({ select }));
+const eq = mock((_field: string, _value: string) => {
+  const lab = table === "lab_access";
+
+  return {
+    maybeSingle: async () =>
+      lab ? { data: labMembership, error: labError } : { data: membership, error: dbError },
+  };
+});
+const from = mock((name: string) => {
+  table = name;
+
+  return { select };
+});
 const runHealthChecks = mock(async () => ({ ok: true }) as never);
 
 beforeEach(() => {
   authIdentity = { ...identity };
   membership = { profile_id: "profile_test" };
   dbError = null;
+  labMembership = null;
+  labError = null;
   dbThrows = false;
   from.mockClear();
   select.mockClear();
@@ -48,6 +65,7 @@ beforeEach(() => {
 
 afterEach(() => {
   for (const reset of restore.reverse()) reset();
+  delete process.env.AGENT_TEST_CLERK_USER_IDS;
 });
 
 describe("gateway visibility security", () => {
@@ -170,5 +188,92 @@ describe("fresh server authorization", () => {
     dbError = null;
     expect((await getStatus(request)).status).toBe(200);
     expect(runHealthChecks).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("lab access", () => {
+  test("admins see labs without a lab_access read", async () => {
+    expect(await requireLabAccess()).toEqual({
+      clerkUserId: identity.userId,
+      sbUserId: "profile_test",
+    });
+    expect(await canSeeLabs(identity.userId)).toBe(true);
+    expect(from.mock.calls.map(([name]) => name)).toEqual(["admin_access", "admin_access"]);
+  });
+
+  test("a lab_access row opens labs but never admin", async () => {
+    membership = null;
+    labMembership = { profile_id: "profile_test" };
+
+    expect(await requireLabAccess()).toEqual({
+      clerkUserId: identity.userId,
+      sbUserId: "profile_test",
+    });
+    expect(await canSeeLabs(identity.userId)).toBe(true);
+    expect(await getGatewayVisibilityForCurrentUser(identity)).toBe(true);
+    expect(select).toHaveBeenCalledWith("profile_id, profiles!inner(id)");
+    expect(eq).toHaveBeenCalledWith("profiles.clerk_user_id", identity.userId);
+
+    expect(await requireAdmin()).toBeNull();
+    expect(await isAdminUser(identity.userId)).toBe(false);
+    expect((await getStatus(new Request("http://localhost/api/status"))).status).toBe(403);
+  });
+
+  test("an agent account gets labs from its lab_access row, not from the agent list", async () => {
+    process.env.AGENT_TEST_CLERK_USER_IDS = identity.userId;
+
+    // Its admin_access row is ignored, and the agent list alone grants nothing.
+    expect(await canSeeLabs(identity.userId)).toBe(false);
+    expect(await requireAdmin()).toBeNull();
+
+    labMembership = { profile_id: "profile_test" };
+    expect(await canSeeLabs(identity.userId)).toBe(true);
+    expect(await requireAdmin()).toBeNull();
+  });
+
+  test("only a valid lab membership grants labs", async () => {
+    membership = null;
+
+    for (const denied of [
+      null,
+      { id: "profile_test" },
+      { labs: true },
+      { profile_id: null },
+      { profile_id: 1 },
+      { profile_id: "" },
+    ]) {
+      labMembership = denied;
+      expect(await requireLabAccess()).toBeNull();
+      expect(await canSeeLabs(identity.userId)).toBe(false);
+      expect(await getGatewayVisibilityForCurrentUser(identity)).toBe(false);
+    }
+  });
+
+  test("an unapplied lab migration denies labs without throwing", async () => {
+    membership = null;
+    labError = {
+      code: "PGRST205",
+      message: "Could not find the table 'public.lab_access' in the schema cache",
+    };
+
+    expect(await getGatewayVisibilityForCurrentUser(identity)).toBe(false);
+    expect(await requireLabAccess()).toBeNull();
+    expect(await canSeeLabs(identity.userId)).toBe(false);
+  });
+
+  test("failed lab lookups deny, and gateway visibility reports a retryable error", async () => {
+    membership = null;
+    labError = { message: "private database details" };
+
+    expect(await requireLabAccess()).toBeNull();
+    expect(await canSeeLabs(identity.userId)).toBe(false);
+    await expect(getGatewayVisibilityForCurrentUser(identity)).rejects.toThrow(
+      "Unable to load lab access."
+    );
+
+    labError = null;
+    dbThrows = true;
+    expect(await requireLabAccess()).toBeNull();
+    expect(await canSeeLabs(identity.userId)).toBe(false);
   });
 });

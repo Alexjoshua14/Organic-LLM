@@ -2,7 +2,6 @@ import { afterAll, afterEach, describe, expect, mock, test } from "bun:test";
 import type { UIMessage } from "ai";
 import { cleanup, fireEvent } from "@testing-library/react";
 
-import * as useMobile from "@/hooks/use-mobile";
 import * as ttsContext from "@/lib/context/tts-context";
 
 import { installBrowserMedia } from "../helpers/browser-media";
@@ -13,15 +12,9 @@ import { ChatMessage } from "@/components/chat/chat-message";
 import { FIXTURE_ANSWER_CARD, FIXTURE_RESTAURANT_CARD } from "@/lib/schemas/gen-ui/fixtures";
 import { ChatAIActionEnum } from "@/types/ai";
 
-const restoreUseMobile = mockModulePreservingReal("@/hooks/use-mobile", useMobile, {
-  useIsMobile: () => false,
-});
 const restoreMedia = installBrowserMedia();
 
-afterAll(() => {
-  restoreUseMobile();
-  restoreMedia();
-});
+afterAll(restoreMedia);
 
 // Merged over the real module so the stub keeps `TTSProvider` and `useTTSOptional` for files
 // loaded after this one. Deliberately not restored: other files register their own TTS stub at

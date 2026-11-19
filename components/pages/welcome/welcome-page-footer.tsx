@@ -35,12 +35,17 @@ export function WelcomePageFooter({ className }: WelcomePageFooterProps) {
           variants={staggerItem}
           className="flex shrink-0 flex-col items-start gap-2 text-xs text-muted-foreground/80 sm:items-end sm:text-right"
         >
-          <Link
-            className="text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
-            href={footer.privacy.href}
-          >
-            {footer.privacy.label}
-          </Link>
+          <nav aria-label="Footer" className="flex flex-col items-start gap-2 sm:items-end">
+            {[footer.blog, footer.privacy].map((link) => (
+              <Link
+                key={link.href}
+                className="text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
+                href={link.href}
+              >
+                {link.label}
+              </Link>
+            ))}
+          </nav>
           <span>
             {footer.organization} {year}
           </span>

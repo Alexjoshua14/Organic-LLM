@@ -1,4 +1,4 @@
-/** Surfaces in the experience rail + blog docs. Chat variants will merge into Chat soon. */
+/** Surfaces in the experience rail + blog docs. */
 export type ExperienceSurface = {
   id: string;
   /** URL segment under `/blog/surfaces/` */
@@ -6,14 +6,14 @@ export type ExperienceSurface = {
   label: string;
   description: string;
   tryHref: string;
-  /** Grouped under Chat in docs until variants collapse into one composer. */
+  /** Grouped under Chat in docs: same threads and memory, tuned composer and replies. */
   chatVariant?: boolean;
   /** Unfinished: its route is admin-only, so public pages do not link to it. */
   adminOnly?: boolean;
 };
 
 export const CHAT_VARIANT_NOTE =
-  "Arcadia and Noesis are chat experiences today — separate rails for now, one Chat surface soon.";
+  "Arcadia and Noesis are chat experiences: the same threads, memory and encryption, with a composer and reply style tuned for a different job.";
 
 export const EXPERIENCE_SURFACES: ExperienceSurface[] = [
   {
@@ -27,7 +27,7 @@ export const EXPERIENCE_SURFACES: ExperienceSurface[] = [
     id: "arcadia",
     slug: "arcadia",
     label: "Arcadia",
-    description: "Fast, tool-forward chat when you want concise answers.",
+    description: "Work on several things at once, with subagents you can watch.",
     tryHref: "/sandbox/arcadia",
     chatVariant: true,
   },
@@ -35,7 +35,7 @@ export const EXPERIENCE_SURFACES: ExperienceSurface[] = [
     id: "noesis",
     slug: "noesis",
     label: "Noesis",
-    description: "Explore a topic with sparks and reply suggestions.",
+    description: "Start and steer a conversation with sparks and replies.",
     tryHref: "/sandbox/topic-explore",
     chatVariant: true,
     adminOnly: true,
@@ -44,7 +44,7 @@ export const EXPERIENCE_SURFACES: ExperienceSurface[] = [
     id: "strata",
     slug: "strata",
     label: "Strata",
-    description: "Rough notes → structured sections on an editorial canvas.",
+    description: "Rough notes become structured sections.",
     tryHref: "/sandbox/prototypes/strata",
     adminOnly: true,
   },
@@ -59,14 +59,14 @@ export const EXPERIENCE_SURFACES: ExperienceSurface[] = [
     id: "ergon",
     slug: "ergon",
     label: "Ergon",
-    description: "Durable todos — keyboard-first task list.",
+    description: "A durable, keyboard-first task list.",
     tryHref: "/ergon",
   },
   {
     id: "remy",
     slug: "remy",
     label: "Remy",
-    description: "Threads with the Remy assistant.",
+    description: "Meal prep: a weekly plan, recipes and a shopping list.",
     tryHref: "/remy",
   },
 ];

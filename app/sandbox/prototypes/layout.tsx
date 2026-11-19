@@ -1,10 +1,10 @@
 import { notFound } from "next/navigation";
 
 import { PrototypeAboutRouteOverlay } from "@/components/sandbox/PrototypeAboutRouteOverlay";
-import { requireAdmin } from "@/lib/admin/require-admin";
+import { requireLabAccess } from "@/lib/admin/lab-access";
 
 export default async function PrototypesLayout({ children }: { children: React.ReactNode }) {
-  if (!(await requireAdmin())) notFound();
+  if (!(await requireLabAccess())) notFound();
 
   return (
     <>

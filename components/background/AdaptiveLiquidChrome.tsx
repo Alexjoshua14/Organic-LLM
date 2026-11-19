@@ -3,6 +3,8 @@
 import { useReducedMotion } from "framer-motion";
 import { memo, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
+import { ADAPTIVE_CHROME_TIMING } from "./adaptive-chrome-timing";
+
 import { usePageVisible } from "@/components/hooks/use-page-visible";
 import { PAPER_INK_MATERIAL } from "@/lib/background/liquid-chrome-material";
 import { PERF_PHASES } from "@/lib/perf/journeys";
@@ -38,16 +40,16 @@ const DIM_TRIGGER_SELECTOR = "[data-dim-background]";
 
 /**
  * AdaptiveLiquidChrome - A smart background that dims when hovering or when focus
- * is inside important UI elements (e.g. typing in an input), with intentional delay
- * before returning to rest once both hover and focus are gone.
+ * is inside important UI elements (e.g. typing in an input), then brightens back in two
+ * phases as soon as both hover and focus are gone (no rest delay).
  *
  * Usage: Add `data-dim-background` to any element that should trigger dimming.
  * Example: <Button data-dim-background>Click me</Button>
  * Focusable descendants (e.g. <Input>) keep the background dimmed while active.
  */
-const EASE_SMOOTH = "cubic-bezier(0.25, 0.46, 0.45, 0.94)";
+const EASE_SMOOTH = ADAPTIVE_CHROME_TIMING.ease;
 
-const BRIGHTEN_65 = 0.65; // first-phase target (65% opacity)
+const BRIGHTEN_65 = ADAPTIVE_CHROME_TIMING.brightenTo; // first-phase target (65% opacity)
 
 function subscribeToHtmlDarkClass(onStoreChange: () => void) {
   const observer = new MutationObserver(onStoreChange);
@@ -147,11 +149,11 @@ LiquidChromeLayer.displayName = "LiquidChromeLayer";
 export default function AdaptiveLiquidChrome({
   speed = 0.012,
   dimOnHover = true,
-  dimIntensity = 0.7, // 0.7 = reduce to 30% opacity when hovering
+  dimIntensity = ADAPTIVE_CHROME_TIMING.dimIntensity, // 0.7 = reduce to 30% opacity when hovering
   dimIntensityFull = 0.6, // "full" dim → ~40% opacity when hovering data-dim-background="full"
-  dimTransitionMs = 700, // quick to dim when you hover/focus
-  to65TransitionMs = 1200, // quickish to 65% when no longer active (still slower than dim)
-  to100TransitionMs = 2800, // slow the rest of the way to full, with ease
+  dimTransitionMs = ADAPTIVE_CHROME_TIMING.dimMs, // quick to dim when you hover/focus
+  to65TransitionMs = ADAPTIVE_CHROME_TIMING.to65Ms, // quickish to 65% when no longer active
+  to100TransitionMs = ADAPTIVE_CHROME_TIMING.to100Ms, // slow the rest of the way to full, with ease
   onDimChange,
   cover = "viewport",
   interactive = true,

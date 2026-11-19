@@ -5,7 +5,7 @@ import { FC, useState } from "react";
 
 import { ThemeSwitch } from "../shared/theme-switch";
 import { SettingsOverlay } from "../settings/SettingsOverlay";
-import { OrganicHelpDialog } from "../onboarding/organic-help-dialog";
+import { GuideTrigger } from "../onboarding/guide-trigger";
 import { UsageOverlay } from "../usage/usage-overlay";
 import { glass } from "../design-system/primitives";
 import { useSidebar } from "../third-party/ui/sidebar";
@@ -26,16 +26,16 @@ export const ControlCluster: FC<ControlClusterProps> = ({ className }) => {
       <div
         className={cn(
           "control-cluster",
-          `${glass()} absolute top-[env(safe-area-inset-top,0px)] ${open ? "md:translate-y-4" : ""} md:top-0 right-0 w-[8.75rem] sm:w-[9.5rem] h-14 flex items-center justify-center gap-0.5 z-[215] rounded-bl-lg transition-all duration-200`,
+          `${glass()} absolute top-[env(safe-area-inset-top,0px)] ${open ? "md:translate-y-4" : ""} md:top-0 right-0 w-auto px-inset-sm h-14 flex items-center justify-center gap-inline-xs z-[215] rounded-bl-lg transition-all duration-200`,
           className
         )}
       >
-        <OrganicHelpDialog triggerClassName="min-w-8 w-8 h-8" />
+        <GuideTrigger className="min-w-8 w-8 h-8" />
         <UsageOverlay triggerClassName="min-w-8 w-8 h-8" />
         <button
           aria-expanded={settingsOpen}
           aria-label={settingsOpen ? "Close quick settings" : "Open quick settings"}
-          className="group min-w-8 w-8 h-8 grid cursor-pointer place-content-center rounded border-0 hover:bg-background-tertiary"
+          className="organic-focus organic-lumen-interactive group size-8 min-w-8 grid cursor-pointer place-content-center rounded-md border-0"
           type="button"
           onClick={() => setSettingsOpen((open) => !open)}
         >

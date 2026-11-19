@@ -24,7 +24,10 @@
   --spacing-stack-xl: 1.25rem; /* 20px */
   --spacing-stack-2xl: 1.5rem; /* 24px */
   --spacing-stack-3xl: 2rem; /* 32px */
+  --spacing-stack-4xl: 3rem; /* 48px — page sections (blog index, article chapters) */
+  --spacing-stack-5xl: 4rem; /* 64px — hero → content on wide layouts */
 
+  --spacing-inline-xs: 0.25rem; /* 4px — compact icon clusters only; below the 8px touch gap */
   --spacing-inline-sm: 0.5rem; /* 8px — min touch gap (Apple HIG) */
   --spacing-inline-md: 0.75rem; /* 12px */
   --spacing-inline-lg: 1rem; /* 16px */
@@ -32,6 +35,25 @@
   --spacing-inset-sm: 0.5rem;
   --spacing-inset-md: 0.75rem;
   --spacing-inset-lg: 1rem;
+  --spacing-inset-xl: 1.5rem; /* 24px — card padding on phones, page gutter */
+  --spacing-inset-2xl: 2rem; /* 32px — feature card padding, page gutter on desktop */
+
+  /* Wide-screen page frame: Tailwind stops at 7xl (80rem). Container variants (@8xl) follow. */
+  --container-8xl: 90rem;
+
+  /*
+   * Composer (CoreInput) — docs/design/core-input-compact-reflow.md.
+   * A draft grows to 40% of the screen (at most the 96 step) before it scrolls.
+   */
+  --composer-draft-max: min(40dvh, calc(var(--spacing) * 96));
+  /* Inline code in the composer, in em so it scales with the text around it. */
+  --code-inline-size: 0.9em;
+  --code-inline-pad-block: 0.1em;
+  --code-inline-pad-inline: 0.25em;
+  /* Inline padding that holds the editable backtick glyphs, so entering code never reflows. */
+  --code-inline-delimiter-room: 0.65em;
+  --code-inline-delimiter-size: 0.85em;
+  --code-inline-delimiter-inset: 0.1em;
 
   --radius-sm: calc(var(--radius) - 4px);
 
@@ -108,15 +130,21 @@
   --color-lumen-rim: var(--lumen-rim-oklch);
 
   --color-lumen-deep: var(--lumen-deep-oklch);
+
+  --color-accent-warm: var(--accent-warm);
 }
 
-:root {
+/* `.light` scopes the light palette inside a dark page (side-by-side theme demos). */
+:root,
+.light {
   --radius: 0.625rem;
 
   --background: oklch(1 0 0);
 
   --foreground: oklch(0.22 0.012 70); /* #2D2B26 - warm brown-gray */
   --context-usage-amber: #916020;
+  /* Warm text accent: the Lumen-family amber, readable as text in both themes (slash commands). */
+  --accent-warm: var(--context-usage-amber);
 
   --card: oklch(1 0 0); /* Use with /80% opacity + backdrop-blur in components */
 
@@ -181,11 +209,19 @@
    * RGB channels for glows/shadows (rgb(var(--lumen) / α)); oklch for solid fills (text-lumen, bg-lumen).
    * Kelvin reference: rim 3200K · base 3000K · deep 2800K.
    */
+  /* Dark theme's background, so light mode can borrow it for shadows. Single source: `.dark` reads it. */
+  --background-dark: oklch(0.141 0.005 285.823); /* #141516 */
+  /* Light mode has no rim (it washes out); chips lift with a soft shadow of that colour instead. */
+  --lumen-shadow-rest: 0 2px 8px -2px color-mix(in oklch, var(--background-dark) 14%, transparent);
+  --lumen-shadow-hover: 0 2px 8px -2px color-mix(in oklch, var(--background-dark) 24%, transparent);
   --lumen-rim: 255 188 115;
   --lumen: 255 178 102;
   --lumen-deep: 255 168 92;
   --lumen-rim-oklch: oklch(0.835 0.07 68);
   --lumen-oklch: oklch(0.805 0.075 65);
+  /* Lumen's fade, shared by the rim, the light-mode shadow and their demos. */
+  --lumen-duration: 200ms;
+  --lumen-ease: cubic-bezier(0.25, 0.46, 0.45, 0.94);
   --lumen-deep-oklch: oklch(0.78 0.08 62);
 
   /* Static fallback while Liquid Chrome WebGL initializes (matches AdaptiveLiquidChrome reduced-motion). */
@@ -203,7 +239,8 @@
 
 .dark {
   --context-usage-amber: #bb8334;
-  --background: oklch(0.141 0.005 285.823); /* #141516 */
+  --accent-warm: var(--context-usage-amber);
+  --background: var(--background-dark); /* #141516 */
 
   --foreground: oklch(0.96 0.003 145); /* #F3F4F3 - slight green tint */
 
@@ -462,7 +499,8 @@ body.font-theme-commissioner {
  * Lumen rim backlight — canonical spec in use-composer-chip-lumen.ts
  * Rounded-rect border ring (−3% to +10% band); not an ellipse gradient.
  */
-.dark .lumen-rim-backlight {
+.dark .lumen-rim-backlight,
+.dark .organic-lumen-interactive::before {
   position: absolute;
   inset: calc(-1 * var(--lumen-outset, 4px));
   z-index: 0;
@@ -494,6 +532,33 @@ body.font-theme-commissioner {
 
 .dark .lumen-rim-backlight--pulse.lumen-rim-backlight--on {
   animation: lumen-rim-breathe 2.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
+}
+
+/*
+ * Light mode: the warm rim does not read on a light surface, so the chips lift with a gentle
+ * shadow of the dark theme's background (--lumen-shadow-*) instead of a glow.
+ */
+:root:not(.dark) .composer-tool-chip-stage > .lumen-rim-backlight {
+  display: none;
+}
+:root:not(.dark) .composer-tool-chip {
+  transition:
+    color var(--lumen-duration) var(--lumen-ease),
+    opacity var(--lumen-duration) var(--lumen-ease),
+    box-shadow var(--lumen-duration) var(--lumen-ease);
+}
+:root:not(.dark) .composer-tool-chip-active {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.22),
+    var(--lumen-shadow-rest);
+}
+:root:not(.dark) .composer-tool-chip-host:hover .composer-tool-chip:not(:disabled) {
+  box-shadow: var(--lumen-shadow-hover);
+}
+:root:not(.dark) .composer-tool-chip-host:hover .composer-tool-chip-active:not(:disabled) {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.22),
+    var(--lumen-shadow-hover);
 }
 
 /* Gen UI Lab — Reforge-style full-page gallery snap (native, not wheel-hijack). */
@@ -714,6 +779,116 @@ body.font-theme-commissioner {
   opacity: 0.36;
 }
 
+/*
+ * Lumen orb — Lumen shown on its own (Kelvin swatches, demos): a point of light with a bright
+ * core and a soft halo, never a solid fill. Set --lumen-orb-color to a Kelvin colour; it defaults
+ * to the base Lumen. Dark surfaces only; it breathes on the shell rim's 4.2s rhythm.
+ */
+.lumen-orb {
+  display: inline-block;
+  width: var(--spacing-stack-3xl);
+  height: var(--spacing-stack-3xl);
+  border-radius: 9999px;
+  background: radial-gradient(
+    circle,
+    color-mix(in oklab, var(--lumen-orb-color, rgb(var(--lumen))) 85%, transparent) 0%,
+    color-mix(in oklab, var(--lumen-orb-color, rgb(var(--lumen))) 32%, transparent) 38%,
+    transparent 70%
+  );
+  filter: blur(var(--lumen-blur, 1.5px));
+  animation: lumen-orb-breathe 4.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
+}
+
+@keyframes lumen-orb-breathe {
+  0%,
+  100% {
+    opacity: 0.78;
+    transform: scale(0.96);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lumen-orb {
+    animation: none;
+  }
+}
+
+/*
+ * Light mode, every rim-style lumen: the warm glow does not read on a light surface, so each
+ * hides its rim and the surface lifts with a gentle shadow of the dark theme's background
+ * (--lumen-shadow-rest / --lumen-shadow-hover) instead. Dark mode is unchanged.
+ */
+:root:not(.dark) .home-composer-lumen-rim,
+:root:not(.dark) .chat-style-lumen-rim {
+  display: none;
+}
+
+/* Prompt shell (CoreInput, homepage composer): a shadow at rest, deeper while focused or hovered. */
+:root:not(.dark) .home-composer-lumen-stage:has(> .home-composer-lumen-rim) {
+  border-radius: var(--composer-radius, 0.75rem);
+  box-shadow: var(--lumen-shadow-rest);
+  transition: box-shadow 320ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+:root:not(.dark)
+  .home-composer-lumen-host:focus-within
+  .home-composer-lumen-stage:has(> .home-composer-lumen-rim),
+:root:not(.dark)
+  .home-composer-lumen-host--interactive:not(:has(:disabled)):hover
+  .home-composer-lumen-stage:has(> .home-composer-lumen-rim) {
+  box-shadow: var(--lumen-shadow-hover);
+}
+
+:root:not(.dark)
+  .home-composer-lumen-host--interactive
+  .home-composer-lumen-stage:has(> .home-composer-lumen-rim) {
+  transition:
+    box-shadow 320ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    transform 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* Memory retrieval on: the halo reads as the deeper shadow, even unfocused. */
+:root:not(.dark)
+  .core-input-memory-lumen
+  .home-composer-lumen-stage:has(> .home-composer-lumen-rim) {
+  box-shadow: var(--lumen-shadow-hover);
+}
+
+/* Selected chat-style cards and active task rows. */
+:root:not(.dark) .chat-style-card-stage:has(> .chat-style-lumen-rim) {
+  border-radius: var(--chip-radius, 0.75rem);
+  box-shadow: var(--lumen-shadow-hover);
+}
+
+/*
+ * The card's own edge (style cards, Launchpad starters, task rows). Dark: a lit card has a warm
+ * Kelvin edge and a top highlight, and an unlit card's edge warms on hover. Light: the edge stays
+ * neutral; a lit card lifts with the shadow above, and an unlit one with the resting shadow on hover.
+ */
+.dark .chat-style-card-stage:has(> .chat-style-lumen-rim) .chat-style-card {
+  border-color: rgb(var(--lumen-rim) / 0.28);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.14);
+}
+
+.dark .chat-style-card-stage:not(:has(> .chat-style-lumen-rim)) button.chat-style-card:hover {
+  border-color: rgb(var(--lumen-rim) / 0.2);
+}
+
+:root:not(.dark) .chat-style-card-stage:not(:has(> .chat-style-lumen-rim)) button.chat-style-card:hover {
+  box-shadow: var(--lumen-shadow-rest);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not(.dark) .home-composer-lumen-stage:has(> .home-composer-lumen-rim) {
+    transition: none;
+  }
+}
+
 /* A small dark-mode lift beneath the material; both renderers retain linked dot opacity. */
 .dark .organic-agent-dot-grid {
   color: oklch(0.99 0.003 145);
@@ -855,5 +1030,68 @@ body.font-theme-commissioner {
   .organic-glass-frost::before,
   .organic-activity-grain {
     display: none;
+  }
+}
+
+/* Shared neutral controls: dark rim, light shadow; keyboard focus stays distinct. */
+@layer components {
+  .organic-lumen-interactive {
+    position: relative;
+    isolation: isolate;
+  }
+}
+.dark .organic-lumen-interactive::before {
+  content: "";
+  z-index: -1;
+  border-radius: inherit;
+  opacity: 0;
+}
+.dark
+  .organic-lumen-interactive:not(:disabled):is(
+    :hover,
+    :active,
+    [aria-expanded="true"],
+    [data-highlighted],
+    [data-state="open"]
+  )::before {
+  opacity: 0.18;
+}
+:root:not(.dark)
+  .organic-lumen-interactive:not(:disabled):not(:focus-visible):is(
+    :hover,
+    :active,
+    [aria-expanded="true"],
+    [data-highlighted],
+    [data-state="open"]
+  ) {
+  box-shadow: var(--lumen-shadow-hover);
+}
+@media (prefers-reduced-motion: reduce) {
+  .organic-lumen-interactive::before {
+    transition: none;
+  }
+}
+/* Composer chips already own a measured rim layer. */
+.dark .composer-tool-chip.organic-lumen-interactive::before {
+  display: none;
+}
+
+/* Menu navigation stays neutral glass, with a contained Lumen edge rather than an amber fill. */
+:is([role^="menuitem"], [data-slot="select-item"])[data-highlighted] {
+  @apply bg-foreground/10;
+  overflow: hidden;
+  background-image: none;
+}
+.dark :is([role^="menuitem"], [data-slot="select-item"]).organic-lumen-interactive::before {
+  inset: 0;
+  border-width: var(--lumen-band, var(--spacing));
+  filter: blur(var(--lumen-blur, var(--spacing)));
+}
+
+@layer base {
+  :is(button, select, summary):not(:disabled),
+  a[href],
+  :is([role="button"], [role="switch"], [role="checkbox"]):not([aria-disabled="true"]) {
+    cursor: pointer;
   }
 }

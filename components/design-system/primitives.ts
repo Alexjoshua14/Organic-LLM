@@ -108,6 +108,10 @@ export const glass = tv({
   },
 });
 
+/** Neutral glass fill for controls already inside a blurred glass host; no nested blur. */
+export const glassControlHover =
+  "hover:bg-background/30 aria-expanded:bg-background/30 data-[highlighted]:bg-background/30";
+
 /** Opaque smoke shell shared by the homepage composer and its primary action buttons. */
 export const homeComposerGlassSurface = cn(glass({ opaque: true }), "overflow-visible rounded-xl");
 
@@ -288,8 +292,7 @@ export const secondaryInteractive = tv({
     "border border-border shadow-sm text-foreground",
     "bg-gradient-to-br from-secondary to-[#e8e6e1]",
     "dark:from-[#252625] dark:to-[#1e1f1e]",
-    "hover:from-accent/15 hover:to-accent/5 hover:border-accent/30",
-    "dark:hover:from-accent/20 dark:hover:to-accent/10 dark:hover:border-accent/40",
+    "organic-lumen-interactive",
     "transition-all duration-200",
   ].join(" "),
 });

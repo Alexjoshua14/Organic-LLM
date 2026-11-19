@@ -1,6 +1,7 @@
 import type { UsagePlanTierId } from "@/lib/usage/plans";
 
-import { getUsagePlanTier } from "@/lib/usage/plans";
+import { isAgentAccount } from "@/lib/agent-account/agent-account";
+import { formatPlanCapUsd, getUsagePlanTier } from "@/lib/usage/plans";
 
 /**
  * Plan budget gating. A user's plan comes from `account_entitlements` (verified server-side,
@@ -9,6 +10,10 @@ import { getUsagePlanTier } from "@/lib/usage/plans";
  * user spends a reset.
  */
 
+/**
+ * Plans that can be stored in `account_entitlements`. The hidden `agent` plan is not one: it
+ * comes only from the agent allowlist (lib/agent-account/agent-account.ts).
+ */
 export const PLAN_IDS = [
   "free",
   "plus",
@@ -41,12 +46,18 @@ export function isPlanId(value: unknown): value is PlanId {
   return typeof value === "string" && (PLAN_IDS as readonly string[]).includes(value);
 }
 
-/** The stored plan, unless the break-glass allowlist forces `max`. Unknown values read as free. */
+/**
+ * The stored plan, with two env overrides. An agent test account is always `agent`, even if it
+ * is also on the max break-glass list: the agent list can only restrict. Otherwise the
+ * break-glass list forces `max`. Unknown stored values read as free.
+ */
 export function resolvePlan(args: {
   clerkUserId: string;
   storedPlan: string | null | undefined;
   envRaw?: string;
+  agentEnvRaw?: string;
 }): PlanId {
+  if (isAgentAccount(args.clerkUserId, args.agentEnvRaw)) return "agent";
   if (parseMaxPlanClerkUserIds(args.envRaw).has(args.clerkUserId)) return "max";
 
   return isPlanId(args.storedPlan) ? args.storedPlan : "free";
@@ -101,7 +112,7 @@ export function evaluatePlanBudget(args: {
     canDispatch,
     holdReason: canDispatch
       ? null
-      : `You've used this week's ${tier.name} plan allowance ($${cap!.toFixed(0)}).`,
+      : `You've used this week's ${tier.name} plan allowance (${formatPlanCapUsd(cap!)}).`,
   };
 }
 

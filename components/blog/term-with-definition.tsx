@@ -11,6 +11,10 @@ type TermWithDefinitionProps = {
   className?: string;
 };
 
+/** Widest a definition card gets, in px (about 20rem), and its minimum gap to the screen edge. */
+const CARD_MAX_WIDTH = 320;
+const CARD_EDGE = 12;
+
 function stripBackticks(s: string): string {
   return s.replace(/`/g, "").trim() || s;
 }
@@ -27,30 +31,22 @@ export function TermWithDefinition({ term, definition, className }: TermWithDefi
     if (!el || typeof document === "undefined") return;
     const rect = el.getBoundingClientRect();
     const viewportHeight = window.innerHeight;
+    const viewportWidth = document.documentElement.clientWidth;
     const spaceAbove = rect.top;
     const spaceBelow = viewportHeight - rect.bottom;
     const cardHeight = 80;
     const placeAbove = spaceBelow < cardHeight + 8 && spaceAbove >= spaceBelow;
+    // Width follows the definition, not the term: a short word such as "SSE" must not squeeze a
+    // sentence into a sliver. Cap it at a comfortable measure and keep it inside the screen.
+    const maxWidth = Math.min(CARD_MAX_WIDTH, viewportWidth - CARD_EDGE * 2);
+    const left = Math.min(Math.max(rect.left, CARD_EDGE), viewportWidth - maxWidth - CARD_EDGE);
+    const common = { position: "fixed", left, width: "max-content", maxWidth, zIndex: 50 } as const;
 
-    if (placeAbove) {
-      setCardStyle({
-        position: "fixed",
-        left: rect.left,
-        bottom: viewportHeight - rect.top + 6,
-        width: "max-content",
-        maxWidth: Math.min(320, rect.width * 2),
-        zIndex: 50,
-      });
-    } else {
-      setCardStyle({
-        position: "fixed",
-        left: rect.left,
-        top: rect.bottom + 6,
-        width: "max-content",
-        maxWidth: Math.min(320, rect.width * 2),
-        zIndex: 50,
-      });
-    }
+    setCardStyle(
+      placeAbove
+        ? { ...common, bottom: viewportHeight - rect.top + 6 }
+        : { ...common, top: rect.bottom + 6 }
+    );
   }, []);
 
   useEffect(() => {
@@ -80,7 +76,7 @@ export function TermWithDefinition({ term, definition, className }: TermWithDefi
         aria-describedby={open ? `term-def-${displayTerm.replace(/\s/g, "-")}` : undefined}
         className={cn(
           "cursor-help border-b border-dotted border-muted-foreground text-foreground",
-          "hover:text-secondary-foreground focus:text-secondary-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+          "hover:text-secondary-foreground focus:text-secondary-foreground organic-focus",
           className
         )}
         role="button"
@@ -127,12 +123,31 @@ const DEFINITIONS: Record<string, string> = {
     "Backend-as-a-Service platform providing database, auth, and real-time APIs; Organic LLM uses it for chat and user data.",
   "env var":
     "Environment variable; a configuration value set outside the app (e.g. for secrets), not stored in code.",
+  HKDF: "HMAC-based Key Derivation Function; turns one secret into many separate keys, for example one per user.",
+  "at rest": "Stored on disk or in a database, as opposed to moving over the network (in transit).",
+  ciphertext: "Text scrambled by encryption; unreadable without the key.",
+  plaintext: "Ordinary readable text, before encryption or after decryption.",
+  embedding:
+    "A list of numbers that stands for the meaning of a piece of text, so similar ideas can be found by comparing numbers.",
+  POST: "The web request a browser makes to send data to a server, here your message.",
+  SSE: "Server-sent events: a long-lived connection the server writes to, so text can arrive as it is produced.",
   "resumable stream":
     "A stream that can be paused and resumed (e.g. after page refresh) by storing a stream ID and reconnecting via GET.",
 };
 
 export function getTermDefinition(term: string): string | undefined {
   return DEFINITIONS[term];
+}
+
+/** A glossary term in TSX posts: hover or focus for its definition. Unknown terms render plain. */
+export function Term({ children }: { children: string }) {
+  const definition = getTermDefinition(children);
+
+  return definition ? (
+    <TermWithDefinition definition={definition} term={children} />
+  ) : (
+    <>{children}</>
+  );
 }
 
 export { DEFINITIONS };

@@ -1,86 +1,72 @@
-import Link from "next/link";
+import type { Metadata } from "next";
 
+import blogStyles from "@/components/blog/blog-article.module.css";
+import { SurfaceCard } from "@/components/blog/surface-card";
 import { PageContentFrame, PageNavBack } from "@/components/layout/page-content-frame";
 import {
   CHAT_VARIANT_NOTE,
   chatVariantSurfaces,
-  EXPERIENCE_SURFACES,
   getExperienceSurfaceBySlug,
   standaloneSurfaces,
-  surfaceBlogPath,
 } from "@/lib/onboarding/experience-surfaces";
+import { blogIndex } from "@/lib/rabbit-holes/designTokens";
+import { cn } from "@/lib/utils";
 
-function SurfaceCard({ slug }: { slug: string }) {
-  const surface = getExperienceSurfaceBySlug(slug);
+export const metadata: Metadata = {
+  title: "Surfaces · Organic LLM",
+  description: "What each way of working in Organic LLM is for, and how they differ.",
+};
 
-  if (!surface) return null;
-
-  return (
-    <li>
-      <Link
-        className="block rounded-lg border border-border bg-secondary p-4 transition-colors hover:bg-secondary/80 text-foreground no-underline"
-        href={surfaceBlogPath(surface.slug)}
-      >
-        <h3 className="font-medium text-foreground">{surface.label}</h3>
-        <p className="text-sm text-muted-foreground mt-1">{surface.description}</p>
-      </Link>
-    </li>
-  );
-}
-
+/**
+ * Chat leads (the feature); its two experiences sit beside it; the standalone surfaces form the
+ * quiet grid below. The same hierarchy as the blog index, so the two galleries read as a family.
+ */
 export default function SurfacesBlogIndexPage() {
   const chat = getExperienceSurfaceBySlug("chat");
   const variants = chatVariantSurfaces();
   const others = standaloneSurfaces();
 
   return (
-    <PageContentFrame maxWidth="2xl">
-      <PageNavBack href="/blog">← Blog</PageNavBack>
-      <h1 className="text-2xl font-normal text-foreground mb-2">Surfaces</h1>
-      <p className="text-secondary-foreground text-sm mb-2">
-        What each workspace mode is for — and how they differ.
-      </p>
-      <p className="text-xs text-muted-foreground mb-8">{CHAT_VARIANT_NOTE}</p>
+    <>
+      <div aria-hidden className={blogStyles.glow} />
+      <PageContentFrame className="@container relative z-10" maxWidth="7xl">
+        <PageNavBack href="/blog">← Blog</PageNavBack>
+        <div className={blogIndex.sectionGap}>
+          <header className={blogIndex.headerStack}>
+            <p className={blogIndex.kicker}>Surfaces</p>
+            <h1 className={blogIndex.title}>Ways to work in Organic LLM</h1>
+            <p className={blogIndex.lede}>{CHAT_VARIANT_NOTE}</p>
+          </header>
 
-      <div className="space-y-10">
-        {chat ? (
-          <section>
-            <h2 className="text-lg font-medium text-foreground mb-4">Chat</h2>
-            <ul className="space-y-4">
-              <SurfaceCard slug={chat.slug} />
-            </ul>
-          </section>
-        ) : null}
+          {chat ? (
+            <section aria-label="Chat and its experiences">
+              <ul className={blogIndex.bento}>
+                <li className={cn("flex min-w-0", blogIndex.bentoFeature)}>
+                  <SurfaceCard index={0} surface={chat} variant="feature" />
+                </li>
+                {variants.map((v, i) => (
+                  <li key={v.slug} className={cn("flex min-w-0", blogIndex.bentoSecondary)}>
+                    <SurfaceCard index={i + 1} surface={v} variant="secondary" />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
 
-        {variants.length > 0 ? (
-          <section>
-            <h2 className="text-lg font-medium text-foreground mb-1">Chat experiences</h2>
-            <p className="text-xs text-muted-foreground mb-4">
-              Subcategories under Chat — same thread spine, tuned for different jobs.
-            </p>
-            <ul className="space-y-4">
-              {variants.map((v) => (
-                <SurfaceCard key={v.slug} slug={v.slug} />
-              ))}
-            </ul>
-          </section>
-        ) : null}
-
-        {others.length > 0 ? (
-          <section>
-            <h2 className="text-lg font-medium text-foreground mb-4">Research &amp; work</h2>
-            <ul className="space-y-4">
-              {others.map((o) => (
-                <SurfaceCard key={o.slug} slug={o.slug} />
-              ))}
-            </ul>
-          </section>
-        ) : null}
-      </div>
-
-      <p className="mt-10 text-xs text-muted-foreground">
-        {EXPERIENCE_SURFACES.length} surfaces documented · switch anytime from the sidebar rail.
-      </p>
-    </PageContentFrame>
+          {others.length > 0 ? (
+            <section aria-label="Research and work">
+              <h2 className={blogIndex.sectionLabel}>Research &amp; work</h2>
+              <ul className={blogIndex.grid}>
+                {others.map((o, i) => (
+                  <li key={o.slug} className="flex min-w-0">
+                    <SurfaceCard index={i + 3} surface={o} variant="standard" />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+        </div>
+      </PageContentFrame>
+    </>
   );
 }

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { requireAdmin } from "@/lib/admin/require-admin";
+import { requireLabAccess } from "@/lib/admin/lab-access";
 import { clientErrorJson, logRouteError } from "@/lib/api/client-safe-error";
 import { CHAT_TITLE_SYSTEM } from "@/lib/llm/chat-title-system";
 import { generateKnowledgeCapsuleTitleFromSummary } from "@/lib/llm/knowledge-capsule-title";
@@ -31,11 +31,11 @@ const PreviewBodySchema = z.object({
 /**
  * POST /api/prototypes/knowledge-capsules/preview
  *
- * Admin-only lab endpoint: run capsule (and optional legacy) title generation from a summary,
- * or parse-only a raw model string against the grammar.
+ * Lab endpoint (admins and agent test accounts): run capsule (and optional legacy) title
+ * generation from a summary, or parse-only a raw model string against the grammar.
  */
 export async function POST(req: Request) {
-  const admin = await requireAdmin();
+  const admin = await requireLabAccess();
 
   if (!admin) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });

@@ -45,6 +45,26 @@ const DEFAULT_COST: ModelCost = {
  */
 const MODEL_COSTS: Record<string, ModelCost> = {
   "typesafe-ai/jev": { inputPerMillion: 0.04, outputPerMillion: 0 },
+  "openai/gpt-6.2-astra": {
+    inputPerMillion: 8.0,
+    outputPerMillion: 40.0,
+    cachedInputPerMillion: 0.4,
+  },
+  "openai/gpt-6.2-sol": {
+    inputPerMillion: 2.0,
+    outputPerMillion: 10.0,
+    cachedInputPerMillion: 0.1,
+  },
+  "openai/gpt-6.1-sol": {
+    inputPerMillion: 2.0,
+    outputPerMillion: 10.0,
+    cachedInputPerMillion: 0.1,
+  },
+  "openai/gpt-6.1-terra": {
+    inputPerMillion: 1.0,
+    outputPerMillion: 5.0,
+    cachedInputPerMillion: 0.05,
+  },
   "openai/gpt-6-astra": {
     inputPerMillion: 10.0,
     outputPerMillion: 50.0,
@@ -73,6 +93,26 @@ const MODEL_COSTS: Record<string, ModelCost> = {
   "openai/gpt-4o": { inputPerMillion: 2.5, outputPerMillion: 10.0 },
   "openai/gpt-4o-mini": { inputPerMillion: 0.15, outputPerMillion: 0.6 },
   "openai/gpt-4-turbo": { inputPerMillion: 10.0, outputPerMillion: 30.0 },
+  "google/gemini-4-argon": {
+    inputPerMillion: 2.0,
+    outputPerMillion: 10.0,
+    cachedInputPerMillion: 0.1,
+  },
+  "google/gemini-4-carbon": {
+    inputPerMillion: 2.0,
+    outputPerMillion: 10.0,
+    cachedInputPerMillion: 0.1,
+  },
+  "google/gemini-4-hydrogen": {
+    inputPerMillion: 1.5,
+    outputPerMillion: 7.5,
+    cachedInputPerMillion: 0.075,
+  },
+  "google/gemini-4-neon": {
+    inputPerMillion: 3.0,
+    outputPerMillion: 15.0,
+    cachedInputPerMillion: 0.15,
+  },
   "google/gemini-3.1-pro-preview": { inputPerMillion: 2.0, outputPerMillion: 12.0 },
   "google/gemini-3.8-flash": { inputPerMillion: 0.75, outputPerMillion: 3.75 },
   "google/gemini-3.7-flash": { inputPerMillion: 0.75, outputPerMillion: 3.75 },
@@ -89,6 +129,11 @@ const MODEL_COSTS: Record<string, ModelCost> = {
   },
   "anthropic/claude-opus-5": { inputPerMillion: 5.0, outputPerMillion: 25.0 },
   "anthropic/claude-opus-4.8": { inputPerMillion: 5.0, outputPerMillion: 25.0 },
+  "anthropic/claude-fable-5.2": {
+    inputPerMillion: 8.0,
+    outputPerMillion: 40.0,
+    cachedInputPerMillion: 0.2,
+  },
   "anthropic/claude-fable-5.1": { inputPerMillion: 10.0, outputPerMillion: 50.0 },
   "anthropic/claude-fable-5": { inputPerMillion: 10.0, outputPerMillion: 50.0 },
   "anthropic/claude-opus-4.7": { inputPerMillion: 5.0, outputPerMillion: 25.0 },
@@ -105,8 +150,14 @@ const MODEL_COSTS: Record<string, ModelCost> = {
     cachedInputPerMillion: 0.08,
   },
   "anthropic/claude-haiku-4.5": { inputPerMillion: 1.0, outputPerMillion: 5.0 },
+  "perplexity/sonar": { inputPerMillion: 0.25, outputPerMillion: 2.5 },
   "perplexity/sonar-pro": { inputPerMillion: 1.0, outputPerMillion: 1.0 },
   "perplexity/sonar-reasoning-pro": { inputPerMillion: 3.0, outputPerMillion: 15.0 },
+  "moonshotai/kimi-k3.1-pro": {
+    inputPerMillion: 2.0,
+    outputPerMillion: 10.0,
+    cachedInputPerMillion: 0.2,
+  },
   "moonshotai/kimi-k3": { inputPerMillion: 3.0, outputPerMillion: 15.0 },
   "moonshotai/kimi-k2.7-code": { inputPerMillion: 0.95, outputPerMillion: 4.0 },
   "moonshotai/kimi-k2.6": { inputPerMillion: 0.95, outputPerMillion: 4.0 },

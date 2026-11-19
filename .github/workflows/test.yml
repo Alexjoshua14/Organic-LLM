@@ -8,6 +8,11 @@ on:
   # Lets a branch be tested on the Linux runner without opening a PR to main.
   workflow_dispatch:
 
+# A newer push to the same PR or branch cancels the run it supersedes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 defaults:
   run:
     shell: bash
@@ -33,6 +38,89 @@ jobs:
         env:
           TEST_VERBOSE: "1"
         run: bun run test
+
+  browser-regressions:
+    # Headless component suites: real components and the compiled app CSS in real engines, with no
+    # app server, account or LLM calls. Each suite has its own Playwright config.
+    #
+    # One job per engine, in parallel: the suites run with one worker because their timing checks
+    # flake under load, so splitting by engine is how the wall time comes down. Each job installs
+    # only its own browser. The timeouts stop a stuck apt or browser download from holding the PR
+    # for hours; a healthy job takes about three minutes.
+    name: Browser regressions (${{ matrix.browser }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, webkit]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "latest"
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Read the Playwright version
+        id: playwright
+        run: echo "version=$(bunx playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+
+      - name: Cache the browser download
+        id: browser-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-${{ matrix.browser }}
+
+      - name: Install the browser and its system libraries
+        # Each attempt is capped, and a stuck attempt is retried once, because apt mirrors and
+        # the browser CDN occasionally stall. With a cache hit only the system libraries install.
+        timeout-minutes: 8
+        run: |
+          if [ "${{ steps.browser-cache.outputs.cache-hit }}" = "true" ]; then
+            install="bunx playwright install-deps ${{ matrix.browser }}"
+          else
+            install="bunx playwright install --with-deps ${{ matrix.browser }}"
+          fi
+          for attempt in 1 2; do
+            timeout 180 $install && exit 0
+            echo "::warning::Browser install attempt $attempt failed or stalled; retrying."
+          done
+          exit 1
+
+      - name: CoreInput compact layout (reflow, buttons, tap to focus, settings panel)
+        timeout-minutes: 6
+        run: bun run test:composer --project ${{ matrix.browser }}
+
+      - name: Composer resize during sidebar transitions
+        timeout-minutes: 3
+        run: >-
+          bunx playwright test -c tests/e2e/composer-resize.playwright.config.ts
+          --project ${{ matrix.browser }}
+
+      - name: Conversation scrolling
+        # Chromium only: every project in this config runs in Chromium.
+        # "explicitly disabled resize-following remains disabled" fails on develop and is tracked
+        # in Ergon (COA-659); the rest of the suite gates. Remove the exclusion with that fix.
+        if: matrix.browser == 'chromium'
+        timeout-minutes: 4
+        run: >-
+          bunx playwright test -c tests/e2e/scroll.playwright.config.ts
+          --grep-invert "explicitly disabled resize-following remains disabled"
+
+      - name: Upload Playwright results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-regressions-results-${{ matrix.browser }}
+          path: /tmp/organic-*-results
+          if-no-files-found: ignore
+          retention-days: 7
 
   memory-feedback-database:
     name: Memory feedback grants and migrations

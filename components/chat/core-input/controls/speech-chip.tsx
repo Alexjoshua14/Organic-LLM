@@ -14,6 +14,7 @@ export function ComposerSpeechChip() {
       active={useSpeechFriendly}
       aria-label={useSpeechFriendly ? "Speech-friendly on" : "Speech-friendly off"}
       chip="speech"
+      size="icon-sm"
       title="Format replies for reading and TTS; a separate pipeline converts to speech-friendly script."
       onClick={() => setUseSpeechFriendly(!useSpeechFriendly)}
     >

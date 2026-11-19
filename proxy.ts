@@ -1,5 +1,9 @@
+import type { AgentRequestDecision } from "@/lib/rate-limit/agent-account";
+
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
+
+import { isAgentAccount, isAgentWriteRequest } from "@/lib/agent-account/agent-account";
 
 // Require sign-in for product + APIs. Intentionally public (not listed here): `/`,
 // `/blog(.*)`, `/privacy-and-security`, `/showcase(.*)` — add a pattern above when
@@ -70,8 +74,44 @@ export default clerkMiddleware(async (auth, req) => {
     await auth.protect();
   }
 
+  // Agent test accounts: a whole-account throttle before any route runs. Every other account
+  // pays one Set lookup here.
+  const { userId } = await auth();
+
+  if (isAgentAccount(userId)) {
+    // Loaded only for agents: the Redis client it builds must never affect anyone else's request.
+    const { checkAgentAccountRequest } = await import("@/lib/rate-limit/agent-account");
+    const decision = await checkAgentAccountRequest({
+      clerkUserId: userId!,
+      method: req.method,
+      pathname: req.nextUrl.pathname,
+    });
+
+    if (!decision.ok) return agentDeniedResponse(req, decision);
+  }
+
   return chatMiddleware(req);
 });
+
+function agentDeniedResponse(
+  req: NextRequest,
+  decision: Extract<AgentRequestDecision, { ok: false }>
+): Response {
+  const headers: Record<string, string> = { "Cache-Control": "no-store" };
+
+  if (decision.retryAfter > 0) headers["Retry-After"] = String(decision.retryAfter);
+  if (req.nextUrl.pathname.startsWith("/api/") || isAgentWriteRequest(req.method)) {
+    return NextResponse.json(
+      { error: decision.error, status: decision.status, code: decision.code },
+      { status: decision.status, headers }
+    );
+  }
+
+  return new NextResponse(decision.error, {
+    status: decision.status,
+    headers: { ...headers, "Content-Type": "text/plain; charset=utf-8" },
+  });
+}
 
 export const config = {
   matcher: [

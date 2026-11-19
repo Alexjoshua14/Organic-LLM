@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 import { Component, memo, useEffect, useState } from "react";
 import SyntaxHighlighter from "react-syntax-highlighter/dist/esm/prism-light";
+import refractor from "refractor/core";
 import createElement from "react-syntax-highlighter/dist/esm/create-element";
 import bash from "react-syntax-highlighter/dist/esm/languages/prism/bash";
 import c from "react-syntax-highlighter/dist/esm/languages/prism/c";
@@ -418,6 +419,42 @@ export const CodeLines = memo(function CodeLines({
     </HighlightBoundary>
   );
 });
+
+export type CodeTokenRange = { from: number; to: number; className: string };
+
+/**
+ * Token ranges (character offsets into `code`) for editors that decorate text in place instead of
+ * rendering rows. Returns null while a lazy grammar loads, for oversized input, or if the grammar
+ * throws; the caller keeps the text plain.
+ */
+export function tokenizeCode(code: string, language: unknown): CodeTokenRange[] | null {
+  const resolved = resolveHighlightLanguage(language);
+
+  if (!resolved || !ready.has(resolved) || exceedsHighlightLimits(code)) return null;
+
+  try {
+    const ranges: CodeTokenRange[] = [];
+    let offset = 0;
+    const walk = (nodes: HastNode[]) => {
+      for (const node of nodes) {
+        if (node.type === "text") offset += node.value?.length ?? 0;
+        else if (node.type === "element") {
+          const from = offset;
+
+          walk(node.children ?? []);
+          if (node.properties?.className && offset > from)
+            ranges.push({ from, to: offset, className: node.properties.className.join(" ") });
+        }
+      }
+    };
+
+    walk(refractor.highlight(code, resolved) as unknown as HastNode[]);
+
+    return ranges;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * A grammar that throws (a regex blowing the stack, a malformed chunk) must not take the message
