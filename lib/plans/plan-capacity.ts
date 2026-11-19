@@ -40,6 +40,13 @@ export const FREE_PLAN_MAX_SIMULTANEOUS_STREAMS = 5;
  */
 export const MAX_PLAN_MAX_SIMULTANEOUS_STREAMS = FREE_PLAN_MAX_SIMULTANEOUS_STREAMS;
 
+/**
+ * Agent test accounts (hidden `agent` plan): one stream at a time on the chat gate's pre-check.
+ * Lease-backed routes still use the SQL ceiling above; per-step budget checks and the agent
+ * write throttle bound them.
+ */
+export const AGENT_PLAN_MAX_SIMULTANEOUS_STREAMS = 1;
+
 /** Rabbit-hole article model used by generation.ts (openai.sol → gpt-6.2-sol). */
 export const PLAN_CAPACITY_RABBIT_HOLE_MODEL_ID = "openai/gpt-6.2-sol";
 

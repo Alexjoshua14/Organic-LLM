@@ -1,12 +1,18 @@
 import "server-only";
 
+import { isAgentAccount } from "@/lib/agent-account/agent-account";
 import { supabaseServer } from "@/lib/supabase/server";
 
-/** Fresh, minimal profile access data. Never cache authorization decisions across requests. */
+/**
+ * Fresh, minimal profile access data. Never cache authorization decisions across requests.
+ * An agent test account is never an admin, even with an `admin_access` row: the agent list
+ * can only restrict (lib/agent-account/agent-account.ts).
+ */
 export async function readAdminProfile(clerkUserId: string): Promise<{
   id: string;
   admin: boolean;
 } | null> {
+  if (isAgentAccount(clerkUserId)) return null;
   const sb = await supabaseServer();
   const { data, error } = await sb
     .from("admin_access")

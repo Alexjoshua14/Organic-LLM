@@ -3,6 +3,7 @@ import "server-only";
 import type { InitialGatewayVisibility } from "@/hooks/use-gateway-visibility";
 
 import { readAdminProfile } from "@/lib/admin/read-admin-profile";
+import { isAgentAccount } from "@/lib/agent-account/agent-account";
 
 /**
  * Server-rendered seed for `useGatewayVisibility`, so admin-only UI (the sidebar's Strata and
@@ -19,6 +20,8 @@ export async function resolveInitialGatewayVisibility(
   read: typeof readAdminProfile = readAdminProfile
 ): Promise<InitialGatewayVisibility | null> {
   if (!userId) return null;
+  // Agent test accounts see unfinished surfaces too (lib/admin/lab-access.ts).
+  if (isAgentAccount(userId)) return { userId, visible: true };
 
   try {
     return { userId, visible: (await read(userId))?.admin === true };

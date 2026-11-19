@@ -237,7 +237,10 @@ export async function buildUsageSummaryForUser(args: {
     };
   });
 
-  const planAllotments = USAGE_PLAN_TIERS.filter((tier) => tier.id !== "max").map((tier) => ({
+  // Max is uncapped; agent is hidden (shown only as the agent account's own plan).
+  const planAllotments = USAGE_PLAN_TIERS.filter(
+    (tier) => tier.id !== "max" && tier.id !== "agent"
+  ).map((tier) => ({
     plan: tier,
     percentUsed: computePlanAllotmentPercent({
       plan: tier,

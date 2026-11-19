@@ -64,4 +64,19 @@ describe("usage reset authorization and retries", () => {
     f.consume.mockImplementation(async () => ({ status: "conflict" }) as never);
     expect((await f.handler(request())).status).toBe(409);
   });
+  test("an agent test account can never spend a reset", async () => {
+    const f = fixture();
+    f.read.mockResolvedValueOnce(
+      evaluatePlanBudget({
+        plan: "agent",
+        source: "override",
+        usedUsd: 0.5,
+        cycle,
+        resetsRemaining: 0,
+        resetVersion: VERSION,
+      })
+    );
+    expect((await f.handler(request())).status).toBe(403);
+    expect(f.consume).not.toHaveBeenCalled();
+  });
 });

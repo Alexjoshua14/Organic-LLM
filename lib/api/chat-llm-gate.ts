@@ -7,9 +7,11 @@ import { countOwnerActiveStreams } from "@/data/supabase/message-send-queue";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { ProfileNotFoundError } from "@/data/supabase/profile-id-lookup";
 import {
+  AGENT_PLAN_MAX_SIMULTANEOUS_STREAMS,
   evaluateSimultaneousStreamGate,
   FREE_PLAN_MAX_SIMULTANEOUS_STREAMS,
 } from "@/lib/plans/plan-capacity";
+import { isAgentAccount } from "@/lib/agent-account/agent-account";
 import { planLimitResponse } from "@/lib/api/plan-budget-gate";
 import { getPlanBudgetForUser } from "@/lib/plans/plan-budget";
 import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
@@ -88,7 +90,9 @@ export async function requireLlmChatActor(
       const activeStreamCount = await deps.activeStreams(sbUserId);
       const streamGate = evaluateSimultaneousStreamGate({
         activeStreamCount,
-        maxStreams: FREE_PLAN_MAX_SIMULTANEOUS_STREAMS,
+        maxStreams: isAgentAccount(clerkUserId)
+          ? AGENT_PLAN_MAX_SIMULTANEOUS_STREAMS
+          : FREE_PLAN_MAX_SIMULTANEOUS_STREAMS,
       });
 
       if (!streamGate.ok) return rejected(429, "stream_limit", streamGate.holdReason);

@@ -19,6 +19,7 @@ Route to the doc that owns the topic. Do not re-derive what is already written d
 | Chat tools and the assistant toolbelt | [`docs/chat-tools.md`](docs/chat-tools.md) |
 | A new hard-set subagent (Subagent lab) | [`lib/llm/subagents/hard-set/README.md`](lib/llm/subagents/hard-set/README.md) |
 | Threads, persistence, encryption | [`docs/thread-session-architecture.md`](docs/thread-session-architecture.md) |
+| Signing in to check your work (agent test account) | [`docs/agent-test-account.md`](docs/agent-test-account.md) |
 | Setup, env vars, PRs | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
 
 ## Shared agent instructions

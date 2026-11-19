@@ -3,7 +3,7 @@
  * (lib/plans/budget-cycle.ts); reaching it stops new LLM requests until the window resets or
  * the user spends a reset. A user's plan is verified server-side (account_entitlements).
  */
-export type UsagePlanTierId = "free" | "plus" | "pro" | "max";
+export type UsagePlanTierId = "agent" | "free" | "plus" | "pro" | "max";
 
 export type UsagePlanTier = {
   id: UsagePlanTierId;
@@ -19,6 +19,16 @@ export type UsagePlanTier = {
 };
 
 export const USAGE_PLAN_TIERS: UsagePlanTier[] = [
+  {
+    // Hidden, below free: AI coding agents' test accounts (lib/agent-account/agent-account.ts).
+    // Assigned by env only, never listed or sold. Owner-approved 2026-11-18; raise only when
+    // agents demonstrably need more.
+    id: "agent",
+    name: "Agent test",
+    priceUsd: 0,
+    tokenCap: 0,
+    costCapUsd: 0.5,
+  },
   {
     id: "free",
     name: "Free",
@@ -75,12 +85,17 @@ export function computePlanAllotmentPercent(args: {
   return Math.min(999, Math.max(0, costPct));
 }
 
+/** "$10" for whole-dollar caps, "$0.50" otherwise, so a sub-dollar cap never rounds. */
+export function formatPlanCapUsd(capUsd: number): string {
+  return Number.isInteger(capUsd) ? `$${capUsd.toFixed(0)}` : `$${capUsd.toFixed(2)}`;
+}
+
 export function formatPlanTooltip(plan: UsagePlanTier): string {
   if (plan.costCapUsd == null) {
     return `${plan.name} plan · no weekly spend cap`;
   }
 
-  const spend = `$${plan.costCapUsd.toFixed(0)} spend per week`;
+  const spend = `${formatPlanCapUsd(plan.costCapUsd)} spend per week`;
 
   return plan.priceUsd === 0 ? `${plan.name} · ${spend}` : `$${plan.priceUsd}/mo · ${spend}`;
 }

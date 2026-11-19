@@ -2,7 +2,12 @@ import "server-only";
 
 import type { PlanBudgetSnapshot } from "@/lib/plans/plan-tags";
 
-import { readAccountEntitlement, type EntitlementRead } from "@/data/supabase/account-entitlements";
+import { hasAgentAccounts } from "@/lib/agent-account/agent-account";
+import {
+  readAccountEntitlement,
+  readClerkUserIdForProfile,
+  type EntitlementRead,
+} from "@/data/supabase/account-entitlements";
 import { sumLlmUsageCostUsd, type UsageCostSum } from "@/data/supabase/llm-usage";
 import { currentBudgetCycle, DEFAULT_BUDGET_CYCLE_ANCHOR } from "@/lib/plans/budget-cycle";
 import {
@@ -20,11 +25,16 @@ export type PlanBudgetDeps = {
     until: Date;
     requireRpc?: boolean;
   }): Promise<UsageCostSum>;
+  /** Only called when agent accounts are configured and the caller passed no Clerk id. */
+  clerkUserIdForProfile(profileId: string): Promise<string | null>;
+  /** Raw agent allowlist; tests pass it, production reads the env. */
+  agentEnvRaw?: string;
 };
 
 const defaultDeps: PlanBudgetDeps = {
   readEntitlement: readAccountEntitlement,
   sumCost: sumLlmUsageCostUsd,
+  clerkUserIdForProfile: readClerkUserIdForProfile,
 };
 
 /**
@@ -33,6 +43,9 @@ const defaultDeps: PlanBudgetDeps = {
  *
  * - Entitlements not migrated → free plan on the default Monday window, resets unavailable.
  * - Entitlement or spend unreadable → blocked until it recovers. Never authorize on stale spend.
+ * - Agent test account → the hidden `agent` plan with no resets. Background callers that pass
+ *   only `ownerId` get the Clerk id looked up whenever agent accounts are configured, so an
+ *   agent's background work cannot fall through to `free`; a missing or unreadable id blocks.
  */
 export async function getPlanBudgetForUser(
   args: { clerkUserId?: string; ownerId: string; now?: Date },
@@ -40,8 +53,16 @@ export async function getPlanBudgetForUser(
 ): Promise<PlanBudgetSnapshot> {
   const now = args.now ?? new Date();
   let read: EntitlementRead;
+  let clerkUserId = args.clerkUserId ?? "";
 
   try {
+    if (!clerkUserId && hasAgentAccounts(deps.agentEnvRaw)) {
+      const found = await deps.clerkUserIdForProfile(args.ownerId);
+
+      // No identity means the plan can't be resolved: block rather than fall back to free.
+      if (!found) throw new Error("No Clerk id for profile");
+      clerkUserId = found;
+    }
     read = await deps.readEntitlement(args.ownerId);
   } catch {
     return unavailablePlanBudget(currentBudgetCycle(DEFAULT_BUDGET_CYCLE_ANCHOR, now));
@@ -52,12 +73,17 @@ export async function getPlanBudgetForUser(
   }
 
   const entitlement = read.status === "ok" ? read.entitlement : null;
-  const plan = resolvePlan({ clerkUserId: args.clerkUserId ?? "", storedPlan: entitlement?.plan });
-  const source = parseMaxPlanClerkUserIds().has(args.clerkUserId ?? "")
-    ? "override"
-    : entitlement
-      ? "entitlements"
-      : "default";
+  const plan = resolvePlan({
+    clerkUserId,
+    storedPlan: entitlement?.plan,
+    agentEnvRaw: deps.agentEnvRaw,
+  });
+  const source =
+    plan === "agent" || parseMaxPlanClerkUserIds().has(clerkUserId)
+      ? "override"
+      : entitlement
+        ? "entitlements"
+        : "default";
   const cycle = currentBudgetCycle(entitlement?.cycleAnchor ?? DEFAULT_BUDGET_CYCLE_ANCHOR, now);
   let spend: UsageCostSum;
 
@@ -80,7 +106,8 @@ export async function getPlanBudgetForUser(
     source,
     cycle,
     usedUsd: spend.usd,
-    resetsRemaining: entitlement ? entitlement.resetsRemaining : null,
+    // The agent plan never starts a fresh window early, whatever its entitlement row holds.
+    resetsRemaining: plan === "agent" ? 0 : entitlement ? entitlement.resetsRemaining : null,
     resetVersion: entitlement?.resetVersion ?? null,
   });
 }

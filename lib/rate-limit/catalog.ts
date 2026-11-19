@@ -98,6 +98,72 @@ export const AION_PRESENCE_DAILY_TURN_RATE_LIMIT = {
   why: "Aion presence Tier-1 micro-turns per day. One token per billed micro-turn.",
 } as const satisfies RateLimitCatalogEntry;
 
+/**
+ * Agent test accounts only (lib/agent-account/agent-account.ts). Checked in `proxy.ts` before
+ * any route runs, keyed by Clerk id, so one looping agent cannot flood Clerk, Supabase, Redis
+ * or the Aetherion-hosted services. Every other account skips these buckets.
+ */
+const AGENT_ALL_WHY =
+  "Agent test account: one token per request the proxy matches (pages, API, server actions).";
+const AGENT_WRITE_WHY =
+  "Agent test account: one token per non-GET/HEAD/OPTIONS request, server actions included.";
+
+export const AGENT_ALL_MINUTE_RATE_LIMIT = {
+  id: "agent.all.minute",
+  prefix: "ratelimit:agent:all-minute",
+  cap: 20,
+  window: "1 m",
+  error: "Agent account request limit reached (per minute)",
+  why: AGENT_ALL_WHY,
+} as const satisfies RateLimitCatalogEntry;
+
+export const AGENT_ALL_HOUR_RATE_LIMIT = {
+  id: "agent.all.hour",
+  prefix: "ratelimit:agent:all-hour",
+  cap: 200,
+  window: "1 h",
+  error: "Agent account request limit reached (per hour)",
+  why: AGENT_ALL_WHY,
+} as const satisfies RateLimitCatalogEntry;
+
+export const AGENT_ALL_DAY_RATE_LIMIT = {
+  id: "agent.all.day",
+  prefix: "ratelimit:agent:all-day",
+  cap: 1_000,
+  window: "1 d",
+  error: "Agent account request limit reached (per day)",
+  why: AGENT_ALL_WHY,
+} as const satisfies RateLimitCatalogEntry;
+
+export const AGENT_WRITE_MINUTE_RATE_LIMIT = {
+  id: "agent.write.minute",
+  prefix: "ratelimit:agent:write-minute",
+  cap: 6,
+  window: "1 m",
+  error: "Agent account write limit reached (per minute)",
+  why: AGENT_WRITE_WHY,
+} as const satisfies RateLimitCatalogEntry;
+
+export const AGENT_WRITE_DAY_RATE_LIMIT = {
+  id: "agent.write.day",
+  prefix: "ratelimit:agent:write-day",
+  cap: 60,
+  window: "1 d",
+  error: "Agent account write limit reached (per day)",
+  why: AGENT_WRITE_WHY,
+} as const satisfies RateLimitCatalogEntry;
+
+export const AGENT_ALL_RATE_LIMITS = [
+  AGENT_ALL_MINUTE_RATE_LIMIT,
+  AGENT_ALL_HOUR_RATE_LIMIT,
+  AGENT_ALL_DAY_RATE_LIMIT,
+] as const;
+
+export const AGENT_WRITE_RATE_LIMITS = [
+  AGENT_WRITE_MINUTE_RATE_LIMIT,
+  AGENT_WRITE_DAY_RATE_LIMIT,
+] as const;
+
 export const RATE_LIMIT_CATALOG: readonly RateLimitCatalogEntry[] = [
   MEMORY_SEARCH_RATE_LIMIT,
   MEMORY_ADD_RATE_LIMIT,
@@ -108,6 +174,8 @@ export const RATE_LIMIT_CATALOG: readonly RateLimitCatalogEntry[] = [
   LLM_MESSAGE_RATE_LIMIT,
   AION_PRESENCE_MINUTE_RATE_LIMIT,
   AION_PRESENCE_DAILY_TURN_RATE_LIMIT,
+  ...AGENT_ALL_RATE_LIMITS,
+  ...AGENT_WRITE_RATE_LIMITS,
 ];
 
 export function catalogEntryById(id: string): RateLimitCatalogEntry | undefined {

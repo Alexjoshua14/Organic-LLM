@@ -6,14 +6,14 @@ import { PageContentFrame } from "@/components/layout/page-content-frame";
 import ShinyText from "@/components/ShinyText";
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
 import { glass } from "@/components/design-system/primitives";
-import { requireAdmin } from "@/lib/admin/require-admin";
+import { requireLabAccess } from "@/lib/admin/lab-access";
 import { sandboxGatewayEntries } from "@/lib/sandbox/gateway";
 import { threadEntryPrefetch } from "@/lib/chat/thread-entry-navigation";
 import { cn } from "@/lib/utils";
 
 export default async function SandboxPage() {
-  // The gateway lists labs; only /sandbox/arcadia is a finished surface for non-admins.
-  if (!(await requireAdmin())) notFound();
+  // The gateway lists labs; only /sandbox/arcadia is a finished surface for everyone else.
+  if (!(await requireLabAccess())) notFound();
 
   return (
     <LiquidChromePage transparentBackground className="items-stretch justify-start overflow-hidden">
