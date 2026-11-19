@@ -38,6 +38,8 @@ Stripe, and WCAG target-spacing guidance (2026 research pass).
 | `stack-xl` | 20 | Legacy “comfortable” section (avoid in dense chat UI) |
 | `stack-2xl` | 24 | Major page sections |
 | `stack-3xl` | 32 | Layout / hero margins |
+| `stack-4xl` | 48 | Page sections (blog index, article chapters) |
+| `stack-5xl` | 64 | Hero to content on wide layouts |
 
 ### Semantic aliases (`spacing.card.*`)
 
@@ -65,6 +67,8 @@ Use in gen-ui and chat cards instead of ad-hoc `space-y-5`:
 
 Expanded desktop body uses `spacing.card.section` instead of `space-y-5` (20px).
 Action chips keep `gap-inline-sm` (8px) — already aligned with touch-gap guidance.
+
+`--spacing-inset-*` also has `xl` (24px, card padding on phones) and `2xl` (32px, feature cards and desktop gutters); `spacing.inset` aliases them. See [Blog layout](./blog-layout.md) for the first wide-layout consumer.
 
 Feature-local tokens (e.g. [`lib/rabbit-holes/designTokens.ts`](../../lib/rabbit-holes/designTokens.ts))
 remain until a follow-up aliases them to these globals.

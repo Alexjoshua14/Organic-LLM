@@ -24,6 +24,8 @@
   --spacing-stack-xl: 1.25rem; /* 20px */
   --spacing-stack-2xl: 1.5rem; /* 24px */
   --spacing-stack-3xl: 2rem; /* 32px */
+  --spacing-stack-4xl: 3rem; /* 48px — page sections (blog index, article chapters) */
+  --spacing-stack-5xl: 4rem; /* 64px — hero → content on wide layouts */
 
   --spacing-inline-xs: 0.25rem; /* 4px — compact icon clusters only; below the 8px touch gap */
   --spacing-inline-sm: 0.5rem; /* 8px — min touch gap (Apple HIG) */
@@ -33,6 +35,11 @@
   --spacing-inset-sm: 0.5rem;
   --spacing-inset-md: 0.75rem;
   --spacing-inset-lg: 1rem;
+  --spacing-inset-xl: 1.5rem; /* 24px — card padding on phones, page gutter */
+  --spacing-inset-2xl: 2rem; /* 32px — feature card padding, page gutter on desktop */
+
+  /* Wide-screen page frame: Tailwind stops at 7xl (80rem). Container variants (@8xl) follow. */
+  --container-8xl: 90rem;
 
   /*
    * Composer (CoreInput) — docs/design/core-input-compact-reflow.md.

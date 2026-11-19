@@ -6,6 +6,12 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { cn } from "@/lib/utils";
 
 const FIGURE_HEIGHT = 180;
+/**
+ * The stage's natural width: the 162px User/Server/Database column plus the 66px TLS link and the
+ * 162px Cloud LLM box. On a narrower figure the whole stage scales down to fit instead of
+ * reflowing, so the anchors the animation measures keep their relative positions.
+ */
+const STAGE_WIDTH = 162 + 66 + 162;
 
 const ENCRYPTED_BUBBLE_CLASS =
   "absolute rounded border border-amber-600/50 bg-amber-500/15 backdrop-blur-sm px-3 py-0.5 text-2xs text-foreground flex flex-col items-center gap-0.5 w-fit min-w-[120px] box-border -translate-x-1/2 -translate-y-1/2";
@@ -69,6 +75,8 @@ const FALLBACK_SLOTS: Record<SlotName, SlotPosition> = {
 
 export function PipelineAnimation({ className }: { className?: string }) {
   const stageRef = useRef<HTMLDivElement>(null);
+  const fitRef = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState({ scale: 1, height: 0 });
   const userUserAnchorRef = useRef<HTMLDivElement>(null);
   const userLlmAnchorRef = useRef<HTMLDivElement>(null);
   const nextjsUserAnchorRef = useRef<HTMLDivElement>(null);
@@ -96,6 +104,30 @@ export function PipelineAnimation({ className }: { className?: string }) {
   const userAccum3 = useAnimation();
   const nextJsLlmContainerVis = useAnimation();
   const userLlmContainerVis = useAnimation();
+
+  useLayoutEffect(() => {
+    const fitEl = fitRef.current;
+    const stage = stageRef.current;
+
+    if (!fitEl || !stage) return;
+
+    const update = () => {
+      const scale = Math.min(1, fitEl.clientWidth / STAGE_WIDTH);
+      const height = stage.offsetHeight * scale;
+
+      setFit((prev) =>
+        prev.scale === scale && Math.abs(prev.height - height) < 0.5 ? prev : { scale, height }
+      );
+    };
+
+    update();
+    const observer = new ResizeObserver(update);
+
+    observer.observe(fitEl);
+    observer.observe(stage);
+
+    return () => observer.disconnect();
+  }, []);
 
   useLayoutEffect(() => {
     const stage = stageRef.current;
@@ -371,7 +403,7 @@ export function PipelineAnimation({ className }: { className?: string }) {
     <div
       aria-label="Animated end-to-end pipeline"
       className={cn(
-        "my-6 relative overflow-visible rounded-xl border border-border/50 bg-muted/10 px-4 py-2 sm:p-5 w-full",
+        "my-6 relative overflow-visible rounded-xl border border-border/50 bg-muted/10 px-2 py-2 sm:p-5 w-full",
         className
       )}
       role="figure"
@@ -385,210 +417,224 @@ export function PipelineAnimation({ className }: { className?: string }) {
         Restart
       </button>
       <div
-        ref={stageRef}
-        className="relative mx-auto overflow-visible w-full sm:w-fit max-w-full"
-        style={{ minHeight: FIGURE_HEIGHT }}
+        ref={fitRef}
+        className="relative w-full"
+        style={fit.scale < 1 ? { height: fit.height } : undefined}
       >
-        {/* Overlay: moving elements animate between measured anchor points. */}
-        <div className="absolute inset-0 z-0 pointer-events-none overflow-visible">
-          <motion.div
-            animate={userMsgSlot}
-            className="absolute z-20 rounded-2xl rounded-br-md px-4 py-2.5 text-xs font-medium bg-primary text-primary-foreground shadow-md -translate-x-1/2 -translate-y-1/2"
-            initial={{
-              left: `${slots.userUser.x}%`,
-              top: `${slots.userUser.y}%`,
-              opacity: 0,
-            }}
-          >
-            Hello
-          </motion.div>
-          <motion.div
-            animate={msgToLlmSlot}
-            className="absolute z-20 rounded-2xl rounded-bl-md px-4 py-2.5 text-xs font-medium bg-primary text-primary-foreground shadow-md -translate-x-1/2 -translate-y-1/2"
-            initial={{
-              left: `${slots.nextjsUser.x}%`,
-              top: `${slots.nextjsUser.y}%`,
-              opacity: 0,
-            }}
-          >
-            Hello
-          </motion.div>
-          <motion.div
-            animate={chunk1Slot}
-            className="absolute z-10 rounded bg-primary/20 px-1.5 py-0.5 text-2xs -translate-x-1/2 -translate-y-1/2"
-            initial={{
-              left: `${slots.llm.x}%`,
-              top: `${slots.llm.y}%`,
-              opacity: 0,
-            }}
-          >
-            Hi
-          </motion.div>
-          <motion.div
-            animate={chunk2Slot}
-            className="absolute z-10 rounded bg-primary/20 px-1.5 py-0.5 text-2xs -translate-x-1/2 -translate-y-1/2"
-            initial={{
-              left: `${slots.llm.x}%`,
-              top: `${slots.llm.y}%`,
-              opacity: 0,
-            }}
-          >
-            there
-          </motion.div>
-          <motion.div
-            animate={chunk3Slot}
-            className="absolute z-10 rounded bg-primary/20 px-1.5 py-0.5 text-2xs -translate-x-1/2 -translate-y-1/2"
-            initial={{
-              left: `${slots.llm.x}%`,
-              top: `${slots.llm.y}%`,
-              opacity: 0,
-            }}
-          >
-            !
-          </motion.div>
-        </div>
-
-        {/* Encrypt overlay: toDbSlot and finalToDbSlot paint over the grid so they appear over the message slot */}
-        <div className="absolute inset-0 z-20 pointer-events-none overflow-visible">
-          <EncryptedMessageBubble
-            animate={toDbSlot}
-            initialLeft={slots.nextjsUser.x}
-            initialTop={slots.nextjsUser.y}
-            label="User"
-          />
-          <EncryptedMessageBubble
-            animate={finalToDbSlot}
-            initialLeft={slots.nextjsLlm.x}
-            initialTop={slots.nextjsLlm.y}
-            label="LLM"
-          />
-        </div>
-
-        {/* Vertical layout: left = User, TLS, Server, TLS, Database (centered); right = TLS (server height) + Cloud LLM, horizontally centered */}
-        <div className="grid grid-cols-[1fr_auto] overflow-visible relative z-10 items-center min-h-[180px]">
-          {/* Left: User, TLS, Server, TLS, Database stacked; TLS same width as server (192px); vertically centered */}
-          <div className="flex flex-col justify-center items-center">
-            <div className={cn(BOUNDARY_STYLE, "w-[162px] relative z-10")}>
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                User
-              </span>
-              <div className="mt-2 flex flex-col gap-2 min-h-[48px]">
-                <div
-                  ref={userUserAnchorRef}
-                  aria-hidden
-                  className="h-8 flex items-center shrink-0"
-                />
-                <motion.div
-                  animate={userLlmContainerVis}
-                  className="w-fit self-start"
-                  initial={{ opacity: 0 }}
-                >
-                  <div
-                    ref={userLlmAnchorRef}
-                    className="rounded-2xl rounded-bl-md px-4 py-2.5 text-xs font-medium bg-muted border border-border/60 shadow-md min-w-26 z-20"
-                  >
-                    <motion.span animate={userAccum1} initial={{ opacity: 0 }}>
-                      Hi
-                    </motion.span>
-                    <motion.span animate={userAccum2} initial={{ opacity: 0 }}>
-                      {" "}
-                      there
-                    </motion.span>
-                    <motion.span animate={userAccum3} initial={{ opacity: 0 }}>
-                      !
-                    </motion.span>
-                  </div>
-                </motion.div>
-              </div>
-            </div>
-
-            <div className={cn(TUNNEL_STYLE, "w-[162px] min-h-[32px] py-2 justify-center")}>
-              <span className="text-2xs text-muted-foreground relative z-10">TLS</span>
-            </div>
-
-            <div className={cn(BOUNDARY_STYLE, "relative w-[162px] overflow-visible z-10")}>
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Next.js server
-              </span>
-              <div className="mt-2 flex flex-col gap-2 min-h-[60px]">
-                <div
-                  ref={nextjsUserAnchorRef}
-                  aria-hidden
-                  className="h-8 flex items-center shrink-0"
-                />
-                <motion.div
-                  animate={nextJsLlmContainerVis}
-                  className="w-fit self-start"
-                  initial={{ opacity: 0 }}
-                >
-                  <div
-                    ref={nextjsLlmAnchorRef}
-                    className="rounded-2xl rounded-bl-md px-4 py-2.5 text-xs font-medium bg-muted border border-border/60 shadow-md min-w-26 z-20"
-                  >
-                    <motion.span animate={nextJsAccum1} initial={{ opacity: 0 }}>
-                      Hi
-                    </motion.span>
-                    <motion.span animate={nextJsAccum2} initial={{ opacity: 0 }}>
-                      {" "}
-                      there
-                    </motion.span>
-                    <motion.span animate={nextJsAccum3} initial={{ opacity: 0 }}>
-                      !
-                    </motion.span>
-                  </div>
-                </motion.div>
-              </div>
-            </div>
-
-            <div className={cn(TUNNEL_STYLE, "w-[162px] min-h-[32px] py-2 justify-center")}>
-              <span className="text-2xs text-muted-foreground relative z-10">TLS</span>
-            </div>
-
-            <div className={cn(BOUNDARY_STYLE, "w-[162px] relative min-h-[168px]")}>
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Database
-              </span>
-              <span className="mt-1 text-2xs text-muted-foreground">Supabase</span>
-              <div className="mt-3 flex flex-1 flex-col justify-center gap-3">
-                <div
-                  ref={dbUserSlotRef}
-                  aria-hidden
-                  className="h-8 flex items-center justify-center"
-                />
-                <div
-                  ref={dbLlmSlotRef}
-                  aria-hidden
-                  className="h-8 flex items-center justify-center"
-                />
-              </div>
-              <div
-                ref={databaseAnchorRef}
-                aria-hidden
-                className="absolute left-1/2 top-[56%] h-0 w-0 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
-              />
-            </div>
+        <div
+          ref={stageRef}
+          className="relative mx-auto overflow-visible"
+          style={{
+            width: STAGE_WIDTH,
+            minHeight: FIGURE_HEIGHT,
+            ...(fit.scale < 1
+              ? { transform: `scale(${fit.scale})`, transformOrigin: "top left" }
+              : null),
+          }}
+        >
+          {/* Overlay: moving elements animate between measured anchor points. */}
+          <div className="absolute inset-0 z-0 pointer-events-none overflow-visible">
+            <motion.div
+              animate={userMsgSlot}
+              className="absolute z-20 rounded-2xl rounded-br-md px-4 py-2.5 text-xs font-medium bg-primary text-primary-foreground shadow-md -translate-x-1/2 -translate-y-1/2"
+              initial={{
+                left: `${slots.userUser.x}%`,
+                top: `${slots.userUser.y}%`,
+                opacity: 0,
+              }}
+            >
+              Hello
+            </motion.div>
+            <motion.div
+              animate={msgToLlmSlot}
+              className="absolute z-20 rounded-2xl rounded-bl-md px-4 py-2.5 text-xs font-medium bg-primary text-primary-foreground shadow-md -translate-x-1/2 -translate-y-1/2"
+              initial={{
+                left: `${slots.nextjsUser.x}%`,
+                top: `${slots.nextjsUser.y}%`,
+                opacity: 0,
+              }}
+            >
+              Hello
+            </motion.div>
+            <motion.div
+              animate={chunk1Slot}
+              className="absolute z-10 rounded bg-primary/20 px-1.5 py-0.5 text-2xs -translate-x-1/2 -translate-y-1/2"
+              initial={{
+                left: `${slots.llm.x}%`,
+                top: `${slots.llm.y}%`,
+                opacity: 0,
+              }}
+            >
+              Hi
+            </motion.div>
+            <motion.div
+              animate={chunk2Slot}
+              className="absolute z-10 rounded bg-primary/20 px-1.5 py-0.5 text-2xs -translate-x-1/2 -translate-y-1/2"
+              initial={{
+                left: `${slots.llm.x}%`,
+                top: `${slots.llm.y}%`,
+                opacity: 0,
+              }}
+            >
+              there
+            </motion.div>
+            <motion.div
+              animate={chunk3Slot}
+              className="absolute z-10 rounded bg-primary/20 px-1.5 py-0.5 text-2xs -translate-x-1/2 -translate-y-1/2"
+              initial={{
+                left: `${slots.llm.x}%`,
+                top: `${slots.llm.y}%`,
+                opacity: 0,
+              }}
+            >
+              !
+            </motion.div>
           </div>
 
-          {/* Right: TLS (between server and LLM, same height as server) + Cloud LLM, horizontally centered */}
-          <div className="flex flex-row justify-center items-center">
-            <div className={cn(TUNNEL_STYLE, "w-[66px] min-h-[96px] pt-0 justify-center shrink-0")}>
-              <span className="text-2xs text-muted-foreground relative z-10">TLS</span>
-            </div>
-            <div
-              className={cn(
-                BOUNDARY_STYLE,
-                "w-[162px] min-h-[96px] relative overflow-visible shrink-0"
-              )}
-            >
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Cloud LLM
-              </span>
-              <div className="relative mt-2 min-h-[54px]">
+          {/* Encrypt overlay: toDbSlot and finalToDbSlot paint over the grid so they appear over the message slot */}
+          <div className="absolute inset-0 z-20 pointer-events-none overflow-visible">
+            <EncryptedMessageBubble
+              animate={toDbSlot}
+              initialLeft={slots.nextjsUser.x}
+              initialTop={slots.nextjsUser.y}
+              label="User"
+            />
+            <EncryptedMessageBubble
+              animate={finalToDbSlot}
+              initialLeft={slots.nextjsLlm.x}
+              initialTop={slots.nextjsLlm.y}
+              label="LLM"
+            />
+          </div>
+
+          {/* Vertical layout: left = User, TLS, Server, TLS, Database (centered); right = TLS (server height) + Cloud LLM, horizontally centered */}
+          <div className="grid grid-cols-[1fr_auto] overflow-visible relative z-10 items-center min-h-[180px]">
+            {/* Left: User, TLS, Server, TLS, Database stacked; TLS same width as server (192px); vertically centered */}
+            <div className="flex flex-col justify-center items-center">
+              <div className={cn(BOUNDARY_STYLE, "w-[162px] relative z-10")}>
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  User
+                </span>
+                <div className="mt-2 flex flex-col gap-2 min-h-[48px]">
+                  <div
+                    ref={userUserAnchorRef}
+                    aria-hidden
+                    className="h-8 flex items-center shrink-0"
+                  />
+                  <motion.div
+                    animate={userLlmContainerVis}
+                    className="w-fit self-start"
+                    initial={{ opacity: 0 }}
+                  >
+                    <div
+                      ref={userLlmAnchorRef}
+                      className="rounded-2xl rounded-bl-md px-4 py-2.5 text-xs font-medium bg-muted border border-border/60 shadow-md min-w-26 z-20"
+                    >
+                      <motion.span animate={userAccum1} initial={{ opacity: 0 }}>
+                        Hi
+                      </motion.span>
+                      <motion.span animate={userAccum2} initial={{ opacity: 0 }}>
+                        {" "}
+                        there
+                      </motion.span>
+                      <motion.span animate={userAccum3} initial={{ opacity: 0 }}>
+                        !
+                      </motion.span>
+                    </div>
+                  </motion.div>
+                </div>
+              </div>
+
+              <div className={cn(TUNNEL_STYLE, "w-[162px] min-h-[32px] py-2 justify-center")}>
+                <span className="text-2xs text-muted-foreground relative z-10">TLS</span>
+              </div>
+
+              <div className={cn(BOUNDARY_STYLE, "relative w-[162px] overflow-visible z-10")}>
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Next.js server
+                </span>
+                <div className="mt-2 flex flex-col gap-2 min-h-[60px]">
+                  <div
+                    ref={nextjsUserAnchorRef}
+                    aria-hidden
+                    className="h-8 flex items-center shrink-0"
+                  />
+                  <motion.div
+                    animate={nextJsLlmContainerVis}
+                    className="w-fit self-start"
+                    initial={{ opacity: 0 }}
+                  >
+                    <div
+                      ref={nextjsLlmAnchorRef}
+                      className="rounded-2xl rounded-bl-md px-4 py-2.5 text-xs font-medium bg-muted border border-border/60 shadow-md min-w-26 z-20"
+                    >
+                      <motion.span animate={nextJsAccum1} initial={{ opacity: 0 }}>
+                        Hi
+                      </motion.span>
+                      <motion.span animate={nextJsAccum2} initial={{ opacity: 0 }}>
+                        {" "}
+                        there
+                      </motion.span>
+                      <motion.span animate={nextJsAccum3} initial={{ opacity: 0 }}>
+                        !
+                      </motion.span>
+                    </div>
+                  </motion.div>
+                </div>
+              </div>
+
+              <div className={cn(TUNNEL_STYLE, "w-[162px] min-h-[32px] py-2 justify-center")}>
+                <span className="text-2xs text-muted-foreground relative z-10">TLS</span>
+              </div>
+
+              <div className={cn(BOUNDARY_STYLE, "w-[162px] relative min-h-[168px]")}>
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Database
+                </span>
+                <span className="mt-1 text-2xs text-muted-foreground">Supabase</span>
+                <div className="mt-3 flex flex-1 flex-col justify-center gap-3">
+                  <div
+                    ref={dbUserSlotRef}
+                    aria-hidden
+                    className="h-8 flex items-center justify-center"
+                  />
+                  <div
+                    ref={dbLlmSlotRef}
+                    aria-hidden
+                    className="h-8 flex items-center justify-center"
+                  />
+                </div>
                 <div
-                  ref={llmAnchorRef}
+                  ref={databaseAnchorRef}
                   aria-hidden
-                  className="absolute left-1/2 top-1/2 h-0 w-0 -translate-x-1/2 -translate-y-1/2"
+                  className="absolute left-1/2 top-[56%] h-0 w-0 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
                 />
+              </div>
+            </div>
+
+            {/* Right: TLS (between server and LLM, same height as server) + Cloud LLM, horizontally centered */}
+            <div className="flex flex-row justify-center items-center">
+              <div
+                className={cn(TUNNEL_STYLE, "w-[66px] min-h-[96px] pt-0 justify-center shrink-0")}
+              >
+                <span className="text-2xs text-muted-foreground relative z-10">TLS</span>
+              </div>
+              <div
+                className={cn(
+                  BOUNDARY_STYLE,
+                  "w-[162px] min-h-[96px] relative overflow-visible shrink-0"
+                )}
+              >
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Cloud LLM
+                </span>
+                <div className="relative mt-2 min-h-[54px]">
+                  <div
+                    ref={llmAnchorRef}
+                    aria-hidden
+                    className="absolute left-1/2 top-1/2 h-0 w-0 -translate-x-1/2 -translate-y-1/2"
+                  />
+                </div>
               </div>
             </div>
           </div>

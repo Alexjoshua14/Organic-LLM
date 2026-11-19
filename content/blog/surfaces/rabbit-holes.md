@@ -1,17 +1,17 @@
 # Rabbit Holes
 
-Rabbit Holes is branching research — generated nodes, cited sources, and sessions you can browse and resume where you left off.
+Rabbit Holes is branching research. Each question becomes a node with cited sources, and each interesting thread in an answer can become a new branch.
 
 ## What it is for
 
-- Following a question down multiple paths without losing the trail
-- Nodes with sources you can inspect and cite
-- Browse past holes and pick up mid-branch
+- Following a question down several paths without losing the trail
+- Nodes with sources you can open, so you can check a claim yourself
+- Browsing past sessions and resuming mid-branch
 
 ## How it differs from Chat
 
-Chat is linear (with memory). Rabbit Holes is a graph: each branch is a node, and the UI is built for research topology rather than a single transcript.
+Chat is a line: one message after another, with memory. A rabbit hole is a **graph**: every branch is a node you can return to, and the interface is built to show the shape of the exploration, not a single transcript.
 
-## When to use Rabbit Holes
+## When to use it
 
-Start a hole when a topic deserves parallel exploration — comparisons, deep dives, or “what if” branches — and you want citations and structure, not just a long chat log.
+Start a hole when a topic deserves parallel exploration: comparisons, deep dives, "what if" branches, anything where you want citations and structure, not a long chat log.

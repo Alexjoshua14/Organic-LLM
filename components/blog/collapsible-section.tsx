@@ -28,7 +28,7 @@ export function CollapsibleSection({
       <CollapsibleTrigger
         className={cn(
           "flex w-full items-start gap-2 rounded-md py-2 text-left",
-          "hover:bg-secondary/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          "hover:bg-secondary/50 organic-focus"
         )}
       >
         {open ? (

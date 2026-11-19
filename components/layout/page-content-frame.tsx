@@ -17,6 +17,7 @@ const MAX_WIDTH_CLASS = {
   "5xl": "max-w-5xl",
   "6xl": "max-w-6xl",
   "7xl": "max-w-7xl",
+  "8xl": "max-w-8xl",
 } as const;
 
 type PageContentFrameMaxWidth = keyof typeof MAX_WIDTH_CLASS;

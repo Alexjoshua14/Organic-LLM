@@ -11,7 +11,7 @@ A full-viewport animated background that **dims when the user hovers or focuses*
 
 1. Render `AdaptiveLiquidChrome` as a full-viewport layer (e.g. on the home page).
 2. Add **`data-dim-background`** to any element that should trigger dimming on hover/focus (e.g. the main input wrapper or a button).
-3. For a **stronger dim** (e.g. ~40% opacity), use **`data-dim-background="full"`** on that element; otherwise the default dim intensity is used.
+3. For a **gentler dim** (about 40% opacity instead of the default 30%), use **`data-dim-background="full"`** on that element; otherwise the default dim intensity is used.
 
 ```tsx
 <AdaptiveLiquidChrome dimIntensity={0.45} />
@@ -30,7 +30,7 @@ A full-viewport animated background that **dims when the user hovers or focuses*
 | `speed` | `0.012` | Speed of the underlying LiquidChrome morph animation (lower = slower). |
 | `dimOnHover` | `true` | Whether hover/focus triggers dimming. |
 | `dimIntensity` | `0.7` | Dim amount for `data-dim-background` (0–1). e.g. 0.45 → 55% opacity when dimmed. |
-| `dimIntensityFull` | `0.6` | Dim amount for `data-dim-background="full"` (e.g. ~40% opacity). |
+| `dimIntensityFull` | `0.6` | Dim amount for `data-dim-background="full"`: a gentler dim than `dimIntensity` (about 40% opacity). |
 | `dimTransitionMs` | `700` | Duration (ms) for **dimming** (hover/focus in). Quick response. |
 | `to65TransitionMs` | `1200` | Duration (ms) for **phase 1 brightening**: dimmed → 65% opacity. Quickish, still slower than dim. |
 | `to100TransitionMs` | `2800` | Duration (ms) for **phase 2 brightening**: 65% → 100%. Slow, ease. |
@@ -67,7 +67,7 @@ Transitions use a single cubic-bezier for now: `cubic-bezier(0.25, 0.46, 0.45, 0
 
 - **Brightness state** is one of: `dimmed` | `to65` | `rest`. The wrapper div’s opacity is derived from this and `effectiveDimIntensity`.
 - **Event handling** — Global `pointerover` / `pointerout` and `focusin` / `focusout` with `closest('[data-dim-background]')`. A narrow `MutationObserver` watches only `data-adaptive-active` attribute changes.
-- **Theme** — The HTML dark class selects the material (dark: existing deep blue-gray chrome; light: paper and ink). See the [material contract](../../docs/design/liquid-chrome-materials.md) for shared shader, texture, and fallback rules.
+- **Theme** — The HTML dark class selects the material (dark: existing deep blue-gray chrome; light: paper and ink). See `docs/design/liquid-chrome-materials.md` for the material contract: shared shader, texture, and fallback rules.
 
 ## File location
 

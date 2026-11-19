@@ -1,120 +1,73 @@
 import Link from "next/link";
 
-import { BlogProse } from "@/components/blog/blog-prose";
-import { PageContentFrame, PageNavBack } from "@/components/layout/page-content-frame";
+import { BlogArticleShell } from "./blog-article-shell";
+import { BlogProse } from "./blog-prose";
+import { SurfaceCard, surfaceTag } from "./surface-card";
+
 import { Button } from "@/components/third-party/ui/button";
+import { threadEntryPrefetch } from "@/lib/chat/thread-entry-navigation";
 import {
-  CHAT_VARIANT_NOTE,
   chatVariantSurfaces,
   getExperienceSurfaceBySlug,
   standaloneSurfaces,
-  surfaceBlogPath,
   type ExperienceSurface,
 } from "@/lib/onboarding/experience-surfaces";
-import { blogArticlePage } from "@/lib/rabbit-holes/designTokens";
-import { threadEntryPrefetch } from "@/lib/chat/thread-entry-navigation";
-import { cn } from "@/lib/utils";
 
 type SurfacePostLayoutProps = {
   surface: ExperienceSurface;
   markdown: string;
 };
 
-function RelatedSurfaceLinks({
-  title,
-  surfaces,
-}: {
-  title: string;
-  surfaces: ExperienceSurface[];
-}) {
-  if (surfaces.length === 0) return null;
+/** Two surfaces to suggest after this one: its family first, then the next in the list. */
+function relatedSurfaces(surface: ExperienceSurface): ExperienceSurface[] {
+  const chat = getExperienceSurfaceBySlug("chat");
+  const variants = chatVariantSurfaces();
+  const others = standaloneSurfaces();
 
-  return (
-    <section className="mt-10 border-t border-border pt-6">
-      <h2 className="text-sm font-medium text-foreground mb-3">{title}</h2>
-      <ul className="space-y-2">
-        {surfaces.map((item) => (
-          <li key={item.slug}>
-            <Link
-              className="text-sm text-muted-foreground hover:text-foreground no-underline"
-              href={surfaceBlogPath(item.slug)}
-            >
-              <span className="font-medium text-foreground">{item.label}</span>
-              {" — "}
-              {item.description}
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </section>
+  if (surface.id === "chat") return variants.slice(0, 2);
+
+  if (surface.chatVariant) {
+    return [...variants.filter((v) => v.slug !== surface.slug), ...(chat ? [chat] : [])].slice(
+      0,
+      2
+    );
+  }
+
+  const i = others.findIndex((o) => o.slug === surface.slug);
+  const next = others[(i + 1) % others.length];
+
+  return [...(chat ? [chat] : []), ...(next && next.slug !== surface.slug ? [next] : [])].slice(
+    0,
+    2
   );
 }
 
 export function SurfacePostLayout({ surface, markdown }: SurfacePostLayoutProps) {
-  const chatParent = surface.chatVariant ? getExperienceSurfaceBySlug("chat") : undefined;
-  const variants = surface.id === "chat" ? chatVariantSurfaces() : [];
-  const others = standaloneSurfaces();
+  const related = relatedSurfaces(surface);
 
   return (
-    <PageContentFrame maxWidth="2xl">
-      <PageNavBack className={blogArticlePage.navToContent} href="/blog/surfaces">
-        ← Surfaces
-      </PageNavBack>
-      <article className={cn("p-6 sm:p-8 text-foreground", blogArticlePage.blockStack)}>
-        {surface.chatVariant && chatParent ? (
-          <p className="text-xs text-muted-foreground mb-4">
-            Part of{" "}
-            <Link
-              className="text-foreground underline-offset-2 hover:underline"
-              href={surfaceBlogPath("chat")}
-            >
-              {chatParent.label}
-            </Link>
-            {" · "}
-            {CHAT_VARIANT_NOTE}
+    <BlogArticleShell
+      back={{ href: "/blog/surfaces", label: "← Surfaces" }}
+      slug={`surface-${surface.slug}`}
+      footer={related.map((s, i) => (
+        <SurfaceCard key={s.slug} index={i} surface={s} variant="standard" />
+      ))}
+      meta={
+        <div className="mb-stack-lg flex flex-wrap items-center justify-between gap-inline-md">
+          <p className="text-2xs font-medium uppercase tracking-widest text-muted-foreground">
+            {surfaceTag(surface)}
           </p>
-        ) : null}
-
-        {surface.adminOnly ? null : (
-          <div className="mb-6 flex flex-wrap items-center gap-3">
+          {surface.adminOnly ? null : (
             <Button asChild size="sm" variant="secondary">
               <Link href={surface.tryHref} prefetch={threadEntryPrefetch(surface.tryHref)}>
                 Open {surface.label}
               </Link>
             </Button>
-          </div>
-        )}
-
-        <BlogProse content={markdown} />
-
-        {surface.id === "chat" ? (
-          <RelatedSurfaceLinks surfaces={variants} title="Chat experiences (variants today)" />
-        ) : null}
-
-        {surface.id === "chat" ? (
-          <RelatedSurfaceLinks surfaces={others} title="Other surfaces" />
-        ) : null}
-
-        {surface.chatVariant ? (
-          <RelatedSurfaceLinks
-            surfaces={[
-              ...variants.filter((v) => v.slug !== surface.slug),
-              ...(chatParent ? [chatParent] : []),
-            ]}
-            title="Related"
-          />
-        ) : null}
-
-        {!surface.chatVariant && surface.id !== "chat" ? (
-          <RelatedSurfaceLinks
-            surfaces={[
-              getExperienceSurfaceBySlug("chat")!,
-              ...others.filter((o) => o.slug !== surface.slug),
-            ].filter(Boolean)}
-            title="Other surfaces"
-          />
-        ) : null}
-      </article>
-    </PageContentFrame>
+          )}
+        </div>
+      }
+    >
+      <BlogProse content={markdown} />
+    </BlogArticleShell>
   );
 }
