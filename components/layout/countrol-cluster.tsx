@@ -5,7 +5,7 @@ import { FC, useState } from "react";
 
 import { ThemeSwitch } from "../shared/theme-switch";
 import { SettingsOverlay } from "../settings/SettingsOverlay";
-import { OrganicHelpDialog } from "../onboarding/organic-help-dialog";
+import { GuideTrigger } from "../onboarding/guide-trigger";
 import { UsageOverlay } from "../usage/usage-overlay";
 import { glass } from "../design-system/primitives";
 import { useSidebar } from "../third-party/ui/sidebar";
@@ -30,7 +30,7 @@ export const ControlCluster: FC<ControlClusterProps> = ({ className }) => {
           className
         )}
       >
-        <OrganicHelpDialog triggerClassName="min-w-8 w-8 h-8" />
+        <GuideTrigger className="min-w-8 w-8 h-8" />
         <UsageOverlay triggerClassName="min-w-8 w-8 h-8" />
         <button
           aria-expanded={settingsOpen}

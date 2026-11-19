@@ -2,13 +2,10 @@ import type React from "react";
 import { describe, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { FeatureHintRegistryProvider } from "@/lib/onboarding/feature-hint-context";
 import { RabbitHoleEmptyState } from "@/components/rabbit-holes/main/RabbitHoleEmptyState";
 
 function renderEmptyState(node: React.ReactElement) {
-  return renderToStaticMarkup(
-    <FeatureHintRegistryProvider>{node}</FeatureHintRegistryProvider>
-  );
+  return renderToStaticMarkup(node);
 }
 
 describe("RabbitHoleEmptyState", () => {

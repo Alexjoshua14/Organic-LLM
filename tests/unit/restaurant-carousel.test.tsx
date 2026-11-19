@@ -1,21 +1,12 @@
 import { afterAll, afterEach, describe, expect, test } from "bun:test";
 import { cleanup, fireEvent } from "@testing-library/react";
 
-import * as useMobile from "@/hooks/use-mobile";
-
 import { installBrowserMedia } from "../helpers/browser-media";
-import { mockModulePreservingReal } from "../helpers/module-mock";
 import { render } from "../helpers/render";
 
-const restoreUseMobile = mockModulePreservingReal("@/hooks/use-mobile", useMobile, {
-  useIsMobile: () => false,
-});
 const restoreMedia = installBrowserMedia();
 
-afterAll(() => {
-  restoreUseMobile();
-  restoreMedia();
-});
+afterAll(restoreMedia);
 
 import { RestaurantCarousel } from "@/components/chat/gen-ui/blocks/restaurant-card/RestaurantCarousel";
 import { FIXTURE_RESTAURANT_CARD } from "@/lib/schemas/gen-ui/fixtures";

@@ -8,13 +8,14 @@ function copyViaExecCommand(text: string): boolean {
   textarea.style.position = "absolute";
   textarea.style.left = "-9999px";
   document.body.appendChild(textarea);
-  textarea.select();
-  textarea.setSelectionRange(0, text.length);
-  const ok = document.execCommand("copy");
+  try {
+    textarea.select();
+    textarea.setSelectionRange(0, text.length);
 
-  document.body.removeChild(textarea);
-
-  return ok;
+    return document.execCommand("copy");
+  } finally {
+    textarea.remove();
+  }
 }
 
 /**

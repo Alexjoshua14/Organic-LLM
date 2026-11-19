@@ -1,18 +1,14 @@
 import { describe, expect, test, afterEach, afterAll, beforeEach } from "bun:test";
 import { cleanup, fireEvent, waitFor } from "@testing-library/react";
 
-import * as useMobile from "@/hooks/use-mobile";
-
-import { mockModulePreservingReal } from "../helpers/module-mock";
+import { installBrowserMedia } from "../helpers/browser-media";
 import { createFakeMP3, uint8ArrayToRecord } from "../helpers/mock-tts";
 
 // Merged over the real hook and restored after this file: a bare stub dropped
 // `useSubmitOnEnter` and `evaluateSubmitOnEnter` for every file loaded after it.
-const restoreUseMobile = mockModulePreservingReal("@/hooks/use-mobile", useMobile, {
-  useIsMobile: () => false,
-});
+const restoreMedia = installBrowserMedia();
 
-afterAll(restoreUseMobile);
+afterAll(restoreMedia);
 
 import { clearAudioSnippetMemoryCache } from "@/components/chat/gen-ui/blocks/AudioSnippet";
 import { GenUIRenderer } from "@/components/chat/gen-ui/GenUIRenderer";

@@ -370,12 +370,31 @@ describe("create tools", () => {
 
     expect(result.ok).toBe(true);
     expect(result.parentNodeId).toBe(CHILD);
+    expect(result.createdRoot).toBe(false);
 
     const saved = JSON.parse(scheduled[0]!.serializedSession) as RabbitHoleSession;
     const added = saved.path.find((p) => p.nodeId === result.nodeId);
 
     expect(added?.parentNodeId).toBe(CHILD);
     expect(Object.keys(saved.nodesById)).toHaveLength(3);
+  });
+
+  test("the first article reports that it created the session root", async () => {
+    const session = makeSession({
+      activeNodeId: null,
+      rootNodeId: null,
+      nodesById: {},
+      path: [],
+    });
+    const { deps } = makeDeps({ session });
+    const tools = createRabbitHoleCreateTools({ sbUserId: USER, deps });
+    const result = await run(tools.create_rabbit_hole_node, {
+      sessionId: SESSION_ID,
+      query: "Tries",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.createdRoot).toBe(true);
   });
 
   test("with no parent it attaches under the root; the drawer's default parent wins when set", async () => {

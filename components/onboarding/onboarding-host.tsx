@@ -1,20 +1,83 @@
 "use client";
 
-import { FeatureHintLayer } from "./feature-hint-layer";
-import { FirstSessionSheet } from "./first-session-sheet";
+import { useAuth, useUser } from "@clerk/nextjs";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-import { FeatureHintRegistryProvider } from "@/lib/onboarding/feature-hint-context";
+import { FeatureTipLayer } from "./feature-tip-layer";
+import {
+  OnboardingContext,
+  type GuideTab,
+  type OnboardingContextValue,
+} from "./onboarding-context";
+import { OnboardingGuide } from "./onboarding-guide";
+
+import { useOnboardingSnapshot } from "@/hooks/use-onboarding";
+import { connectOnboardingStore } from "@/lib/onboarding/onboarding-store";
+import { isAutoOnboardingEligible } from "@/lib/onboarding/onboarding-state";
 
 /**
- * Global onboarding overlays — mounted once; hints register anchors in place without
- * shifting layout.
+ * Mounted once in the session shell. Connects onboarding state to the signed-in account, owns the
+ * Guide's open state, and renders the Guide and the feature-tip layer. Adds no layout.
  */
-export function OnboardingHost({ children }: { children: React.ReactNode }) {
+export function OnboardingHost({ children }: { children: ReactNode }) {
+  const { isLoaded, isSignedIn, userId } = useAuth();
+  const { user } = useUser();
+  const onboarding = useOnboardingSnapshot();
+  const welcomeShownFor = useRef<string | null>(null);
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [guideTab, setGuideTab] = useState<GuideTab>("start");
+  // Read once per mount: the 30-day window does not need to tick while the app is open.
+  const [now] = useState(() => Date.now());
+
+  const connectedUser = isLoaded && isSignedIn ? (userId ?? null) : null;
+
+  useEffect(() => connectOnboardingStore(connectedUser), [connectedUser]);
+
+  const accountCreatedAt = user?.createdAt ?? null;
+  const autoEligible =
+    connectedUser != null &&
+    onboarding.userId === connectedUser &&
+    user?.id === connectedUser &&
+    onboarding.status === "ready" &&
+    isAutoOnboardingEligible(onboarding.state, accountCreatedAt, now);
+
+  const openGuide = useCallback((tab: GuideTab = "start") => {
+    setGuideTab(tab);
+    setGuideOpen(true);
+  }, []);
+
+  const markWelcomeShown = useCallback(() => {
+    welcomeShownFor.current = connectedUser;
+  }, [connectedUser]);
+
+  const consumeWelcomeVisit = useCallback(() => {
+    if (!connectedUser || welcomeShownFor.current !== connectedUser) return false;
+    welcomeShownFor.current = null;
+
+    return true;
+  }, [connectedUser]);
+
+  const value = useMemo<OnboardingContextValue>(
+    () => ({
+      autoEligible,
+      signedIn: connectedUser != null,
+      markWelcomeShown,
+      guideOpen,
+      guideTab,
+      openGuide,
+      setGuideOpen,
+      setGuideTab,
+    }),
+    [autoEligible, connectedUser, guideOpen, guideTab, markWelcomeShown, openGuide]
+  );
+
   return (
-    <FeatureHintRegistryProvider>
+    <OnboardingContext.Provider value={value}>
       {children}
-      <FeatureHintLayer />
-      <FirstSessionSheet />
-    </FeatureHintRegistryProvider>
+      <OnboardingGuide />
+      {connectedUser && onboarding.userId === connectedUser ? (
+        <FeatureTipLayer key={connectedUser} consumeWelcomeVisit={consumeWelcomeVisit} />
+      ) : null}
+    </OnboardingContext.Provider>
   );
 }

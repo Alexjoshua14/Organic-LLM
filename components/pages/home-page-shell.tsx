@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 
 import { AIInput } from "../chat-experimental/ai-input";
+import { WelcomeCard } from "../onboarding/welcome-card";
 import Page from "../layout/page";
 
 import { HomepagePrimaryActions } from "./homepage-primary-actions";
@@ -294,7 +295,7 @@ export function HomePageShell() {
                 )}
               </HomeFullViewComposerMorph>
             ) : (
-              <div className="mx-auto w-full max-w-xl">
+              <div className="mx-auto flex w-full max-w-xl flex-col gap-stack-lg">
                 <AIInput
                   planMode={planMode}
                   previewIntent={null}
@@ -303,6 +304,7 @@ export function HomePageShell() {
                   onPlanModeToggle={onPlanModeToggle}
                   onTextChange={onTextChange}
                 />
+                <WelcomeCard />
               </div>
             )}
           </motion.div>

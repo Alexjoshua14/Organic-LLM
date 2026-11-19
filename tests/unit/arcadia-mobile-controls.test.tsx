@@ -4,14 +4,14 @@ import { memo, useState } from "react";
 import { SendTargetPicker } from "@/app/sandbox/arcadia/_components/send-target-picker";
 import { SubagentSwipeRow } from "@/app/sandbox/arcadia/_components/subagent-swipe-row";
 import { MultitaskDashboard } from "@/app/sandbox/arcadia/_components/multitask-dashboard";
-import { ArcadiaMultitaskProvider, useArcadiaMultitask } from "@/app/sandbox/arcadia/_components/multitask-provider";
+import {
+  ArcadiaMultitaskProvider,
+  useArcadiaMultitask,
+} from "@/app/sandbox/arcadia/_components/multitask-provider";
 import { useMultitaskConversationHidden } from "@/app/sandbox/arcadia/_components/multitask-composer-slot";
 import { SidebarProvider } from "@/components/third-party/ui/sidebar";
-import { FeatureHint } from "@/components/onboarding/feature-hint";
-import {
-  FeatureHintRegistryProvider,
-  useFeatureHintRegistrations,
-} from "@/lib/onboarding/feature-hint-context";
+import { FeatureTip } from "@/components/onboarding/feature-tip";
+import { useFeatureTipInstances } from "@/hooks/use-onboarding";
 import type { ArcadiaMultitaskSendTarget } from "@/lib/arcadia/multitask/layout-mode";
 import type { ArcadiaSubagent } from "@/lib/arcadia/multitask/types";
 import { AppRouterProvider } from "../helpers/app-router";
@@ -48,129 +48,137 @@ function DraftProbe() {
 }
 
 describe("mobile multiagent controls", () => {
-  test("opening multiagent mode notifies the first-use guide without navigation", () => {
-    const GuideProbe = memo(function GuideProbe() {
-      const registrations = useFeatureHintRegistrations();
+  test("opening multiagent mode registers its feature tip without navigation", () => {
+    const TipProbe = memo(function TipProbe() {
+      const instances = useFeatureTipInstances();
       return (
-        <output>{registrations.has("arcadia-multiagent") ? "Guide ready" : "Guide idle"}</output>
+        <output>
+          {instances.some((instance) => instance.id === "arcadia-multiagent")
+            ? "Tip ready"
+            : "Tip idle"}
+        </output>
       );
     });
     function ModeSwitch() {
       const [enabled, setEnabled] = useState(false);
       return (
-        <FeatureHintRegistryProvider>
+        <>
           <button onClick={() => setEnabled(!enabled)}>Toggle mode</button>
           {enabled && (
-            <FeatureHint id="arcadia-multiagent">
+            <FeatureTip id="arcadia-multiagent">
               <div>Orchestrator</div>
-            </FeatureHint>
+            </FeatureTip>
           )}
-          <GuideProbe />
-        </FeatureHintRegistryProvider>
+          <TipProbe />
+        </>
       );
     }
     const app = render(<ModeSwitch />);
-    expect(app.getByText("Guide idle")).toBeTruthy();
+    expect(app.getByText("Tip idle")).toBeTruthy();
     fireEvent.click(app.getByRole("button", { name: "Toggle mode" }));
-    expect(app.getByText("Guide ready")).toBeTruthy();
+    expect(app.getByText("Tip ready")).toBeTruthy();
     fireEvent.click(app.getByRole("button", { name: "Toggle mode" }));
-    expect(app.getByText("Guide idle")).toBeTruthy();
+    expect(app.getByText("Tip idle")).toBeTruthy();
   });
-  test.each([true, false])(
-    "panel controls keep the draft mounted (condensed: %s)",
-    async (condensed) => {
-      const previousFetch = globalThis.fetch;
-      const previousMedia = window.matchMedia;
-      globalThis.fetch = (async () =>
-        Response.json({ enabled: true, activeStreamId: null, subagents: agents })) as typeof fetch;
-      window.matchMedia = ((query: string) => ({
-        matches: condensed && query.includes("max-width"),
-        media: query,
-        addEventListener() {},
-        removeEventListener() {},
-        addListener() {},
-        removeListener() {},
-        dispatchEvent: () => true,
-        onchange: null,
-      })) as typeof window.matchMedia;
-      try {
-        let app!: ReturnType<typeof render>;
-        await act(async () => {
-          app = render(
-            <AppRouterProvider>
-              <FeatureHintRegistryProvider>
-                <SidebarProvider>
-                  <ArcadiaMultitaskProvider
-                    threadId="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
-                    initialMultitaskView
-                  >
-                    <MultitaskDashboard>
-                      <DraftProbe />
-                    </MultitaskDashboard>
-                  </ArcadiaMultitaskProvider>
-                </SidebarProvider>
-              </FeatureHintRegistryProvider>
-            </AppRouterProvider>
-          );
-        });
-        const draft = app.getByRole("textbox", { name: "Draft" });
-        expect(draft.getAttribute("data-conversation-hidden")).toBe("false");
-        fireEvent.change(draft, { target: { value: "New instructions" } });
+  test.each([
+    { condensed: true, apple: false },
+    { condensed: false, apple: false },
+    { condensed: false, apple: true },
+  ])("panel controls keep the draft mounted (%o)", async ({ condensed, apple }) => {
+    const previousFetch = globalThis.fetch;
+    const previousMedia = window.matchMedia;
+    const previousPlatform = Object.getOwnPropertyDescriptor(navigator, "platform");
+    Object.defineProperty(navigator, "platform", {
+      configurable: true,
+      value: apple ? "MacIntel" : "Linux x86_64",
+    });
+    globalThis.fetch = (async () =>
+      Response.json({ enabled: true, activeStreamId: null, subagents: agents })) as typeof fetch;
+    window.matchMedia = ((query: string) => ({
+      matches: condensed && query.includes("max-width"),
+      media: query,
+      addEventListener() {},
+      removeEventListener() {},
+      addListener() {},
+      removeListener() {},
+      dispatchEvent: () => true,
+      onchange: null,
+    })) as typeof window.matchMedia;
+    try {
+      let app!: ReturnType<typeof render>;
+      await act(async () => {
+        app = render(
+          <AppRouterProvider>
+            <SidebarProvider>
+              <ArcadiaMultitaskProvider
+                threadId="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+                initialMultitaskView
+              >
+                <MultitaskDashboard>
+                  <DraftProbe />
+                </MultitaskDashboard>
+              </ArcadiaMultitaskProvider>
+            </SidebarProvider>
+          </AppRouterProvider>
+        );
+      });
+      const draft = app.getByRole("textbox", { name: "Draft" });
+      expect(draft.getAttribute("data-conversation-hidden")).toBe("false");
+      fireEvent.change(draft, { target: { value: "New instructions" } });
+      expect(
+        app.getByRole("button", { name: "Orchestrator", exact: true }).getAttribute("aria-expanded")
+      ).toBe("false");
+      expect(app.queryByRole("heading", { name: "Multitask dashboard" })).toBeNull();
+      expect(app.queryByText(/Ctrl\+Q/) === null).toBe(true);
+      if (!condensed) {
         expect(
-          app
-            .getByRole("button", { name: "Orchestrator", exact: true })
-            .getAttribute("aria-expanded")
-        ).toBe("false");
-        expect(app.queryByRole("heading", { name: "Multitask dashboard" })).toBeNull();
-        expect(app.queryByText(/Ctrl\+Q/) === null).toBe(true);
-        if (!condensed) {
-          expect(
-            app.getByRole("button", { name: "Hide chat" }).getAttribute("aria-keyshortcuts")
-          ).toBe("Control+Q");
-          expect(
-            app.getByRole("button", { name: "Hide board" }).getAttribute("aria-keyshortcuts")
-          ).toBe("Control+W");
-          const layout = draft.closest("section")!.parentElement!;
-          const columns = layout.style.gridTemplateColumns;
-          // Unused roster slots stay hidden; choosing a recipient makes it available.
-          expect(app.queryByRole("button", { name: /^View / })).toBeNull();
-          fireEvent.click(app.getByRole("button", { name: "Orchestrator", exact: true }));
-          fireEvent.click(app.getByRole("button", { name: "Lyra", exact: true }));
-          const select = app.getByRole("button", { name: "View Lyra", exact: true });
-          fireEvent.pointerDown(select);
-          fireEvent.focusIn(select);
-          fireEvent.click(select);
-          expect(layout.style.gridTemplateColumns).toBe(columns);
-          fireEvent.focusIn(draft);
-          expect(layout.style.gridTemplateColumns).toBe(columns);
-        }
-        fireEvent.click(
-          app.getByRole("button", { name: condensed ? "Agents" : "Hide chat", exact: true })
-        );
-        expect(draft.isConnected).toBe(true);
-        expect(draft.closest("section")?.getAttribute("aria-hidden")).toBe(condensed ? null : "true");
-        expect(draft.getAttribute("data-conversation-hidden")).toBe(String(condensed));
-        if (condensed) {
-          expect(app.getByRole("region", { name: "Subagent board" })).toBeTruthy();
-          expect(app.getByRole("region", { name: "Message composer" }).contains(draft)).toBe(true);
-          fireEvent.click(app.getByRole("button", { name: "Orchestrator", exact: true }));
-          fireEvent.click(app.getByRole("button", { name: "Lyra", exact: true }));
-          expect(draft.getAttribute("data-recipient")).toBe("agent-researcher");
-        }
-        fireEvent.click(
-          app.getByRole("button", { name: condensed ? "Chat" : "Show chat", exact: true })
-        );
-        expect(app.getByRole("textbox", { name: "Draft" }) === draft).toBe(true);
-        expect((draft as HTMLInputElement).value).toBe("New instructions");
-        expect(draft.getAttribute("data-conversation-hidden")).toBe("false");
-        if (condensed) expect(draft.getAttribute("data-recipient")).toBe("agent-researcher");
-      } finally {
-        cleanup();
-        globalThis.fetch = previousFetch;
-        window.matchMedia = previousMedia;
+          app.getByRole("button", { name: "Hide chat" }).getAttribute("aria-keyshortcuts")
+        ).toBe(apple ? "Control+Q" : null);
+        expect(
+          app.getByRole("button", { name: "Hide board" }).getAttribute("aria-keyshortcuts")
+        ).toBe(apple ? "Control+W" : null);
+        const layout = draft.closest("section")!.parentElement!;
+        const columns = layout.style.gridTemplateColumns;
+        // Unused roster slots stay hidden; choosing a recipient makes it available.
+        expect(app.queryByRole("button", { name: /^View / })).toBeNull();
+        fireEvent.click(app.getByRole("button", { name: "Orchestrator", exact: true }));
+        fireEvent.click(app.getByRole("button", { name: "Lyra", exact: true }));
+        const select = app.getByRole("button", { name: "View Lyra", exact: true });
+        fireEvent.pointerDown(select);
+        fireEvent.focusIn(select);
+        fireEvent.click(select);
+        expect(layout.style.gridTemplateColumns).toBe(columns);
+        fireEvent.focusIn(draft);
+        expect(layout.style.gridTemplateColumns).toBe(columns);
       }
+      fireEvent.click(
+        app.getByRole("button", { name: condensed ? "Agents" : "Hide chat", exact: true })
+      );
+      expect(draft.isConnected).toBe(true);
+      expect(draft.closest("section")?.getAttribute("aria-hidden")).toBe(condensed ? null : "true");
+      expect(draft.getAttribute("data-conversation-hidden")).toBe(String(condensed));
+      if (condensed) {
+        expect(app.getByRole("region", { name: "Subagent board" })).toBeTruthy();
+        expect(app.getByRole("region", { name: "Message composer" }).contains(draft)).toBe(true);
+        fireEvent.click(app.getByRole("button", { name: "Orchestrator", exact: true }));
+        fireEvent.click(app.getByRole("button", { name: "Lyra", exact: true }));
+        expect(draft.getAttribute("data-recipient")).toBe("agent-researcher");
+      }
+      fireEvent.click(
+        app.getByRole("button", { name: condensed ? "Chat" : "Show chat", exact: true })
+      );
+      expect(app.getByRole("textbox", { name: "Draft" }) === draft).toBe(true);
+      expect((draft as HTMLInputElement).value).toBe("New instructions");
+      expect(draft.getAttribute("data-conversation-hidden")).toBe("false");
+      if (condensed) expect(draft.getAttribute("data-recipient")).toBe("agent-researcher");
+    } finally {
+      cleanup();
+      globalThis.fetch = previousFetch;
+      window.matchMedia = previousMedia;
+      if (previousPlatform) Object.defineProperty(navigator, "platform", previousPlatform);
+      else Reflect.deleteProperty(navigator, "platform");
     }
-  );
+  });
   test("the target name reveals a stable roster and collapses to the selected recipient", () => {
     function Picker() {
       const [target, setTarget] = useState<ArcadiaMultitaskSendTarget>({ kind: "orchestrator" });

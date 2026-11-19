@@ -2,6 +2,8 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
+import { onboardingActions } from "@/lib/onboarding/onboarding-actions";
+
 /**
  * Open state and the ⌘K / Ctrl+K shortcut for the launcher. The surface itself lives in
  * `launcher-surface.tsx` and is mounted deeper in the tree, where the voice and sidebar
@@ -34,6 +36,11 @@ export function AionLauncherProvider({ children }: { children: React.ReactNode }
   }, []);
 
   const value = useMemo(() => ({ open, setOpen, toggle }), [open, toggle]);
+
+  // Opening the launcher completes the Guide's "jump between ideas" first step.
+  useEffect(() => {
+    if (open) onboardingActions.completeStep("switch-ideas");
+  }, [open]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {

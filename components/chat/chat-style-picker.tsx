@@ -8,7 +8,6 @@ import { toast } from "sonner";
 import { ChatStarterCard } from "./chat-starter-card";
 import { ChatStyleCard } from "./chat-style-card";
 
-import { FeatureHint } from "@/components/onboarding/feature-hint";
 import { patchArcadiaStarterKey } from "@/lib/chat/arcadia-starter-client";
 import { CHAT_STYLES, type ChatStyle } from "@/lib/chat/chat-style";
 import {
@@ -19,7 +18,6 @@ import {
   resolveChatStarterLabel,
 } from "@/lib/chat/chat-style-starters";
 import { setChatStyle, useChatStyle } from "@/lib/chat/chat-style-store";
-import { ARCADIA_CHAT_STYLE_HINT_IDS } from "@/lib/onboarding/arcadia-chat-style-hints";
 import { cn } from "@/lib/utils";
 
 const STYLE_ICONS: Record<ChatStyle, React.ReactNode> = {
@@ -38,8 +36,6 @@ type ChatStylePickerProps = {
   chatId?: string;
   starterKey?: string | null;
   onStarterKeyChange?: (key: string | null) => void;
-  /** Gate Arcadia starters coachmark until empty thread is painted. */
-  showStartersHint?: boolean;
 };
 
 /** Arcadia empty state — compact, fits above composer without scrolling. */
@@ -47,7 +43,6 @@ export function ChatStylePicker({
   chatId,
   starterKey = null,
   onStarterKeyChange,
-  showStartersHint = true,
 }: ChatStylePickerProps) {
   const selected = useChatStyle(chatId ?? "");
   const starters = CHAT_STYLE_STARTERS[selected];
@@ -141,82 +136,75 @@ export function ChatStylePicker({
   const parsedStarter = starterKey ? parseChatStarterKey(starterKey) : null;
 
   return (
-    <FeatureHint id="arcadia-starters" showWhen={showStartersHint}>
-      <div className="mx-auto flex w-full max-w-4xl flex-col items-center gap-4 px-1 sm:gap-5 pt-12">
-        <div
-          aria-label="Chat style"
-          className="grid w-full min-w-0 grid-cols-2 lg:grid-cols-4 gap-1.5 place-items-center sm:gap-2.5 [&>*]:min-w-0"
-          role="radiogroup"
-          onKeyDown={handleStyleRadiogroupKeyDown}
-        >
-          {CHAT_STYLES.map((style, styleIndex) => (
-            <FeatureHint
-              key={style.id}
-              id={ARCADIA_CHAT_STYLE_HINT_IDS[style.id]}
-              showWhen={showStartersHint && selected === style.id}
+    <div className="mx-auto flex w-full max-w-4xl flex-col items-center gap-4 px-1 sm:gap-5 pt-12">
+      <div
+        aria-label="Chat style"
+        className="grid w-full min-w-0 grid-cols-2 lg:grid-cols-4 gap-1.5 place-items-center sm:gap-2.5 [&>*]:min-w-0"
+        role="radiogroup"
+        onKeyDown={handleStyleRadiogroupKeyDown}
+      >
+        {CHAT_STYLES.map((style, styleIndex) => (
+          <ChatStyleCard
+            key={style.id}
+            buttonRef={(node) => {
+              styleButtonRefs.current[styleIndex] = node;
+            }}
+            description={style.description}
+            guide={style.guide}
+            icon={STYLE_ICONS[style.id]}
+            label={style.label}
+            selected={selected === style.id}
+            tabIndex={0}
+            onFocus={() => void selectChatStyle(style.id)}
+            onSelect={() => void selectChatStyle(style.id)}
+          />
+        ))}
+      </div>
+
+      <div className="w-full min-w-0 space-y-2 text-left">
+        <p className="text-center text-2xs uppercase tracking-[0.16em] text-muted-foreground/70 sm:text-xs">
+          Launchpad
+        </p>
+        <div className={cn("relative w-full", STARTER_PROMPTS_SLOT_H)}>
+          <AnimatePresence initial={false}>
+            <motion.ul
+              key={selected}
+              animate={{ opacity: 1, x: 0 }}
+              className="absolute inset-0 flex w-full flex-col gap-1.5 sm:gap-2"
+              exit={{ opacity: 0, x: 8 }}
+              initial={{ opacity: 0, x: -8 }}
+              transition={PROMPT_MOTION}
             >
-              <ChatStyleCard
-                buttonRef={(node) => {
-                  styleButtonRefs.current[styleIndex] = node;
-                }}
-                description={style.description}
-                guide={style.guide}
-                icon={STYLE_ICONS[style.id]}
-                label={style.label}
-                selected={selected === style.id}
-                tabIndex={0}
-                onFocus={() => void selectChatStyle(style.id)}
-                onSelect={() => void selectChatStyle(style.id)}
-              />
-            </FeatureHint>
-          ))}
-        </div>
+              {starters.map((starter, index) => {
+                const label = resolveChatStarterLabel(starter);
+                const starterId = resolveChatStarterId(starter);
+                const encoded = encodeChatStarterKey(selected, starterId);
+                const isSelected =
+                  parsedStarter?.style === selected &&
+                  parsedStarter.id === starterId &&
+                  starterKey === encoded;
 
-        <div className="w-full min-w-0 space-y-2 text-left">
-          <p className="text-center text-2xs uppercase tracking-[0.16em] text-muted-foreground/70 sm:text-xs">
-            Launchpad
-          </p>
-          <div className={cn("relative w-full", STARTER_PROMPTS_SLOT_H)}>
-            <AnimatePresence initial={false}>
-              <motion.ul
-                key={selected}
-                animate={{ opacity: 1, x: 0 }}
-                className="absolute inset-0 flex w-full flex-col gap-1.5 sm:gap-2"
-                exit={{ opacity: 0, x: 8 }}
-                initial={{ opacity: 0, x: -8 }}
-                transition={PROMPT_MOTION}
-              >
-                {starters.map((starter, index) => {
-                  const label = resolveChatStarterLabel(starter);
-                  const starterId = resolveChatStarterId(starter);
-                  const encoded = encodeChatStarterKey(selected, starterId);
-                  const isSelected =
-                    parsedStarter?.style === selected &&
-                    parsedStarter.id === starterId &&
-                    starterKey === encoded;
-
-                  return (
-                    <motion.li
-                      key={starterId}
-                      animate={{ opacity: 1, x: 0 }}
-                      className="min-h-0 min-w-0"
-                      initial={{ opacity: 0, x: -10 }}
-                      transition={{ ...PROMPT_MOTION, delay: index * 0.04 }}
-                    >
-                      <ChatStarterCard
-                        label={label}
-                        selected={isSelected}
-                        tabIndex={-1}
-                        onToggle={() => void toggleStarter(selected, starterId)}
-                      />
-                    </motion.li>
-                  );
-                })}
-              </motion.ul>
-            </AnimatePresence>
-          </div>
+                return (
+                  <motion.li
+                    key={starterId}
+                    animate={{ opacity: 1, x: 0 }}
+                    className="min-h-0 min-w-0"
+                    initial={{ opacity: 0, x: -10 }}
+                    transition={{ ...PROMPT_MOTION, delay: index * 0.04 }}
+                  >
+                    <ChatStarterCard
+                      label={label}
+                      selected={isSelected}
+                      tabIndex={-1}
+                      onToggle={() => void toggleStarter(selected, starterId)}
+                    />
+                  </motion.li>
+                );
+              })}
+            </motion.ul>
+          </AnimatePresence>
         </div>
       </div>
-    </FeatureHint>
+    </div>
   );
 }

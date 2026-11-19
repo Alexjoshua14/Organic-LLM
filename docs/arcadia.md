@@ -124,10 +124,11 @@ A message sent straight to one subagent is still delivered verbatim.
 Bundle-item selection, excerpts, explicit worker history, input preflight and attachment
 paging are documented in [Subagent dispatch context](./aion/subagent-context.md).
 
-**First-use guidance.** Opening Multiagent registers its controls tip with the existing
-feature-hint system. Dismissal persists; replay tips can show it again. The tip explains
-recipient selection and Ctrl+Q / Ctrl+W. Panel buttons show those shortcuts in tooltips
-using the shared keyboard-key component; Organic Help lists them too.
+**First-use guidance.** Opening Multiagent registers the `arcadia-multiagent` feature tip
+(see [Onboarding](./design/onboarding.md)). It explains choosing a recipient; on Apple platforms
+it also mentions Ctrl+Q / Ctrl+W. Those bindings are Ctrl-only and close the tab on Windows and
+Linux, so the tip and the Guide's Shortcuts list them on Apple only. Panel buttons show them in
+tooltips using the shared keyboard-key component.
 
 **Composer.** In dashboard mode the chat uses the same live `sendMessage` →
 `/api/chat` path as Arcadia idle chat (user bubble + streaming reply). The Send-to picker

@@ -95,7 +95,7 @@ export const STAGE_WIDTH_PRESETS = [
   { label: "Wide", widthPx: 960 },
 ] as const;
 
-/** Matches what `components/chat/chat.tsx` passes for an Arcadia thread, minus coachmarks. */
+/** Matches what `components/chat/chat.tsx` passes for an Arcadia thread, minus the feature tip. */
 export const DEFAULT_PRODUCT_STATE: ProductLabState = {
   stageWidthPx: 768,
   showStageBounds: true,

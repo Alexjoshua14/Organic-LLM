@@ -93,8 +93,6 @@
 /* Pages with this header own their navigation without changing saved sidebar preferences. */
 :global(body):has(.header) :global([data-slot="sidebar"]),
 :global(body):has(.header) :global(.control-cluster),
-:global(body):has(.header) :global([data-onboarding-chrome="first-steps"]),
-:global(body):has(.header) :global(.first-session-toast),
 :global(body):has(.header) :global(main > div:has(> [data-sidebar="trigger"])) {
   display: none;
 }

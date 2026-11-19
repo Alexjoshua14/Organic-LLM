@@ -8,7 +8,6 @@ import {
 } from "@/app/sandbox/arcadia/_components/multitask-host";
 import { useArcadiaMultitask, type ArcadiaMultitaskValue } from "@/app/sandbox/arcadia/_components/multitask-provider";
 import { SidebarProvider } from "@/components/third-party/ui/sidebar";
-import { FeatureHintRegistryProvider } from "@/lib/onboarding/feature-hint-context";
 
 import { AppRouterProvider, appRouter } from "../helpers/app-router";
 import "../helpers/render";
@@ -97,11 +96,9 @@ function Page({
 function App({ children }: { children: ReactNode }) {
   return (
     <AppRouterProvider>
-      <FeatureHintRegistryProvider>
         <SidebarProvider>
           <ArcadiaPersistentHost>{children}</ArcadiaPersistentHost>
         </SidebarProvider>
-      </FeatureHintRegistryProvider>
     </AppRouterProvider>
   );
 }

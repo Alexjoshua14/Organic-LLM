@@ -10,6 +10,11 @@ import { KnowledgeCacheProvider } from "@/hooks/use-knowledge-cache";
 import { ThrottledThemeProvider } from "@/lib/theme/ThrottledThemeProvider";
 import * as userSettings from "@/lib/user-settings";
 import { defaultUserSettings, type UserSettings } from "@/lib/schemas/userSettings";
+import {
+  connectOnboardingStore,
+  getOnboardingSnapshot,
+  resetOnboardingStoreForTests,
+} from "@/lib/onboarding/onboarding-store";
 import { mockModulePreservingReal } from "../helpers/module-mock";
 import { render } from "../helpers/render";
 
@@ -21,8 +26,28 @@ let restoreSettings: () => void;
 let settings: UserSettings;
 const persist = mock(async () => {});
 
+function memoryStorage(): Storage {
+  const map = new Map<string, string>();
+
+  return {
+    get length() {
+      return map.size;
+    },
+    clear: () => map.clear(),
+    getItem: (key) => map.get(key) ?? null,
+    key: (index) => [...map.keys()][index] ?? null,
+    removeItem: (key) => void map.delete(key),
+    setItem: (key, value) => void map.set(key, value),
+  };
+}
+
 beforeEach(() => {
   jest.useFakeTimers();
+  connectOnboardingStore("quick-settings-user", {
+    local: memoryStorage(),
+    session: memoryStorage(),
+    target: null,
+  });
   pathname = "/chat";
   settings = defaultUserSettings();
   restoreSettings = mockModulePreservingReal("@/lib/user-settings", userSettings, {
@@ -48,6 +73,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  resetOnboardingStoreForTests();
   restoreClerk();
   restoreNavigation();
   restorePersistence();
@@ -89,6 +115,7 @@ test("captions are hidden initially, including Theme, and every feature label ca
     ["Lightweight Mode", "Use simpler agent animations to reduce rendering work."],
     ["Coalescence Mode", coalescenceCaption],
     ["Context effort (beta)", /When on, Arcadia shows a slider/],
+    ["Feature tips", /A short pointer the first time you reach a feature/],
   ] as const;
 
   for (const [label, caption] of captions) {
@@ -98,6 +125,8 @@ test("captions are hidden initially, including Theme, and every feature label ca
     expect(view.getByText(caption)).toBeTruthy();
     await act(async () => fireEvent.click(trigger));
     expect(view.queryByText(caption)).toBeNull();
+    // Let the old caption finish its exit before opening the next dismissable layer.
+    await advance(250);
   }
   expect(view.queryByRole("button", { name: "About Ergon background" })).toBeNull();
   expect(view.queryByRole("button", { name: "About Arcadia preview (experimental)" })).toBeNull();
@@ -109,6 +138,19 @@ test("captions are hidden initially, including Theme, and every feature label ca
   expect(view.getByRole("link", { name: /App version/ }).getAttribute("href")).toBe(
     "/release-notes"
   );
+  expect(persist).not.toHaveBeenCalled();
+});
+
+test("Feature tips switches tips off and on in the onboarding store", async () => {
+  const view = await openSettings();
+  const toggle = view.getByRole("switch", { name: "Feature tips" });
+
+  expect(getOnboardingSnapshot().state.tipsEnabled).toBe(true);
+  await act(async () => fireEvent.click(toggle));
+  expect(getOnboardingSnapshot().state.tipsEnabled).toBe(false);
+  await act(async () => fireEvent.click(toggle));
+  expect(getOnboardingSnapshot().state.tipsEnabled).toBe(true);
+  // Onboarding state is not a synced user setting.
   expect(persist).not.toHaveBeenCalled();
 });
 
