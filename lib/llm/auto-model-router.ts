@@ -144,7 +144,7 @@ export const REASONING_IDS_ZDR: GatewayModelId[] = [
 /** When ZDR is off, non-ZDR reasoning models are allowed. */
 export const REASONING_IDS_ANY: GatewayModelId[] = [
   models.anthropic.opus.id as GatewayModelId,
-  models.perplexity.pro.id as GatewayModelId,
+  models.google.pro.id as GatewayModelId,
   models.openai.sol.id as GatewayModelId,
 ];
 

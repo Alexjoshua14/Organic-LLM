@@ -7,9 +7,19 @@ export type ChatModelId = GatewayModelId | typeof AUTO_CHAT_MODEL_ID;
 export const MODEL_ALIASES = {
   openai: ["flagship", "sol", "terra", "luna", "oss120b", "oss20b", "gpt4oMini"],
   typesafe: ["jev"],
-  google: ["pro", "flash", "flash3", "flashLite", "flashLite_2_5", "flashLite_3_1"],
+  google: [
+    "pro",
+    "carbon",
+    "hydrogen",
+    "neon",
+    "flash",
+    "flash3",
+    "flashLite",
+    "flashLite_2_5",
+    "flashLite_3_1",
+  ],
   anthropic: ["opus", "sonnet", "haiku", "fable"],
-  perplexity: ["pro", "reasoningPro"],
+  perplexity: ["sonar"],
   moonshotai: ["kimi", "kimiCode", "kimi_2_6"],
   deepseek: ["pro", "flash"],
 } as const;
@@ -58,23 +68,21 @@ export const AUTO_CHAT_MODEL: ChatModel = {
  */
 const catalog: ChatModel[] = [
   {
-    id: "openai/gpt-6-astra",
-    name: "GPT-6 Astra",
+    id: "openai/gpt-6.2-astra",
+    name: "GPT-6.2 Astra",
     alias: "openai.flagship",
     supportsZeroDataRetention: true,
   },
   {
-    id: "openai/gpt-6.1-sol",
-    name: "GPT-6.1 Sol",
+    id: "openai/gpt-6.2-sol",
+    name: "GPT-6.2 Sol",
     alias: "openai.sol",
     supportsZeroDataRetention: true,
   },
   {
-    // GPT-6 dropped Terra; pin the alias to Sol so orchestration keeps a mid-tier family handle.
-    id: "openai/gpt-6.1-sol",
-    name: "GPT-6.1 Sol",
+    id: "openai/gpt-6.1-terra",
+    name: "GPT-6.1 Terra",
     alias: "openai.terra",
-    picker: false,
     supportsZeroDataRetention: true,
   },
   {
@@ -116,9 +124,27 @@ const catalog: ChatModel[] = [
     supportsZeroDataRetention: true,
   },
   {
-    id: "google/gemini-3.1-pro-preview",
-    name: "Gemini 3.1 Pro",
+    id: "google/gemini-4-argon",
+    name: "Gemini 4 Argon",
     alias: "google.pro",
+    supportsZeroDataRetention: true,
+  },
+  {
+    id: "google/gemini-4-carbon",
+    name: "Gemini 4 Carbon",
+    alias: "google.carbon",
+    supportsZeroDataRetention: true,
+  },
+  {
+    id: "google/gemini-4-hydrogen",
+    name: "Gemini 4 Hydrogen",
+    alias: "google.hydrogen",
+    supportsZeroDataRetention: true,
+  },
+  {
+    id: "google/gemini-4-neon",
+    name: "Gemini 4 Neon",
+    alias: "google.neon",
     supportsZeroDataRetention: true,
   },
   {
@@ -171,27 +197,22 @@ const catalog: ChatModel[] = [
     supportsZeroDataRetention: true,
   },
   {
-    // Fable 5.1 is not ZDR-compatible (gateway `zdr: none`).
-    id: "anthropic/claude-fable-5.1",
-    name: "Claude Fable 5.1",
+    // Fable 5.2 is not ZDR-compatible (gateway `zdr: none`).
+    id: "anthropic/claude-fable-5.2",
+    name: "Claude Fable 5.2",
     alias: "anthropic.fable",
     supportsZeroDataRetention: false,
   },
   {
-    id: "perplexity/sonar-pro",
-    name: "Sonar Pro",
-    alias: "perplexity.pro",
+    // Sonar Pro and Sonar Reasoning Pro left the AI Gateway; Sonar is the remaining chat model.
+    id: "perplexity/sonar",
+    name: "Sonar",
+    alias: "perplexity.sonar",
     supportsZeroDataRetention: false,
   },
   {
-    id: "perplexity/sonar-reasoning-pro",
-    name: "Sonar Reasoning Pro",
-    alias: "perplexity.reasoningPro",
-    supportsZeroDataRetention: false,
-  },
-  {
-    id: "moonshotai/kimi-k3",
-    name: "Kimi K3",
+    id: "moonshotai/kimi-k3.1-pro",
+    name: "Kimi K3.1 Pro",
     alias: "moonshotai.kimi",
     supportsZeroDataRetention: true,
   },

@@ -28,7 +28,7 @@ import { SHOWCASE_STORY } from "@/lib/showcase/showcase-story";
  * Smallest selectable catalog window (`getModelContextWindowTokens`). A million-token
  * model would swallow the Quick → Heavy memory delta on the donut.
  */
-export const CONTEXT_DEMO_MODEL_ID = "perplexity/sonar-reasoning-pro";
+export const CONTEXT_DEMO_MODEL_ID = "perplexity/sonar";
 
 /** How many of `SHOWCASE_STORY.memories` each effort level puts in the window. */
 const MEMORY_COUNT: Record<ContextEffortLevel, number> = {
