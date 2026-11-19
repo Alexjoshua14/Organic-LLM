@@ -16,7 +16,6 @@ import {
   CSSProperties,
   SetStateAction,
   FormEvent,
-  KeyboardEventHandler,
   useCallback,
   useEffect,
   useMemo,
@@ -37,14 +36,10 @@ import {
   PromptInputAttachment,
   PromptInputBody,
   PromptInputMessage,
-  PromptInputTextarea,
 } from "../../third-party/ai-elements/prompt-input";
 import ShinyText from "../../ShinyText";
 import { ChatMessageMarkdown } from "../chat-message-markdown";
-import {
-  CONTEXT_BUDGET_DRAFT_RESERVE_CLASS,
-  ContextBudgetIndicator,
-} from "../context-budget-indicator";
+import { ContextBudgetIndicator } from "../context-budget-indicator";
 import { HomeComposerLumenShell } from "../home-composer-lumen-shell";
 
 import {
@@ -57,6 +52,16 @@ import { resolveFooterPlacement } from "./footer/footer-placement";
 import { CoreInputOptions } from "./core-input-options";
 import { CoreInputSteerTab, CoreInputStrip } from "./steer-tab";
 import { ComposerAddFilesButton } from "./controls/add-files-button";
+import { ComposerEditor, focusDraftFromShell } from "./editor/composer-editor";
+import { LumenSubmit } from "./editor/lumen-submit";
+import { useContainedScroll } from "./editor/contained-scroll";
+import { useComposerReflow } from "./editor/use-composer-reflow";
+import {
+  COMPACT_ROW_BAND,
+  COMPACT_ROW_LINE,
+  COMPACT_SUBMIT_CLASS,
+  composerDraftClassName,
+} from "./compact-row";
 import { ComposerMicButton } from "./controls/mic-button";
 import "./compact.css";
 import { organicGlassSubmitClassName, PromptInputSubmit } from "./submit/submit-button";
@@ -93,7 +98,7 @@ import { writeSettingsCookie } from "@/lib/core-input/settings-cookie";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { coreInputSnapshots } from "@/lib/core-input/snapshot-store";
 import { coreInputSnapshotSync } from "@/lib/core-input/snapshot-sync";
-import { parseSlashCommand } from "@/lib/chat/slash-command";
+import { parseSlashCommand, SLASH_COMMAND_DETAILS } from "@/lib/chat/slash-command";
 import { useContextEffortSettings } from "@/hooks/use-context-effort-settings";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { deleteEmptyChat } from "@/data/supabase/chat";
@@ -112,6 +117,7 @@ import { shouldEnqueueInsteadOfSend } from "@/lib/message-queue/dispatch-gates";
 import { glass } from "@/components/design-system/primitives";
 import { ThreadReferenceCard } from "@/components/chat/thread-reference/thread-reference-card";
 import { parseThreadPointer, threadReferenceMarker } from "@/lib/chat/thread-reference";
+import type { Editor } from "@tiptap/core";
 
 type CoreInputProps = {
   /** Validated display seed for this scope, supplied by the request page. */
@@ -385,6 +391,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     setThreadReferences([]);
   }, [chatId, sideThreadKey]);
   const toolsRef = useRef<HTMLDivElement | null>(null);
+  const [composerEditor, setComposerEditor] = useState<Editor | null>(null);
   const { showLabels, isCondensed } = useCoreInputLayout(toolsRef);
   const { enabled: experimentalContextEffort, level: savedContextEffort } =
     useContextEffortSettings(
@@ -824,6 +831,22 @@ export const CoreInput: React.FC<CoreInputProps> = ({
         statusRef.current === "streaming" ||
         (pendingSendRef.current !== null && pendingSendRef.current.threadId === chatId)));
 
+  // Scrolling over CoreInput (the draft, its padding, the settings panel) stays in CoreInput.
+  useContainedScroll(morphRootRef);
+
+  // The commands this surface runs, for the slash menu (Markdown formatting is always offered).
+  const menuCommands = useMemo(
+    () =>
+      Object.keys(slashCommands ?? {}).flatMap((name) => {
+        const details = SLASH_COMMAND_DETAILS[name];
+
+        return details && slashCommands?.[name]
+          ? [{ kind: "app" as const, id: name, ...details }]
+          : [];
+      }),
+    [slashCommands]
+  );
+
   const matchSlashCommand = (raw: string) => {
     const command = parseSlashCommand(raw);
     const run = command ? slashCommands?.[command.name] : undefined;
@@ -1009,14 +1032,6 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     ]
   );
 
-  const handleTextareaKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = useCallback(
-    (e) => {
-      if (!(e.metaKey || e.ctrlKey) || e.key !== "Enter") return;
-      e.preventDefault();
-      runSecondarySubmit();
-    },
-    [runSecondarySubmit]
-  );
   const composerStatus = queueEnabled
     ? "ready"
     : pendingSend !== null && pendingSend.threadId === chatId && status === "ready"
@@ -1070,19 +1085,25 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     }
 
     const editBody = (
-      <PromptInputTextarea
-        ref={textareaRef}
-        value={text}
-        {...(variant === "stage-beta"
-          ? { disabled, maxLength: 7800, "aria-label": "Message Organic" }
-          : {})}
+      <ComposerEditor
+        aria-label={variant === "stage-beta" ? "Message Organic" : undefined}
         className={cn(
-          variant === "compact" && "min-h-8 max-h-24 resize-none",
-          // The corner badge widens to show the draft's token count; wrap text before it.
-          showContextBudget && text.trim() && CONTEXT_BUDGET_DRAFT_RESERVE_CLASS
+          // The corner badge widens to show the draft's token count; the full layout wraps text
+          // before it. The compact row keeps the badge in its settings panel instead.
+          composerDraftClassName({
+            condensed: useCondensedLayout,
+            reserveBudget: Boolean(showContextBudget && text.trim()),
+          }),
+          variant === "compact" && "[&_.editor-surface]:max-h-24"
         )}
+        disabled={variant === "stage-beta" ? disabled : false}
+        maxLength={variant === "stage-beta" ? 7800 : undefined}
+        commands={menuCommands}
+        textareaRef={textareaRef}
+        value={text}
         {...(placeholder ? { placeholder } : {})}
         onChange={handleInputChange}
+        onModEnter={onSecondarySubmit ? runSecondarySubmit : undefined}
         onPasteCapture={(event) => {
           const id = parseThreadPointer(event.clipboardData.getData("text/plain"));
 
@@ -1091,7 +1112,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
           event.stopPropagation();
           addThreadReference(id);
         }}
-        onKeyDown={onSecondarySubmit ? handleTextareaKeyDown : undefined}
+        onEditor={setComposerEditor}
         onSelect={autoModelPreview.notifySelectionOrCursorMove}
       />
     );
@@ -1112,6 +1133,10 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     hasSteer: Boolean(onSecondarySubmit),
     showContextEffort,
     hasAttachments: variant !== "stage-beta",
+  }); // Compact: one line until the draft needs more room, then stacked (see the reflow design doc).
+  const stacked = useComposerReflow(toolsRef, composerEditor, {
+    enabled: useCondensedLayout,
+    forced: (enableMarkdownInputPreview && inputMarkdownMode === "preview") || showSentShimmer,
   });
 
   const controlsValue = useMemo<CoreInputControlsValue>(
@@ -1176,8 +1201,10 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       />
     ) : null;
 
+  // The compact send wears the Lumen chip; the full footer keeps its own submit treatment.
+  const SubmitButton = useCondensedLayout && !personaActive ? LumenSubmit : PromptInputSubmit;
   const submitControl = (
-    <PromptInputSubmit
+    <SubmitButton
       // Spread only when set: an explicit `aria-label={undefined}` would override the button's
       // own "Submit"/"Abort" label, which PromptInputSubmit applies before `...props`.
       {...(variant === "stage-beta"
@@ -1197,7 +1224,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
           organicGlassSubmitClassName,
         personaActive && "overflow-hidden rounded-lg bg-transparent p-0 hover:bg-transparent",
         useCondensedLayout &&
-          cn(glass({ chip: true }), "core-input-compact-submit size-9 rounded-full")
+          (personaActive ? cn(glass({ chip: true }), COMPACT_SUBMIT_CLASS) : COMPACT_SUBMIT_CLASS)
       )}
       variant={personaActive ? "ghost" : undefined}
       // Multi-mode: always submit (never stop). Default: keep stop available while streaming.
@@ -1236,7 +1263,18 @@ export const CoreInput: React.FC<CoreInputProps> = ({
           }
         />
       ) : undefined}
-    </PromptInputSubmit>
+    </SubmitButton>
+  );
+
+  const composerBody = (
+    <PromptInputBody>
+      {draftRestored ? (
+        <span className="sr-only" aria-live="polite">
+          Draft restored
+        </span>
+      ) : null}
+      {renderComposerBody()}
+    </PromptInputBody>
   );
 
   const composer = (
@@ -1247,6 +1285,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       multiple
       maxFiles={variant === "stage-beta" ? 0 : undefined}
       className={cn("z-40 w-full min-w-0", useCondensedLayout && "core-input-condensed", className)}
+      onClick={(event) => focusDraftFromShell(event.target, composerEditor)}
       onSubmit={handleSubmit}
       onSubmitCapture={handleSubmitCapture}
     >
@@ -1289,38 +1328,47 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       <div
         ref={useCondensedLayout ? toolsRef : undefined}
         className={useCondensedLayout ? "core-input-compact-row" : "contents"}
+        data-expanded={useCondensedLayout ? (stacked ? "true" : "false") : undefined}
       >
         {useCondensedLayout ? (
-          <CoreInputOptions
-            placement={footerPlacement}
-            ready={settingsReady}
-            contextBudget={contextBudgetControl}
-          />
+          <div className={cn(COMPACT_ROW_BAND, "core-input-reflow-lead")} data-reflow="lead">
+            <CoreInputOptions
+              placement={footerPlacement}
+              ready={settingsReady}
+              contextBudget={contextBudgetControl}
+            />
+          </div>
         ) : null}
-        <PromptInputBody>
-          {draftRestored ? (
-            <span className="sr-only" aria-live="polite">
-              Draft restored
-            </span>
-          ) : null}
-          {renderComposerBody()}
-        </PromptInputBody>
+        {useCondensedLayout ? (
+          <div
+            className={cn("core-input-reflow-area", !stacked && COMPACT_ROW_LINE)}
+            data-reflow="area"
+          >
+            {composerBody}
+          </div>
+        ) : (
+          composerBody
+        )}
         {useCondensedLayout ? (
           <>
-            {footerPlacement.addFiles !== "hidden" ||
-            footerPlacement.threadClipboard !== "hidden" ? (
-              <ComposerAddFilesButton
-                files={footerPlacement.addFiles !== "hidden"}
-                onThreadReference={
-                  footerPlacement.threadClipboard !== "hidden" ? addThreadReference : undefined
-                }
-              />
-            ) : null}
-            {voiceControl ??
-              (footerPlacement.mic !== "hidden" ? (
-                <ComposerMicButton textareaRef={textareaRef} onTranscriptionChange={setText} />
-              ) : null)}
-            {submitControl}
+            <div className={cn(COMPACT_ROW_BAND, "core-input-reflow-trail")} data-reflow="trail">
+              {footerPlacement.addFiles !== "hidden" ||
+              footerPlacement.threadClipboard !== "hidden" ? (
+                <ComposerAddFilesButton
+                  files={footerPlacement.addFiles !== "hidden"}
+                  onThreadReference={
+                    footerPlacement.threadClipboard !== "hidden" ? addThreadReference : undefined
+                  }
+                />
+              ) : null}
+              {voiceControl ??
+                (footerPlacement.mic !== "hidden" ? (
+                  <ComposerMicButton textareaRef={textareaRef} onTranscriptionChange={setText} />
+                ) : null)}
+            </div>
+            <div className={cn(COMPACT_ROW_BAND, "core-input-reflow-send")} data-reflow="send">
+              {submitControl}
+            </div>
           </>
         ) : null}
       </div>
@@ -1360,8 +1408,9 @@ export const CoreInput: React.FC<CoreInputProps> = ({
           the composer mid-morph fast-forwards the morph (see morph-timing). */}
       <div
         ref={morphRootRef}
-        className="relative w-full min-w-0"
+        className="relative z-40 w-full min-w-0"
         data-core-input-morph={morphing ? "running" : undefined}
+        data-core-input-root=""
         style={{ "--core-input-morph-pulse-ms": `${CORE_INPUT_MORPH_PULSE_MS}ms` } as CSSProperties}
         onKeyDownCapture={fastForwardMorph}
         onPointerDownCapture={fastForwardMorph}
@@ -1385,7 +1434,12 @@ export const CoreInput: React.FC<CoreInputProps> = ({
         ) : (
           <CoreInputVoiceDrawerSlot includePending={variant === "stage-beta"} />
         )}
-        <div className="relative">
+        {/* The options panel portals here, outside the lumen shell so its backdrop blur sees the
+            page. See `.core-input-options-panel` for how its level relates to the shell's. */}
+        <div className="contents" data-core-input-panel-slot="" />
+        {/* The shell's own level inside the CoreInput root (itself z-40 in the app). The options
+            panel sits one step below this. */}
+        <div className="relative z-10">
           {shell}
           {morphing ? <span aria-hidden className="core-input-morph-sheen" /> : null}
         </div>

@@ -7,6 +7,7 @@ import { coreInputScopes } from "@/lib/core-input/scopes";
 import type { ChatModel } from "@/lib/schemas/chat";
 
 import { installBrowserMedia } from "../helpers/browser-media";
+import { setComposerText } from "../helpers/composer";
 
 let restoreMedia: () => void;
 let stored: [string, string][];
@@ -85,7 +86,7 @@ test("Stage sends a multiline draft through the default CoreInput layout, with i
   const submit = app.getByRole("button", { name: "Send message" });
   expect(submit.querySelector("circle")).toBeNull();
   expect(submit.className).not.toContain("organic-glass-preview");
-  fireEvent.change(input, { target: { value: "First thought\nAnd a second line" } });
+  setComposerText(app.container, "First thought\nAnd a second line");
   fireEvent.click(app.getByRole("button", { name: "Send message" }));
   await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
   expect(send.mock.calls[0]?.[0]).toMatchObject({ text: "First thought\nAnd a second line" });
@@ -160,7 +161,9 @@ test("Stage returns to centered Organic, retains tucked pieces and applies serve
     return Response.json({ state });
   }) as typeof fetch;
   const app = render(<Stage />);
-  await waitFor(() => expect(Boolean(app.queryByRole("button", { name: "Pieces", hidden: true }))).toBe(true));
+  await waitFor(() =>
+    expect(Boolean(app.queryByRole("button", { name: "Pieces", hidden: true }))).toBe(true)
+  );
   // The view listener is a passive effect of the loaded state; let it attach before commanding.
   await act(async () => {});
   expect(Boolean(app.queryByRole("article", { name: "Prep checklist" }))).toBe(false);
@@ -174,9 +177,7 @@ test("Stage returns to centered Organic, retains tucked pieces and applies serve
   expect(piece.isConnected).toBe(true);
   showAuthor();
   expect(app.getByRole("article", { name: "Prep checklist" }) === piece).toBe(true);
-  fireEvent.change(app.getByRole("textbox", { name: "Message Organic" }), {
-    target: { value: "show me Organic" },
-  });
+  setComposerText(app.container, "show me Organic");
   fireEvent.click(app.getByRole("button", { name: "Send message" }));
   await waitFor(() => expect(piece.hasAttribute("hidden")).toBe(true));
   expect(requests).toHaveLength(1);
@@ -248,7 +249,9 @@ test("saved placement is identical after closing inspection, hiding guides, swit
     return Response.json({ state });
   }) as typeof fetch;
   const app = render(<Stage />);
-  await waitFor(() => expect(Boolean(app.queryByRole("button", { name: "Pieces", hidden: true }))).toBe(true));
+  await waitFor(() =>
+    expect(Boolean(app.queryByRole("button", { name: "Pieces", hidden: true }))).toBe(true)
+  );
   // The view listener is a passive effect of the loaded state; let it attach before commanding.
   await act(async () => {});
   showAuthor();

@@ -12,7 +12,7 @@ import { DEFAULT_CONTEXT_EFFORT } from "@/lib/memory/context-effort";
 import { DEFAULT_CHAT_EFFORT } from "@/lib/schemas/chat-effort";
 import { AUTO_CHAT_MODEL_ID } from "@/lib/schemas/chat-model-ids";
 
-export type LabView = "product" | "focus";
+export type LabView = "product" | "focus" | "editor";
 export type LabBackdrop = "chat" | "chrome";
 export type LabSendOutcome = "complete" | "error";
 /** The live voice bar above the composer: off, or one of the states the real bar shows. */

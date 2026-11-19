@@ -15,12 +15,45 @@
   --tw-ring-shadow: 0 0 #0000;
   --tw-ring-offset-shadow: 0 0 #0000;
 }
+/*
+ * One line by default: settings, the draft, attachments and mic, then Send. Once the draft needs
+ * more room the row stacks: the draft on top, settings/attachments/mic left and Send right below.
+ * Groups are top-aligned so a growing draft never moves them before the stack settles; the glide
+ * between layouts lives in editor/composer-reflow.ts (docs/design/core-input-compact-reflow.md).
+ */
 .core-input-compact-row {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 8px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-areas: "lead area trail send";
+  align-items: start;
+  column-gap: var(--spacing-inline-xs);
+  padding: var(--spacing-inset-sm);
   min-height: 54px;
+}
+.core-input-compact-row[data-expanded="true"] {
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "area area area area"
+    "lead trail . send";
+  row-gap: var(--spacing-stack-xs);
+}
+.core-input-reflow-lead {
+  grid-area: lead;
+}
+.core-input-reflow-area {
+  grid-area: area;
+  min-width: 0;
+}
+/* On one line the draft's inline padding steps down a size, to give the text as much room as the
+   actions leave it. */
+.core-input-compact-row[data-expanded="false"] .composer-editor .editor-surface {
+  padding-inline: var(--spacing-inset-sm);
+}
+.core-input-reflow-trail {
+  grid-area: trail;
+}
+.core-input-reflow-send {
+  grid-area: send;
 }
 .core-input-condensed textarea {
   flex: 1;
@@ -47,15 +80,28 @@
   border-radius: 50%;
 }
 /* Icon buttons in the compact row (options, +, mic) are 32px squares, the toolbar button height. */
-.core-input-compact-row .composer-tool-chip {
-  width: 32px;
-  height: 32px;
-  min-width: 32px;
+/*
+ * Icon chips (options, +, mic) are 1:1 squares, the toolbar button height. Send keeps its own
+ * size-9 circle. Width and height are always set together so no rule can squash one axis.
+ */
+.core-input-compact-row .composer-tool-chip:not(.core-input-compact-submit) {
+  width: calc(var(--spacing) * 8);
+  height: calc(var(--spacing) * 8);
+  min-width: calc(var(--spacing) * 8);
   padding: 0;
   aspect-ratio: 1;
 }
-.core-input-options-panel {
-  z-index: 40;
+.core-input-options-panel,
+.core-input-slash-menu {
+  /*
+   * One step below the composer shell. The CoreInput root is z-40 in the app and is a stacking
+   * layer of its own; inside it the shell's wrapper is z-10 and the live voice / steer strip is
+   * z-0. The panel is portaled into that root, so it shares the shell's level on the page and
+   * sits at 9: above the strip, under the shell, which covers the few pixels the panel tucks
+   * under it. It stays outside the lumen shell, because inside it the backdrop blur stopped
+   * working. Keep this one below the shell wrapper's z-index in `core-input.tsx`.
+   */
+  z-index: 9;
   width: min(340px, calc(100vw - 32px));
   max-height: min(70dvh, var(--radix-popover-content-available-height));
   overflow: auto;
@@ -67,6 +113,26 @@
   padding: var(--spacing-inset-lg);
   border-radius: var(--core-input-shell-radius);
   color: var(--popover-foreground);
+}
+/*
+ * The slash menu is the settings panel's sibling: the same place, width, material and corners,
+ * with a list's tighter padding. It never takes focus; the editor keeps the caret and the keys.
+ */
+.core-input-slash-menu {
+  gap: 0;
+  padding: var(--spacing-inset-sm);
+}
+/*
+ * The panel takes focus when it opens so the keyboard can move through it. It never shows a
+ * ring for that: in dark mode it glows faintly with Lumen, in light mode it lifts on Lumen's
+ * shadow (docs/design/lumen.md).
+ */
+.core-input-options-panel:focus-visible {
+  outline: none;
+  box-shadow: var(--lumen-shadow-hover);
+}
+.dark .core-input-options-panel:focus-visible {
+  box-shadow: 0 0 var(--spacing-inset-lg) rgb(var(--lumen) / 0.16);
 }
 /* The model & effort selector on the left, context usage in line with it on the right. */
 .core-input-options-model-row {
@@ -82,7 +148,7 @@
   /* Stay on the right when the model selector is absent. */
   margin-left: auto;
 }
-/* Context effort on the left, the toggles pushed to the right, on one row with no labels. */
+/* Context effort on the left and the toggles on the right; without context effort the toggles sit on the left. One row, no labels. */
 .core-input-options-toggle-row {
   display: flex;
   flex-wrap: wrap;
@@ -95,8 +161,6 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--spacing-inline-sm);
-  /* Stay on the right when context effort is absent. */
-  margin-left: auto;
 }
 /* Each toggle is a 1:1 square, the same 32px as the compact row's icon buttons. */
 .core-input-options-toggles .composer-tool-chip {
@@ -186,12 +250,6 @@
     transition: none;
   }
 }
-@media (max-width: 480px) {
-  .core-input-compact-row {
-    gap: 2px;
-    padding: 8px;
-  }
-}
 
 .core-input-condensed [role="region"][aria-label="Markdown preview"] {
   flex: 1;
@@ -205,6 +263,17 @@
   .core-input-options-panel button {
     min-height: 44px;
     min-width: 44px;
+  }
+  /*
+   * On touch every compact control is a 44px square target. The chips and Send are sized on both
+   * axes here; the minimums above alone stretched them taller than wide (a squashed Send).
+   */
+  .core-input-compact-row .composer-tool-chip:not(.core-input-compact-submit),
+  .core-input-compact-row .core-input-compact-submit {
+    width: calc(var(--spacing) * 11);
+    height: calc(var(--spacing) * 11);
+    min-width: calc(var(--spacing) * 11);
+    min-height: calc(var(--spacing) * 11);
   }
   .core-input-options-setting {
     min-height: 44px;

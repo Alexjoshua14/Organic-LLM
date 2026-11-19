@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, test } from "bun:test";
 
 import { mockModulePreservingReal } from "../helpers/module-mock";
 
@@ -10,34 +10,38 @@ let results: Record<string, QueryResult> = {};
 let rpcResult: QueryResult = { data: null, error: { message: "unset" } };
 let rpcCalls = 0;
 
-/** Any chain of filters on a table resolves to that table's canned result. */
+const EMPTY: QueryResult = { data: null, error: null };
+
+/**
+ * Any chain of filters on a table resolves to that table's canned result. Tables this file does
+ * not set, and `update`, resolve empty, as the preload's stub does: this stub is never restored
+ * (see below), so it stands in for the preload's in every file that loads after this one.
+ */
 function tableQuery(table: string) {
   const chain: Record<string, unknown> = {};
   const self = () => chain;
 
-  for (const method of ["select", "eq", "gt", "not"]) chain[method] = self;
-  chain.then = (resolve: (value: QueryResult) => unknown) => resolve(results[table]);
+  for (const method of ["select", "eq", "gt", "not", "update"]) chain[method] = self;
+  chain.then = (resolve: (value: QueryResult) => unknown) => resolve(results[table] ?? EMPTY);
 
   return chain;
 }
 
-const restoreSupabaseServer = mockModulePreservingReal(
-  "@/lib/supabase/server",
-  supabaseServerModule,
-  {
-    supabaseServer: async () =>
-      ({
-        from: tableQuery,
-        rpc: async () => {
-          rpcCalls += 1;
+// Not restored in `afterAll`: other files register their own `@/lib/supabase/server` stub at
+// load, and Bun can run this file's `afterAll` after the next file has loaded, so a restore here
+// replaced that file's stub with the preload's (rabbit-hole-session-chat-thread failed in CI).
+// tests/helpers/module-mock.ts: restore only modules no other file stubs.
+mockModulePreservingReal("@/lib/supabase/server", supabaseServerModule, {
+  supabaseServer: async () =>
+    ({
+      from: tableQuery,
+      rpc: async () => {
+        rpcCalls += 1;
 
-          return rpcResult;
-        },
-      }) as never,
-  }
-);
-
-afterAll(restoreSupabaseServer);
+        return rpcResult;
+      },
+    }) as never,
+});
 
 const { getThreadAttention, resetThreadAttentionRpcState } = await import(
   "@/data/supabase/thread-attention?attention-test"

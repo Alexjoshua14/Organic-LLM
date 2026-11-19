@@ -52,6 +52,7 @@ Canon for the product: what we're building, who owns which kind of truth, how ag
 - **[Design backbone](./design/README.md)** — agent-facing design standards (start here for UI/motion quality)
 - [Sidebar session signals](./design/sidebar-session-signals.md) — experience glyphs, working / new signals, gaze hierarchy
   - [Code blocks](./design/code-blocks.md) — default fenced-code block, palettes, highlighting
+  - [Lumen](./design/lumen.md) — natural light in dark mode, shadow in light mode; tokens and rules
   - [Focus feedback](./design/focus-feedback.md) — Lumen-based keyboard focus and shared control defaults
   - [⌘K launcher](./design/launcher.md) — idea switcher: homepage input, recent-idea cards, in-memory cues
   - [Spacing](./design/spacing.md) — stack/gap/inset tokens, card density
@@ -66,6 +67,7 @@ Canon for the product: what we're building, who owns which kind of truth, how ag
   - [Welcome scene](./design/welcome-scene.md) — pane projection, scroll perspective, and themed floor continuity
   - [Activity-mark physics and fallback](./architecture/decisions/20261010-activity-mark-physics-and-fallback.md) — independent springs, shared scheduling, adaptive performance guard
   - [Motion & character text timing](./design/motion-and-text-timing.md) — status labels, loading burns, stagger budgets
+  - [CoreInput compact reflow](./design/core-input-compact-reflow.md) — one-line composer that stacks as text grows, 150–260ms glide
   - [CoreInput snapshot morph](./design/core-input-morph.md) — per-scope composer settings, 400ms morph, touch to fast-forward
 - [Adaptive background](./adaptive-background.md)
 - [Organic presence](./organic-presence.md)

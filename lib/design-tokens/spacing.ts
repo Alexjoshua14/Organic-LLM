@@ -18,6 +18,8 @@ export const spacing = {
     "3xl": "space-y-stack-3xl",
   },
   gap: {
+    /** Compact icon clusters whose buttons carry their own padding (e.g. the one-line composer) */
+    xs: "gap-inline-xs",
     sm: "gap-inline-sm",
     md: "gap-inline-md",
     lg: "gap-inline-lg",

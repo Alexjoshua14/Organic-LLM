@@ -28,6 +28,14 @@
  * - Active hover: **0.18** (50% reduction)
  * - Inactive hover peek: **0.18** (`.lumen-rim-backlight--hover`)
  *
+ * Concept and rules for both themes: docs/design/lumen.md
+ *
+ * ## Light mode (all rim-style lumen)
+ * The warm rim does not read on a light surface, so there is no rim: the backlight is hidden and
+ * chips, the prompt shell (`home-composer-lumen-*`, incl. the memory halo) and selected chat-style
+ * cards lift with a gentle shadow of the dark theme's background (`--lumen-shadow-rest` for active
+ * chips, `--lumen-shadow-hover` on hover; `--background-dark` is the colour source).
+ *
  * ## Do not
  * - Put lumen fill on the button surface or use teal ghost hover in dark mode.
  * - Replace the border ring with ellipse/circle radial gradients on labeled chips.

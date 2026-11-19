@@ -225,9 +225,8 @@ export function TaskRow({
             className={cn(
               "chat-style-card relative z-10 rounded-xl border border-border/50 transition-colors",
               glass({ opaque: true }),
-              expanded && "border-border/70",
-              isActive &&
-                "border-[rgb(var(--lumen-rim)/0.28)] shadow-[inset_0_1px_0_rgb(255_255_255/0.14)]"
+              // An active row's lit edge is Lumen's, per theme (globals.css, "The card's own edge").
+              expanded && "border-border/70"
             )}
             style={cardStyle}
           >

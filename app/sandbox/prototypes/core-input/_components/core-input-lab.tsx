@@ -3,6 +3,7 @@
 import type { LabView } from "../_lib/lab-state";
 import type { FocusControlId } from "./focus-stage";
 
+import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useState } from "react";
 
@@ -21,8 +22,12 @@ import { useContextEffortSettings } from "@/hooks/use-context-effort-settings";
 import { setSettings } from "@/lib/user-settings";
 import { cn } from "@/lib/utils";
 
+const EditorStage = dynamic(() => import("./editor-prototype/editor-stage"));
+
 /** Intro line per view; the product view has none. */
 const VIEW_COPY: Partial<Record<LabView, string>> = {
+  editor:
+    "Formatted editing, Markdown source, and slash commands. An independent prototype alongside the shipped composer.",
   focus:
     "Footer controls in isolation, driven by lab state instead of CoreInput. Pinned cells hold a state so you can compare without clicking.",
 };
@@ -33,11 +38,18 @@ const VIEW_COPY: Partial<Record<LabView, string>> = {
  */
 const LAB_INTRO_SECTION_GAP_CLASS = "mb-4 sm:mb-6";
 
+/** Clear the fixed control cluster (16px offset + 56px height), including safe areas. */
+const LAB_NAV_CLEARANCE_CLASS =
+  // design-guard: allow-next-line prototype one-off (owner, 2026-11-18): lab header clearance under the fixed controls
+  "pt-[calc(5rem+env(safe-area-inset-top,0px))] md:pt-[calc(5rem+env(safe-area-inset-top,0px))]";
+
 export function CoreInputLab() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const view: LabView = searchParams.get("view") === "focus" ? "focus" : "product";
+  const requestedView = searchParams.get("view");
+  const view: LabView =
+    requestedView === "editor" || requestedView === "focus" ? requestedView : "product";
   const control = parseFocusControl(searchParams.get("control"));
 
   const { state, hydrated, patchProduct, patchFocus, reset } = useCoreInputLabState();
@@ -89,7 +101,7 @@ export function CoreInputLab() {
       {chrome ? <AdaptiveLiquidChrome dimIntensity={0.45} /> : null}
 
       <div className="relative z-10 h-full min-h-0 w-full overflow-y-auto pb-20">
-        <PageContentFrame maxWidth="7xl">
+        <PageContentFrame className={LAB_NAV_CLEARANCE_CLASS} maxWidth="7xl">
           <PageNavBack
             className={LAB_INTRO_SECTION_GAP_CLASS}
             href="/sandbox/prototypes"
@@ -117,52 +129,57 @@ export function CoreInputLab() {
             />
           ) : null}
 
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-start">
-            <div className="min-w-0">
-              {!hydrated ? (
-                <div className="h-48 rounded-2xl border border-dashed border-border/40" />
-              ) : view === "product" ? (
-                <ProductStage
-                  chat={chat}
-                  remountKey={remountKey}
-                  state={state.product}
-                  onVoiceBarChange={(voiceBar) => patchProduct({ voiceBar })}
-                />
-              ) : (
-                <FocusStage
-                  chat={chat}
-                  control={control}
-                  patch={patchFocus}
-                  state={state.focus}
-                  onFocusControl={(next) => setParams({ control: next })}
-                />
-              )}
-            </div>
+          {view === "editor" ? (
+            <EditorStage />
+          ) : (
+            // design-guard: allow-next-line prototype one-off (owner, 2026-11-18): lab side panel width
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-start">
+              <div className="min-w-0">
+                {!hydrated ? (
+                  <div className="h-48 rounded-2xl border border-dashed border-border/40" />
+                ) : view === "product" ? (
+                  <ProductStage
+                    chat={chat}
+                    remountKey={remountKey}
+                    state={state.product}
+                    onVoiceBarChange={(voiceBar) => patchProduct({ voiceBar })}
+                  />
+                ) : (
+                  <FocusStage
+                    chat={chat}
+                    control={control}
+                    patch={patchFocus}
+                    state={state.focus}
+                    onFocusControl={(next) => setParams({ control: next })}
+                  />
+                )}
+              </div>
 
-            <aside className="lg:sticky lg:top-2 lg:max-h-[calc(100dvh-1rem)] lg:overflow-y-auto">
-              {!hydrated ? null : view === "product" ? (
-                <ProductPanel
-                  chat={chat}
-                  contextEffortBeta={contextEffortSettings.enabled}
-                  patch={patchProduct}
-                  state={state.product}
-                  onContextEffortBetaChange={(enabled) =>
-                    setSettings({ experimentalContextEffort: enabled })
-                  }
-                  onRemount={remount}
-                  onResetComposerPrefs={resetComposerPrefs}
-                  onResetLab={resetLab}
-                />
-              ) : (
-                <FocusPanel
-                  chat={chat}
-                  patch={patchFocus}
-                  state={state.focus}
-                  onResetLab={resetLab}
-                />
-              )}
-            </aside>
-          </div>
+              <aside className="lg:sticky lg:top-2 lg:max-h-[calc(100dvh-1rem)] lg:overflow-y-auto">
+                {!hydrated ? null : view === "product" ? (
+                  <ProductPanel
+                    chat={chat}
+                    contextEffortBeta={contextEffortSettings.enabled}
+                    patch={patchProduct}
+                    state={state.product}
+                    onContextEffortBetaChange={(enabled) =>
+                      setSettings({ experimentalContextEffort: enabled })
+                    }
+                    onRemount={remount}
+                    onResetComposerPrefs={resetComposerPrefs}
+                    onResetLab={resetLab}
+                  />
+                ) : (
+                  <FocusPanel
+                    chat={chat}
+                    patch={patchFocus}
+                    state={state.focus}
+                    onResetLab={resetLab}
+                  />
+                )}
+              </aside>
+            </div>
+          )}
         </PageContentFrame>
       </div>
     </Page>
@@ -173,6 +190,7 @@ function ViewSwitch({ value, onChange }: { value: LabView; onChange: (view: LabV
   const views: Array<{ id: LabView; label: string }> = [
     { id: "product", label: "Product" },
     { id: "focus", label: "Focus" },
+    { id: "editor", label: "Editor" },
   ];
 
   return (

@@ -36,6 +36,7 @@ When a task matches a skill below, read its `SKILL.md` before working:
 - Preview branch integration: [preview-branch](.agents/skills/preview-branch/SKILL.md).
 - Dependent PR chains: [stacked-pull-requests](.agents/skills/stacked-pull-requests/SKILL.md).
 - Track and ship a build brief: [ship-from-brief](.agents/skills/ship-from-brief/SKILL.md).
+- Review a blog post with a four-reviewer panel: [blog-review](.agents/skills/blog-review/SKILL.md).
 
 For files matching the `paths` in [design-backbone](.agents/rules/design-backbone.md) or
 [subagent-card-lab](.agents/rules/subagent-card-lab.md), read and follow the matching rules before editing. `.agents/rules/` is routed here explicitly; do not
@@ -79,6 +80,11 @@ run; `-t "name"` filters by test name.
 
 ## Style
 
+- Design values come from the token system, not literals: spacing, gap, inset, size, radius,
+  color, type and timing use `@theme` primitives, `lib/design-tokens/`, the Tailwind scale already
+  in use, and the shared timing modules. Never hard-code `px`/`rem`/hex, in sandbox prototypes too.
+  When a request needs a value no token provides, ask the user whether to change a token or add
+  one; see [design-backbone](.agents/rules/design-backbone.md) rules 8-9.
 - Keyboard focus follows [Focus feedback](docs/design/focus-feedback.md): use Lumen or clear
   surface/text feedback instead of default focus rings. Never remove focus visibility.
 
@@ -125,6 +131,7 @@ run; `-t "name"` filters by test name.
 **Ask first**
 
 - New dependencies.
+- A design value no token provides: whether to change a token or add one, before writing it.
 - Fundamental or architectural changes: root providers and layouts, rendering or caching
   strategy, auth wiring, data loading, persistence, or anything most of the app depends on.
   These need the user's explicit approval before any code. Request it with a proposal in
