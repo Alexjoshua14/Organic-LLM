@@ -50,12 +50,12 @@ export async function SessionShell({ children }: { children: React.ReactNode }) 
                     <VoiceSessionProvider>
                       <SidebarProvider defaultOpen={sidebarDefaultOpen}>
                         <OnboardingHost>
-                          <AppOnlyChrome>
+                          <AppOnlyChrome signedIn={Boolean(userId)}>
                             <Sidebar />
                             <ControlCluster />
                           </AppOnlyChrome>
                           <main className="app-shell grow w-full overflow-hidden bg-transparent sm:bg-transparent-secondary h-full min-h-dvh">
-                            <AppOnlyChrome>
+                            <AppOnlyChrome signedIn={Boolean(userId)}>
                               <div
                                 className={`${glass()} absolute top-[env(safe-area-inset-top,0px)] left-0 z-30 flex h-14 w-20 items-center rounded-br-lg pl-4 md:top-0 md:hidden`}
                                 data-mobile-nav-chrome="sidebar-trigger"
