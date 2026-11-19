@@ -306,7 +306,7 @@ export function PromptInputAttachment({ data, className, ...props }: PromptInput
         <div
           key={data.id}
           className={cn(
-            "group relative flex h-8 cursor-pointer select-none items-center gap-1.5 rounded-md border border-border px-1.5 font-medium text-sm transition-all hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
+            "group relative flex h-8 cursor-pointer select-none items-center gap-1.5 rounded-md border border-border px-1.5 font-medium text-sm transition-all organic-lumen-interactive hover:text-foreground",
             className
           )}
           {...props}
@@ -1184,7 +1184,7 @@ export const PromptInputSelectTrigger = ({
   <SelectTrigger
     className={cn(
       "cursor-pointer border-none bg-transparent font-medium text-muted-foreground shadow-none transition-colors",
-      "hover:bg-accent hover:text-foreground aria-expanded:bg-accent aria-expanded:text-foreground",
+      "organic-lumen-interactive hover:bg-background/30 aria-expanded:bg-background/30 hover:text-foreground aria-expanded:text-foreground",
       className
     )}
     {...props}
@@ -1262,7 +1262,7 @@ export type PromptInputTabItemProps = HTMLAttributes<HTMLDivElement>;
 
 export const PromptInputTabItem = ({ className, ...props }: PromptInputTabItemProps) => (
   <div
-    className={cn("flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent", className)}
+    className={cn("flex items-center gap-2 px-3 py-2 text-xs organic-lumen-interactive", className)}
     {...props}
   />
 );

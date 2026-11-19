@@ -47,7 +47,7 @@ export function PersonaStarters({ compact = false }: { compact?: boolean }) {
                   "flex min-h-14 w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60",
                   chosen
                     ? "border-teal-500/40 bg-teal-500/5"
-                    : "border-border bg-background-secondary/40 hover:border-teal-500/30"
+                    : "border-border bg-background-secondary/40 organic-lumen-interactive hover:border-border"
                 )}
                 disabled={busy}
                 type="button"

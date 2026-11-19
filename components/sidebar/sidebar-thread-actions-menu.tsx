@@ -96,7 +96,10 @@ export function SidebarThreadActionsMenu({
     <>
       <DropdownMenu open={open} onOpenChange={onOpenChange}>
         <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="min-w-40">
+        <DropdownMenuContent
+          align="end"
+          className="min-w-56 rounded-lg border-border/60 p-1 [&_[role=menuitem]]:min-h-9 [&_[role=menuitem]]:gap-inline-sm [&_[role=menuitem]]:rounded-md [&_[role=menuitem]]:px-inset-sm [&_[role=menuitem]_svg]:text-muted-foreground"
+        >
           <DropdownMenuItem
             onSelect={() => {
               void copyThreadToClipboard(thread.id).then(({ copied, saved }) => {
@@ -148,7 +151,10 @@ export function SidebarThreadActionsMenu({
             )}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem className="text-danger focus:text-danger" onSelect={handleDeleteClick}>
+          <DropdownMenuItem
+            className="text-destructive focus:text-destructive [&_svg]:text-destructive"
+            onSelect={handleDeleteClick}
+          >
             <Trash2 className="size-4" />
             Delete thread
           </DropdownMenuItem>

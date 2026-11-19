@@ -35,17 +35,16 @@ export type GatewaySmokeLinkProps = {
 };
 
 export const gatewaySmokeSurface = cn(
-  "group inline-flex items-center gap-2 rounded-xl px-4 py-2.5",
+  "organic-lumen-interactive group inline-flex items-center gap-inline-sm rounded-xl px-4 py-2.5",
   "text-sm font-medium tracking-tight text-foreground no-underline",
   glass({ opaque: true }),
   "shadow-[inset_0_1px_0_rgb(255_255_255/0.12)]",
   "outline-none transition-[transform,opacity,box-shadow] duration-200 ease-out",
-  "hover:shadow-[inset_0_1px_0_rgb(255_255_255/0.16)]",
-  "focus-visible:ring-2 focus-visible:ring-border/80 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent",
+  "organic-focus",
   "motion-safe:hover:scale-[1.02] motion-safe:active:scale-[0.98]"
 );
 
-/** Admin home gateway link — unified smoke glass surface (no lumen). */
+/** Admin home gateway link — glass surface with shared Lumen feedback. */
 export function GatewaySmokeLink({
   href,
   label,

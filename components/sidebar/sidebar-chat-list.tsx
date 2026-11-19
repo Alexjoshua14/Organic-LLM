@@ -2,7 +2,7 @@
 
 import { FC, useCallback, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MoreVertical } from "lucide-react";
+import { ThreadMoreGlyph } from "./thread-more-glyph";
 import { AnimatePresence, motion } from "framer-motion";
 
 import {
@@ -288,15 +288,16 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads, signals, ac
                     >
                       <span
                         aria-label="Thread options"
-                        className="p-1.5 rounded hover:bg-background-tertiary flex items-center justify-center"
+                        className="organic-focus organic-lumen-interactive group/thread-more cursor-pointer size-8 rounded-md flex items-center justify-center"
                         role="button"
+                        tabIndex={0}
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
                           setMenuOpen(thread.id);
                         }}
                       >
-                        <MoreVertical size={18} />
+                        <ThreadMoreGlyph active={isMenuOpen} />
                       </span>
                     </LazySidebarThreadActionsMenu>
                   </div>
@@ -320,15 +321,16 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads, signals, ac
                   >
                     <span
                       aria-label="Thread options"
-                      className="p-1.5 rounded hover:bg-background-tertiary flex items-center justify-center touch-manipulation"
+                      className="organic-focus organic-lumen-interactive group/thread-more cursor-pointer size-8 rounded-md flex items-center justify-center touch-manipulation"
                       role="button"
+                      tabIndex={0}
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
                         setMenuOpen(thread.id);
                       }}
                     >
-                      <MoreVertical size={18} />
+                      <ThreadMoreGlyph active={isMenuOpen} />
                     </span>
                   </LazySidebarThreadActionsMenu>
                 </div>

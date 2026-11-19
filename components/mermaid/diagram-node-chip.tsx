@@ -28,7 +28,7 @@ export function DiagramNodeChip({ link, onRemove }: DiagramNodeChipProps) {
       </span>
       <button
         aria-label={`Remove link to ${link.label}`}
-        className="grid size-4 shrink-0 place-content-center rounded-sm text-accent/70 hover:bg-accent/15 hover:text-accent"
+        className="grid size-4 shrink-0 place-content-center rounded-sm text-accent/70 organic-lumen-interactive hover:text-accent"
         type="button"
         onClick={onRemove}
       >

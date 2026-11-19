@@ -382,7 +382,7 @@ export function RabbitHoleSubagentMeshBar({
                   isSelected
                     ? "border-foreground/30 bg-background text-foreground shadow-2xs"
                     : isActiveWorker
-                      ? "border-accent/40 bg-accent/10 text-foreground hover:bg-accent/15"
+                      ? "border-accent/40 bg-accent/10 text-foreground organic-lumen-interactive"
                       : "border-border/50 bg-background/60 text-muted-foreground hover:bg-background hover:text-foreground"
                 )}
               >

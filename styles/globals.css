@@ -492,7 +492,8 @@ body.font-theme-commissioner {
  * Lumen rim backlight — canonical spec in use-composer-chip-lumen.ts
  * Rounded-rect border ring (−3% to +10% band); not an ellipse gradient.
  */
-.dark .lumen-rim-backlight {
+.dark .lumen-rim-backlight,
+.dark .organic-lumen-interactive::before {
   position: absolute;
   inset: calc(-1 * var(--lumen-outset, 4px));
   z-index: 0;
@@ -1022,5 +1023,68 @@ body.font-theme-commissioner {
   .organic-glass-frost::before,
   .organic-activity-grain {
     display: none;
+  }
+}
+
+/* Shared neutral controls: dark rim, light shadow; keyboard focus stays distinct. */
+@layer components {
+  .organic-lumen-interactive {
+    position: relative;
+    isolation: isolate;
+  }
+}
+.dark .organic-lumen-interactive::before {
+  content: "";
+  z-index: -1;
+  border-radius: inherit;
+  opacity: 0;
+}
+.dark
+  .organic-lumen-interactive:not(:disabled):is(
+    :hover,
+    :active,
+    [aria-expanded="true"],
+    [data-highlighted],
+    [data-state="open"]
+  )::before {
+  opacity: 0.18;
+}
+:root:not(.dark)
+  .organic-lumen-interactive:not(:disabled):not(:focus-visible):is(
+    :hover,
+    :active,
+    [aria-expanded="true"],
+    [data-highlighted],
+    [data-state="open"]
+  ) {
+  box-shadow: var(--lumen-shadow-hover);
+}
+@media (prefers-reduced-motion: reduce) {
+  .organic-lumen-interactive::before {
+    transition: none;
+  }
+}
+/* Composer chips already own a measured rim layer. */
+.dark .composer-tool-chip.organic-lumen-interactive::before {
+  display: none;
+}
+
+/* Menu navigation stays neutral glass, with a contained Lumen edge rather than an amber fill. */
+:is([role^="menuitem"], [data-slot="select-item"])[data-highlighted] {
+  @apply bg-foreground/10;
+  overflow: hidden;
+  background-image: none;
+}
+.dark :is([role^="menuitem"], [data-slot="select-item"]).organic-lumen-interactive::before {
+  inset: 0;
+  border-width: var(--lumen-band, var(--spacing));
+  filter: blur(var(--lumen-blur, var(--spacing)));
+}
+
+@layer base {
+  :is(button, select, summary):not(:disabled),
+  a[href],
+  :is([role="button"], [role="switch"], [role="checkbox"]):not([aria-disabled="true"]) {
+    cursor: pointer;
   }
 }

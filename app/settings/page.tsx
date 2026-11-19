@@ -41,6 +41,7 @@ export default function SettingsPage() {
   const [coalescenceMode, setCoalescenceMode] = useState(false);
   const [experimentalArcadiaMarkdownPreview, setExperimentalArcadiaMarkdownPreview] =
     useState(false);
+  const [replayFeatureHints, setReplayFeatureHints] = useState(false);
   const [experimentalContextEffort, setExperimentalContextEffort] = useState(false);
   const [experimentalKnowledgeCapsuleTitles, setExperimentalKnowledgeCapsuleTitles] =
     useState(false);
@@ -69,6 +70,7 @@ export default function SettingsPage() {
       setTtsWholeMessage(getSettings().ttsWholeMessage);
       setZeroDataRetention(getSettings().zeroDataRetention);
       setCoalescenceMode(getSettings().coalescenceMode);
+      setReplayFeatureHints(getSettings().replayFeatureHints);
       setExperimentalArcadiaMarkdownPreview(getSettings().experimentalArcadiaMarkdownPreview);
       setExperimentalContextEffort(getSettings().experimentalContextEffort);
       setExperimentalKnowledgeCapsuleTitles(getSettings().experimentalKnowledgeCapsuleTitles);
@@ -226,6 +228,19 @@ export default function SettingsPage() {
                 </QuickSettingRow>
                 <LightweightModeSetting compact />
               </section>
+              <QuickSettingRow
+                caption="Re-show surface tips you dismissed. Sidebar and composer tips stay dismissed; turn off to return to normal."
+                label="Tips & coachmarks"
+              >
+                <Switch
+                  aria-label="Replay feature tips and coachmarks"
+                  isSelected={replayFeatureHints}
+                  onValueChange={(enabled) => {
+                    setReplayFeatureHints(enabled);
+                    setSettings({ replayFeatureHints: enabled });
+                  }}
+                />
+              </QuickSettingRow>
               <FontSetting />
               <SettingsHelp title="Experimental appearance">
                 <div className="space-y-stack-sm">
