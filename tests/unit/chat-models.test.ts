@@ -66,10 +66,10 @@ describe("ChatModel catalog aliases", () => {
     }
   });
 
-  test("openai.terra is an internal GPT-6 Sol pin", () => {
-    expect(models.openai.terra.id).toBe(models.openai.sol.id);
-    expect(models.openai.terra.picker).toBe(false);
-    expect(ChatModels.some((model) => model.alias === "openai.terra")).toBe(false);
+  test("openai.terra is GPT-6.1 Terra, its own picker row", () => {
+    expect(models.openai.terra.id).toBe("openai/gpt-6.1-terra");
+    expect(models.openai.terra.id).not.toBe(models.openai.sol.id);
+    expect(ChatModels.some((model) => model.alias === "openai.terra")).toBe(true);
   });
 
   test("picker excludes picker: false rows and starts with Auto", () => {

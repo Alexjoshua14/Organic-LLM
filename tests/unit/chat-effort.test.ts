@@ -48,6 +48,26 @@ describe("getEffortLevelsForModel", () => {
     expect(ids).toEqual(["auto", "low", "medium", "high"]);
   });
 
+  test("Gemini 4 uses thinking levels low through high", () => {
+    for (const id of [
+      "google/gemini-4-argon",
+      "google/gemini-4-carbon",
+      "google/gemini-4-hydrogen",
+      "google/gemini-4-neon",
+    ]) {
+      expect(getEffortLevelsForModel(id).map((r) => r.id)).toEqual([
+        "auto",
+        "low",
+        "medium",
+        "high",
+      ]);
+    }
+
+    expect(buildEffortProviderOptions("google/gemini-4-neon", "high")).toEqual({
+      google: { thinkingConfig: { thinkingLevel: "high" } },
+    });
+  });
+
   test("Gemini 3.8 Flash has no minimal", () => {
     const ids = getEffortLevelsForModel("google/gemini-3.8-flash").map((r) => r.id);
 
@@ -55,8 +75,8 @@ describe("getEffortLevelsForModel", () => {
   });
 
   test("Perplexity has no configurable effort", () => {
-    expect(modelSupportsEffortControl("perplexity/sonar-pro")).toBe(false);
-    expect(getEffortLevelsForModel("perplexity/sonar-pro").map((r) => r.id)).toEqual(["auto"]);
+    expect(modelSupportsEffortControl("perplexity/sonar")).toBe(false);
+    expect(getEffortLevelsForModel("perplexity/sonar").map((r) => r.id)).toEqual(["auto"]);
   });
 
   test("Auto mirrors Sonnet 5 levels", () => {
