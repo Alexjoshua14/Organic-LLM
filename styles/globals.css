@@ -123,6 +123,8 @@
   --color-lumen-rim: var(--lumen-rim-oklch);
 
   --color-lumen-deep: var(--lumen-deep-oklch);
+
+  --color-accent-warm: var(--accent-warm);
 }
 
 /* `.light` scopes the light palette inside a dark page (side-by-side theme demos). */
@@ -134,6 +136,8 @@
 
   --foreground: oklch(0.22 0.012 70); /* #2D2B26 - warm brown-gray */
   --context-usage-amber: #916020;
+  /* Warm text accent: the Lumen-family amber, readable as text in both themes (slash commands). */
+  --accent-warm: var(--context-usage-amber);
 
   --card: oklch(1 0 0); /* Use with /80% opacity + backdrop-blur in components */
 
@@ -228,6 +232,7 @@
 
 .dark {
   --context-usage-amber: #bb8334;
+  --accent-warm: var(--context-usage-amber);
   --background: var(--background-dark); /* #141516 */
 
   --foreground: oklch(0.96 0.003 145); /* #F3F4F3 - slight green tint */

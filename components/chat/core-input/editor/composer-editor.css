@@ -58,6 +58,18 @@
   padding-left: var(--spacing-inset-lg);
   color: var(--muted-foreground);
 }
+/*
+ * A slash command in the draft (slash-highlight.ts): the warm accent on the typed `/query` and a
+ * leading surface command (`/btw`), and a muted variant for the completion after the caret.
+ */
+.organic-composer .composer-slash-token {
+  color: var(--accent-warm);
+}
+.organic-composer .composer-slash-ghost {
+  color: color-mix(in oklch, var(--accent-warm) 45%, transparent);
+  pointer-events: none;
+  user-select: none;
+}
 .organic-composer .editor-surface hr {
   border: 0;
   border-top: 1px solid var(--border);

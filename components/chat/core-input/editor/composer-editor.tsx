@@ -10,16 +10,20 @@ import type {
 } from "react";
 import type { AppCommand, EditorCommand, SlashMatch } from "./editor-model";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { Popover } from "radix-ui";
 import { Selection } from "@tiptap/pm/state";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Markdown } from "@tiptap/markdown";
 import { CharacterCount, Placeholder } from "@tiptap/extensions";
 
+import { PANEL_COLLISION_PADDING_PX, PANEL_OVERLAP_PX, panelAlign } from "../panel-placement";
+
 import { ComposerCodeBlock } from "./code-block-editor";
 import { EditableCodeDelimiters, EditorCodeHighlight } from "./code-editing";
 import { useContainedScroll } from "./contained-scroll";
+import { SLASH_HIGHLIGHT_REFRESH, SlashHighlight } from "./slash-highlight";
 import { PLACEHOLDER_CHANGED } from "./use-composer-reflow";
 import {
   findEditorSlash,
@@ -35,6 +39,7 @@ import {
   usePromptInputAttachments,
   usePromptInputController,
 } from "@/components/third-party/ai-elements/prompt-input";
+import { homeComposerGlassSurface } from "@/components/design-system/primitives";
 import { cn } from "@/lib/utils";
 
 export const COMPOSER_DEFAULT_PLACEHOLDER = "Drop a thought";
@@ -92,7 +97,15 @@ function SlashOption({
           <span className="truncate text-xs text-muted-foreground">{command.hint}</span>
         ) : null}
       </span>
-      <span className="shrink-0 text-xs text-muted-foreground">/{command.id}</span>
+      <span
+        className={cn(
+          "shrink-0 text-xs",
+          // A command the surface runs carries the warm accent it wears in the draft.
+          command.kind === "app" ? "text-accent-warm" : "text-muted-foreground"
+        )}
+      >
+        /{command.id}
+      </span>
     </button>
   );
 }
@@ -143,6 +156,15 @@ export function ComposerEditor({
   const menuId = useId();
   const [menu, setMenu] = useState<HTMLDivElement | null>(null);
   const [root, setRoot] = useState<HTMLDivElement | null>(null);
+  // The menu's anchor (the prompt shell, else the editor itself) and portal (CoreInput's panel slot).
+  const shell = root?.closest<HTMLElement>("[data-prompt-input-shell]") ?? root;
+  const menuSlot =
+    root
+      ?.closest<HTMLElement>("[data-core-input-root]")
+      ?.querySelector<HTMLElement>("[data-core-input-panel-slot]") ?? undefined;
+  const menuAnchor = useMemo(() => ({ current: shell }), [shell]);
+
+  useContainedScroll(menu);
 
   // Scrolling the draft or the slash menu never carries on into the page behind.
   useContainedScroll(root);
@@ -214,6 +236,14 @@ export function ComposerEditor({
       EditableCodeDelimiters,
       EditorCodeHighlight,
       Markdown,
+      SlashHighlight.configure({
+        appCommandIds: () => latest.current.appCommands.map((command) => command.id),
+        complete: (typed) => {
+          const options = matchingEditorCommands(typed.query, latest.current.appCommands, typed);
+
+          return options.length ? options[latest.current.active % options.length].id : null;
+        },
+      }),
       // Read live: the placeholder changes with context (a `/btw` side question).
       Placeholder.configure({ placeholder: () => latest.current.placeholder }),
       // The limit stops typing at the edge, so the draft on screen is the draft that sends.
@@ -268,7 +298,7 @@ export function ComposerEditor({
 
             return true;
           }
-          if (event.key === "Enter" && commands.length) {
+          if ((event.key === "Enter" || event.key === "Tab") && commands.length) {
             runEditorCommand(target, current.slash, commands[current.active % commands.length]);
             setSlash(null);
 
@@ -442,6 +472,15 @@ export function ComposerEditor({
   }, [editor, value]);
 
   const commands = slash ? matchingEditorCommands(slash.query, appCommands, slash) : [];
+  const menuOpen = Boolean(slash && commands.length);
+
+  // The ghost completion follows the menu's active command; redraw it when that changes.
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+    editor.view.dispatch(
+      editor.state.tr.setMeta("addToHistory", false).setMeta(SLASH_HIGHLIGHT_REFRESH, true)
+    );
+  }, [editor, active, appCommands]);
 
   // Arrow keys move through the menu; keep the active option in view inside it.
   useEffect(() => {
@@ -476,50 +515,77 @@ export function ComposerEditor({
       className={cn("organic-composer composer-editor relative w-full min-w-0", className)}
       onPasteCapture={onPasteCapture}
     >
-      {slash && commands.length ? (
-        <div
-          ref={setMenu}
-          aria-label="Slash commands"
-          className="absolute bottom-full left-0 z-20 mb-stack-sm max-h-72 w-full max-w-xs overflow-y-auto overscroll-contain rounded-xl border border-border bg-background p-inset-sm shadow-sm"
-          id={menuId}
-          role="listbox"
-        >
-          {COMMAND_GROUPS.map((group) => {
-            const items = commands.filter((command) => command.kind === group.kind);
+      {/* The menu opens over the whole composer, like its settings panel (anchored to the shell,
+          portaled into the CoreInput panel slot), not inside the draft's own narrow column. Focus
+          and keys stay in the editor. */}
+      <Popover.Root
+        open={menuOpen}
+        onOpenChange={(next) => {
+          if (!next) setSlash(null);
+        }}
+      >
+        <Popover.Anchor virtualRef={menuAnchor} />
+        <Popover.Portal container={menuSlot}>
+          <Popover.Content
+            ref={setMenu}
+            align={menuOpen ? panelAlign() : "start"}
+            aria-label="Slash commands"
+            className={cn(homeComposerGlassSurface, "core-input-slash-menu")}
+            // Always above the draft, never flipped over it: it scrolls in the room it has.
+            avoidCollisions={false}
+            collisionPadding={PANEL_COLLISION_PADDING_PX}
+            id={menuId}
+            role="listbox"
+            side="top"
+            sideOffset={-PANEL_OVERLAP_PX}
+            onCloseAutoFocus={(event) => event.preventDefault()}
+            onOpenAutoFocus={(event) => event.preventDefault()}
+          >
+            {COMMAND_GROUPS.filter((group) =>
+              commands.some((command) => command.kind === group.kind)
+            ).map((group, groupIndex) => {
+              const items = commands.filter((command) => command.kind === group.kind);
+              const labelId = `${menuId}-${group.kind}`;
 
-            if (!items.length) return null;
-            const labelId = `${menuId}-${group.kind}`;
-
-            return (
-              <div key={group.kind} aria-labelledby={labelId} role="group">
+              return (
                 <div
-                  className="px-inset-sm pt-stack-xs pb-stack-xs text-xs text-muted-foreground"
-                  id={labelId}
-                  role="presentation"
+                  key={group.kind}
+                  aria-labelledby={labelId}
+                  className={cn(
+                    // A hairline and a step of space between the surface's commands and Markdown.
+                    groupIndex > 0 && "mt-stack-xs border-t border-border/60 pt-stack-xs"
+                  )}
+                  role="group"
                 >
-                  {group.label}
-                </div>
-                {items.map((command) => {
-                  const index = commands.indexOf(command);
+                  <div
+                    className="px-inset-sm pt-stack-xs pb-stack-xs text-2xs font-medium uppercase tracking-widest text-muted-foreground"
+                    id={labelId}
+                    role="presentation"
+                  >
+                    {group.label}
+                  </div>
+                  {items.map((command) => {
+                    const index = commands.indexOf(command);
 
-                  return (
-                    <SlashOption
-                      key={`${command.kind}-${command.id}`}
-                      active={active === index}
-                      command={command}
-                      id={`${menuId}-${index}`}
-                      onChoose={() => {
-                        if (editor) runEditorCommand(editor, slash, command);
-                        setSlash(null);
-                      }}
-                    />
-                  );
-                })}
-              </div>
-            );
-          })}
-        </div>
-      ) : null}
+                    return (
+                      <SlashOption
+                        key={`${command.kind}-${command.id}`}
+                        active={active === index}
+                        command={command}
+                        id={`${menuId}-${index}`}
+                        onChoose={() => {
+                          if (editor && slash) runEditorCommand(editor, slash, command);
+                          setSlash(null);
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </Popover.Content>
+        </Popover.Portal>
+      </Popover.Root>
       <EditorContent editor={editor} />
       {/* The form field and the ref CoreInput already uses. Focusing it hands focus to the editor. */}
       <textarea

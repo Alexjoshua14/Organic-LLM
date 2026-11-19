@@ -307,7 +307,9 @@ test.describe("phone (touch)", () => {
     await expect(page.locator('[data-row] [role="textbox"]')).toHaveText("Half a thought!");
   });
 
-  test("a draft changed from outside (dictation) continues after the new text", async ({ page }) => {
+  test("a draft changed from outside (dictation) continues after the new text", async ({
+    page,
+  }) => {
     const draft = page.locator('[data-row] [role="textbox"]');
 
     await draft.click();
@@ -353,6 +355,86 @@ test.describe("phone (touch)", () => {
     });
     await frames(page);
     expect(await focusedOnDraft(page)).toBe(false);
+  });
+
+  test("the slash menu opens over the whole composer, like the settings panel", async ({
+    page,
+  }) => {
+    await page.evaluate(() => {
+      document.body.style.paddingTop = "600px";
+    });
+    await page.locator('[data-row] [role="textbox"]').click();
+    await page.keyboard.type("/");
+    const menu = page.locator('[role="listbox"][aria-label="Slash commands"]');
+
+    await expect(menu).toBeVisible();
+    await frames(page, 4);
+    const shell = (await page.locator("[data-prompt-input-shell]").boundingBox())!;
+    const box = (await menu.boundingBox())!;
+    const area = (await page.locator('[data-reflow="area"]').boundingBox())!;
+
+    // Wider than the draft's one-line column, as wide as the settings panel, centred on xs.
+    expect(box.width).toBeGreaterThan(area.width);
+    expect(box.width).toBeCloseTo(Math.min(340, 375 - 32), 0);
+    expect(Math.abs(box.x + box.width / 2 - (shell.x + shell.width / 2))).toBeLessThanOrEqual(1);
+    // No option label wraps onto a second line.
+    const wrapped = await menu
+      .locator('[role="option"] > span > span:first-child')
+      .evaluateAll((labels) =>
+        labels.some(
+          (label) =>
+            label.getBoundingClientRect().height >
+            parseFloat(getComputedStyle(label).lineHeight) * 1.5
+        )
+      );
+
+    expect(wrapped).toBe(false);
+    // The caret stays in the draft, so typing filters the menu.
+    await page.keyboard.type("num");
+    await expect(menu.getByRole("option")).toHaveCount(1);
+  });
+
+  test("a slash command wears the warm accent, with its completion muted after the caret", async ({
+    page,
+  }) => {
+    const draft = page.locator('[data-row] [role="textbox"]');
+    const token = draft.locator(".composer-slash-token");
+    const ghost = draft.locator(".composer-slash-ghost");
+    const accent = await page.evaluate(() => {
+      const probe = document.createElement("span");
+
+      probe.style.color = "var(--accent-warm)";
+      document.body.append(probe);
+      const color = getComputedStyle(probe).color;
+
+      probe.remove();
+
+      return color;
+    });
+
+    await draft.click();
+    await page.keyboard.type("/b");
+    await expect(token).toHaveText("/b");
+    await expect(ghost).toHaveText("tw");
+    expect(await token.evaluate((el) => getComputedStyle(el).color)).toBe(accent);
+    // The ghost is the muted variant: the same hue, partly transparent.
+    expect(await ghost.evaluate((el) => getComputedStyle(el).color)).not.toBe(accent);
+    // Tab accepts; a surface command keeps the accent until it is sent.
+    await page.keyboard.press("Tab");
+    await expect(draft).toHaveText("/btw ");
+    await expect(token).toHaveText("/btw");
+    await expect(ghost).toHaveCount(0);
+    await page.keyboard.type("what does this mean?");
+    await expect(token).toHaveText("/btw");
+    // A Markdown command is accented while typed, then becomes its block.
+    await page.keyboard.press("ControlOrMeta+a");
+    await page.keyboard.press("Backspace");
+    for (let i = 0; i < 30; i += 1) await page.keyboard.press("Backspace");
+    await page.keyboard.type("/nu");
+    await expect(ghost).toHaveText("mbered");
+    await page.keyboard.press("Enter");
+    await expect(token).toHaveCount(0);
+    await expect(draft.locator("ol")).toHaveCount(1);
   });
 
   test("the settings panel centres over the composer on xs screens", async ({ page }) => {
@@ -405,9 +487,10 @@ test.describe("desktop (mouse)", () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 
   test("scrolling over CoreInput and its slash menu never scrolls the page", async ({ page }) => {
-    // Room above for the menu, and a page that can scroll both ways.
+    // A page that can scroll both ways, and little room above the composer, so the menu (capped
+    // at the room it has, like the settings panel) has to scroll.
     await page.evaluate(() => {
-      document.body.style.paddingTop = "600px";
+      document.body.style.paddingTop = "520px";
       document.body.style.minHeight = "300vh";
       window.scrollTo(0, 300);
     });

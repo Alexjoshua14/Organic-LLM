@@ -13,17 +13,11 @@ import { ComposerModelEffortSelect } from "./controls/model-effort-select";
 import { ComposerPreviewChip } from "./controls/preview-chip";
 import { ComposerToolToggleGroup } from "./controls/tool-toggle-group";
 import { ComposerOptionsIcon } from "./options-icon";
+import { PANEL_COLLISION_PADDING_PX, PANEL_OVERLAP_PX, panelAlign } from "./panel-placement";
 
 import { homeComposerGlassSurface } from "@/components/design-system/primitives";
 import { ComposerPersonaChip } from "@/components/personas/persona-chip";
 import { cn } from "@/lib/utils";
-
-/**
- * How far the panel tucks under the top of the shell: half of the compact row's 8px padding
- * (`--spacing-inset-sm`), which is `--spacing-stack-xs`. Keep it below that padding so the
- * overlap only ever covers empty shell, never a control or the text.
- */
-const OPTIONS_PANEL_OVERLAP_PX = 4;
 
 /** One options surface for compact CoreInput, including Stage and narrow chat composers. */
 export function CoreInputOptions({
@@ -59,9 +53,7 @@ export function CoreInputOptions({
     <Popover.Root
       open={open}
       onOpenChange={(next) => {
-        // On xs screens (below Tailwind's sm breakpoint) the panel is about as wide as the
-        // composer, so it centres over it instead of hugging the left edge.
-        if (next) setAlign(isExtraSmallScreen() ? "center" : "start");
+        if (next) setAlign(panelAlign());
         setOpen(next);
       }}
     >
@@ -82,8 +74,8 @@ export function CoreInputOptions({
           aria-label="Composer settings"
           align={align}
           side="top"
-          sideOffset={-OPTIONS_PANEL_OVERLAP_PX}
-          collisionPadding={16}
+          sideOffset={-PANEL_OVERLAP_PX}
+          collisionPadding={PANEL_COLLISION_PADDING_PX}
           className={cn(homeComposerGlassSurface, "core-input-options-panel")}
           onOpenAutoFocus={(event) => {
             // Opening settings should not immediately open a caption or a nested picker.
@@ -117,13 +109,4 @@ export function CoreInputOptions({
       </Popover.Portal>
     </Popover.Root>
   );
-}
-
-/** Below Tailwind's `sm` breakpoint (`--breakpoint-sm`, 40rem by default). */
-function isExtraSmallScreen() {
-  const sm =
-    getComputedStyle(document.documentElement).getPropertyValue("--breakpoint-sm").trim() ||
-    "40rem";
-
-  return window.matchMedia(`(width < ${sm})`).matches;
 }

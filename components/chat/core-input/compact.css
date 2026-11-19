@@ -91,7 +91,8 @@
   padding: 0;
   aspect-ratio: 1;
 }
-.core-input-options-panel {
+.core-input-options-panel,
+.core-input-slash-menu {
   /*
    * One step below the composer shell. The CoreInput root is z-40 in the app and is a stacking
    * layer of its own; inside it the shell's wrapper is z-10 and the live voice / steer strip is
@@ -112,6 +113,14 @@
   padding: var(--spacing-inset-lg);
   border-radius: var(--core-input-shell-radius);
   color: var(--popover-foreground);
+}
+/*
+ * The slash menu is the settings panel's sibling: the same place, width, material and corners,
+ * with a list's tighter padding. It never takes focus; the editor keeps the caret and the keys.
+ */
+.core-input-slash-menu {
+  gap: 0;
+  padding: var(--spacing-inset-sm);
 }
 /*
  * The panel takes focus when it opens so the keyboard can move through it. It never shows a
