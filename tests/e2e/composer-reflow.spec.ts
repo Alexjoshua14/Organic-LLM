@@ -107,6 +107,9 @@ const lineFit = (page: Page) =>
     };
   });
 
+/** Longer than an animated (smooth) wheel scroll takes to land, as WebKit's does. */
+const SCROLL_SETTLE_MS = 400;
+
 /** Comfortably past REFLOW_COLLAPSE_SETTLE_MS (350ms), for a busy CI machine. */
 const SETTLE_MS = 700;
 
@@ -508,13 +511,17 @@ test.describe("desktop (mouse)", () => {
 
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     // Down past the menu's end, then up past its start: the menu scrolls, the page never does.
+    // WebKit animates wheel scrolling, so wait for the menu to arrive, then give a page scroll
+    // (which must not happen) the same time to show up.
+    const menuTop = () => menu.evaluate((el) => el.scrollTop);
+
     for (let i = 0; i < 6; i += 1) await page.mouse.wheel(0, 200);
-    await frames(page);
-    expect(await menu.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+    await expect.poll(menuTop).toBeGreaterThan(0);
+    await page.waitForTimeout(SCROLL_SETTLE_MS);
     expect(await scrollY()).toBe(before);
     for (let i = 0; i < 6; i += 1) await page.mouse.wheel(0, -200);
-    await frames(page);
-    expect(await menu.evaluate((el) => el.scrollTop)).toBe(0);
+    await expect.poll(menuTop).toBe(0);
+    await page.waitForTimeout(SCROLL_SETTLE_MS);
     expect(await scrollY()).toBe(before);
     // Over the composer itself (a short draft that does not scroll), the page stays put too.
     await page.keyboard.press("Escape");
@@ -523,7 +530,7 @@ test.describe("desktop (mouse)", () => {
     await page.mouse.move(row.x + row.width / 2, row.y + row.height / 2);
     await page.mouse.wheel(0, 300);
     await page.mouse.wheel(0, -300);
-    await frames(page);
+    await page.waitForTimeout(SCROLL_SETTLE_MS);
     expect(await scrollY()).toBe(before);
   });
 
