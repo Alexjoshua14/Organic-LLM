@@ -90,6 +90,9 @@ function renderLayer({
 
 const tipRecord = (id: string) => getOnboardingSnapshot().state.tips[id];
 
+// Radix may keep the closed dialog mounted for its exit animation.
+const isTipOpen = () => document.querySelector('[data-feature-tip][data-state="open"]') !== null;
+
 beforeEach(() => {
   // Radix measures the popover arrow with browser animation-frame APIs.
   window.requestAnimationFrame ??= globalThis.requestAnimationFrame;
@@ -131,7 +134,7 @@ describe("FeatureTipLayer", () => {
 
     fireEvent.click(await app.findByRole("button", { name: "Got it" }));
 
-    await waitFor(() => expect(app.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(isTipOpen()).toBe(false));
     expect(tipRecord("composer-search-memory")?.outcome).toBe("dismissed");
     expect(app.getByRole("button", { name: "Search" }).hasAttribute("aria-describedby")).toBe(
       false
@@ -144,7 +147,7 @@ describe("FeatureTipLayer", () => {
     await app.findByRole("dialog");
     fireEvent.keyDown(document.body, { key: "Escape" });
 
-    await waitFor(() => expect(app.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(isTipOpen()).toBe(false));
     expect(tipRecord("composer-search-memory")?.outcome).toBe("dismissed");
   });
 
@@ -172,7 +175,7 @@ describe("FeatureTipLayer", () => {
     fireEvent.pointerDown(other);
     fireEvent.click(other);
 
-    await waitFor(() => expect(app.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(isTipOpen()).toBe(false));
     expect(clicked).toBe(1);
     expect(tipRecord("composer-search-memory")).toBeUndefined();
     expect(getOnboardingSnapshot().sessionHiddenTips.has("composer-search-memory")).toBe(true);
@@ -189,7 +192,7 @@ describe("FeatureTipLayer", () => {
     fireEvent.pointerDown(search);
     fireEvent.click(search);
 
-    await waitFor(() => expect(app.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(isTipOpen()).toBe(false));
     expect(tipRecord("composer-search-memory")?.outcome).toBe("acted");
   });
 
@@ -198,7 +201,7 @@ describe("FeatureTipLayer", () => {
 
     fireEvent.click(await app.findByRole("button", { name: "Turn off tips" }));
 
-    await waitFor(() => expect(app.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(isTipOpen()).toBe(false));
     expect(getOnboardingSnapshot().state.tipsEnabled).toBe(false);
     expect(tipRecord("composer-search-memory")?.outcome).toBe("off");
   });
@@ -208,7 +211,7 @@ describe("FeatureTipLayer", () => {
     const app = renderLayer({ overlayOpen: () => overlay });
 
     await new Promise((resolve) => setTimeout(resolve, 60));
-    expect(app.queryByRole("dialog")).toBeNull();
+    expect(isTipOpen()).toBe(false);
 
     overlay = false;
     await app.findByRole("dialog");
@@ -217,7 +220,7 @@ describe("FeatureTipLayer", () => {
     await waitFor(() =>
       expect(getOnboardingSnapshot().sessionHiddenTips.has("composer-search-memory")).toBe(true)
     );
-    await waitFor(() => expect(app.queryByRole("dialog", { hidden: true })).toBeNull());
+    await waitFor(() => expect(isTipOpen()).toBe(false));
   });
 
   test("the Arcadia tip waits on the composer and describes the active recipient", async () => {
@@ -242,7 +245,7 @@ describe("FeatureTipLayer", () => {
     });
 
     await new Promise((resolve) => setTimeout(resolve, 30));
-    expect(app.queryByRole("dialog")).toBeNull();
+    expect(isTipOpen()).toBe(false);
     app.container.querySelector("form")?.removeAttribute("data-onboarding-composer-busy");
 
     await app.findByRole("dialog", { name: "Choose who gets your message" });
@@ -283,7 +286,7 @@ describe("FeatureTipLayer", () => {
 
     app.rerender(view("/chat/first"));
     await new Promise((resolve) => setTimeout(resolve, 30));
-    expect(app.queryByRole("dialog")).toBeNull();
+    expect(isTipOpen()).toBe(false);
 
     app.rerender(view("/chat/second"));
     await app.findByRole("dialog", { name: "What informs each reply" });
@@ -309,10 +312,10 @@ describe("FeatureTipLayer", () => {
     });
 
     fireEvent.click(await app.findByRole("button", { name: "Got it" }));
-    await waitFor(() => expect(app.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(isTipOpen()).toBe(false));
 
     await new Promise((resolve) => setTimeout(resolve, 60));
-    expect(app.queryByRole("dialog")).toBeNull();
+    expect(isTipOpen()).toBe(false);
     expect(getOnboardingSnapshot().state.tipLog).toHaveLength(1);
   });
 
@@ -337,28 +340,28 @@ describe("FeatureTipLayer", () => {
       </PathnameContext.Provider>
     );
 
-    await waitFor(() => expect(app.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(isTipOpen()).toBe(false));
   });
 
   test("nothing shows for ineligible accounts, with tips off, or while the Guide is open", async () => {
     const ineligible = renderLayer({ value: { autoEligible: false } });
 
     await new Promise((resolve) => setTimeout(resolve, 60));
-    expect(ineligible.queryByRole("dialog")).toBeNull();
+    expect(isTipOpen()).toBe(false);
     ineligible.unmount();
 
     const guide = renderLayer({ value: { guideOpen: true } });
 
     await new Promise((resolve) => setTimeout(resolve, 60));
-    expect(guide.queryByRole("dialog")).toBeNull();
+    expect(isTipOpen()).toBe(false);
     guide.unmount();
 
     await act(async () => {
       await onboardingActions.setTipsEnabled(false);
     });
-    const off = renderLayer();
+    renderLayer();
 
     await new Promise((resolve) => setTimeout(resolve, 60));
-    expect(off.queryByRole("dialog")).toBeNull();
+    expect(isTipOpen()).toBe(false);
   });
 });

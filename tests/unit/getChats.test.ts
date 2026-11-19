@@ -1,24 +1,31 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
-import {
-  MockSupabaseClient,
-  createTestThreads,
-} from "../helpers/mock-supabase";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { MockSupabaseClient, createTestThreads } from "../helpers/mock-supabase";
+
+import * as supabaseServerModule from "@/lib/supabase/server";
+import { mockModulePreservingReal } from "../helpers/module-mock";
 
 mock.module("server-only", () => ({}));
 
 describe("getChats", () => {
   let mockClient: MockSupabaseClient;
+  let restoreSupabaseServer: () => void;
   let getChats: typeof import("@/data/supabase/chat").getChats;
 
   beforeEach(async () => {
     mockClient = new MockSupabaseClient();
 
-    mock.module("@/lib/supabase/server", () => ({
-      supabaseServer: () => Promise.resolve(mockClient),
-    }));
+    restoreSupabaseServer = mockModulePreservingReal(
+      "@/lib/supabase/server",
+      supabaseServerModule,
+      {
+        supabaseServer: (async () => mockClient) as never,
+      }
+    );
 
     ({ getChats } = await import("@/data/supabase/chat"));
   });
+
+  afterEach(() => restoreSupabaseServer());
 
   test("filters by owner_id when ownerId is provided", async () => {
     mockClient.insertThreads([
@@ -30,9 +37,7 @@ describe("getChats", () => {
 
     expect(result.error).toBeNull();
     expect(result.data).toHaveLength(2);
-    expect(result.data!.every((thread) => thread.owner_id === "owner-b")).toBe(
-      true,
-    );
+    expect(result.data!.every((thread) => thread.owner_id === "owner-b")).toBe(true);
   });
 
   test("orders chats by updated_at descending when filtered", async () => {
@@ -66,9 +71,16 @@ describe("getChats", () => {
   });
 
   test("returns a caught error when Supabase is unavailable", async () => {
-    mock.module("@/lib/supabase/server", () => ({
-      supabaseServer: () => Promise.reject(new Error("DB down")),
-    }));
+    restoreSupabaseServer();
+    restoreSupabaseServer = mockModulePreservingReal(
+      "@/lib/supabase/server",
+      supabaseServerModule,
+      {
+        supabaseServer: async () => {
+          throw new Error("DB down");
+        },
+      }
+    );
     ({ getChats } = await import("@/data/supabase/chat"));
 
     let caught: Error | null = null;

@@ -477,9 +477,11 @@ describe("CoreInput lab", () => {
       await userEvent.setup().type(view.container.querySelector("textarea")!, "Queue this turn");
       await userEvent.setup().click(view.getByRole("button", { name: "Submit" }));
       expect(sendMessage).not.toHaveBeenCalled();
-      expect(fetchSpy.mock.calls.filter(([, options]) => options?.method === "POST")).toHaveLength(
-        1
-      );
+      expect(
+        fetchSpy.mock.calls.filter(
+          ([url, options]) => url === "/api/chat/queue" && options?.method === "POST"
+        )
+      ).toHaveLength(1);
     } finally {
       fetchSpy.mockRestore();
     }

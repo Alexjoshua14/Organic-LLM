@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Brain, ExternalLink, GitBranch, Settings2Icon, LogOut } from "lucide-react";
+import { Brain, ExternalLink, GitBranch, Settings2Icon, LogOut, Sparkles } from "lucide-react";
 import { SignedIn, SignOutButton, useAuth, useUser } from "@clerk/nextjs";
 
 import { QuickSettingRow } from "./quick-setting-row";
