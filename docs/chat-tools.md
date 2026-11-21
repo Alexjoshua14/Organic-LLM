@@ -240,11 +240,15 @@ agent for that surface. Through Ergon MCP (same OAuth session as ticket tools) s
 list/search vault docs, read a doc (content capped at 12,000 characters, clauses complete),
 resolve clauses, list open questions, read issue briefs, hooks and agent runs, and start an
 agent run. She uses the user's own MCP OAuth connection with `agents` scope. Her turns skip the
-write connected-ticket tools. Starts are never retried automatically.
+write connected-ticket tools. Starts are never retried automatically. Stage reaches the same
+toolbelt by assigning Mira as a Stage subagent (`agentId: "agent-planner"`); the central Stage
+agent never mounts these tools itself
+([decision](./stage/decisions/20261120-stage-mira-ergon.md)).
 
 - Implementation: [`createErgonAgentTools`](../lib/llm/ergon-agent-tools.ts) ·
   [`ergon-mcp-client.ts`](../lib/llm/ergon-mcp-client.ts) ·
-  [`ergonConfigForUser`](../lib/llm/ergon-config.ts)
+  [`ergonConfigForUser`](../lib/llm/ergon-config.ts) ·
+  Stage wiring: [`lib/stage/subagents.ts`](../lib/stage/subagents.ts)
 
 ### `ergon_*` ticket tools (main chat)
 

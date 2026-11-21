@@ -124,10 +124,15 @@ export const StageDesignSchema = z
   })
   .strict();
 
+/** Locked roster id for Mira; Stage workers with this id get her Ergon toolbelt. */
+export const STAGE_MIRA_AGENT_ID = "agent-planner" as const;
+
 export const StageSubagentAssignmentSchema = z
   .object({
     name: z.string().trim().min(1).max(40),
     goal: z.string().trim().min(1).max(2000),
+    /** When `agent-planner`, the worker is Mira with Ergon MCP tools. */
+    agentId: z.literal(STAGE_MIRA_AGENT_ID).optional(),
   })
   .strict();
 export const StageSubagentSchema = StageSubagentAssignmentSchema.extend({
@@ -143,6 +148,13 @@ export type StageSubagent = z.infer<typeof StageSubagentSchema>;
 export type StageSubagentAssignment = z.infer<typeof StageSubagentAssignmentSchema>;
 export function stageSubagentActive(agent: StageSubagent): boolean {
   return agent.status === "queued" || agent.status === "working" || agent.status === "canceling";
+}
+
+/** Mira on Stage: explicit agentId, or a worker named Mira (case-insensitive). */
+export function isStageMiraSubagent(
+  agent: Pick<StageSubagentAssignment, "name" | "agentId">
+): boolean {
+  return agent.agentId === STAGE_MIRA_AGENT_ID || /^mira$/i.test(agent.name.trim());
 }
 
 export const StageStateSchema = z
