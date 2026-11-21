@@ -111,4 +111,27 @@ describe("Gen UI Lab shell", () => {
     fireEvent.click(within(section as HTMLElement).getByRole("button", { name: "Next state" }));
     expect(within(section as HTMLElement).getByText("Just started")).toBeTruthy();
   });
+
+  test("Stage size changes the preview footprint independently of component state", () => {
+    const view = renderShell();
+    const section = view.container.querySelector<HTMLElement>('[data-archetype="measure"]')!;
+    const demo = within(section);
+    const size = demo.getByRole<HTMLSelectElement>("combobox", { name: "Stage size" });
+    const preview = demo.getByRole("region", { name: "Stage preview" });
+
+    expect(preview.style.width).toBe("100%");
+    expect(preview.style.aspectRatio).toBe("24 / 18");
+    expect(within(preview).getByText("Share of world population")).toBeTruthy();
+
+    fireEvent.change(size, { target: { value: "0" } });
+    expect(size.selectedOptions[0].textContent).toContain("Quarter");
+    expect(parseFloat(preview.style.width)).toBeCloseTo((11 / 24) * 100);
+    expect(preview.style.aspectRatio).toBe("11 / 8");
+    expect(within(preview).getByText("Share of world population")).toBeTruthy();
+
+    fireEvent.change(size, { target: { value: "1" } });
+    fireEvent.click(demo.getByRole("button", { name: "Next state" }));
+    expect(preview.style.aspectRatio).toBe("11 / 18");
+    expect(within(preview).getByText("Ancient population share")).toBeTruthy();
+  });
 });
