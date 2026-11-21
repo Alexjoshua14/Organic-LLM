@@ -6,7 +6,15 @@ import type { ChatModel } from "@/lib/schemas/chat";
 import type { ChatEffortLevel } from "@/lib/schemas/chat-effort";
 import type { StageTurnSettings, StageRect } from "@/lib/stage/schema";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import {
   AudioLines,
   Grid3X3,

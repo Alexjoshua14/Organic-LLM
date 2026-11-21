@@ -2,7 +2,12 @@
 
 import type { StageController } from "@/components/stage/stage";
 import type { StageOperation, StageTurnSettings } from "@/lib/stage/schema";
-import type { JevStageActionKind, JevStageBundle, JevStageStreamEvent, JevStageTurnInsight } from "@/lib/jev-stage/schema";
+import type {
+  JevStageActionKind,
+  JevStageBundle,
+  JevStageStreamEvent,
+  JevStageTurnInsight,
+} from "@/lib/jev-stage/schema";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -69,7 +74,9 @@ export function useJevStage(): StageController & {
   const [sending, setSending] = useState(false);
   const [saving, setSaving] = useState(false);
   const [streamingText, setStreamingText] = useState("");
-  const [submittedMessage, setSubmittedMessage] = useState<{ id: string; text: string } | null>(null);
+  const [submittedMessage, setSubmittedMessage] = useState<{ id: string; text: string } | null>(
+    null
+  );
   const [turnStatus, setTurnStatus] = useState("");
   const current = useRef(bundle);
   const sendLock = useRef(false);

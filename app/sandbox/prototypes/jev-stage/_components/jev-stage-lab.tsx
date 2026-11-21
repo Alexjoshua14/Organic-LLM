@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 
+import { JevStageMessage } from "./jev-stage-message";
+
 import { JevStageInsightPanel } from "@/components/jev-stage/insight-panel";
 import { useJevStage } from "@/components/jev-stage/use-jev-stage";
 import { StageView } from "@/components/stage/stage";
 import { triggerInsetX } from "@/lib/layout/nav-chrome";
 import { cn } from "@/lib/utils";
-
-import { JevStageMessage } from "./jev-stage-message";
 
 export function JevStageLab() {
   const stage = useJevStage();
