@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
-import { JevStageTraceEventSchema, type JevStageTraceEvent } from "@/lib/jev-stage/schema";
+import {
+  JevStageTraceEventSchema,
+  type JevStageToolTrace,
+  type JevStageTraceEvent,
+} from "@/lib/jev-stage/schema";
 import {
   actionVia,
   createJevTraceRecorder,
@@ -9,7 +13,10 @@ import {
   jevDecisionEvent,
   JEV_TRACE_VALUE_CHARS,
   stepTools,
+  summarizeToolResult,
   summarizeTraceValue,
+  toolEffect,
+  traceToolSet,
   type JevRoutedLike,
 } from "@/lib/jev-stage/trace-events";
 
@@ -102,9 +109,73 @@ describe("jev-stage trace events", () => {
     });
 
     expect(tools).toEqual([
-      { name: "search_memories", args: '{"query":"moss"}', result: '{"hits":2}' },
-      { name: "switch_view", args: '{"view":{"kind":"overview"}}', result: null },
+      { name: "search_memories", args: '{"query":"moss"}', result: '{"hits":2}', effect: null },
+      { name: "switch_view", args: '{"view":{"kind":"overview"}}', result: null, effect: "View switched" },
     ]);
+  });
+
+  test("tool results summarize as counts, errors or compact JSON", () => {
+    expect(summarizeToolResult({ ok: true, memories: [1, 2, 3, 4] })).toBe("4 memories");
+    expect(summarizeToolResult({ memories: [1] })).toBe("1 memory");
+    expect(summarizeToolResult([1, 2])).toBe("2 results");
+    expect(summarizeToolResult({ ok: false, error: "That view is not available." })).toBe(
+      "That view is not available."
+    );
+    expect(summarizeToolResult({ ok: true })).toBe("ok");
+    expect(summarizeToolResult({ ok: true, queued: 2 })).toBe("2 queued");
+    expect(toolEffect("switch_view")).toBe("View switched");
+    expect(toolEffect("search_memories")).toBeNull();
+  });
+
+  test("traceToolSet times each execution and reports ok, error and effect", async () => {
+    let clock = 0;
+    const seen: JevStageToolTrace[] = [];
+    const tools = traceToolSet(
+      {
+        search_memories: {
+          description: "search",
+          execute: async (input: { query: string }) => {
+            clock += 120;
+
+            return { memories: [input.query, input.query] };
+          },
+        },
+        switch_view: {
+          execute: async () => ({ ok: false, error: "That view is not available." }),
+        },
+        broken: {
+          execute: async () => {
+            clock += 5;
+            throw new Error("boom");
+          },
+        },
+        passive: { description: "no execute" },
+      },
+      (tool) => seen.push(tool),
+      () => clock
+    );
+
+    expect(await tools.search_memories.execute({ query: "moss" })).toEqual({
+      memories: ["moss", "moss"],
+    });
+    await tools.switch_view.execute();
+    await expect(tools.broken.execute()).rejects.toThrow("boom");
+    expect(tools.search_memories.description).toBe("search");
+    expect(tools.passive).toEqual({ description: "no execute" });
+    expect(seen).toEqual([
+      { name: "search_memories", args: '{"query":"moss"}', result: "2 memories", ms: 120, ok: true, effect: null },
+      { name: "switch_view", args: "", result: "That view is not available.", ms: 0, ok: false, effect: "View switched" },
+      { name: "broken", args: "", result: "boom", ms: 5, ok: false, effect: null },
+    ]);
+  });
+
+  test("a hop listener records live tool events", () => {
+    const trace = createJevTraceRecorder(() => undefined, () => 0);
+    const onHop = hopListener(trace, "hop-2", "orchestrate", "orchestrate");
+
+    onHop({ kind: "tool", tool: { name: "web_search", args: "{}", result: "3 results", ms: 40, ok: true } });
+    expect(trace.events[0]).toMatchObject({ kind: "hop.tool", hopId: "hop-2", tool: { name: "web_search" } });
+    expect(JevStageTraceEventSchema.safeParse(trace.events[0]).success).toBe(true);
   });
 
   test("hopStep reads usage and rounds time", () => {

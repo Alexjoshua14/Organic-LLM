@@ -60,6 +60,11 @@ export const JevStageToolTraceSchema = z.object({
   name: z.string(),
   args: z.string(),
   result: z.string().nullable(),
+  /** Execution time when the tool was timed (wrapped); null for step-only records. */
+  ms: z.number().nonnegative().nullable().optional(),
+  ok: z.boolean().optional(),
+  /** Stage state this tool changed ("View switched"), when it is an effect tool. */
+  effect: z.string().nullable().optional(),
 });
 
 export type JevStageToolTrace = z.infer<typeof JevStageToolTraceSchema>;
@@ -123,6 +128,12 @@ export const JevStageTraceEventSchema = z.discriminatedUnion("kind", [
     kind: z.literal("hop.first_token"),
     t: z.number().nonnegative(),
     hopId: z.string().min(1),
+  }),
+  z.object({
+    kind: z.literal("hop.tool"),
+    t: z.number().nonnegative(),
+    hopId: z.string().min(1),
+    tool: JevStageToolTraceSchema,
   }),
   z.object({
     kind: z.literal("hop.step"),

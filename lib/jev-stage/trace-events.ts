@@ -39,6 +39,108 @@ export function summarizeTraceValue(value: unknown, max = JEV_TRACE_VALUE_CHARS)
   return text.length > max ? `${text.slice(0, Math.max(0, max - 1))}…` : text;
 }
 
+/** Stage state each effect tool changes, as the timeline names it. */
+const TOOL_EFFECTS: Record<string, string> = {
+  switch_view: "View switched",
+  file_captures: "Captures filed",
+  update_summary: "Summary updated",
+  set_design_brief: "Designer brief queued",
+  recall_memories: "Recall refreshed",
+  dispatch_specialists: "Specialists dispatched",
+  dispatch_subagent: "Specialist dispatched",
+  set_next_tier: "Next tier set",
+};
+
+export function toolEffect(name: string): string | null {
+  return TOOL_EFFECTS[name] ?? null;
+}
+
+function plural(count: number, noun: string, many = `${noun}s`): string {
+  return `${count} ${count === 1 ? noun : many}`;
+}
+
+/**
+ * Short, human summary of a tool result: counts for list results ("4 memories"), the error for a
+ * failed one, else the compact JSON.
+ */
+export function summarizeToolResult(output: unknown): string {
+  if (Array.isArray(output)) return plural(output.length, "result");
+  if (output && typeof output === "object") {
+    const record = output as Record<string, unknown>;
+
+    if (record.ok === false && typeof record.error === "string") {
+      return summarizeTraceValue(record.error);
+    }
+    for (const [key, noun, many] of [
+      ["memories", "memory", "memories"],
+      ["results", "result", "results"],
+      ["hits", "hit", "hits"],
+      ["sources", "source", "sources"],
+    ] as const) {
+      const value = record[key];
+
+      if (Array.isArray(value)) return plural(value.length, noun, many);
+    }
+    if (typeof record.queued === "number") return `${record.queued} queued`;
+    if (record.ok === true && Object.keys(record).length === 1) return "ok";
+  }
+
+  return summarizeTraceValue(output);
+}
+
+/**
+ * Wrap a tool set so every execution is timed and reported live (name, args, result, ok/error,
+ * effect). Errors are reported and rethrown, so the model sees them as before.
+ */
+export function traceToolSet<T extends Record<string, unknown>>(
+  tools: T,
+  onTool: (tool: JevStageToolTrace) => void,
+  now: () => number = () => performance.now()
+): T {
+  return Object.fromEntries(
+    Object.entries(tools).map(([name, value]) => {
+      const original = value as { execute?: (...input: unknown[]) => unknown } | undefined;
+
+      if (!original || typeof original.execute !== "function") return [name, value];
+      const execute = original.execute;
+
+      return [
+        name,
+        {
+          ...original,
+          execute: async (...input: unknown[]) => {
+            const started = now();
+            const base = { name, args: summarizeTraceValue(input[0]), effect: toolEffect(name) };
+
+            try {
+              const output = await execute(...input);
+              const failed =
+                !!output && typeof output === "object" && (output as { ok?: unknown }).ok === false;
+
+              onTool({
+                ...base,
+                result: summarizeToolResult(output),
+                ms: Math.max(0, Math.round(now() - started)),
+                ok: !failed,
+              });
+
+              return output;
+            } catch (error) {
+              onTool({
+                ...base,
+                result: summarizeTraceValue(error instanceof Error ? error.message : error),
+                ms: Math.max(0, Math.round(now() - started)),
+                ok: false,
+              });
+              throw error;
+            }
+          },
+        },
+      ];
+    })
+  ) as T;
+}
+
 /** Structural view of an AI SDK step: only the fields the trace reads. */
 export type JevStepLike = {
   toolCalls?: ReadonlyArray<{ toolCallId?: string; toolName: string; input?: unknown }>;
@@ -66,7 +168,8 @@ export function stepTools(step: JevStepLike): JevStageToolTrace[] {
     return {
       name: call.toolName,
       args: summarizeTraceValue(call.input),
-      result: result ? summarizeTraceValue(result.output) : null,
+      result: result ? summarizeToolResult(result.output) : null,
+      effect: toolEffect(call.toolName),
     };
   });
 }
@@ -93,6 +196,7 @@ export function hopStep(args: {
 export type JevHopSignal =
   | { kind: "start"; model: string }
   | { kind: "first_token" }
+  | { kind: "tool"; tool: JevStageToolTrace }
   | { kind: "step"; step: JevStageHopStep };
 
 /** The slice of `routeJevStage`'s result the decision event reads. */
@@ -189,6 +293,8 @@ export function hopListener(trace: JevTraceRecorder, hopId: string, action: JevS
       if (firstToken) return;
       firstToken = true;
       trace.record({ kind: "hop.first_token", t: trace.t(), hopId });
+    } else if (signal.kind === "tool") {
+      trace.record({ kind: "hop.tool", t: trace.t(), hopId, tool: signal.tool });
     } else {
       trace.record({ kind: "hop.step", t: trace.t(), hopId, step: signal.step });
     }

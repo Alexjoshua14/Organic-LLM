@@ -6,7 +6,7 @@ import { z } from "zod";
 import { maxOutputTokensForBudget, packMessagesForInputBudget } from "./budget";
 import { resolveRespondModel } from "./respond";
 import { finishModelCall, markFirstToken, startCallClock } from "./trace";
-import { hopStep, type JevHopSignal } from "./trace-events";
+import { hopStep, traceToolSet, type JevHopSignal } from "./trace-events";
 import type { JevStageModelCallTrace } from "./schema";
 
 import { computeUsageCostUsd } from "@/lib/rate-limit/llm-cost";
@@ -130,7 +130,8 @@ export async function streamJevOrchestrate(args: {
     ].join("\n\n"),
     maxOutputTokens: maxOutputTokensForBudget(model),
     stopWhen: stepCountIs(6),
-    tools: {
+    // Each tool execution is timed and streamed to the insight timeline as it finishes.
+    tools: traceToolSet({
       ...(memory ? { memory_search: memory } : {}),
       ...(web ? { web_search: web } : {}),
       update_summary: tool({
@@ -167,7 +168,7 @@ export async function streamJevOrchestrate(args: {
           return { ok: true, queued: assignment.name };
         },
       }),
-    },
+    }, (tool) => args.onHop?.({ kind: "tool", tool })),
     abortSignal: AbortSignal.timeout(120_000),
     providerOptions: {
       ...buildEffortProviderOptions(model, args.settings?.effort),

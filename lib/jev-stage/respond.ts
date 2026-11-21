@@ -17,7 +17,7 @@ import {
   JEV_STAGE_RESPOND_OUTPUT_BUDGET_USD,
 } from "./constants";
 import { finishModelCall, markFirstToken, startCallClock } from "./trace";
-import { hopStep, type JevHopSignal } from "./trace-events";
+import { hopStep, traceToolSet, type JevHopSignal } from "./trace-events";
 import type { JevStageModelCallTrace } from "./schema";
 
 import { computeUsageCostUsd } from "@/lib/rate-limit/llm-cost";
@@ -404,14 +404,18 @@ export async function streamJevRespond(args: {
       maxOutputTokens: maxOut,
       // Without stopWhen, tool calls can finish the turn with no user-visible text.
       stopWhen: stepCountIs(JEV_STAGE_RESPOND_MAX_STEPS),
-      tools: createJevRespondTools({
-        ownerId: args.ownerId,
-        state: args.state,
-        settings: args.settings,
-        effects,
-        onSummary: args.onSummary,
-        onDesignBrief: args.onDesignBrief,
-      }),
+      // Each tool execution is timed and streamed to the insight timeline as it finishes.
+      tools: traceToolSet(
+        createJevRespondTools({
+          ownerId: args.ownerId,
+          state: args.state,
+          settings: args.settings,
+          effects,
+          onSummary: args.onSummary,
+          onDesignBrief: args.onDesignBrief,
+        }),
+        (tool) => args.onHop?.({ kind: "tool", tool })
+      ),
       abortSignal: abort.signal,
       providerOptions: {
         ...buildEffortProviderOptions(model, args.settings?.effort),
