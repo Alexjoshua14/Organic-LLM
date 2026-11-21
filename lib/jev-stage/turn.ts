@@ -171,6 +171,7 @@ export async function runJevStageTurn(args: {
       message: args.message,
       summary: bundle.stage.summary,
       knowledgeHint: JSON.stringify(stageKnowledgeContext(bundle.stage)),
+      stage: bundle.stage,
     });
 
     let selected = routed.selected;
@@ -205,13 +206,14 @@ export async function runJevStageTurn(args: {
         id: crypto.randomUUID(),
         operation: "jev.route",
         model: JEV_GATEWAY_TRACE_MODEL,
-        inputTokens: Math.ceil((args.message.length + bundle.stage.summary.length) / 4),
-        outputTokens: 80,
+        inputTokens: routed.usage.inputTokens,
+        outputTokens: routed.usage.outputTokens,
         clock: { ...routerClock, firstTokenAt: routerClock.started + routed.routerMs },
       }),
     ];
-    // Align latency with the measured router hop.
+    // Align latency with the measured router hop; cost is Gateway-reported or input-only.
     calls[0]!.latencyMs = routed.routerMs;
+    calls[0]!.costUsd = routed.costUsd;
     let outcome: JevStageTurnInsight["outcome"] = "ok";
     let outcomeDetail: string | null = null;
     let action = selected;

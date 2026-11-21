@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { JEV_STAGE_CONFIDENCE_FLOOR } from "@/lib/jev-stage/constants";
 import { pickJevStageAction, routeJevStage } from "@/lib/jev-stage/router";
 import type { JevGenerate } from "@/lib/llm/jev";
+import { emptyStageState } from "@/lib/stage/schema";
 
 describe("jev-stage router", () => {
   test("picks the highest confidence above the floor", () => {
@@ -44,25 +45,114 @@ describe("jev-stage router", () => {
     expect(routed.source).toBe("fallback");
     expect(routed.selected.kind).toBe("respond");
     expect(routed.fellBack).toBe(true);
+    expect(routed.costUsd).toBe(0);
   });
 
-  test("routeJevStage accepts a structured Jev object", async () => {
-    const generate: JevGenerate = async () => ({
-      object: {
-        candidates: [
-          { kind: "captures", confidence: 0.91, reason: "brain dump", args: { captures: [] } },
-          { kind: "respond", confidence: 0.2, reason: "maybe chat", args: {} },
-        ],
-      },
-    });
+  test("asks one choice question over the actions and ranks by probability", async () => {
+    let questions: Parameters<JevGenerate>[0]["questions"] = {};
+    const generate: JevGenerate = async (args) => {
+      questions = args.questions;
+
+      return {
+        answers: {
+          action: {
+            type: "choice",
+            choice: "captures",
+            probabilities: { captures: 0.71, respond: 0.2, recall: 0.09 },
+          },
+        },
+        usage: { inputTokens: 1200, outputTokens: 2 },
+      };
+    };
     const routed = await routeJevStage({
-      message: "dump these ideas",
+      message: "dump these ideas: tide clock, moss lamp",
       summary: "",
       knowledgeHint: "",
       generate,
     });
 
+    expect(Object.keys(questions)).toEqual(["action"]);
+    expect(questions.action).toMatchObject({ type: "choice" });
+    expect(Object.keys((questions.action as { criteria: object }).criteria)).toContain("orchestrate");
     expect(routed.source).toBe("jev");
     expect(routed.selected.kind).toBe("captures");
+    expect(routed.selected.confidence).toBe(0.71);
+    expect(routed.selected.args).toEqual({
+      captures: [{ text: "dump these ideas: tide clock, moss lamp" }],
+    });
+    expect(routed.ranked.map((c) => c.kind)).toEqual(["captures", "respond", "recall"]);
+    expect(routed.usage).toEqual({ inputTokens: 1200, outputTokens: 2 });
+    expect(routed.costUsd).toBeCloseTo((1200 / 1_000_000) * 0.042, 10);
+  });
+
+  test("without probabilities the chosen action is the only candidate", async () => {
+    const routed = await routeJevStage({
+      message: "research and write a brief",
+      summary: "",
+      knowledgeHint: "",
+      generate: async () => ({ answers: { action: { type: "choice", choice: "orchestrate" } } }),
+    });
+
+    expect(routed.ranked).toHaveLength(1);
+    expect(routed.selected.kind).toBe("orchestrate");
+    expect(routed.selected.confidence).toBe(1);
+  });
+
+  test("an unknown choice falls back to respond", async () => {
+    const routed = await routeJevStage({
+      message: "hi",
+      summary: "",
+      knowledgeHint: "",
+      generate: async () => ({ answers: { action: { type: "choice", choice: "teleport" } } }),
+    });
+
+    expect(routed.source).toBe("fallback");
+    expect(routed.selected.kind).toBe("respond");
+  });
+
+  test("view_switch takes its view from a second choice over the Stage's views", async () => {
+    let viewCriteria: Record<string, string> = {};
+    const routed = await routeJevStage({
+      message: "can we look at everything side by side",
+      summary: "",
+      knowledgeHint: "",
+      stage: emptyStageState(),
+      generate: async (args) => {
+        viewCriteria = (args.questions.view as { criteria: Record<string, string> }).criteria;
+
+        return {
+          answers: {
+            action: { type: "choice", choice: "view_switch", probabilities: { view_switch: 0.8 } },
+            view: { type: "choice", choice: "v1", probabilities: { v0: 0.1, v1: 0.9 } },
+          },
+        };
+      },
+    });
+
+    expect(Object.keys(viewCriteria)).toEqual(["v0", "v1"]);
+    expect(routed.selected.kind).toBe("view_switch");
+    expect(routed.selected.args).toEqual({ view: { kind: "overview", id: null } });
+  });
+
+  test("an unambiguous navigation command resolves the view without a view question", async () => {
+    let asked: string[] = [];
+    const routed = await routeJevStage({
+      message: "go to the overview",
+      summary: "",
+      knowledgeHint: "",
+      stage: emptyStageState(),
+      generate: async (args) => {
+        asked = Object.keys(args.questions);
+
+        return {
+          answers: {
+            action: { type: "choice", choice: "view_switch", probabilities: { view_switch: 0.9 } },
+          },
+        };
+      },
+    });
+
+    expect(asked).toEqual(["action"]);
+    expect(routed.selected.args).toEqual({ view: { kind: "overview", id: null } });
   });
 });
