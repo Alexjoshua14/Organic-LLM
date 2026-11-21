@@ -885,6 +885,179 @@ export const FIXTURE_ERGON_PROPOSAL: GenUIBlock = {
   ],
 };
 
+export const FIXTURE_STATE_DIAGRAM: GenUIBlock = {
+  type: "state-diagram",
+  version: 1,
+  title: "Release gate",
+  states: [
+    { id: "draft", label: "Draft" },
+    { id: "review", label: "In review" },
+    { id: "ready", label: "Ready to merge" },
+    { id: "shipped", label: "Shipped" },
+  ],
+  transitions: [
+    { from: "draft", to: "review", label: "open PR" },
+    { from: "review", to: "ready", label: "checks green" },
+    { from: "review", to: "draft", label: "changes requested" },
+    { from: "ready", to: "shipped", label: "merge" },
+  ],
+  footnote: "Tap a state to highlight its edges.",
+};
+
+export const FIXTURE_PROMPT_FIELD: GenUIBlock = {
+  type: "prompt-field",
+  version: 1,
+  title: "Rewrite this answer",
+  default: "Explain the tradeoff in one paragraph for a senior engineer.",
+  suggestions: [
+    { label: "Shorter", insertionText: "Keep it under 80 words." },
+    { label: "More cautious", insertionText: "Call out uncertainty explicitly." },
+    { label: "With example", insertionText: "Include one concrete example." },
+  ],
+  placeholder: "Describe how to reshape the reply…",
+};
+
+export const FIXTURE_PROGRESS_TRACK: GenUIBlock = {
+  type: "progress-track",
+  version: 1,
+  title: "Migration cutover",
+  total: 100,
+  current: 62,
+  unit: "%",
+  milestones: [
+    { label: "Shadow", value: 25 },
+    { label: "Dual-write", value: 50 },
+    { label: "Cutover", value: 75 },
+    { label: "Cleanup", value: 100 },
+  ],
+  footnote: "Bar animates when the current value updates.",
+};
+
+export const FIXTURE_CONTEXT_SWITCHBOARD: GenUIBlock = {
+  type: "context-switchboard",
+  version: 1,
+  title: "What shaped this answer",
+  question: "Would you still recommend this if you ignored my old budget?",
+  items: [
+    {
+      id: "mem-budget",
+      kind: "memory",
+      label: "Budget cap from March",
+      detail: "“Keep monthly spend under $40.”",
+      included: true,
+    },
+    {
+      id: "file-plan",
+      kind: "file",
+      label: "pricing-notes.md",
+      detail: "Assumes Team plan pricing",
+      included: true,
+    },
+    {
+      id: "assume-stable",
+      kind: "assumption",
+      label: "Usage stays flat",
+      included: true,
+    },
+  ],
+  footnote: "Toggle items off, then rerun from the same turn. Nothing is deleted.",
+};
+
+export const FIXTURE_RIPPLE_PREVIEW: GenUIBlock = {
+  type: "ripple-preview",
+  version: 1,
+  title: "Ripple preview",
+  change: {
+    summary: "Move milestone “Beta cut” to next Friday",
+    detail: "Arcadia release calendar",
+  },
+  ripples: [
+    {
+      id: "t1",
+      kind: "blocked",
+      label: "Ergon task “Docs freeze” becomes blocked",
+      detail: "Depends on Beta cut landing first",
+      approved: true,
+    },
+    {
+      id: "t2",
+      kind: "blocked",
+      label: "Ergon task “Partner ping” becomes blocked",
+      approved: true,
+    },
+    {
+      id: "n1",
+      kind: "stale",
+      label: "Project note “Launch week” goes stale",
+      detail: "Mentions Thursday cutover",
+      approved: true,
+    },
+  ],
+  footnote: "Review the ripple, then apply only the changes you approve.",
+};
+
+export const FIXTURE_HYP_GRAPH: GenUIBlock = {
+  type: "hyp-graph",
+  version: 1,
+  title: "Why recommend Team plan",
+  nodes: [
+    { id: "usage", label: "Usage trending up", tone: "accent" },
+    { id: "seat-cost", label: "Per-seat cost dominates", tone: "action" },
+    { id: "team", label: "Team plan fits", tone: "accent", detail: "Break-even under ~8 seats" },
+    { id: "enterprise", label: "Enterprise overkill", tone: "muted" },
+  ],
+  edges: [
+    { from: "usage", to: "seat-cost", weight: 0.8, label: "more seats needed" },
+    { from: "seat-cost", to: "team", weight: 0.9 },
+    { from: "seat-cost", to: "enterprise", weight: 0.3, label: "volume discount weak here" },
+  ],
+  footnote: "Tap a node to walk its causal edges.",
+};
+
+export const FIXTURE_AUDIT_LINE: GenUIBlock = {
+  type: "audit-line",
+  version: 1,
+  title: "How this answer was built",
+  events: [
+    {
+      time: "14:02:11",
+      actor: "user",
+      action: "ask",
+      summary: "Asked which plan fits a growing team",
+    },
+    {
+      time: "14:02:14",
+      actor: "Lyra",
+      action: "retrieve",
+      summary: "Loaded pricing notes and March budget memory",
+    },
+    {
+      time: "14:02:18",
+      actor: "Arcadia",
+      action: "draft",
+      summary: "Drafted Team plan recommendation",
+    },
+    {
+      time: "14:02:19",
+      actor: "system",
+      action: "render",
+      summary: "Attached measure + hyp-graph blocks",
+    },
+  ],
+  footnote: "Concise audit of state changes for this turn.",
+};
+
+export const FIXTURE_PREVIEW_BLOB: GenUIBlock = {
+  type: "preview-blob",
+  version: 1,
+  title: "Architecture sketch preview",
+  previewURL: "https://placehold.co/320x180/png",
+  svgURL: "https://placehold.co/960x540/png",
+  prompt: "Simple boxes for chat → tools → Ergon, muted glass style",
+  costEstimate: "~$0.02 preview · ~$0.18 full",
+  footnote: "Expand the preview, then commit a full render when ready.",
+};
+
 export const ALL_VALID_FIXTURES: GenUIBlock[] = [
   FIXTURE_ANSWER_CARD,
   FIXTURE_DECISION_MATRIX,
@@ -899,4 +1072,12 @@ export const ALL_VALID_FIXTURES: GenUIBlock[] = [
   FIXTURE_PROFILE_MAP,
   FIXTURE_ERGON_BOARD,
   FIXTURE_ERGON_PROPOSAL,
+  FIXTURE_STATE_DIAGRAM,
+  FIXTURE_PROMPT_FIELD,
+  FIXTURE_PROGRESS_TRACK,
+  FIXTURE_CONTEXT_SWITCHBOARD,
+  FIXTURE_RIPPLE_PREVIEW,
+  FIXTURE_HYP_GRAPH,
+  FIXTURE_AUDIT_LINE,
+  FIXTURE_PREVIEW_BLOB,
 ];

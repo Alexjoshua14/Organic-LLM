@@ -70,4 +70,30 @@ describe("Gen UI Lab shell", () => {
     // The remounted gallery scrolls to the archetype that was picked.
     expect(scrolled.at(-1)).toBe("decision-matrix");
   });
+
+  test("each archetype has Component / Model instructions tabs", () => {
+    const view = renderShell();
+    const section = view.container.querySelector('[data-archetype="measure"]');
+
+    expect(section).toBeTruthy();
+    const tabs = within(section as HTMLElement).getByRole("tablist", { name: "measure view" });
+    const instructions = within(tabs).getByRole("tab", { name: "Model instructions" });
+
+    expect(within(tabs).getByRole("tab", { name: "Component" })).toBeTruthy();
+    expect(instructions).toBeTruthy();
+
+    // Radix tabs need pointer down before click in jsdom (same as onboarding-guide tests).
+    fireEvent.mouseDown(instructions);
+    fireEvent.click(instructions);
+
+    expect(
+      within(tabs).getByRole("tab", { name: "Model instructions", selected: true })
+    ).toBeTruthy();
+    expect(
+      within(section as HTMLElement).getByRole("heading", { name: "Measure", level: 1 })
+    ).toBeTruthy();
+    expect(
+      within(section as HTMLElement).getByRole("heading", { name: "Shared rules", level: 3 })
+    ).toBeTruthy();
+  });
 });

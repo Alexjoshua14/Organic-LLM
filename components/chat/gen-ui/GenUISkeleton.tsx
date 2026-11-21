@@ -100,6 +100,82 @@ export function GenUISkeleton({ type }: GenUISkeletonProps) {
         </div>
       ) : null}
 
+      {type === "state-diagram" ? (
+        <div className="space-y-3">
+          <Shimmer className="h-4 w-1/2" />
+          <div className="flex gap-2">
+            <Shimmer className="size-8 rounded-full" />
+            <Shimmer className="h-8 w-full" />
+          </div>
+          <Shimmer className="h-8 w-full" />
+          <Shimmer className="h-8 w-5/6" />
+        </div>
+      ) : null}
+
+      {type === "prompt-field" ? (
+        <div className="space-y-3">
+          <Shimmer className="h-4 w-2/3" />
+          <Shimmer className="h-20 w-full rounded-xl" />
+          <div className="flex gap-2">
+            <Shimmer className="h-8 w-16 rounded-full" />
+            <Shimmer className="h-8 w-20 rounded-full" />
+            <Shimmer className="h-8 w-14 rounded-full" />
+          </div>
+        </div>
+      ) : null}
+
+      {type === "progress-track" ? (
+        <div className="space-y-3">
+          <Shimmer className="h-4 w-1/2" />
+          <Shimmer className="h-3 w-full rounded-full" />
+          <div className="flex justify-between gap-2">
+            <Shimmer className="h-3 w-12" />
+            <Shimmer className="h-3 w-12" />
+            <Shimmer className="h-3 w-12" />
+          </div>
+        </div>
+      ) : null}
+
+      {type === "context-switchboard" || type === "ripple-preview" ? (
+        <div className="space-y-3">
+          <Shimmer className="h-4 w-2/3" />
+          <Shimmer className="h-12 w-full rounded-xl" />
+          <Shimmer className="h-12 w-full rounded-xl" />
+          <Shimmer className="h-12 w-5/6 rounded-xl" />
+        </div>
+      ) : null}
+
+      {type === "hyp-graph" ? (
+        <div className="space-y-3">
+          <Shimmer className="h-4 w-1/2" />
+          <Shimmer className="h-12 w-full rounded-xl" />
+          <Shimmer className="h-12 w-full rounded-xl" />
+          <Shimmer className="h-8 w-5/6 rounded-xl" />
+        </div>
+      ) : null}
+
+      {type === "audit-line" ? (
+        <div className="space-y-3">
+          <Shimmer className="h-4 w-2/3" />
+          <div className="flex gap-3">
+            <Shimmer className="mt-1 size-2 shrink-0 rounded-full" />
+            <Shimmer className="h-10 w-full" />
+          </div>
+          <div className="flex gap-3">
+            <Shimmer className="mt-1 size-2 shrink-0 rounded-full" />
+            <Shimmer className="h-10 w-5/6" />
+          </div>
+        </div>
+      ) : null}
+
+      {type === "preview-blob" ? (
+        <div className="space-y-3">
+          <Shimmer className="h-4 w-1/2" />
+          <Shimmer className="h-48 w-full rounded-xl" />
+          <Shimmer className="h-8 w-1/3" />
+        </div>
+      ) : null}
+
       {type === "restaurant-card" ? (
         <div className="flex gap-3">
           <Shimmer className="size-16 shrink-0 rounded-lg" />

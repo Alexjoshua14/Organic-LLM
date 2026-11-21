@@ -6,6 +6,14 @@ import { DecisionMatrixBlockSchema } from "@/lib/schemas/gen-ui/decision-matrix"
 import { MeasureBlockSchema } from "@/lib/schemas/gen-ui/measure";
 import { ProfileMapBlockSchema } from "@/lib/schemas/gen-ui/profile-map";
 import { ErgonBoardBlockSchema, ErgonProposalBlockSchema } from "@/lib/schemas/gen-ui/ergon";
+import { StateDiagramBlockSchema } from "@/lib/schemas/gen-ui/state-diagram";
+import { PromptFieldBlockSchema } from "@/lib/schemas/gen-ui/prompt-field";
+import { ProgressTrackBlockSchema } from "@/lib/schemas/gen-ui/progress-track";
+import { ContextSwitchboardBlockSchema } from "@/lib/schemas/gen-ui/context-switchboard";
+import { RipplePreviewBlockSchema } from "@/lib/schemas/gen-ui/ripple-preview";
+import { HypGraphBlockSchema } from "@/lib/schemas/gen-ui/hyp-graph";
+import { AuditLineBlockSchema } from "@/lib/schemas/gen-ui/audit-line";
+import { PreviewBlobBlockSchema } from "@/lib/schemas/gen-ui/preview-blob";
 import { PlanTimelineBlockSchema } from "@/lib/schemas/gen-ui/plan-timeline";
 import { RecipeCardBlockSchema } from "@/lib/schemas/gen-ui/recipe-card";
 import { RestaurantCardBlockSchema } from "@/lib/schemas/gen-ui/restaurant-card";
@@ -25,6 +33,14 @@ const DESIGNER_BLOCKS = {
   "profile-map": ProfileMapBlockSchema,
   "ergon-board": ErgonBoardBlockSchema,
   "ergon-proposal": ErgonProposalBlockSchema,
+  "state-diagram": StateDiagramBlockSchema,
+  "prompt-field": PromptFieldBlockSchema,
+  "progress-track": ProgressTrackBlockSchema,
+  "context-switchboard": ContextSwitchboardBlockSchema,
+  "ripple-preview": RipplePreviewBlockSchema,
+  "hyp-graph": HypGraphBlockSchema,
+  "audit-line": AuditLineBlockSchema,
+  "preview-blob": PreviewBlobBlockSchema,
 } as const;
 
 type DesignerBlockType = keyof typeof DESIGNER_BLOCKS;

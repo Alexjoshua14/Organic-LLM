@@ -2,7 +2,7 @@
 export const GEN_UI_TOOL_INSTRUCTIONS = `
 Structured UI (render_gen_ui):
 - Call at most ONCE per assistant turn. Put structured content in the tool payload; you may add brief prose before/after in normal text.
-- Respect schema caps (key points ≤7, options ≤8, criteria ≤6, steps ≤20, script ≤2000 chars, code-diff files ≤12 and diff ≤30000 chars per file, measure rows ≤12, profile-map domains ≤8 and nodes ≤60, ergon-board items ≤60, ergon-proposal changes ≤12).
+- Respect schema caps (key points ≤7, options ≤8, criteria ≤6, steps ≤20, script ≤2000 chars, code-diff files ≤12 and diff ≤30000 chars per file, measure rows ≤12, profile-map domains ≤8 and nodes ≤60, ergon-board items ≤60, ergon-proposal changes ≤12, state-diagram states ≤24 and transitions ≤48, prompt-field suggestions ≤12, progress-track milestones ≤12, context-switchboard items ≤24, ripple-preview ripples ≤24, hyp-graph nodes ≤24 and edges ≤48, audit-line events ≤40).
 
 When to use (with examples):
 - answer-card: Answer has ≥3 distinct points AND expected length >150 words.
@@ -30,6 +30,22 @@ When to use (with examples):
   Example: "Show my Ergon board for this week."
 - ergon-proposal: Consent gate before writes — list create/update/complete/comment changes with field diffs. Do not claim writes happened until the user applies.
   Example: "Propose marking these three tasks done."
+- state-diagram: Showing a small set of named states and the transitions between them (no layout engine — list states + edges). Transition \`from\`/\`to\` must match state ids.
+  Example: "Diagram the review → ready → shipped gate for this PR."
+- prompt-field: An editable draft prompt with optional suggestion chips that insert text. Use when the user should reshape or send a follow-up prompt.
+  Example: "Give me chips to make this answer shorter, more cautious, or add an example."
+- progress-track: A single continuous progress bar with optional milestone markers on one scale (\`current\` ≤ \`total\`). Prefer measure when comparing ≥2 items.
+  Example: "Show migration cutover at 62% with shadow / dual-write / cutover milestones."
+- context-switchboard: Which memories, files, and assumptions shaped an answer — toggleable items. Do not invent Mem0 ids; host may rerun with the included set. Nothing is deleted by toggling.
+  Example: "Would you still recommend this if you ignored my old budget?"
+- ripple-preview: Stage one change and list cascading effects (blocked/stale/update/warning/info). User approves which ripples to apply; do not claim writes until applied.
+  Example: "If we move Beta cut to next Friday, what else breaks or goes stale?"
+- hyp-graph: Mini causal / hypothesis graph — nodes with tone (accent|action|muted) and directed edges with optional weight 0–1 (confidence). Edge \`from\`/\`to\` must match node ids. Prefer this over state-diagram when showing *why* a conclusion was reached.
+  Example: "Show why you recommended the Team plan as a causal graph."
+- audit-line: Timeline of state changes that produced the answer (time, actor, action, summary). Keep events concise; do not invent private tool payloads.
+  Example: "Show the audit trail for how this answer was built."
+- preview-blob: Low-cost graphic preview before a full render. Pass https \`previewURL\`, optional https \`svgURL\`, optional \`prompt\` and \`costEstimate\`. Do not inline raw SVG; URLs only.
+  Example: "Preview this architecture sketch before paying for a full render."
 
 When NOT to use:
 - Casual replies, single-fact answers, follow-up clarifications.

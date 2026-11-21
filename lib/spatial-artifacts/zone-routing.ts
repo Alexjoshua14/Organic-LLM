@@ -18,6 +18,14 @@ export function primaryZoneForBlockType(type: GenUIBlockType): SpatialZone {
     case "profile-map":
     case "ergon-board":
     case "ergon-proposal":
+    case "state-diagram":
+    case "prompt-field":
+    case "progress-track":
+    case "context-switchboard":
+    case "ripple-preview":
+    case "hyp-graph":
+    case "audit-line":
+    case "preview-blob":
     default:
       return "bookshelf";
   }

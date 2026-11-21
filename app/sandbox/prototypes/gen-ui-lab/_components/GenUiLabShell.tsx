@@ -10,6 +10,7 @@ import { Loader2, RotateCcw } from "lucide-react";
 import { useGenUiGalleryScroll } from "../_hooks/use-gen-ui-gallery-scroll";
 import { useGenUiLabQuestion } from "../_hooks/use-gen-ui-lab-question";
 
+import { GenUiArchetypeViewTabs } from "./GenUiArchetypeViewTabs";
 import { GenUiGalleryNav } from "./GenUiGalleryNav";
 import {
   GenUiCodeDemo,
@@ -436,18 +437,20 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
                   }
                   registerRef={registerSection(type)}
                 >
-                  {type === LAB_DIAGRAM_ARCHETYPE ? (
-                    <GenUiMermaidDiagramDemo demo={diagramDemo} />
-                  ) : type === "decision-matrix" ? (
-                    <GenUiDecisionDemo
-                      block={blocks[type] as DecisionMatrixBlock}
-                      demo={decisionDemo}
-                    />
-                  ) : type === "code-diff" ? (
-                    <GenUiCodeDemo demo={codeDemo} fixture={blocks[type]} />
-                  ) : (
-                    <GenUIRenderer data={{ block: blocks[type] }} messageId={`lab-${type}`} />
-                  )}
+                  <GenUiArchetypeViewTabs archetype={type}>
+                    {type === LAB_DIAGRAM_ARCHETYPE ? (
+                      <GenUiMermaidDiagramDemo demo={diagramDemo} />
+                    ) : type === "decision-matrix" ? (
+                      <GenUiDecisionDemo
+                        block={blocks[type] as DecisionMatrixBlock}
+                        demo={decisionDemo}
+                      />
+                    ) : type === "code-diff" ? (
+                      <GenUiCodeDemo demo={codeDemo} fixture={blocks[type]} />
+                    ) : (
+                      <GenUIRenderer data={{ block: blocks[type] }} messageId={`lab-${type}`} />
+                    )}
+                  </GenUiArchetypeViewTabs>
                 </GenUiGallerySection>
               ))
             ) : stateView ? (
