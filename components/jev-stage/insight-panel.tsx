@@ -2,11 +2,12 @@
 
 import type { JevStageTurnInsight } from "@/lib/jev-stage/schema";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useReducer, useState } from "react";
 import { ChevronLeft, ChevronRight, MessageSquare, ThumbsDown, ThumbsUp, X } from "lucide-react";
 import { Popover } from "radix-ui";
 
 import { glass } from "@/components/design-system/primitives";
+import { initialInsightPager, insightPage, insightPagerReducer } from "@/lib/jev-stage/insight-pager";
 import { formatUsd } from "@/lib/usage/format";
 import { cn } from "@/lib/utils";
 
@@ -118,10 +119,10 @@ export function JevStageInsightPanel({
   onEval: (turnId: string, signal: "up" | "down", note?: string | null) => Promise<void>;
   className?: string;
 }) {
-  const [index, setIndex] = useState(0);
+  const [pager, page] = useReducer(insightPagerReducer, undefined, () => initialInsightPager());
   const [sheetOpen, setSheetOpen] = useState(false);
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
-  const safeIndex = Math.min(index, Math.max(0, insights.length - 1));
+  const safeIndex = insightPage(pager, insights.length);
   const insight = insights[safeIndex] ?? null;
   const note = insight ? (noteDrafts[insight.turnId] ?? "") : "";
 
@@ -214,7 +215,7 @@ export function JevStageInsightPanel({
             className="rounded-lg p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"
             disabled={safeIndex <= 0}
             type="button"
-            onClick={() => setIndex((value) => Math.max(0, value - 1))}
+            onClick={() => page({ type: "prev", count: insights.length })}
           >
             <ChevronLeft className="size-4" />
           </button>
@@ -226,7 +227,7 @@ export function JevStageInsightPanel({
             className="rounded-lg p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"
             disabled={safeIndex >= insights.length - 1}
             type="button"
-            onClick={() => setIndex((value) => Math.min(insights.length - 1, value + 1))}
+            onClick={() => page({ type: "next", count: insights.length })}
           >
             <ChevronRight className="size-4" />
           </button>
