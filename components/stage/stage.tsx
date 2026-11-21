@@ -6,7 +6,7 @@ import type { ChatModel } from "@/lib/schemas/chat";
 import type { ChatEffortLevel } from "@/lib/schemas/chat-effort";
 import type { StageTurnSettings, StageRect } from "@/lib/stage/schema";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import {
   AudioLines,
   Grid3X3,
@@ -89,10 +89,12 @@ export function Stage() {
 export function StageView({
   stage,
   scripted = false,
+  agentMessage,
 }: {
   stage: StageController;
   /** A scripted stage has no real threads, calls, or voice session to attach to. */
   scripted?: boolean;
+  agentMessage?: ReactNode;
 }) {
   const liveVoice = useVoiceSessionOptional();
   const voice = scripted ? null : liveVoice;
@@ -440,6 +442,7 @@ export function StageView({
 
       <section aria-label="Your 32 by 32 stage" className="stage-surface">
         <StageAgent
+          message={agentMessage}
           status={
             frame.tiny
               ? sending

@@ -8,6 +8,8 @@ import { StageView } from "@/components/stage/stage";
 import { triggerInsetX } from "@/lib/layout/nav-chrome";
 import { cn } from "@/lib/utils";
 
+import { JevStageMessage } from "./jev-stage-message";
+
 export function JevStageLab() {
   const stage = useJevStage();
 
@@ -40,7 +42,19 @@ export function JevStageLab() {
           </span>
         ) : null}
       </nav>
-      <StageView scripted stage={stage} />
+      <StageView
+        scripted
+        stage={stage}
+        agentMessage={
+          stage.submittedMessage && (
+            <JevStageMessage
+              key={stage.submittedMessage.id}
+              text={stage.submittedMessage.text}
+              status={stage.turnStatus}
+            />
+          )
+        }
+      />
       <div className="pointer-events-none absolute bottom-28 right-4 top-20 z-20">
         <div className="pointer-events-auto sticky top-20 flex justify-end">
           <JevStageInsightPanel insights={stage.insights} onEval={stage.setEval} />

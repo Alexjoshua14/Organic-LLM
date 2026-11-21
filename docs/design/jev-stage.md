@@ -27,7 +27,7 @@ After Jev routes, execution is a bounded step loop (`JEV_STAGE_TURN_MAX_STEPS`):
    can continue into a visible reply instead of ending the turn blank.
 4. A final safety reply is written if the turn would otherwise complete with nothing visible.
 5. The client aborts hung streams after `JEV_STAGE_CLIENT_TIMEOUT_MS` so Stage cannot stick
-   on “Thinking with you”.
+   on a pending turn.
 
 ## Code map
 
@@ -37,6 +37,13 @@ After Jev routes, execution is a bounded step loop (`JEV_STAGE_TURN_MAX_STEPS`):
 | `app/api/prototypes/jev-stage/` | GET bundle, POST NDJSON turn / reset, eval POST |
 | `components/jev-stage/` | Hook + insight panel |
 | `docs/migrations/jev_stage_turn_eval.sql` | Lean Supabase eval table |
+
+## Sent message
+
+The prototype echoes a submitted message beneath Organic while the turn runs. The two-line
+preview opens in a scrollable popover when clipped. Route, fallback, model and tool updates
+come from the turn stream. Once the reply is saved, the full message is available in
+Conversation. A failed turn leaves the echo visible until retry or reset.
 
 ## Insight panel
 

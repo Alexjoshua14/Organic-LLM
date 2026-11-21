@@ -2,7 +2,7 @@
 
 import type { StageController } from "@/components/stage/stage";
 import type { StageOperation, StageTurnSettings } from "@/lib/stage/schema";
-import type { JevStageBundle, JevStageStreamEvent, JevStageTurnInsight } from "@/lib/jev-stage/schema";
+import type { JevStageActionKind, JevStageBundle, JevStageStreamEvent, JevStageTurnInsight } from "@/lib/jev-stage/schema";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -11,6 +11,19 @@ import { applyStageOperations, stageReservedRects } from "@/lib/stage/layout";
 import { emptyStageState } from "@/lib/stage/schema";
 import { JEV_STAGE_CLIENT_TIMEOUT_MS } from "@/lib/jev-stage/constants";
 import { emptyJevStageBundle } from "@/lib/jev-stage/schema";
+import { shortModel } from "@/lib/jev-stage/trace-view";
+
+const ACTION_LABEL: Record<JevStageActionKind, string> = {
+  respond: "Respond",
+  orchestrate: "Orchestrate",
+  memory_search: "Memory search",
+  web_search: "Web search",
+  view_switch: "Switch view",
+  captures: "File captures",
+  recall: "Recall memories",
+  designer_brief: "Brief designer",
+  specialists: "Dispatch specialists",
+};
 
 async function readNdjson(
   response: Response,
@@ -42,6 +55,8 @@ async function readNdjson(
 export function useJevStage(): StageController & {
   insights: JevStageTurnInsight[];
   streamingText: string;
+  submittedMessage: { id: string; text: string } | null;
+  turnStatus: string;
   setEval: (
     turnId: string,
     signal: "up" | "down",
@@ -54,6 +69,8 @@ export function useJevStage(): StageController & {
   const [sending, setSending] = useState(false);
   const [saving, setSaving] = useState(false);
   const [streamingText, setStreamingText] = useState("");
+  const [submittedMessage, setSubmittedMessage] = useState<{ id: string; text: string } | null>(null);
+  const [turnStatus, setTurnStatus] = useState("");
   const current = useRef(bundle);
   const sendLock = useRef(false);
   const mounted = useRef(true);
@@ -104,6 +121,9 @@ export function useJevStage(): StageController & {
       setError(null);
       setStreamingText("");
       const requestId = crypto.randomUUID();
+
+      setSubmittedMessage({ id: requestId, text: message });
+      setTurnStatus("Received");
       const abort = new AbortController();
       const timeout = window.setTimeout(() => abort.abort(), JEV_STAGE_CLIENT_TIMEOUT_MS);
 
@@ -124,11 +144,57 @@ export function useJevStage(): StageController & {
 
         let sawDone = false;
         let streamFailed = false;
+        let writing: string | null = null;
 
         await readNdjson(response, (event) => {
           if (!mounted.current) return;
           if (event.type === "delta") {
             setStreamingText((value) => value + event.text);
+            if (writing) setTurnStatus(writing);
+          } else if (event.type === "route") {
+            const action = ACTION_LABEL[event.selected.kind];
+
+            setTurnStatus(
+              event.fellBack
+                ? `Falling back to ${action}`
+                : `Jev chose ${action} · ${event.selected.confidence.toFixed(2)}`
+            );
+          } else if (event.type === "trace") {
+            const trace = event.event;
+
+            switch (trace.kind) {
+              case "jev.start":
+                setTurnStatus("Jev is choosing a route");
+                break;
+              case "hop.start":
+                if (trace.model) {
+                  const model = shortModel(trace.model);
+
+                  writing = `Writing with ${model}`;
+                  setTurnStatus(
+                    trace.operation === "orchestrate"
+                      ? `Orchestrating with ${model}`
+                      : `Preparing a reply with ${model}`
+                  );
+                }
+                break;
+              case "hop.first_token":
+                setTurnStatus(writing ?? "Writing a reply");
+                break;
+              case "hop.tool": {
+                const name = trace.tool.name.replaceAll("_", " ");
+                const result = trace.tool.ok === false ? "failed" : trace.tool.result;
+
+                setTurnStatus(result ? `${name} · ${result}` : name);
+                break;
+              }
+              case "hop.end":
+                if (trace.note && trace.ok) setTurnStatus(trace.note);
+                break;
+              case "fallback":
+                setTurnStatus("Falling back to Respond");
+                break;
+            }
           } else if (event.type === "patch" || event.type === "done") {
             if (event.type === "done") sawDone = true;
             accept({
@@ -147,8 +213,12 @@ export function useJevStage(): StageController & {
           }
         });
         // Keep the last streamed text visible until Stage messages include the reply.
+        setStreamingText("");
         if (sawDone && !streamFailed) {
-          setStreamingText("");
+          setSubmittedMessage(null);
+        } else {
+          if (!streamFailed) setError("The reply stream ended early. Try again.");
+          setTurnStatus("Message could not be completed");
         }
 
         return sawDone && !streamFailed;
@@ -161,6 +231,8 @@ export function useJevStage(): StageController & {
               : "Your message couldn’t be sent.";
 
         setError(message);
+        setStreamingText("");
+        setTurnStatus("Message could not be completed");
 
         return false;
       } finally {
@@ -211,6 +283,7 @@ export function useJevStage(): StageController & {
 
       accept(data);
       setError(null);
+      setSubmittedMessage(null);
 
       return true;
     } catch (cause) {
@@ -252,6 +325,8 @@ export function useJevStage(): StageController & {
       reset,
       insights: bundle.insights,
       streamingText,
+      submittedMessage,
+      turnStatus,
       setEval,
     }),
     [
@@ -267,6 +342,8 @@ export function useJevStage(): StageController & {
       noop,
       reset,
       streamingText,
+      submittedMessage,
+      turnStatus,
       setEval,
     ]
   );

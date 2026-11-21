@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import type { AgentDotState } from "@/components/agents/agent-dot-grid-motion";
 import type { StageRect } from "@/lib/stage/schema";
 
@@ -13,6 +14,7 @@ export function StageAgent({
   onFocus,
   rect = STAGE_AGENT_RECT,
   hero,
+  message,
 }: {
   status: string;
   state: AgentDotState;
@@ -20,6 +22,7 @@ export function StageAgent({
   rect?: StageRect;
   /** Speak's center size; otherwise Stage's CSS sizes the mark. */
   hero?: boolean;
+  message?: ReactNode;
 }) {
   return (
     <div className="stage-agent" data-agent-id="organic" style={stageCellStyle(rect)}>
@@ -37,9 +40,11 @@ export function StageAgent({
         />
       </button>
       <h1>Organic</h1>
-      <p aria-live="polite" className="stage-agent-status">
-        {status}
-      </p>
+      {message ?? (
+        <p aria-live="polite" className="stage-agent-status">
+          {status}
+        </p>
+      )}
     </div>
   );
 }
