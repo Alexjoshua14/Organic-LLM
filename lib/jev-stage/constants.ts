@@ -23,8 +23,12 @@ export const JEV_GATEWAY_TRACE_MODEL = "typesafe-ai/jev";
 /** Assistant reply hard cap (chars) before Stage conversation truncates with a visible note. */
 export const JEV_STAGE_REPLY_CHAR_CAP = 8000;
 
-/** AI SDK tool-loop steps for Respond (`stopWhen: stepCountIs`). */
-export const JEV_STAGE_RESPOND_MAX_STEPS = 4;
+/**
+ * AI SDK tool-loop steps for Respond (`stopWhen: stepCountIs`). Stage's central model uses 4
+ * steps and returns view/captures/recall/specialists as structured output; Respond makes those
+ * tool calls, so it gets room for lookups, a couple of Stage effects, and the closing reply.
+ */
+export const JEV_STAGE_RESPOND_MAX_STEPS = 6;
 
 /**
  * Turn execution steps after Jev routes: e.g. one direct tool + one Respond fallback.

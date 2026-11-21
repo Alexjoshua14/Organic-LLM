@@ -10,7 +10,13 @@ import {
   invalidSelectedActionReason,
   settingsBlockReason,
 } from "@/lib/jev-stage/validate-action";
-import { emptyStageState } from "@/lib/stage/schema";
+import {
+  applyJevRespondEffects,
+  createJevRespondTools,
+  emptyJevRespondEffects,
+} from "@/lib/jev-stage/respond";
+import { createStageTurnTools, modelForTier } from "@/lib/stage/agent";
+import { emptyStageState, type StageTurnSettings } from "@/lib/stage/schema";
 
 describe("jev-stage direct tools", () => {
   test("view_switch rejects an invalid view without mutating widgets", async () => {
@@ -48,6 +54,79 @@ describe("jev-stage respond budget errors", () => {
     expect(error.message).toContain("$0.10");
     expect(error.budgetUsd).toBe(0.1);
     expect(cost).toBeGreaterThan(JEV_STAGE_RESPOND_OUTPUT_BUDGET_USD);
+  });
+});
+
+describe("jev-stage respond toolset", () => {
+  const ownerId = "00000000-0000-0000-0000-000000000001";
+  const respondToolNames = (settings?: StageTurnSettings) =>
+    Object.keys(
+      createJevRespondTools({
+        ownerId,
+        state: emptyStageState(),
+        settings,
+        effects: emptyJevRespondEffects(),
+      })
+    );
+
+  test("includes memory search by default, even when settings omit memory", () => {
+    expect(respondToolNames(undefined)).toContain("search_memories");
+    expect(respondToolNames({})).toContain("search_memories");
+    expect(respondToolNames({ memory: false })).not.toContain("search_memories");
+  });
+
+  test("is a superset of Stage's central-model toolset for every settings shape", () => {
+    const shapes: (StageTurnSettings | undefined)[] = [
+      undefined,
+      {},
+      { memory: true },
+      { webSearch: true },
+      { memory: true, webSearch: true },
+    ];
+
+    for (const settings of shapes) {
+      const names = respondToolNames(settings);
+
+      for (const stageTool of Object.keys(createStageTurnTools(ownerId, settings))) {
+        expect(names).toContain(stageTool);
+      }
+    }
+    expect(respondToolNames({ webSearch: true })).toContain("web_search");
+  });
+
+  test("covers Stage's structured turn effects as tools", () => {
+    expect(respondToolNames({})).toEqual(
+      expect.arrayContaining([
+        "update_summary",
+        "set_design_brief",
+        "switch_view",
+        "file_captures",
+        "recall_memories",
+        "dispatch_specialists",
+        "set_next_tier",
+      ])
+    );
+  });
+
+  test("applies collected effects to the prototype state", () => {
+    const effects = emptyJevRespondEffects();
+
+    effects.captures.push({ collectionId: null, collection: "Ideas", text: "Try Jev routing" });
+    effects.nextTier = "deep";
+    const state = emptyStageState();
+    const applied = applyJevRespondEffects({
+      state,
+      effects,
+      requestId: "00000000-0000-4000-8000-000000000003",
+    });
+
+    expect(applied.state.revision).toBe(state.revision + 1);
+    expect(applied.state.nextModel).toBe(modelForTier("deep"));
+    expect(
+      applied.state.widgets.some(
+        (widget) => widget.kind === "collection" && widget.title === "Ideas"
+      )
+    ).toBe(true);
   });
 });
 

@@ -8,7 +8,7 @@ import {
 } from "./constants";
 import { executeJevDirectTool, isDirectJevAction } from "./direct-tools";
 import { streamJevOrchestrate } from "./orchestrate";
-import { streamJevRespond } from "./respond";
+import { applyJevRespondEffects, streamJevRespond } from "./respond";
 import { routeJevStage } from "./router";
 import type {
   JevStageBundle,
@@ -347,6 +347,28 @@ export async function runJevStageTurn(args: {
         designBrief: streamed.designBrief,
         model: streamed.model,
       });
+      // View, captures, recall, specialists and tier land the same way direct tools patch state.
+      const applied = applyJevRespondEffects({
+        state: stage,
+        effects: streamed.effects,
+        requestId: args.requestId,
+        settings: args.settings,
+      });
+
+      stage = applied.state;
+      if (applied.note) {
+        const note = `\n\n${applied.note}`;
+
+        args.emit({ type: "delta", text: note });
+        stage = {
+          ...stage,
+          messages: stage.messages.map((entry, index) =>
+            index === stage.messages.length - 1 && entry.role === "assistant"
+              ? { ...entry, text: `${entry.text}${note}`.slice(0, JEV_STAGE_REPLY_CHAR_CAP) }
+              : entry
+          ),
+        };
+      }
       args.emit({ type: "patch", stage });
       break;
     }

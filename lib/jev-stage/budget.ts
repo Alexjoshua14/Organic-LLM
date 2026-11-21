@@ -65,6 +65,12 @@ export function packMessagesForInputBudget(
   return { messages: picked.reverse(), estimatedTokens: tokens, truncated };
 }
 
+export function estimateInputCostUsd(modelId: string, inputTokens: number): number {
+  const rate = getModelCost(modelId).inputPerMillion;
+
+  return (inputTokens / 1_000_000) * rate;
+}
+
 export function estimateOutputCostUsd(modelId: string, outputTokens: number): number {
   const rate = getModelCost(modelId).outputPerMillion;
 
@@ -82,5 +88,20 @@ export class RespondOutputBudgetExceededError extends Error {
       `Respond hit the $${budgetUsd.toFixed(2)} output budget (${outputTokens} tokens ≈ $${costUsd.toFixed(4)} on ${modelId}).`
     );
     this.name = "RespondOutputBudgetExceededError";
+  }
+}
+
+/** Tool steps resend context and tool results, so the input cap is checked across the loop. */
+export class RespondInputBudgetExceededError extends Error {
+  constructor(
+    public modelId: string,
+    public inputTokens: number,
+    public costUsd: number,
+    public budgetUsd: number
+  ) {
+    super(
+      `Respond hit the $${budgetUsd.toFixed(2)} input budget across its tool steps (${inputTokens} tokens ≈ $${costUsd.toFixed(4)} on ${modelId}).`
+    );
+    this.name = "RespondInputBudgetExceededError";
   }
 }
