@@ -49,7 +49,7 @@ export function RestaurantCardHours({ hours }: RestaurantCardHoursProps) {
         <button
           type="button"
           aria-expanded={expanded}
-          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+          className="inline-flex items-center gap-inline-xs rounded-md px-inset-sm py-1 text-xs text-muted-foreground hover:bg-muted/40 hover:text-foreground"
           onClick={() => setExpanded((v) => !v)}
         >
           Full week
@@ -61,7 +61,7 @@ export function RestaurantCardHours({ hours }: RestaurantCardHoursProps) {
         <ul
           className={cn(
             spacing.card.listItems,
-            "rounded-lg border border-border/50 bg-muted/20 px-3 py-2 text-xs"
+            "rounded-lg border border-border/50 bg-muted/20 px-inset-md py-inset-sm text-xs"
           )}
         >
           {week.map((entry) => {

@@ -55,7 +55,7 @@ export function GenUiLanguageControls({
           <button
             type="button"
             aria-label={`Language: ${current}`}
-            className={`inline-flex min-h-9 items-center gap-2 rounded-md border border-border/60 px-inset-md text-sm pointer-coarse:min-h-11 ${TOOLBAR_CONTROL}`}
+            className={`inline-flex min-h-9 items-center gap-inline-sm rounded-md border border-border/60 px-inset-md text-sm pointer-coarse:min-h-11 ${TOOLBAR_CONTROL}`}
           >
             <span className="text-muted-foreground">Language</span>
             {/* Every name sits in one grid cell, all but the current one invisible, so the trigger is
@@ -108,7 +108,7 @@ export function GenUiLanguageControls({
             ? "Shuffle is off with reduced motion"
             : `Shuffle through all ${languages.length} languages, each once per round; pauses while you interact`
         }
-        className={`inline-flex min-h-9 items-center gap-1.5 rounded-md px-2 text-xs disabled:opacity-50 pointer-coarse:min-h-11 ${TOOLBAR_CONTROL}`}
+        className={`inline-flex min-h-9 items-center gap-1.5 rounded-md px-inset-sm text-xs disabled:opacity-50 pointer-coarse:min-h-11 ${TOOLBAR_CONTROL}`}
         onClick={() => {
           toggleAuto();
         }}

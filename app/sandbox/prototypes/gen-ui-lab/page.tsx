@@ -18,7 +18,7 @@ export default function GenUiLabPage() {
     <Page className="items-stretch justify-start overflow-hidden">
       {/* The Diagram page expands into the same takeover chat uses. */}
       <DiagramTakeoverProvider>
-        <div className="h-full min-h-0 w-full overflow-hidden pb-4">
+        <div className="h-full min-h-0 w-full overflow-hidden pb-inset-lg">
           <PageContentFrame className="h-full min-h-0" maxWidth="7xl" withTopClearance>
             <GenUiLabShell initialBlocks={buildDefaultBlockMap()} />
           </PageContentFrame>

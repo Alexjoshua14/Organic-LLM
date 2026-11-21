@@ -36,7 +36,7 @@ type AudioTimeLabelProps = {
 function AudioTimeLabel({ currentTime, duration }: AudioTimeLabelProps) {
   return (
     <span
-      className="shrink-0 text-[11px] tabular-nums text-muted-foreground"
+      className="shrink-0 text-xs tabular-nums text-muted-foreground"
       data-testid="audio-snippet-time"
     >
       {formatAudioSnippetTime(currentTime)} / {formatAudioSnippetTime(duration)}

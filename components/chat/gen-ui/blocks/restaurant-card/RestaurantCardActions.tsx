@@ -34,7 +34,7 @@ function ActionButton({
     <a
       className={cn(
         "inline-flex items-center justify-center gap-inline-sm rounded-xl border border-border/70 bg-background/80 font-medium text-foreground transition-colors hover:bg-muted/50",
-        large ? "flex-1 px-4 py-3 text-sm" : "px-3 py-2 text-xs"
+        large ? "flex-1 px-inset-lg py-inset-md text-sm" : "px-inset-md py-inset-sm text-xs"
       )}
       href={href}
       rel={external ? "noopener noreferrer nofollow" : undefined}

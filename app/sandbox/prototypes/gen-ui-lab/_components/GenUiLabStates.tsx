@@ -38,11 +38,11 @@ function StreamingStages() {
   const last = FIXTURE_STREAMING_STAGES.length - 1;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2">
+    <div className="space-y-stack-lg">
+      <div className="flex items-center gap-inline-sm">
         <button
           type="button"
-          className="rounded-md border border-border px-2 py-1 text-xs disabled:opacity-50"
+          className="rounded-md border border-border px-inset-sm py-1 text-xs disabled:opacity-50"
           disabled={index <= 0}
           onClick={() => setIndex((i) => Math.max(0, i - 1))}
         >
@@ -50,7 +50,7 @@ function StreamingStages() {
         </button>
         <button
           type="button"
-          className="rounded-md border border-border px-2 py-1 text-xs disabled:opacity-50"
+          className="rounded-md border border-border px-inset-sm py-1 text-xs disabled:opacity-50"
           disabled={index >= last}
           onClick={() => setIndex((i) => Math.min(last, i + 1))}
         >

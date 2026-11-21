@@ -208,6 +208,8 @@ export function GenUiCodeDemo({
   return (
     <GenUiArrangementPauseZone
       cycle={{
+        count: demo.count,
+        step: demo.step,
         setHovered: (value) => {
           demo.setHovered(value);
           demo.rotation.setHovered(value);
@@ -228,7 +230,7 @@ export function GenUiCodeDemo({
       ) : preset.kind === "fixture" ? (
         <GenUIRenderer data={{ block: fixture }} messageId="lab-code-diff" />
       ) : (
-        <div className="ai-message prose dark:prose-invert max-w-full space-y-2 text-foreground">
+        <div className="ai-message prose dark:prose-invert max-w-full space-y-stack-sm text-foreground">
           {/* Keyed by slide and language so each step remounts, as a new message would. */}
           <ChatMessageMarkdown
             key={`${preset.id}-${preset.kind === "snippet" ? sample.id : ""}`}

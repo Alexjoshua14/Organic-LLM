@@ -57,7 +57,7 @@ export function AnswerCard({ block, partial }: AnswerCardProps) {
           ))}
         </ul>
       ) : partial ? (
-        <div className="space-y-2">
+        <div className="space-y-stack-sm">
           <div className="h-3 w-full animate-pulse rounded bg-muted/40" />
           <div className="h-3 w-4/5 animate-pulse rounded bg-muted/40" />
         </div>

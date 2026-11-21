@@ -41,6 +41,64 @@ import {
   researchReportToMarkdown,
   researchReportToMarkdownLoose,
 } from "./research-report";
+import {
+  MeasureBlockSchema,
+  measureToMarkdown,
+  measureToMarkdownLoose,
+} from "./measure";
+import {
+  ProfileMapBlockSchema,
+  profileMapToMarkdown,
+  profileMapToMarkdownLoose,
+} from "./profile-map";
+import {
+  ErgonBoardBlockSchema,
+  ErgonProposalBlockSchema,
+  ergonBoardToMarkdown,
+  ergonBoardToMarkdownLoose,
+  ergonProposalToMarkdown,
+  ergonProposalToMarkdownLoose,
+} from "./ergon";
+import {
+  StateDiagramBlockSchema,
+  stateDiagramToMarkdown,
+  stateDiagramToMarkdownLoose,
+} from "./state-diagram";
+import {
+  PromptFieldBlockSchema,
+  promptFieldToMarkdown,
+  promptFieldToMarkdownLoose,
+} from "./prompt-field";
+import {
+  ProgressTrackBlockSchema,
+  progressTrackToMarkdown,
+  progressTrackToMarkdownLoose,
+} from "./progress-track";
+import {
+  ContextSwitchboardBlockSchema,
+  contextSwitchboardToMarkdown,
+  contextSwitchboardToMarkdownLoose,
+} from "./context-switchboard";
+import {
+  RipplePreviewBlockSchema,
+  ripplePreviewToMarkdown,
+  ripplePreviewToMarkdownLoose,
+} from "./ripple-preview";
+import {
+  HypGraphBlockSchema,
+  hypGraphToMarkdown,
+  hypGraphToMarkdownLoose,
+} from "./hyp-graph";
+import {
+  AuditLineBlockSchema,
+  auditLineToMarkdown,
+  auditLineToMarkdownLoose,
+} from "./audit-line";
+import {
+  PreviewBlobBlockSchema,
+  previewBlobToMarkdown,
+  previewBlobToMarkdownLoose,
+} from "./preview-blob";
 import { GEN_UI_BLOCK_TYPES, type GenUIBlockType } from "./shared";
 
 export { GEN_UI_VERSION, GEN_UI_BLOCK_TYPES, type GenUIBlockType } from "./shared";
@@ -53,6 +111,17 @@ export * from "./shopping-list";
 export * from "./restaurant-card";
 export * from "./research-report";
 export * from "./code-diff";
+export * from "./measure";
+export * from "./profile-map";
+export * from "./ergon";
+export * from "./state-diagram";
+export * from "./prompt-field";
+export * from "./progress-track";
+export * from "./context-switchboard";
+export * from "./ripple-preview";
+export * from "./hyp-graph";
+export * from "./audit-line";
+export * from "./preview-blob";
 
 export const GenUIBlockSchema = z.discriminatedUnion("type", [
   AnswerCardBlockSchema,
@@ -64,6 +133,18 @@ export const GenUIBlockSchema = z.discriminatedUnion("type", [
   RestaurantCardBlockSchema,
   ResearchReportBlockSchema,
   CodeDiffBlockSchema,
+  MeasureBlockSchema,
+  ProfileMapBlockSchema,
+  ErgonBoardBlockSchema,
+  ErgonProposalBlockSchema,
+  StateDiagramBlockSchema,
+  PromptFieldBlockSchema,
+  ProgressTrackBlockSchema,
+  ContextSwitchboardBlockSchema,
+  RipplePreviewBlockSchema,
+  HypGraphBlockSchema,
+  AuditLineBlockSchema,
+  PreviewBlobBlockSchema,
 ]);
 
 export type GenUIBlock = z.infer<typeof GenUIBlockSchema>;
@@ -104,56 +185,35 @@ function getBlockType(raw: unknown): GenUIBlockType | undefined {
   return GEN_UI_BLOCK_TYPES.includes(t as GenUIBlockType) ? (t as GenUIBlockType) : undefined;
 }
 
+const LENIENT_SCHEMAS = {
+  "answer-card": AnswerCardBlockSchema,
+  "decision-matrix": DecisionMatrixBlockSchema,
+  "plan-timeline": PlanTimelineBlockSchema,
+  "audio-snippet": AudioSnippetBlockSchema,
+  "recipe-card": RecipeCardBlockSchema,
+  "shopping-list": ShoppingListBlockSchema,
+  "restaurant-card": RestaurantCardBlockSchema,
+  "research-report": ResearchReportBlockSchema,
+  "code-diff": CodeDiffBlockSchema,
+  measure: MeasureBlockSchema,
+  "profile-map": ProfileMapBlockSchema,
+  "ergon-board": ErgonBoardBlockSchema,
+  "ergon-proposal": ErgonProposalBlockSchema,
+  "state-diagram": StateDiagramBlockSchema,
+  "prompt-field": PromptFieldBlockSchema,
+  "progress-track": ProgressTrackBlockSchema,
+  "context-switchboard": ContextSwitchboardBlockSchema,
+  "ripple-preview": RipplePreviewBlockSchema,
+  "hyp-graph": HypGraphBlockSchema,
+  "audit-line": AuditLineBlockSchema,
+  "preview-blob": PreviewBlobBlockSchema,
+} as const;
+
 function tryLenientParse(type: GenUIBlockType, raw: unknown): GenUIBlock | null {
-  switch (type) {
-    case "answer-card": {
-      const r = AnswerCardBlockSchema.safeParse(raw);
+  const schema = LENIENT_SCHEMAS[type];
+  const r = schema.safeParse(raw);
 
-      return r.success ? r.data : null;
-    }
-    case "decision-matrix": {
-      const r = DecisionMatrixBlockSchema.safeParse(raw);
-
-      return r.success ? r.data : null;
-    }
-    case "plan-timeline": {
-      const r = PlanTimelineBlockSchema.safeParse(raw);
-
-      return r.success ? r.data : null;
-    }
-    case "audio-snippet": {
-      const r = AudioSnippetBlockSchema.safeParse(raw);
-
-      return r.success ? r.data : null;
-    }
-    case "recipe-card": {
-      const r = RecipeCardBlockSchema.safeParse(raw);
-
-      return r.success ? r.data : null;
-    }
-    case "shopping-list": {
-      const r = ShoppingListBlockSchema.safeParse(raw);
-
-      return r.success ? r.data : null;
-    }
-    case "restaurant-card": {
-      const r = RestaurantCardBlockSchema.safeParse(raw);
-
-      return r.success ? r.data : null;
-    }
-    case "research-report": {
-      const r = ResearchReportBlockSchema.safeParse(raw);
-
-      return r.success ? r.data : null;
-    }
-    case "code-diff": {
-      const r = CodeDiffBlockSchema.safeParse(raw);
-
-      return r.success ? r.data : null;
-    }
-    default:
-      return null;
-  }
+  return r.success ? (r.data as GenUIBlock) : null;
 }
 
 /**
@@ -218,6 +278,30 @@ export function genUIBlockToMarkdown(block: GenUIBlock): string {
       return researchReportToMarkdown(block);
     case "code-diff":
       return codeDiffToMarkdown(block);
+    case "measure":
+      return measureToMarkdown(block);
+    case "profile-map":
+      return profileMapToMarkdown(block);
+    case "ergon-board":
+      return ergonBoardToMarkdown(block);
+    case "ergon-proposal":
+      return ergonProposalToMarkdown(block);
+    case "state-diagram":
+      return stateDiagramToMarkdown(block);
+    case "prompt-field":
+      return promptFieldToMarkdown(block);
+    case "progress-track":
+      return progressTrackToMarkdown(block);
+    case "context-switchboard":
+      return contextSwitchboardToMarkdown(block);
+    case "ripple-preview":
+      return ripplePreviewToMarkdown(block);
+    case "hyp-graph":
+      return hypGraphToMarkdown(block);
+    case "audit-line":
+      return auditLineToMarkdown(block);
+    case "preview-blob":
+      return previewBlobToMarkdown(block);
   }
 }
 
@@ -248,6 +332,30 @@ export function genUIBlockToMarkdownLoose(raw: unknown): string {
       return researchReportToMarkdownLoose(o);
     case "code-diff":
       return codeDiffToMarkdownLoose(o);
+    case "measure":
+      return measureToMarkdownLoose(o);
+    case "profile-map":
+      return profileMapToMarkdownLoose(o);
+    case "ergon-board":
+      return ergonBoardToMarkdownLoose(o);
+    case "ergon-proposal":
+      return ergonProposalToMarkdownLoose(o);
+    case "state-diagram":
+      return stateDiagramToMarkdownLoose(o);
+    case "prompt-field":
+      return promptFieldToMarkdownLoose(o);
+    case "progress-track":
+      return progressTrackToMarkdownLoose(o);
+    case "context-switchboard":
+      return contextSwitchboardToMarkdownLoose(o);
+    case "ripple-preview":
+      return ripplePreviewToMarkdownLoose(o);
+    case "hyp-graph":
+      return hypGraphToMarkdownLoose(o);
+    case "audit-line":
+      return auditLineToMarkdownLoose(o);
+    case "preview-blob":
+      return previewBlobToMarkdownLoose(o);
     default:
       return "_Structured block (could not render)_";
   }

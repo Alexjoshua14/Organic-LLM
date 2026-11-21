@@ -29,7 +29,7 @@ type MetaChipData = { key: string; icon: ReactNode; label: string };
 
 function MetaChip({ icon, label }: { icon: ReactNode; label: string }) {
   return (
-    <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+    <span className="inline-flex items-center gap-inline-xs text-xs text-muted-foreground">
       {icon}
       {label}
     </span>
@@ -83,11 +83,11 @@ export function RecipeCard({ block, partial }: RecipeCardProps) {
     });
 
   return (
-    <div className="space-y-3">
-      <div className="space-y-1">
+    <div className="space-y-stack-md">
+      <div className="space-y-stack-xs">
         <p className="text-sm font-semibold text-foreground">{block.title}</p>
         {meta.length > 0 ? (
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-inline-md">
             {meta.map((m) => (
               <MetaChip key={m.key} icon={m.icon} label={m.label} />
             ))}
@@ -100,9 +100,9 @@ export function RecipeCard({ block, partial }: RecipeCardProps) {
           <p className="mb-1.5 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
             Ingredients
           </p>
-          <ul className="space-y-1 text-xs text-foreground">
+          <ul className="space-y-stack-xs text-xs text-foreground">
             {block.ingredients.map((ing, i) => (
-              <li key={i} className="flex gap-2">
+              <li key={i} className="flex gap-inline-sm">
                 <span aria-hidden className="text-muted-foreground">
                   •
                 </span>
@@ -118,7 +118,7 @@ export function RecipeCard({ block, partial }: RecipeCardProps) {
           </p>
           <ol className="space-y-1.5 text-xs text-foreground">
             {block.steps.map((step, i) => (
-              <li key={i} className="flex gap-2">
+              <li key={i} className="flex gap-inline-sm">
                 <span className="shrink-0 font-medium text-muted-foreground">{i + 1}.</span>
                 <span>
                   <GenUIMarkdown inline>{step}</GenUIMarkdown>
@@ -137,7 +137,7 @@ export function RecipeCard({ block, partial }: RecipeCardProps) {
 
       {block.sourceUrl ? (
         <a
-          className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
+          className="inline-flex items-center gap-inline-xs text-xs text-primary hover:underline"
           href={block.sourceUrl}
           rel="noopener noreferrer nofollow"
           target="_blank"

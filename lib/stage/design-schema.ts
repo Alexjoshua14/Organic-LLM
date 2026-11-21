@@ -15,7 +15,7 @@ const DESIGN_UPSERT = z.object({
   view: StageViewSchema.nullable(),
   text: z.string().max(4000).nullable(),
   code: z.string().max(8000).nullable(),
-  // JSON of one gen-ui block (research-report, answer-card, decision-matrix, plan-timeline, shopping-list, restaurant-card, code-diff…); kind "block" only.
+  // JSON of one gen-ui block (research-report, answer-card, decision-matrix, plan-timeline, shopping-list, restaurant-card, code-diff, measure, profile-map…); kind "block" only.
   block: z.string().max(12000).nullable(),
   // Public https page to frame in the grid; kind "web" only.
   url: z.string().max(2000).nullable(),
