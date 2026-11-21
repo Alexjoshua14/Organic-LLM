@@ -22,6 +22,18 @@ relitigate the principles without an explicit decision — see the
 The silent-under-1s rule is the one most easily lost in implementation. A spoken "let me check"
 on a 300ms memory hit makes the agent feel slower than it is.
 
+## Conversational defaults
+
+Realtime's [shared instructions](../../lib/system-prompt/speak-realtime.ts) default to one
+short sentence and stop. No padding, process narration, or fill-silence follow-ups. Greetings
+and brevity requests stay minimal. Pacing changes are silent. A second sentence is only for
+task-needed detail.
+
+Connected Ergon requests use `read_ergon` (Organic `read` scope; `write` counts as read).
+Vague "check Ergon" calls `list_projects` immediately — never web preview. The tool rechecks
+the session owner's OAuth connection on each call and exposes only reads. Missing access
+points once to Settings → Connectors.
+
 ## Per-tool defaults (starter)
 
 Refine per tool with the user. These are defaults, not contracts.

@@ -5,6 +5,19 @@ cd "$(dirname "$0")/.."
 feedback_container="organic-feedback-test-$$"
 feedback_image="public.ecr.aws/supabase/postgres:15.8.1.085"
 trap 'docker rm -f "$feedback_container" >/dev/null 2>&1 || true' EXIT
+# CI occasionally hits ECR "Data limit exceeded" on the first pull; retry before starting.
+pull_ok=0
+for attempt in 1 2 3 4 5; do
+  if docker pull "$feedback_image"; then
+    pull_ok=1
+    break
+  fi
+  sleep $((attempt * 5))
+done
+if [[ "$pull_ok" -ne 1 ]]; then
+  echo "Failed to pull $feedback_image after retries" >&2
+  exit 125
+fi
 docker run --rm -d --name "$feedback_container" --network none \
   -e POSTGRES_PASSWORD=feedback-local-test -e POSTGRES_DB=feedback_test "$feedback_image" >/dev/null
 for attempt in {1..30}; do

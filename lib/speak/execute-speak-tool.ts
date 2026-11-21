@@ -234,6 +234,17 @@ async function runSpeakTool(args: {
   userId: string;
 }): Promise<SpeakToolExecuteResult> {
   switch (args.name) {
+    case "read_ergon": {
+      const { readSpeakErgon } = await import("@/lib/speak/ergon-read");
+      const result = await readSpeakErgon(args.userId, args.rawArgs);
+
+      return {
+        ok: !result.error,
+        ...(result.error ? { error: String(result.error) } : {}),
+        modelResult: result,
+        clientEffects: [],
+      };
+    }
     case "update_display_text": {
       const parsed = UpdateDisplayTextSchema.safeParse(args.rawArgs);
 
