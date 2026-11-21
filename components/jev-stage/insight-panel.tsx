@@ -2,7 +2,7 @@
 
 import type { JevStageTurnInsight } from "@/lib/jev-stage/schema";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, MessageSquare, ThumbsDown, ThumbsUp, X } from "lucide-react";
 import { Popover } from "radix-ui";
 
@@ -120,9 +120,21 @@ export function JevStageInsightPanel({
 }) {
   const [index, setIndex] = useState(0);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [note, setNote] = useState("");
+  const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
   const safeIndex = Math.min(index, Math.max(0, insights.length - 1));
   const insight = insights[safeIndex] ?? null;
+  const note = insight ? (noteDrafts[insight.turnId] ?? "") : "";
+
+  useEffect(() => {
+    if (!sheetOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSheetOpen(false);
+    };
+
+    window.addEventListener("keydown", onKey);
+
+    return () => window.removeEventListener("keydown", onKey);
+  }, [sheetOpen]);
 
   const body = !insight ? (
     <p className="text-2xs text-muted-foreground">Send a message to see Jev’s routing insight.</p>
@@ -178,7 +190,11 @@ export function JevStageInsightPanel({
                 className="mb-2 h-20 w-full resize-none rounded-md border border-border/60 bg-transparent p-2 text-2xs"
                 placeholder="Optional note"
                 value={note || insight.eval.note || ""}
-                onChange={(event) => setNote(event.target.value)}
+                onChange={(event) => {
+                  const value = event.target.value;
+
+                  setNoteDrafts((drafts) => ({ ...drafts, [insight.turnId]: value }));
+                }}
               />
               <button
                 className="text-2xs text-foreground underline-offset-2 hover:underline"
@@ -252,14 +268,18 @@ export function JevStageInsightPanel({
           Insight{insights.length ? ` · ${insights.length}` : ""}
         </button>
         {sheetOpen && (
-          <div className="fixed inset-0 z-40 flex items-end bg-background/70 p-3" role="dialog">
+          <div
+            aria-modal="true"
+            className="fixed inset-0 z-40 flex items-end bg-background/70 p-3"
+            role="dialog"
+          >
             <div
               className={cn(
                 glass({ opaque: true }),
-                "flex max-h-96 w-full flex-col rounded-2xl p-3 shadow-xl"
+                "flex max-h-96 w-full flex-col overflow-hidden rounded-2xl p-3 shadow-xl"
               )}
             >
-              <div className="mb-2 flex items-center justify-between">
+              <div className="mb-2 flex shrink-0 items-center justify-between">
                 <h2 className="text-2xs font-medium uppercase tracking-widest text-muted-foreground">
                   Insight
                 </h2>
@@ -272,7 +292,7 @@ export function JevStageInsightPanel({
                   <X className="size-4" />
                 </button>
               </div>
-              {body}
+              <div className="min-h-0 flex-1 overflow-y-auto">{body}</div>
             </div>
           </div>
         )}

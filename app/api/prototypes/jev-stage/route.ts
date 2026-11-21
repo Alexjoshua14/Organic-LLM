@@ -2,7 +2,7 @@ import { z } from "zod";
 import { NextResponse } from "next/server";
 
 import { requireLabAccess } from "@/lib/admin/lab-access";
-import { checkStageLimit } from "@/lib/stage/limit";
+import { checkJevStageLimit } from "@/lib/jev-stage/limit";
 import {
   JevStageTurnRequestSchema,
   type JevStageStreamEvent,
@@ -53,7 +53,7 @@ export async function GET() {
     const lab = await requireLabAccess();
 
     if (!lab) return json({ error: "Unauthorized" }, 401);
-    if (!(await checkStageLimit(lab.sbUserId))) return json({ error: "Too many requests" }, 429);
+    if (!(await checkJevStageLimit(lab.sbUserId))) return json({ error: "Too many requests" }, 429);
     const bundle = await readJevStage(lab.sbUserId);
 
     return json(bundle);
@@ -67,7 +67,7 @@ export async function POST(req: Request) {
     const lab = await requireLabAccess();
 
     if (!lab) return json({ error: "Unauthorized" }, 401);
-    if (!(await checkStageLimit(lab.sbUserId, true)))
+    if (!(await checkJevStageLimit(lab.sbUserId, true)))
       return json({ error: "Too many requests" }, 429);
     let raw: unknown;
 

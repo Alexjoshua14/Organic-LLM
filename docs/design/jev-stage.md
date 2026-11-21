@@ -16,6 +16,19 @@ Jev is the first hop on every turn — an intelligent switch, not the responder.
 Downstream uses an NDJSON event stream (route → delta/patch → done), analogous to Arcadia’s
 custom stream writer / AIData side channel.
 
+## Turn loop
+
+After Jev routes, execution is a bounded step loop (`JEV_STAGE_TURN_MAX_STEPS`):
+
+1. Run the selected action (direct tool, Respond, or Orchestrate).
+2. If a direct tool (or empty Orchestrate) leaves no Conversation line for this request,
+   fall through to **Respond**.
+3. Respond / Orchestrate use the AI SDK `stopWhen: stepCountIs(…)` tool loop so tool calls
+   can continue into a visible reply instead of ending the turn blank.
+4. A final safety reply is written if the turn would otherwise complete with nothing visible.
+5. The client aborts hung streams after `JEV_STAGE_CLIENT_TIMEOUT_MS` so Stage cannot stick
+   on “Thinking with you”.
+
 ## Code map
 
 | Path | Role |

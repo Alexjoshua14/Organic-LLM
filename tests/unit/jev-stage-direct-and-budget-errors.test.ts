@@ -6,6 +6,10 @@ import {
 } from "@/lib/jev-stage/budget";
 import { JEV_STAGE_RESPOND_OUTPUT_BUDGET_USD } from "@/lib/jev-stage/constants";
 import { executeJevDirectTool } from "@/lib/jev-stage/direct-tools";
+import {
+  invalidSelectedActionReason,
+  settingsBlockReason,
+} from "@/lib/jev-stage/validate-action";
 import { emptyStageState } from "@/lib/stage/schema";
 
 describe("jev-stage direct tools", () => {
@@ -44,5 +48,24 @@ describe("jev-stage respond budget errors", () => {
     expect(error.message).toContain("$0.10");
     expect(error.budgetUsd).toBe(0.1);
     expect(cost).toBeGreaterThan(JEV_STAGE_RESPOND_OUTPUT_BUDGET_USD);
+  });
+});
+
+describe("jev-stage action validation", () => {
+  test("empty captures fall through instead of a no-op success", () => {
+    expect(
+      invalidSelectedActionReason({
+        kind: "captures",
+        confidence: 0.99,
+        reason: "file these",
+        args: { captures: [] },
+      })
+    ).toMatch(/captures/i);
+  });
+
+  test("settings block memory and web when toggled off", () => {
+    expect(settingsBlockReason("memory_search", { memory: false })).toMatch(/memory/i);
+    expect(settingsBlockReason("web_search", { webSearch: false })).toMatch(/web/i);
+    expect(settingsBlockReason("web_search", { webSearch: true })).toBeNull();
   });
 });

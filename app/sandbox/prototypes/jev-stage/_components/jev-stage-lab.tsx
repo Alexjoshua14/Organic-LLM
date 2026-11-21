@@ -31,7 +31,13 @@ export function JevStageLab() {
           Jev Stage · prototype
         </span>
         {stage.streamingText ? (
-          <span className="truncate text-2xs text-muted-foreground">Streaming…</span>
+          <span
+            aria-live="polite"
+            className="min-w-0 flex-1 truncate text-2xs text-muted-foreground"
+            title={stage.streamingText}
+          >
+            {stage.streamingText}
+          </span>
         ) : null}
       </nav>
       <StageView scripted stage={stage} />

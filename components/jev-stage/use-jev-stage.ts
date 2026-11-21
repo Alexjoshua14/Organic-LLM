@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { stageRequest, StageRequestError } from "@/components/stage/use-stage";
 import { applyStageOperations, stageReservedRects } from "@/lib/stage/layout";
 import { emptyStageState } from "@/lib/stage/schema";
+import { JEV_STAGE_CLIENT_TIMEOUT_MS } from "@/lib/jev-stage/constants";
 import { emptyJevStageBundle } from "@/lib/jev-stage/schema";
 
 async function readNdjson(
@@ -103,6 +104,8 @@ export function useJevStage(): StageController & {
       setError(null);
       setStreamingText("");
       const requestId = crypto.randomUUID();
+      const abort = new AbortController();
+      const timeout = window.setTimeout(() => abort.abort(), JEV_STAGE_CLIENT_TIMEOUT_MS);
 
       try {
         const response = await fetch("/api/prototypes/jev-stage", {
@@ -110,6 +113,7 @@ export function useJevStage(): StageController & {
           cache: "no-store",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ message, requestId, settings }),
+          signal: abort.signal,
         });
 
         if (!response.ok) {
@@ -118,30 +122,49 @@ export function useJevStage(): StageController & {
           throw new StageRequestError(data?.error ?? "Turn failed", response.status);
         }
 
+        let sawDone = false;
+        let streamFailed = false;
+
         await readNdjson(response, (event) => {
           if (!mounted.current) return;
           if (event.type === "delta") {
             setStreamingText((value) => value + event.text);
           } else if (event.type === "patch" || event.type === "done") {
+            if (event.type === "done") sawDone = true;
             accept({
-              stage: event.type === "done" ? event.stage : event.stage,
+              stage: event.stage,
               insights:
                 event.type === "done"
-                  ? [...current.current.insights.filter((i) => i.turnId !== event.insight.turnId), event.insight]
+                  ? [
+                      ...current.current.insights.filter((i) => i.turnId !== event.insight.turnId),
+                      event.insight,
+                    ]
                   : current.current.insights,
             });
           } else if (event.type === "limit_error" || event.type === "error") {
+            streamFailed = true;
             setError(event.message);
           }
         });
-        setStreamingText("");
+        // Keep the last streamed text visible until Stage messages include the reply.
+        if (sawDone && !streamFailed) {
+          setStreamingText("");
+        }
 
-        return true;
+        return sawDone && !streamFailed;
       } catch (cause) {
-        setError(cause instanceof Error ? cause.message : "Your message couldn’t be sent.");
+        const message =
+          cause instanceof Error && cause.name === "AbortError"
+            ? "That turn took too long and was stopped. Try again."
+            : cause instanceof Error
+              ? cause.message
+              : "Your message couldn’t be sent.";
+
+        setError(message);
 
         return false;
       } finally {
+        window.clearTimeout(timeout);
         sendLock.current = false;
         if (mounted.current) setSending(false);
       }
