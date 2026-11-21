@@ -5,6 +5,7 @@ import { AnswerCard } from "./blocks/AnswerCard";
 import { AudioSnippet } from "./blocks/AudioSnippet";
 import { CodeDiff } from "./blocks/CodeDiff";
 import { DecisionMatrix } from "./blocks/DecisionMatrix";
+import { Measure } from "./blocks/Measure";
 import { PlanTimeline } from "./blocks/PlanTimeline";
 import { RecipeCard } from "./blocks/RecipeCard";
 import { RestaurantCard } from "./blocks/restaurant-card/RestaurantCard";
@@ -22,6 +23,7 @@ import {
   RestaurantCardBlockSchema,
   ResearchReportBlockSchema,
   CodeDiffBlockSchema,
+  MeasureBlockSchema,
   codeDiffTitle,
 } from "@/lib/schemas/gen-ui";
 
@@ -41,7 +43,8 @@ export type GenUIRegistryEntry = {
     | typeof ShoppingListBlockSchema
     | typeof RestaurantCardBlockSchema
     | typeof ResearchReportBlockSchema
-    | typeof CodeDiffBlockSchema;
+    | typeof CodeDiffBlockSchema
+    | typeof MeasureBlockSchema;
   Component: ComponentType<GenUIBlockComponentProps>;
   toMarkdown: (block: GenUIBlock) => string;
 };
@@ -101,12 +104,19 @@ export const GEN_UI_REGISTRY: Record<GenUIBlockType, GenUIRegistryEntry> = {
     Component: CodeDiff as ComponentType<GenUIBlockComponentProps>,
     toMarkdown: genUIBlockToMarkdown,
   },
+  measure: {
+    label: "Measure",
+    schema: MeasureBlockSchema,
+    Component: Measure as ComponentType<GenUIBlockComponentProps>,
+    toMarkdown: genUIBlockToMarkdown,
+  },
 };
 
 export function getGenUIBlockTitle(block: GenUIBlock): string {
   switch (block.type) {
     case "answer-card":
     case "research-report":
+    case "measure":
       return block.title;
     case "decision-matrix":
       return block.question;

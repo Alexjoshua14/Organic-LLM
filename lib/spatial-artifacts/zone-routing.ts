@@ -14,6 +14,7 @@ export function primaryZoneForBlockType(type: GenUIBlockType): SpatialZone {
     case "recipe-card":
     case "restaurant-card":
     case "shopping-list":
+    case "measure":
     default:
       return "bookshelf";
   }

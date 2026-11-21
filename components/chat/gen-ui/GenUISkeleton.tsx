@@ -66,6 +66,15 @@ export function GenUISkeleton({ type }: GenUISkeletonProps) {
         </div>
       ) : null}
 
+      {type === "measure" ? (
+        <div className="space-y-3">
+          <Shimmer className="h-4 w-2/3" />
+          <Shimmer className="h-3 w-full" />
+          <Shimmer className="h-3 w-full" />
+          <Shimmer className="h-3 w-5/6" />
+        </div>
+      ) : null}
+
       {type === "restaurant-card" ? (
         <div className="flex gap-3">
           <Shimmer className="size-16 shrink-0 rounded-lg" />

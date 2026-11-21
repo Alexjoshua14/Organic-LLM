@@ -753,6 +753,37 @@ export const CODE_DIFF_FIXTURES: CodeDiffBlock[] = [
   FIXTURE_CODE_DIFF_MALFORMED,
 ];
 
+export const FIXTURE_MEASURE: GenUIBlock = {
+  type: "measure",
+  version: 1,
+  title: "Share of world population",
+  subtitle: "Rome at its peak vs. today",
+  domain: { min: 0, max: 100 },
+  unit: "%",
+  ticks: [0, 25, 50, 75, 100],
+  rows: [
+    {
+      id: "rome",
+      label: "Rome, 117 CE",
+      range: [20, 25],
+      value: 22.5,
+      tone: "action",
+      note: "About 55–65M of 250–300M people",
+    },
+    { id: "india", label: "India", value: 17.8 },
+    { id: "china", label: "China", value: 17.5 },
+    { id: "eu", label: "EU", value: 5.5, tone: "muted" },
+    {
+      id: "usa",
+      label: "USA",
+      value: 4,
+      tone: "muted",
+      note: "About 25% of world GDP",
+    },
+  ],
+  footnote: "Ancient figures are estimates.",
+};
+
 export const ALL_VALID_FIXTURES: GenUIBlock[] = [
   FIXTURE_ANSWER_CARD,
   FIXTURE_DECISION_MATRIX,
@@ -763,4 +794,5 @@ export const ALL_VALID_FIXTURES: GenUIBlock[] = [
   FIXTURE_RESTAURANT_CARD,
   FIXTURE_RESEARCH_REPORT,
   FIXTURE_CODE_DIFF,
+  FIXTURE_MEASURE,
 ];

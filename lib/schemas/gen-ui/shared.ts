@@ -13,6 +13,7 @@ export const GEN_UI_BLOCK_TYPES = [
   "restaurant-card",
   "research-report",
   "code-diff",
+  "measure",
 ] as const;
 
 export type GenUIBlockType = (typeof GEN_UI_BLOCK_TYPES)[number];

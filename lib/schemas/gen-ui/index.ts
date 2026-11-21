@@ -41,6 +41,11 @@ import {
   researchReportToMarkdown,
   researchReportToMarkdownLoose,
 } from "./research-report";
+import {
+  MeasureBlockSchema,
+  measureToMarkdown,
+  measureToMarkdownLoose,
+} from "./measure";
 import { GEN_UI_BLOCK_TYPES, type GenUIBlockType } from "./shared";
 
 export { GEN_UI_VERSION, GEN_UI_BLOCK_TYPES, type GenUIBlockType } from "./shared";
@@ -53,6 +58,7 @@ export * from "./shopping-list";
 export * from "./restaurant-card";
 export * from "./research-report";
 export * from "./code-diff";
+export * from "./measure";
 
 export const GenUIBlockSchema = z.discriminatedUnion("type", [
   AnswerCardBlockSchema,
@@ -64,6 +70,7 @@ export const GenUIBlockSchema = z.discriminatedUnion("type", [
   RestaurantCardBlockSchema,
   ResearchReportBlockSchema,
   CodeDiffBlockSchema,
+  MeasureBlockSchema,
 ]);
 
 export type GenUIBlock = z.infer<typeof GenUIBlockSchema>;
@@ -151,6 +158,11 @@ function tryLenientParse(type: GenUIBlockType, raw: unknown): GenUIBlock | null 
 
       return r.success ? r.data : null;
     }
+    case "measure": {
+      const r = MeasureBlockSchema.safeParse(raw);
+
+      return r.success ? r.data : null;
+    }
     default:
       return null;
   }
@@ -218,6 +230,8 @@ export function genUIBlockToMarkdown(block: GenUIBlock): string {
       return researchReportToMarkdown(block);
     case "code-diff":
       return codeDiffToMarkdown(block);
+    case "measure":
+      return measureToMarkdown(block);
   }
 }
 
@@ -248,6 +262,8 @@ export function genUIBlockToMarkdownLoose(raw: unknown): string {
       return researchReportToMarkdownLoose(o);
     case "code-diff":
       return codeDiffToMarkdownLoose(o);
+    case "measure":
+      return measureToMarkdownLoose(o);
     default:
       return "_Structured block (could not render)_";
   }
