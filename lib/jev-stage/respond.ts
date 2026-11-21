@@ -417,8 +417,8 @@ export async function streamJevRespond(args: {
       // Abort after a budget hit (or timeout) — keep whatever text we already streamed.
     }
 
-    const usage = await result.totalUsage.catch(() => null);
-    const finishReason = await result.finishReason.catch(() => null);
+    const usage = await Promise.resolve(result.totalUsage).catch(() => null);
+    const finishReason = await Promise.resolve(result.finishReason).catch(() => null);
     const outputTokens = usage?.outputTokens ?? finished.outputTokens;
 
     if (

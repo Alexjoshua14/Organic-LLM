@@ -386,7 +386,7 @@ export async function runJevStageTurn(args: {
         reply: safety,
         summary: null,
         designBrief: null,
-        model: stage.lastModel,
+        model: stage.lastModel ?? "safety",
       });
       fellBack = true;
       fallbackReason = fallbackReason ?? "Safety reply after empty turn steps";
