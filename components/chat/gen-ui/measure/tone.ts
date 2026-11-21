@@ -6,3 +6,10 @@ export const toneClass: Record<MeasureTone, string> = {
   action: "bg-accent-warm",
   muted: "bg-muted-foreground/35",
 };
+
+/** SVG `fill` / `stroke` via theme CSS variables (no hex literals). */
+export const toneFill: Record<MeasureTone, string> = {
+  accent: "var(--color-accent)",
+  action: "var(--color-accent-warm)",
+  muted: "var(--color-muted-foreground)",
+};

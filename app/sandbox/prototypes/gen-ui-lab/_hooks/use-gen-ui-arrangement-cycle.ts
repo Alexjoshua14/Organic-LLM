@@ -20,10 +20,11 @@ export type GenUiArrangement = {
  */
 export function useGenUiArrangementCycle<T extends GenUiArrangement>(
   arrangements: ReadonlyArray<T>,
-  active = true
+  active = true,
+  options?: { initialAuto?: boolean }
 ) {
   const [index, setIndex] = useState(0);
-  const [auto, setAuto] = useState(false);
+  const [auto, setAuto] = useState(options?.initialAuto ?? false);
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
   const [visible, setVisible] = useState(true);

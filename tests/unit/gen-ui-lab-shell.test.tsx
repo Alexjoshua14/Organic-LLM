@@ -90,10 +90,25 @@ describe("Gen UI Lab shell", () => {
       within(tabs).getByRole("tab", { name: "Model instructions", selected: true })
     ).toBeTruthy();
     expect(
-      within(section as HTMLElement).getByRole("heading", { name: "Measure", level: 1 })
+      within(section as HTMLElement).getByRole("heading", { name: "Measure", level: 2 })
     ).toBeTruthy();
+    expect(within(section as HTMLElement).getByText(/Gen UI · Model instructions/i)).toBeTruthy();
     expect(
-      within(section as HTMLElement).getByRole("heading", { name: "Shared rules", level: 3 })
+      within(section as HTMLElement).getByRole("button", { name: /Shared rules/i })
     ).toBeTruthy();
+  });
+
+  test("showcase archetypes expose a Component states toolbar", () => {
+    const view = renderShell();
+    const section = view.container.querySelector('[data-archetype="progress-track"]');
+
+    expect(section).toBeTruthy();
+    expect(
+      within(section as HTMLElement).getByRole("group", { name: "Component states" })
+    ).toBeTruthy();
+    expect(within(section as HTMLElement).getByLabelText(/state 1 of/i)).toBeTruthy();
+
+    fireEvent.click(within(section as HTMLElement).getByRole("button", { name: "Next state" }));
+    expect(within(section as HTMLElement).getByText("Just started")).toBeTruthy();
   });
 });

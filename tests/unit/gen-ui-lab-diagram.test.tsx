@@ -46,7 +46,7 @@ const {
 const { GEN_UI_ARRANGEMENT_INTERVAL_MS } = await import(
   "@/app/sandbox/prototypes/gen-ui-lab/_hooks/use-gen-ui-arrangement-cycle"
 );
-const { MERMAID_DENSE_OVERVIEW, MERMAID_FLOWCHART_EDGE_LABELS } = await import(
+const { MERMAID_ARCADIA_OVERVIEW, MERMAID_GLANCE_REMY } = await import(
   "@/app/sandbox/prototypes/_fixtures/mermaid-fixtures"
 );
 const { GEN_UI_REGISTRY } = await import("@/components/chat/gen-ui/registry");
@@ -112,12 +112,12 @@ describe("Gen UI Lab Diagram page", () => {
     expect(view.getByRole("button", { name: "Diagram" })).toBeTruthy();
   });
 
-  test("the page renders the real tool diagram, unwrapped, under its preset toolbar", async () => {
+  test("the page renders the real tool diagram, unwrapped, under its state toolbar", async () => {
     const { section } = renderShell();
-    const toolbar = within(section).getByRole("group", { name: "Diagram presets" });
+    const toolbar = within(section).getByRole("group", { name: "Diagram states" });
 
-    expect(within(toolbar).getByText("Glance")).toBeTruthy();
-    expect(within(section).getByLabelText("Preset 1 of 4")).toBeTruthy();
+    expect(within(toolbar).getByText("Glance · flowchart")).toBeTruthy();
+    expect(within(section).getByLabelText(`State 1 of ${LAB_DIAGRAM_PRESETS.length}`)).toBeTruthy();
     // No lab card heading: the only chrome is the component's own well.
     expect(within(section).queryByRole("heading")).toBeNull();
 
@@ -125,35 +125,65 @@ describe("Gen UI Lab Diagram page", () => {
       expect(section.querySelector(".mermaid svg")).not.toBeNull();
     });
     expect(section.querySelector(".mermaid svg")?.getAttribute("aria-label")).toBe(
-      "Order request check"
+      "Remy dinner route"
     );
-    expect(renderedSources.at(-1)).toContain(MERMAID_FLOWCHART_EDGE_LABELS.split("\n")[1]!.trim());
+    expect(renderedSources.at(-1)).toContain(MERMAID_GLANCE_REMY.split("\n")[1]!.trim());
   });
 
-  test("prev/next cycle the presets, wrap, and redraw the diagram", async () => {
+  test("prev/next cycle diagram types and densities, wrap, and redraw", async () => {
     const { section } = renderShell();
-    const next = within(section).getByRole("button", { name: "Next preset" });
+    const next = within(section).getByRole("button", { name: "Next state" });
+    const count = LAB_DIAGRAM_PRESETS.length;
 
     fireEvent.click(next);
-    expect(within(section).getByLabelText("Preset 2 of 4")).toBeTruthy();
-    expect(within(section).getByText("Overview")).toBeTruthy();
+    expect(within(section).getByLabelText(`State 2 of ${count}`)).toBeTruthy();
+    expect(within(section).getByText("Sequence · Speak")).toBeTruthy();
     await waitFor(() => {
       expect(section.querySelector(".mermaid svg")?.getAttribute("aria-label")).toBe(
-        "Chat request path"
+        "Speak realtime turn"
+      );
+    });
+    expect(renderedSources.at(-1)).toContain("sequenceDiagram");
+
+    // Skip ahead to the Arcadia overview state (index 4).
+    fireEvent.click(next);
+    fireEvent.click(next);
+    fireEvent.click(next);
+    expect(within(section).getByText("Overview · Arcadia")).toBeTruthy();
+    await waitFor(() => {
+      expect(section.querySelector(".mermaid svg")?.getAttribute("aria-label")).toBe(
+        "Arcadia tool path"
       );
     });
     // Inline always draws the overview source, as in chat.
-    expect(renderedSources.at(-1)).toContain('A["Client"] --> B["API Gateway"]');
-    expect(renderedSources.at(-1)).toContain(MERMAID_DENSE_OVERVIEW.split("\n").at(-1)!.trim());
+    expect(renderedSources.at(-1)).toContain('You["You"] --> Arcadia["Arcadia"]');
+    expect(renderedSources.at(-1)).toContain(MERMAID_ARCADIA_OVERVIEW.split("\n").at(-1)!.trim());
     expect(renderedSources.at(-1)).not.toContain("Validate + repair");
 
-    fireEvent.click(within(section).getByRole("button", { name: "Previous preset" }));
-    fireEvent.click(within(section).getByRole("button", { name: "Previous preset" }));
-    expect(LAB_DIAGRAM_PRESETS).toHaveLength(4);
-    expect(within(section).getByLabelText("Preset 4 of 4")).toBeTruthy();
+    // From overview (5): next → detailed (6) → long labels (7).
+    fireEvent.click(next);
+    fireEvent.click(next);
+    expect(LAB_DIAGRAM_PRESETS.length).toBeGreaterThanOrEqual(6);
+    expect(within(section).getByLabelText(`State ${count} of ${count}`)).toBeTruthy();
     expect(within(section).getByText("Long labels")).toBeTruthy();
+    // Wrap: next from last returns to glance.
+    fireEvent.click(next);
+    expect(within(section).getByLabelText(`State 1 of ${count}`)).toBeTruthy();
+    expect(within(section).getByText("Glance · flowchart")).toBeTruthy();
     // The arrows keep their identity while the diagram changes under them.
-    expect(within(section).getByRole("button", { name: "Next preset" })).toBe(next);
+    expect(within(section).getByRole("button", { name: "Next state" })).toBe(next);
+  });
+
+  test("showcase covers flowchart, sequence, state, ER, and dual-source densities", () => {
+    const ids = LAB_DIAGRAM_PRESETS.map((p) => p.id);
+
+    expect(ids).toContain("glance");
+    expect(ids).toContain("sequence");
+    expect(ids).toContain("state");
+    expect(ids).toContain("er");
+    expect(ids).toContain("overview");
+    expect(ids).toContain("detailed");
+    expect(ids).toContain("long-labels");
   });
 
   test("Generate with AI stays in place but is a no-op on the Diagram page", () => {
@@ -177,7 +207,7 @@ describe("Gen UI Lab Diagram page", () => {
   });
 });
 
-describe("Gen UI Lab Diagram presets: Auto", () => {
+describe("Gen UI Lab Diagram states: Auto", () => {
   let hiddenDescriptor: PropertyDescriptor | undefined;
 
   beforeEach(() => {
@@ -197,27 +227,28 @@ describe("Gen UI Lab Diagram presets: Auto", () => {
   test("Auto is off by default, cycles once on, pauses on hover and off-page", () => {
     const view = render(<DiagramHarness />);
     const auto = view.getByRole("button", { name: "Auto" });
+    const count = LAB_DIAGRAM_PRESETS.length;
 
     expect(auto.getAttribute("aria-pressed")).toBe("false");
     advance();
-    expect(view.getByLabelText("Preset 1 of 4")).toBeTruthy();
+    expect(view.getByLabelText(`State 1 of ${count}`)).toBeTruthy();
 
     fireEvent.click(auto);
     advance();
-    expect(view.getByLabelText("Preset 2 of 4")).toBeTruthy();
+    expect(view.getByLabelText(`State 2 of ${count}`)).toBeTruthy();
 
     const host = view.getByTestId("preview-canvas").firstElementChild!;
 
     fireEvent.pointerEnter(host);
     advance();
-    expect(view.getByLabelText("Preset 2 of 4")).toBeTruthy();
+    expect(view.getByLabelText(`State 2 of ${count}`)).toBeTruthy();
     fireEvent.pointerLeave(host);
 
     view.rerender(<DiagramHarness active={false} />);
     advance();
-    expect(view.getByLabelText("Preset 2 of 4")).toBeTruthy();
+    expect(view.getByLabelText(`State 2 of ${count}`)).toBeTruthy();
     view.rerender(<DiagramHarness active />);
     advance();
-    expect(view.getByLabelText("Preset 3 of 4")).toBeTruthy();
+    expect(view.getByLabelText(`State 3 of ${count}`)).toBeTruthy();
   });
 });

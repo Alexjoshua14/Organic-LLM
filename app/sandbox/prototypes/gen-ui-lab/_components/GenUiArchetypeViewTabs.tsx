@@ -4,16 +4,11 @@ import type { ReactNode } from "react";
 
 import { useMemo, useState } from "react";
 
-import {
-  LAB_DIAGRAM_INSTRUCTION_MARKDOWN,
-  modelInstructionMarkdownForBlock,
-} from "@/lib/sandbox/gen-ui-lab-instructions";
-import { ChatMessageMarkdown } from "@/components/chat/chat-message-markdown";
+import { instructionDocForArchetype } from "@/lib/sandbox/gen-ui-lab-instructions";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/third-party/ui/tabs";
-import { isGenUIBlockType, type GenUIBlockType } from "@/lib/schemas/gen-ui";
 import { cn } from "@/lib/utils";
 
-import { LAB_DIAGRAM_ARCHETYPE } from "./GenUiMermaidDiagramDemo";
+import { GenUiInstructionPanel } from "./GenUiInstructionPanel";
 
 const LAB_CONTROL =
   "transition-colors outline-none focus-visible:bg-foreground focus-visible:text-background focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0";
@@ -25,20 +20,13 @@ type GenUiArchetypeViewTabsProps = {
   children: ReactNode;
 };
 
-function instructionMarkdown(archetype: string): string {
-  if (archetype === LAB_DIAGRAM_ARCHETYPE) return LAB_DIAGRAM_INSTRUCTION_MARKDOWN;
-  if (isGenUIBlockType(archetype)) return modelInstructionMarkdownForBlock(archetype);
-
-  return `# ${archetype}\n\n_No model instructions for this lab page._`;
-}
-
 /**
- * Per-archetype tabs: live component render vs the markdown model instructions Arcadia/Aion see.
+ * Per-archetype tabs: live component render vs structured model instructions
+ * (eyebrow header + collapsible sections).
  */
 export function GenUiArchetypeViewTabs({ archetype, children }: GenUiArchetypeViewTabsProps) {
   const [tab, setTab] = useState<ViewTab>("component");
-  const markdown = useMemo(() => instructionMarkdown(archetype), [archetype]);
-  const blockType = isGenUIBlockType(archetype) ? (archetype as GenUIBlockType) : null;
+  const doc = useMemo(() => instructionDocForArchetype(archetype), [archetype]);
 
   return (
     <Tabs
@@ -81,20 +69,21 @@ export function GenUiArchetypeViewTabs({ archetype, children }: GenUiArchetypeVi
         value="instructions"
         className="mt-0 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
       >
-        <article
-          className={cn(
-            "rounded-2xl bg-muted/30 p-inset-md",
-            "prose prose-sm max-w-none dark:prose-invert",
-            "prose-headings:text-foreground prose-p:text-muted-foreground",
-            "prose-code:text-foreground prose-pre:bg-muted/50"
-          )}
-        >
-          <ChatMessageMarkdown
-            content={markdown}
-            id={`lab-instructions-${blockType ?? archetype}`}
-            wrapCodeBlocks
-          />
-        </article>
+        {doc ? (
+          <GenUiInstructionPanel doc={doc} />
+        ) : (
+          <article className="rounded-2xl bg-muted/30 p-inset-md">
+            <p className="text-2xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
+              Gen UI · Model instructions
+            </p>
+            <h2 className="mt-1 font-commissioner text-xl font-light tracking-tight text-foreground">
+              {archetype}
+            </h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              No model instructions for this lab page.
+            </p>
+          </article>
+        )}
       </TabsContent>
     </Tabs>
   );

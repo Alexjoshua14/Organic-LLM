@@ -25,7 +25,9 @@ describe("profile-map block", () => {
     expect(r.success).toBe(true);
     if (r.success) {
       expect(r.data.type).toBe("profile-map");
-      expect(r.data.nodes).toHaveLength(4);
+      expect(r.data.domains.length).toBeGreaterThanOrEqual(3);
+      expect(r.data.nodes.length).toBeGreaterThanOrEqual(12);
+      expect(new Set(r.data.nodes.map((n) => n.kind)).size).toBeGreaterThanOrEqual(5);
     }
   });
 
@@ -65,23 +67,26 @@ describe("profile-map block", () => {
     ).toBe(false);
   });
 
-  test("deriveDependents inverts edges", () => {
+  test("deriveDependents inverts edges on the showcase graph", () => {
     if (FIXTURE_PROFILE_MAP.type !== "profile-map") throw new Error("fixture type");
     const dependents = deriveDependents(FIXTURE_PROFILE_MAP.nodes);
 
-    expect(dependents.get("mem0")).toEqual(["profiletree"]);
-    expect(dependents.get("profiletree")).toEqual(["remy"]);
-    expect(dependents.get("remy")).toEqual([]);
+    expect(dependents.get("mem0")).toContain("organic");
+    expect(dependents.get("mem0")).toContain("profiletree");
+    expect(dependents.get("profiletree")).toContain("remy");
+    expect(dependents.get("profiletree")).toContain("ship-profile");
+    expect(dependents.get("remy")).toContain("sunday-cook");
   });
 
   test("toMarkdown includes domains and dependency chips", () => {
     const md = genUIBlockToMarkdown(FIXTURE_PROFILE_MAP);
 
-    expect(md).toContain("Living profile");
-    expect(md).toContain("Building");
+    expect(md).toContain("Alex · Living Profile");
+    expect(md).toContain("Building Organic");
     expect(md).toContain("ProfileTree");
-    expect(md).toContain("Needs: Mem0, Supabase");
-    expect(md).toContain("Feeds: Remy");
+    expect(md).toContain("Needs:");
+    expect(md).toContain("Feeds:");
+    expect(md).toContain("Living Profile");
   });
 
   test("safeParse accepts fixture", () => {

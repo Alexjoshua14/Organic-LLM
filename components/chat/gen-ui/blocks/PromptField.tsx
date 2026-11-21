@@ -1,6 +1,6 @@
 "use client";
 
-import type { PromptFieldBlock } from "@/lib/schemas/gen-ui";
+import type { PromptFieldBlock, PromptSuggestion } from "@/lib/schemas/gen-ui";
 
 import { useEffect, useState } from "react";
 
@@ -17,22 +17,49 @@ type PromptFieldProps = {
   onUse?: (text: string) => void;
 };
 
+function suggestionKey(s: PromptSuggestion): string {
+  return `${s.label}:${s.insertionText}`;
+}
+
+/** True when this suggestion's text is already present as its own paragraph (or the whole draft). */
+export function promptSuggestionApplied(value: string, insertionText: string): boolean {
+  const needle = insertionText.trim();
+
+  if (!needle) return false;
+
+  return value
+    .split(/\n\n+/)
+    .map((part) => part.trim())
+    .includes(needle);
+}
+
+/**
+ * Toggle a suggestion into the draft as its own paragraph. Second click removes that paragraph
+ * instead of stacking another copy.
+ */
+export function togglePromptSuggestion(value: string, insertionText: string): string {
+  const needle = insertionText.trim();
+
+  if (!needle) return value;
+
+  const parts = value
+    .split(/\n\n+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (parts.includes(needle)) {
+    return parts.filter((part) => part !== needle).join("\n\n");
+  }
+
+  return parts.length === 0 ? needle : `${parts.join("\n\n")}\n\n${needle}`;
+}
+
 export function PromptField({ block, onUse }: PromptFieldProps) {
   const [value, setValue] = useState(block.default);
 
   useEffect(() => {
     setValue(block.default);
   }, [block.default]);
-
-  const insert = (text: string) => {
-    setValue((prev) => {
-      const trimmed = prev.trimEnd();
-
-      if (!trimmed) return text;
-
-      return `${trimmed}${trimmed.endsWith(" ") ? "" : " "}${text}`;
-    });
-  };
 
   return (
     <section className={cn("w-full rounded-2xl bg-muted/30 p-inset-md", spacing.card.section)}>
@@ -52,20 +79,27 @@ export function PromptField({ block, onUse }: PromptFieldProps) {
 
       {block.suggestions.length > 0 ? (
         <div className="flex flex-wrap gap-1.5" role="group" aria-label="Suggestions">
-          {block.suggestions.map((s) => (
-            <button
-              key={`${s.label}:${s.insertionText}`}
-              type="button"
-              onClick={() => insert(s.insertionText)}
-              className={cn(
-                "rounded-full border border-border/50 px-3 py-1 text-xs text-muted-foreground",
-                "hover:bg-muted/50",
-                FOCUS
-              )}
-            >
-              {s.label}
-            </button>
-          ))}
+          {block.suggestions.map((s) => {
+            const on = promptSuggestionApplied(value, s.insertionText);
+
+            return (
+              <button
+                key={suggestionKey(s)}
+                type="button"
+                aria-pressed={on}
+                onClick={() => setValue((prev) => togglePromptSuggestion(prev, s.insertionText))}
+                className={cn(
+                  "rounded-full border px-3 py-1 text-xs transition-colors",
+                  on
+                    ? "border-accent bg-accent/15 text-foreground"
+                    : "border-border/50 text-muted-foreground hover:bg-muted/50",
+                  FOCUS
+                )}
+              >
+                {s.label}
+              </button>
+            );
+          })}
         </div>
       ) : null}
 

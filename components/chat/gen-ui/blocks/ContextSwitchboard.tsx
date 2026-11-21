@@ -1,14 +1,53 @@
 "use client";
 
-import type { ContextSwitchboardBlock, ContextSwitchItem } from "@/lib/schemas/gen-ui";
+import type {
+  ContextSwitchboardBlock,
+  ContextSwitchItem,
+  ContextSwitchKind,
+} from "@/lib/schemas/gen-ui";
 
 import { useEffect, useMemo, useState } from "react";
+import { Brain, CircleHelp, FileText, Lightbulb } from "lucide-react";
 
 import { spacing } from "@/lib/design-tokens/spacing";
 import { cn } from "@/lib/utils";
 
 const FOCUS =
   "organic-focus focus-visible:outline-none focus-visible:bg-foreground focus-visible:text-background";
+
+const KIND_META: Record<
+  ContextSwitchKind,
+  { label: string; Icon: typeof Brain; swatch: string; rail: string; chip: string }
+> = {
+  memory: {
+    label: "Memory",
+    Icon: Brain,
+    swatch: "bg-accent text-accent-foreground",
+    rail: "bg-accent",
+    chip: "bg-accent/15 text-foreground",
+  },
+  file: {
+    label: "File",
+    Icon: FileText,
+    swatch: "bg-accent-warm text-accent-foreground",
+    rail: "bg-accent-warm",
+    chip: "bg-accent-warm/15 text-foreground",
+  },
+  assumption: {
+    label: "Assumption",
+    Icon: Lightbulb,
+    swatch: "bg-muted-foreground/70 text-background",
+    rail: "bg-muted-foreground/70",
+    chip: "bg-muted-foreground/15 text-foreground",
+  },
+  other: {
+    label: "Other",
+    Icon: CircleHelp,
+    swatch: "bg-muted-foreground/40 text-foreground",
+    rail: "bg-muted-foreground/40",
+    chip: "bg-muted/60 text-muted-foreground",
+  },
+};
 
 type ContextSwitchboardProps = {
   block: ContextSwitchboardBlock;
@@ -35,7 +74,25 @@ export function ContextSwitchboard({ block, onRerun }: ContextSwitchboardProps) 
     () => block.items.filter((i) => included[i.id]),
     [block.items, included]
   );
-  const excludedCount = block.items.length - activeItems.length;
+  const includedCount = activeItems.length;
+  const total = block.items.length;
+  const excludedCount = total - includedCount;
+
+  const kindTally = useMemo(() => {
+    const counts: Partial<Record<ContextSwitchKind, { on: number; total: number }>> = {};
+
+    for (const item of block.items) {
+      const slot = counts[item.kind] ?? { on: 0, total: 0 };
+
+      slot.total += 1;
+      if (included[item.id]) slot.on += 1;
+      counts[item.kind] = slot;
+    }
+
+    return (Object.keys(KIND_META) as ContextSwitchKind[])
+      .map((kind) => ({ kind, ...(counts[kind] ?? { on: 0, total: 0 }) }))
+      .filter((row) => row.total > 0);
+  }, [block.items, included]);
 
   const toggle = (id: string) => {
     setIncluded((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -55,14 +112,79 @@ export function ContextSwitchboard({ block, onRerun }: ContextSwitchboardProps) 
 
   return (
     <section className={cn("w-full rounded-2xl bg-muted/30 p-inset-md", spacing.card.section)}>
-      <h3 className="text-sm font-medium text-foreground">{block.title}</h3>
-      {block.question ? (
-        <p className="text-sm text-muted-foreground">{block.question}</p>
-      ) : null}
+      <header className="space-y-stack-sm">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 space-y-0.5">
+            <h3 className="text-sm font-medium text-foreground">{block.title}</h3>
+            {block.question ? (
+              <p className="text-xs leading-relaxed text-muted-foreground">{block.question}</p>
+            ) : null}
+          </div>
+          <div
+            className="shrink-0 rounded-lg bg-muted/50 px-2.5 py-1.5 text-right"
+            aria-label={`${includedCount} of ${total} included`}
+          >
+            <p className="font-mono text-sm tabular-nums text-foreground">
+              {includedCount}
+              <span className="text-muted-foreground">/{total}</span>
+            </p>
+            <p className="text-2xs uppercase tracking-wide text-muted-foreground">on</p>
+          </div>
+        </div>
+
+        {/* Inclusion rail — one segment per item, kind-colored when on. */}
+        <div
+          className="flex h-1.5 overflow-hidden rounded-full bg-muted/60"
+          role="presentation"
+          aria-hidden
+        >
+          {block.items.map((item) => {
+            const on = Boolean(included[item.id]);
+            const meta = KIND_META[item.kind];
+
+            return (
+              <span
+                key={item.id}
+                title={`${item.label} · ${on ? "included" : "ignored"}`}
+                className={cn(
+                  "min-w-0 flex-1 first:rounded-l-full last:rounded-r-full",
+                  on ? meta.rail : "bg-transparent"
+                )}
+              />
+            );
+          })}
+        </div>
+
+        {kindTally.length > 1 ? (
+          <ul className="flex flex-wrap gap-1.5" aria-label="By kind">
+            {kindTally.map(({ kind, on, total: kindTotal }) => {
+              const meta = KIND_META[kind];
+              const { Icon } = meta;
+
+              return (
+                <li
+                  key={kind}
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-2xs",
+                    meta.chip
+                  )}
+                >
+                  <Icon aria-hidden className="size-3" />
+                  <span>
+                    {meta.label} {on}/{kindTotal}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        ) : null}
+      </header>
 
       <ul className={spacing.card.blockItems} role="list">
         {block.items.map((item) => {
           const on = Boolean(included[item.id]);
+          const meta = KIND_META[item.kind];
+          const { Icon } = meta;
 
           return (
             <li key={item.id}>
@@ -72,24 +194,48 @@ export function ContextSwitchboard({ block, onRerun }: ContextSwitchboardProps) 
                 aria-checked={on}
                 onClick={() => toggle(item.id)}
                 className={cn(
-                  "flex w-full items-start gap-3 rounded-xl p-3 text-left",
-                  on ? "bg-muted/40" : "bg-muted/20 opacity-70",
+                  "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors",
+                  on ? "bg-muted/45" : "bg-muted/15 opacity-55",
                   FOCUS
                 )}
               >
                 <span
                   className={cn(
-                    "mt-0.5 size-4 shrink-0 rounded border",
-                    on ? "border-accent bg-accent" : "border-border/60 bg-transparent"
+                    "flex size-8 shrink-0 items-center justify-center rounded-lg",
+                    on ? meta.swatch : "bg-muted/50 text-muted-foreground"
                   )}
                   aria-hidden
-                />
+                >
+                  <Icon className="size-3.5" />
+                </span>
+
                 <span className="min-w-0 flex-1">
-                  <span className="block text-sm text-foreground">{item.label}</span>
-                  <span className="block font-mono text-xs text-muted-foreground">{item.kind}</span>
+                  <span className="flex items-baseline gap-2">
+                    <span className="truncate text-sm text-foreground">{item.label}</span>
+                    <span className="shrink-0 text-2xs uppercase tracking-wide text-muted-foreground">
+                      {meta.label}
+                    </span>
+                  </span>
                   {item.detail ? (
-                    <span className="mt-1 block text-xs text-muted-foreground">{item.detail}</span>
+                    <span className="mt-0.5 line-clamp-2 block text-xs text-muted-foreground">
+                      {item.detail}
+                    </span>
                   ) : null}
+                </span>
+
+                <span
+                  className={cn(
+                    "relative h-5 w-9 shrink-0 rounded-full transition-colors",
+                    on ? "bg-accent" : "bg-muted-foreground/25"
+                  )}
+                  aria-hidden
+                >
+                  <span
+                    className={cn(
+                      "absolute top-0.5 size-4 rounded-full bg-background shadow-sm transition-transform",
+                      on ? "left-4" : "left-0.5"
+                    )}
+                  />
                 </span>
               </button>
             </li>
@@ -97,20 +243,25 @@ export function ContextSwitchboard({ block, onRerun }: ContextSwitchboardProps) 
         })}
       </ul>
 
-      <div role="status" className="text-sm text-muted-foreground">
-        {excludedCount === 0
-          ? "All context included."
-          : `${excludedCount} ignored for the next run.`}
-        {status === "running" ? " Rerunning…" : null}
-        {status === "done" ? " Rerun complete." : null}
-        {status === "error" ? " Rerun failed." : null}
-        {!onRerun ? " Preview only — host must bind rerun." : null}
+      <div
+        role="status"
+        className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground"
+      >
+        <span>
+          {excludedCount === 0
+            ? "All context on for the next run."
+            : `${excludedCount} off — ignored next run.`}
+        </span>
+        {status === "running" ? <span>Rerunning…</span> : null}
+        {status === "done" ? <span>Rerun complete.</span> : null}
+        {status === "error" ? <span className="text-destructive">Rerun failed.</span> : null}
+        {!onRerun ? <span>Preview only.</span> : null}
       </div>
 
       {onRerun ? (
         <button
           type="button"
-          disabled={status === "running" || activeItems.length === 0}
+          disabled={status === "running" || includedCount === 0}
           onClick={() => void rerun()}
           className={cn(
             "min-h-11 rounded-lg bg-accent px-3 text-sm font-medium text-accent-foreground",

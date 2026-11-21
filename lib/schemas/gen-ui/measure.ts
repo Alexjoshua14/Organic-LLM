@@ -4,6 +4,12 @@ import { GEN_UI_VERSION, optionalStringCatch } from "./shared";
 
 export const MeasureToneSchema = z.enum(["accent", "action", "muted"]);
 
+/** Chart presentation — Stage/widget chrome picks among these. */
+export const MeasureVariantSchema = z.enum(["scale", "columns", "line", "pie"]);
+
+/** Widget footprint — denser chrome and shorter plot at `sm`, roomier at `lg`. */
+export const MeasureSizeSchema = z.enum(["sm", "md", "lg"]);
+
 export const MeasureRowSchema = z
   .object({
     id: z.string().min(1),
@@ -27,8 +33,8 @@ export const MeasureDomainSchema = z
   .refine((d) => d.max > d.min, { message: "domain.max must exceed domain.min" });
 
 /**
- * Horizontal scale block: where rows sit on a shared domain (share of a whole,
- * price ranges, benchmark scores, progress).
+ * Shared-scale comparison block. Default `variant: scale` is the horizontal track;
+ * `columns` / `line` / `pie` are widget chart forms. `size` controls chrome density.
  */
 export const MeasureBlockSchema = z.object({
   type: z.literal("measure"),
@@ -40,6 +46,8 @@ export const MeasureBlockSchema = z.object({
   /** Explicit tick positions; omit for five even steps across the domain. */
   ticks: z.array(z.number()).min(2).max(12).optional(),
   rows: z.array(MeasureRowSchema).min(1).max(12),
+  variant: MeasureVariantSchema.default("scale"),
+  size: MeasureSizeSchema.default("md"),
   footnote: optionalStringCatch(),
 });
 
@@ -47,6 +55,8 @@ export type MeasureBlock = z.infer<typeof MeasureBlockSchema>;
 export type MeasureRow = z.infer<typeof MeasureRowSchema>;
 export type MeasureTone = z.infer<typeof MeasureToneSchema>;
 export type MeasureDomain = z.infer<typeof MeasureDomainSchema>;
+export type MeasureVariant = z.infer<typeof MeasureVariantSchema>;
+export type MeasureSize = z.infer<typeof MeasureSizeSchema>;
 
 export function formatMeasureValue(value: number, unit = ""): string {
   return `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(value)}${unit}`;

@@ -32,7 +32,7 @@ When to use (with examples):
   Example: "Propose marking these three tasks done."
 - state-diagram: Showing a small set of named states and the transitions between them (no layout engine — list states + edges). Transition \`from\`/\`to\` must match state ids.
   Example: "Diagram the review → ready → shipped gate for this PR."
-- prompt-field: An editable draft prompt with optional suggestion chips that insert text. Use when the user should reshape or send a follow-up prompt.
+- prompt-field: An editable draft prompt with optional suggestion chips. Each chip toggles its \`insertionText\` in as its own paragraph (second click removes it). Use when the user should reshape or send a follow-up prompt.
   Example: "Give me chips to make this answer shorter, more cautious, or add an example."
 - progress-track: A single continuous progress bar with optional milestone markers on one scale (\`current\` ≤ \`total\`). Prefer measure when comparing ≥2 items.
   Example: "Show migration cutover at 62% with shadow / dual-write / cutover milestones."

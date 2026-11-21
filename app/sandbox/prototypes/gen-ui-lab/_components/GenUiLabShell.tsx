@@ -32,8 +32,8 @@ import {
   LAB_DIAGRAM_LABEL,
   useGenUiMermaidDiagramDemo,
 } from "./GenUiMermaidDiagramDemo";
+import { GenUiShowcaseGalleryItem } from "./GenUiShowcaseGalleryItem";
 
-import { GenUIRenderer } from "@/components/chat/gen-ui/GenUIRenderer";
 import { GEN_UI_REGISTRY } from "@/components/chat/gen-ui/registry";
 import { CoreInput } from "@/components/chat/core-input";
 import { BtwPanel } from "@/components/chat/btw/btw-panel";
@@ -42,6 +42,7 @@ import { glass } from "@/components/design-system/primitives";
 import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
 import { GEN_UI_BLOCK_TYPES, type GenUIBlockType } from "@/lib/schemas/gen-ui/shared";
 import { buildDefaultBlockMap, type GenUiLabApiResponse } from "@/lib/sandbox/gen-ui-lab";
+import { isGenUiShowcaseType } from "@/lib/sandbox/gen-ui-lab-showcases";
 import { cn } from "@/lib/utils";
 
 type CoreInputProps = ComponentProps<typeof CoreInput>;
@@ -288,7 +289,8 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
             <header className="space-y-stack-xs">
               <h1 className="text-xl font-semibold tracking-tight text-foreground">Gen UI Lab</h1>
               <p className="hidden text-sm text-muted-foreground @min-[56rem]:block">
-                Snap-scroll the gallery, or ask Aion to generate content.
+                Snap-scroll archetypes, step through each component&apos;s states, or ask Aion to
+                generate.
               </p>
             </header>
           </div>
@@ -421,38 +423,54 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
             )}
           >
             {galleryActive ? (
-              archetypeList.map(({ type }) => (
-                <GenUiGallerySection
-                  key={type}
-                  active={selectedType === type}
-                  archetype={type}
-                  header={
-                    type === LAB_DIAGRAM_ARCHETYPE ? (
-                      <GenUiMermaidDiagramDemoToolbar demo={diagramDemo} />
-                    ) : type === "decision-matrix" ? (
-                      <GenUiDecisionDemoToolbar demo={decisionDemo} />
-                    ) : type === "code-diff" ? (
-                      <GenUiCodeDemoToolbar demo={codeDemo} />
-                    ) : undefined
-                  }
-                  registerRef={registerSection(type)}
-                >
-                  <GenUiArchetypeViewTabs archetype={type}>
-                    {type === LAB_DIAGRAM_ARCHETYPE ? (
-                      <GenUiMermaidDiagramDemo demo={diagramDemo} />
-                    ) : type === "decision-matrix" ? (
-                      <GenUiDecisionDemo
-                        block={blocks[type] as DecisionMatrixBlock}
-                        demo={decisionDemo}
-                      />
-                    ) : type === "code-diff" ? (
-                      <GenUiCodeDemo demo={codeDemo} fixture={blocks[type]} />
-                    ) : (
-                      <GenUIRenderer data={{ block: blocks[type] }} messageId={`lab-${type}`} />
-                    )}
-                  </GenUiArchetypeViewTabs>
-                </GenUiGallerySection>
-              ))
+              archetypeList.map(({ type }) => {
+                const active = selectedType === type;
+
+                // Most archetypes cycle content states; decision / code / diagram keep their
+                // dedicated arrangement demos.
+                if (isBlockType(type) && isGenUiShowcaseType(type)) {
+                  return (
+                    <GenUiShowcaseGalleryItem
+                      key={type}
+                      type={type}
+                      liveBlock={blocks[type]}
+                      active={active}
+                      registerRef={registerSection(type)}
+                    />
+                  );
+                }
+
+                return (
+                  <GenUiGallerySection
+                    key={type}
+                    active={active}
+                    archetype={type}
+                    header={
+                      type === LAB_DIAGRAM_ARCHETYPE ? (
+                        <GenUiMermaidDiagramDemoToolbar demo={diagramDemo} />
+                      ) : type === "decision-matrix" ? (
+                        <GenUiDecisionDemoToolbar demo={decisionDemo} />
+                      ) : type === "code-diff" ? (
+                        <GenUiCodeDemoToolbar demo={codeDemo} />
+                      ) : undefined
+                    }
+                    registerRef={registerSection(type)}
+                  >
+                    <GenUiArchetypeViewTabs archetype={type}>
+                      {type === LAB_DIAGRAM_ARCHETYPE ? (
+                        <GenUiMermaidDiagramDemo demo={diagramDemo} />
+                      ) : type === "decision-matrix" ? (
+                        <GenUiDecisionDemo
+                          block={blocks[type] as DecisionMatrixBlock}
+                          demo={decisionDemo}
+                        />
+                      ) : type === "code-diff" ? (
+                        <GenUiCodeDemo demo={codeDemo} fixture={blocks[type]} />
+                      ) : null}
+                    </GenUiArchetypeViewTabs>
+                  </GenUiGallerySection>
+                );
+              })
             ) : stateView ? (
               <article className="mx-auto flex min-h-full w-full max-w-2xl flex-col justify-center">
                 <GenUiLabStatePanel state={stateView} />
