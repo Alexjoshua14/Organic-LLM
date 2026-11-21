@@ -17,6 +17,13 @@ import {
   JEV_STAGE_RESPOND_OUTPUT_BUDGET_USD,
 } from "./constants";
 import { finishModelCall, markFirstToken, startCallClock } from "./trace";
+import {
+  contextManifest,
+  contextSegment,
+  historySegments,
+  historyWindow,
+  toolDefinitionSegment,
+} from "./context-manifest";
 import { hopStep, traceToolSet, type JevHopSignal } from "./trace-events";
 import type { JevStageModelCallTrace } from "./schema";
 
@@ -337,7 +344,49 @@ export async function streamJevRespond(args: {
   let stepIndex = 0;
   let stepStarted = performance.now();
 
+  const instructions = `${RESPOND_INSTRUCTIONS}${
+    args.settings?.speechFriendly
+      ? "\nKeep replies easy to read aloud: brief, conversational sentences."
+      : ""
+  }`;
+  const summaryPart = `Thread summary:\n${args.state.summary.slice(0, 1200) || "(empty)"}`;
+  const knowledgePart = `Stage knowledge:\n${JSON.stringify(stageKnowledgeContext(args.state)).slice(0, 1200)}`;
+  const spacePart = `Stage space (views you can switch to):\n${JSON.stringify(
+    stageSpaceContext(args.state, args.settings?.presentation)
+  ).slice(0, 1600)}`;
+  const specialistsPart = `Active specialists:\n${JSON.stringify(
+    (args.state.subagents ?? []).map((agent) => ({ name: agent.name, status: agent.status }))
+  )}`;
+  const tools = createJevRespondTools({
+    ownerId: args.ownerId,
+    state: args.state,
+    settings: args.settings,
+    effects,
+    onSummary: args.onSummary,
+    onDesignBrief: args.onDesignBrief,
+  });
+
   args.onHop?.({ kind: "start", model });
+  args.onHop?.({
+    kind: "context",
+    model,
+    manifest: contextManifest(
+      [
+        contextSegment("system", "System prompt", instructions),
+        toolDefinitionSegment(tools),
+        contextSegment("summary", "Thread summary", summaryPart),
+        contextSegment("knowledge", "Stage knowledge", knowledgePart),
+        contextSegment("space", "Stage space", spacePart),
+        contextSegment("specialists", "Active specialists", specialistsPart),
+        ...historySegments(packed.messages),
+      ],
+      historyWindow({
+        total: args.state.messages.length + 1,
+        kept: packed.messages.length,
+        budgetUsd: Math.max(0.02, JEV_STAGE_RESPOND_INPUT_BUDGET_USD - INPUT_OVERHEAD_RESERVE_USD),
+      })
+    ),
+  });
 
   try {
     const result = streamText({
@@ -386,21 +435,13 @@ export async function streamJevRespond(args: {
         }
       },
       model,
-      instructions: `${RESPOND_INSTRUCTIONS}${
-        args.settings?.speechFriendly
-          ? "\nKeep replies easy to read aloud: brief, conversational sentences."
-          : ""
-      }`,
+      instructions,
       // Newest user message is already the last packed row — do not repeat it outside the budget.
       prompt: [
-        `Thread summary:\n${args.state.summary.slice(0, 1200) || "(empty)"}`,
-        `Stage knowledge:\n${JSON.stringify(stageKnowledgeContext(args.state)).slice(0, 1200)}`,
-        `Stage space (views you can switch to):\n${JSON.stringify(
-          stageSpaceContext(args.state, args.settings?.presentation)
-        ).slice(0, 1600)}`,
-        `Active specialists:\n${JSON.stringify(
-          (args.state.subagents ?? []).map((agent) => ({ name: agent.name, status: agent.status }))
-        )}`,
+        summaryPart,
+        knowledgePart,
+        spacePart,
+        specialistsPart,
         `Recent messages (budget-packed${packed.truncated ? ", truncated" : ""}):\n${packed.messages
           .map((message) => `${message.role}: ${message.text}`)
           .join("\n")}`,
@@ -409,17 +450,7 @@ export async function streamJevRespond(args: {
       // Without stopWhen, tool calls can finish the turn with no user-visible text.
       stopWhen: stepCountIs(JEV_STAGE_RESPOND_MAX_STEPS),
       // Each tool execution is timed and streamed to the insight timeline as it finishes.
-      tools: traceToolSet(
-        createJevRespondTools({
-          ownerId: args.ownerId,
-          state: args.state,
-          settings: args.settings,
-          effects,
-          onSummary: args.onSummary,
-          onDesignBrief: args.onDesignBrief,
-        }),
-        (tool) => args.onHop?.({ kind: "tool", tool })
-      ),
+      tools: traceToolSet(tools, (tool) => args.onHop?.({ kind: "tool", tool })),
       abortSignal: abort.signal,
       providerOptions: {
         ...buildEffortProviderOptions(model, args.settings?.effort),

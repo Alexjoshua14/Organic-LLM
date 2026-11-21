@@ -41,15 +41,29 @@ After Jev routes, execution is a bounded step loop (`JEV_STAGE_TURN_MAX_STEPS`):
 ## Sent message
 
 The prototype echoes a submitted message beneath Organic while the turn runs. The two-line
-preview opens in a scrollable popover when clipped. Route, fallback, model and tool updates
+preview opens in a scrollable popover when clipped. Organic’s action phrase uses Arcadia’s
+processing shimmer. Route, fallback, model and tool updates
 come from the turn stream. Once the reply is saved, the full message is available in
 Conversation. A failed turn leaves the echo visible until retry or reset.
 
 ## Insight panel
 
-Desktop: sticky-note sized card (`w-64`, `max-h-80`). Mobile: collapsed chip → sheet.
-Paged turns; message capped to two secondary lines; top-3 confidences + popover for the rest;
-three-line glance for cost / latency / cache / per-model spend; thumbs + optional note.
+On desktop, Conversation opens in a recessed column and Stage adjusts its width. The
+fixed-height Insight note can move within the Stage area by dragging its grip or using the
+arrow keys on the focused grip. Home returns it to its initial position. Mobile keeps the
+Insight sheet.
+
+Insight follows the latest interaction by default, including the in-flight turn. Paging back
+pauses following. The Follow latest toggle or paging to the newest turn resumes it.
+
+- **Pipeline** shows the route, top-three probabilities, confidence floor, tool results, step
+  timing, spend, and fallbacks. Older turns use stored traces when available.
+- **Context** shows the inputs captured for Jev, Respond and Orchestrate, plus expandable tool
+  outputs, the message packing window and model usage. Input segment counts are estimates.
+  Tool definitions list names and descriptions, and long stored text is capped. Cache reads
+  are attributed to the model call because providers report totals at that level.
+- The footer shows the turn's totals and evaluation controls. Context is kept with the
+  lab’s authenticated, encrypted turn record.
 
 ## Confidence floor
 

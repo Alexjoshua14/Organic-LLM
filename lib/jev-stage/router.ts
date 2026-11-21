@@ -144,6 +144,8 @@ export async function routeJevStage(args: {
   /** Measured Jev usage; zero when the call failed. */
   usage: JevUsage;
   costUsd: number;
+  /** What was sent to Jev, for the insight's Context tab. */
+  request: { state: Record<string, string>; questions: JevQuestions };
 }> {
   const navigated = args.stage ? stageNavigation(args.message, args.stage) : null;
   const views =
@@ -165,13 +167,15 @@ export async function routeJevStage(args: {
     };
   }
 
+  const state = {
+    stageSummary: args.summary.slice(0, 1500) || "(empty)",
+    knowledgeHint: args.knowledgeHint.slice(0, 800) || "(none)",
+    newestUserMessage: args.message,
+  };
+  const request = { state, questions };
   const result = await jevDecide({
     label: "jev-stage.route",
-    state: {
-      stageSummary: args.summary.slice(0, 1500) || "(empty)",
-      knowledgeHint: args.knowledgeHint.slice(0, 800) || "(none)",
-      newestUserMessage: args.message,
-    },
+    state,
     questions,
     timeoutMs: JEV_STAGE_ROUTER_TIMEOUT_MS,
     generate: args.generate,
@@ -193,6 +197,7 @@ export async function routeJevStage(args: {
       choice: null,
       usage: result.ok ? result.usage : { inputTokens: 0, outputTokens: 0 },
       costUsd: result.ok ? result.costUsd : 0,
+      request,
     };
   }
 
@@ -222,5 +227,6 @@ export async function routeJevStage(args: {
     choice: action.choice as JevStageActionKind,
     usage: result.usage,
     costUsd: result.costUsd,
+    request,
   };
 }

@@ -15,6 +15,7 @@ import {
   type CSSProperties,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   AudioLines,
   Grid3X3,
@@ -98,11 +99,13 @@ export function StageView({
   stage,
   scripted = false,
   agentMessage,
+  conversationRail,
 }: {
   stage: StageController;
   /** A scripted stage has no real threads, calls, or voice session to attach to. */
   scripted?: boolean;
   agentMessage?: ReactNode;
+  conversationRail?: HTMLElement | null;
 }) {
   const liveVoice = useVoiceSessionOptional();
   const voice = scripted ? null : liveVoice;
@@ -497,7 +500,12 @@ export function StageView({
         />
       )}
       {panel && state && (
-        <StageHistory key={panel} mode={panel} state={state} onClose={() => setPanel(null)} />
+        panel === "conversation" && conversationRail
+          ? createPortal(
+              <StageHistory recessed mode={panel} state={state} onClose={() => setPanel(null)} />,
+              conversationRail
+            )
+          : <StageHistory key={panel} mode={panel} state={state} onClose={() => setPanel(null)} />
       )}
 
       <footer className="stage-footer">

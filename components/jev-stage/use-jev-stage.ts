@@ -6,6 +6,7 @@ import type {
   JevStageActionKind,
   JevStageBundle,
   JevStageStreamEvent,
+  JevStageTraceEvent,
   JevStageTurnInsight,
 } from "@/lib/jev-stage/schema";
 
@@ -14,7 +15,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { stageRequest, StageRequestError } from "@/components/stage/use-stage";
 import { applyStageOperations, stageReservedRects } from "@/lib/stage/layout";
 import { emptyStageState } from "@/lib/stage/schema";
-import { JEV_STAGE_CLIENT_TIMEOUT_MS } from "@/lib/jev-stage/constants";
+import { JEV_STAGE_CLIENT_TIMEOUT_MS, JEV_STAGE_MAX_TURN_INSIGHTS } from "@/lib/jev-stage/constants";
 import { emptyJevStageBundle } from "@/lib/jev-stage/schema";
 import { shortModel } from "@/lib/jev-stage/trace-view";
 
@@ -62,6 +63,7 @@ export function useJevStage(): StageController & {
   streamingText: string;
   submittedMessage: { id: string; text: string } | null;
   turnStatus: string;
+  liveTrace: JevStageTraceEvent[];
   setEval: (
     turnId: string,
     signal: "up" | "down",
@@ -78,6 +80,7 @@ export function useJevStage(): StageController & {
     null
   );
   const [turnStatus, setTurnStatus] = useState("");
+  const [liveTrace, setLiveTrace] = useState<JevStageTraceEvent[]>([]);
   const current = useRef(bundle);
   const sendLock = useRef(false);
   const mounted = useRef(true);
@@ -131,6 +134,7 @@ export function useJevStage(): StageController & {
 
       setSubmittedMessage({ id: requestId, text: message });
       setTurnStatus("Received");
+      setLiveTrace([]);
       const abort = new AbortController();
       const timeout = window.setTimeout(() => abort.abort(), JEV_STAGE_CLIENT_TIMEOUT_MS);
 
@@ -169,6 +173,8 @@ export function useJevStage(): StageController & {
           } else if (event.type === "trace") {
             const trace = event.event;
 
+            setLiveTrace((events) => [...events, trace]);
+
             switch (trace.kind) {
               case "jev.start":
                 setTurnStatus("Jev is choosing a route");
@@ -199,7 +205,7 @@ export function useJevStage(): StageController & {
                 if (trace.note && trace.ok) setTurnStatus(trace.note);
                 break;
               case "fallback":
-                setTurnStatus("Falling back to Respond");
+                setTurnStatus(trace.to === "respond" ? "Falling back to Respond" : "Preparing a fallback reply");
                 break;
             }
           } else if (event.type === "patch" || event.type === "done") {
@@ -211,7 +217,7 @@ export function useJevStage(): StageController & {
                   ? [
                       ...current.current.insights.filter((i) => i.turnId !== event.insight.turnId),
                       event.insight,
-                    ]
+                    ].slice(-JEV_STAGE_MAX_TURN_INSIGHTS)
                   : current.current.insights,
             });
           } else if (event.type === "limit_error" || event.type === "error") {
@@ -334,6 +340,7 @@ export function useJevStage(): StageController & {
       streamingText,
       submittedMessage,
       turnStatus,
+      liveTrace,
       setEval,
     }),
     [
@@ -351,6 +358,7 @@ export function useJevStage(): StageController & {
       streamingText,
       submittedMessage,
       turnStatus,
+      liveTrace,
       setEval,
     ]
   );

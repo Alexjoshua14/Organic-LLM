@@ -75,6 +75,23 @@ describe("jev-stage trace events", () => {
     expect(actionVia({ source: "jev", belowFloor: true, blocked: false })).toBe("floor");
   });
 
+  test("a low-probability respond pick is not a floor fallback", () => {
+    const event = jevDecisionEvent(
+      10,
+      routed({
+        route: {
+          candidates: [
+            { kind: "respond", confidence: 0.4, reason: "", args: {} },
+            { kind: "recall", confidence: 0.3, reason: "", args: {} },
+          ],
+        },
+      }),
+      0.45
+    );
+
+    expect(event.belowFloor).toBe(false);
+  });
+
   test("a failed Jev call has no distribution and carries the error", () => {
     const event = jevDecisionEvent(
       5,
@@ -163,8 +180,8 @@ describe("jev-stage trace events", () => {
     expect(tools.search_memories.description).toBe("search");
     expect(tools.passive).toEqual({ description: "no execute" });
     expect(seen).toEqual([
-      { name: "search_memories", args: '{"query":"moss"}', result: "2 memories", ms: 120, ok: true, effect: null },
-      { name: "switch_view", args: "", result: "That view is not available.", ms: 0, ok: false, effect: "View switched" },
+      { name: "search_memories", args: '{"query":"moss"}', result: "2 memories", ms: 120, ok: true, effect: null, output: JSON.stringify({ memories: ["moss", "moss"] }, null, 2) },
+      { name: "switch_view", args: "", result: "That view is not available.", ms: 0, ok: false, effect: "View switched", output: JSON.stringify({ ok: false, error: "That view is not available." }, null, 2) },
       { name: "broken", args: "", result: "boom", ms: 5, ok: false, effect: null },
     ]);
   });

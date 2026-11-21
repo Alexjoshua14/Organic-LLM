@@ -13,10 +13,12 @@ export function StageHistory({
   mode,
   state,
   onClose,
+  recessed = false,
 }: {
   mode: "conversation" | "activity";
   state: StageState;
   onClose: () => void;
+  recessed?: boolean;
 }) {
   const [events, setEvents] = useState<StageEvent[]>([]);
   const [cursor, setCursor] = useState<number | null>(null);
@@ -47,32 +49,54 @@ export function StageHistory({
   return (
     <aside
       aria-label={mode === "conversation" ? "Conversation with Organic" : "Stage activity"}
-      className="stage-panel stage-history"
+      className={
+        recessed
+          ? "flex h-full min-h-0 flex-col gap-4 overflow-hidden bg-muted/50 p-4 shadow-inner"
+          : "stage-panel stage-history"
+      }
       role="dialog"
     >
-      <header className="stage-panel-header">
+      <header
+        className={
+          recessed ? "flex items-center justify-between gap-2 text-sm" : "stage-panel-header"
+        }
+      >
         <h2>{mode === "conversation" ? "With Organic" : "Behind the stage"}</h2>
         <button
           aria-label="Close panel"
-          className="stage-icon-button"
+          className={
+            recessed ? "organic-focus rounded p-1 text-muted-foreground" : "stage-icon-button"
+          }
           type="button"
           onClick={onClose}
         >
           <X size={16} />
         </button>
       </header>
-      <div className="stage-history-body">
+      <div
+        className={
+          recessed
+            ? "min-h-0 flex-1 overflow-y-auto overscroll-contain text-sm"
+            : "stage-history-body"
+        }
+      >
         {mode === "conversation" ? (
           <>
             {state.messages.length === 0 && (
-              <p className="stage-muted">
+              <p className={recessed ? "text-muted-foreground" : "stage-muted"}>
                 Start a conversation below. What you make can stay on the stage.
               </p>
             )}
             {state.messages.map((message) => (
-              <div key={message.id} className="stage-history-message" data-role={message.role}>
-                <span>{message.role === "user" ? "You" : (message.author?.name ?? "Organic")}</span>
-                <div className="stage-prose">
+              <div
+                key={message.id}
+                className={recessed ? "mb-4 space-y-1" : "stage-history-message"}
+                data-role={message.role}
+              >
+                <span className={recessed ? "text-2xs text-muted-foreground" : undefined}>
+                  {message.role === "user" ? "You" : (message.author?.name ?? "Organic")}
+                </span>
+                <div className={recessed ? "wrap-anywhere" : "stage-prose"}>
                   <ChatMessageMarkdown content={message.text} id={message.id} wrapCodeBlocks />
                 </div>
               </div>

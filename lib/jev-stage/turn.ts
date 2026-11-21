@@ -7,6 +7,7 @@ import {
   JEV_STAGE_TURN_MAX_STEPS,
   JEV_GATEWAY_TRACE_MODEL,
 } from "./constants";
+import { jevContextManifest } from "./context-manifest";
 import { executeJevDirectTool, isDirectJevAction } from "./direct-tools";
 import { streamJevOrchestrate } from "./orchestrate";
 import { applyJevRespondEffects, streamJevRespond } from "./respond";
@@ -189,6 +190,13 @@ export async function runJevStageTurn(args: {
     });
     const decision = jevDecisionEvent(trace.t(), routed, JEV_STAGE_CONFIDENCE_FLOOR);
 
+    trace.record({
+      kind: "hop.context",
+      t: trace.t(),
+      hopId: "jev",
+      model: JEV_GATEWAY_TRACE_MODEL,
+      manifest: jevContextManifest(routed.request),
+    });
     trace.record(decision);
 
     let selected = routed.selected;

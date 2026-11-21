@@ -45,6 +45,7 @@ export type JevTraceView = {
   decision: Ev<"jev.end"> | null;
   action: Ev<"action"> | null;
   hops: JevTraceHopView[];
+  contexts: Ev<"hop.context">[];
   fallbacks: Ev<"fallback">[];
   done: Ev<"done"> | null;
   lastT: number;
@@ -56,6 +57,7 @@ export function emptyJevTraceView(): JevTraceView {
     decision: null,
     action: null,
     hops: [],
+    contexts: [],
     fallbacks: [],
     done: null,
     lastT: 0,
@@ -109,6 +111,8 @@ export function foldJevTrace(view: JevTraceView, event: JevStageTraceEvent): Jev
         ...next,
         hops: updateHop(view, event.hopId, (hop) => ({ ...hop, firstTokenT: hop.firstTokenT ?? event.t })),
       };
+    case "hop.context":
+      return { ...next, contexts: [...view.contexts, event] };
     case "hop.tool":
       return {
         ...next,

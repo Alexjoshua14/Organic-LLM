@@ -65,7 +65,48 @@ export const JevStageToolTraceSchema = z.object({
   ok: z.boolean().optional(),
   /** Stage state this tool changed ("View switched"), when it is an effect tool. */
   effect: z.string().nullable().optional(),
+  /** Full tool output as sent back to the model (capped), for the Context tab. */
+  output: z.string().optional(),
 });
+
+/** One piece of what a model hop was sent, in prompt order. */
+export const JevStageContextSegmentSchema = z.object({
+  kind: z.enum([
+    "system",
+    "question",
+    "summary",
+    "knowledge",
+    "space",
+    "specialists",
+    "history",
+    "tools",
+    "user",
+  ]),
+  label: z.string(),
+  role: z.string().nullable(),
+  /** Estimated tokens (chars / 4); providers report only the hop's total. */
+  tokens: z.number().int().nonnegative(),
+  preview: z.string(),
+  text: z.string(),
+  truncated: z.boolean(),
+});
+
+export type JevStageContextSegment = z.infer<typeof JevStageContextSegmentSchema>;
+
+export const JevStageContextManifestSchema = z.object({
+  segments: z.array(JevStageContextSegmentSchema),
+  /** History packed under the Respond input budget; null when the hop sends no history. */
+  window: z
+    .object({
+      budgetUsd: z.number().nonnegative().nullable(),
+      total: z.number().int().nonnegative(),
+      kept: z.number().int().nonnegative(),
+      dropped: z.number().int().nonnegative(),
+    })
+    .nullable(),
+});
+
+export type JevStageContextManifest = z.infer<typeof JevStageContextManifestSchema>;
 
 export type JevStageToolTrace = z.infer<typeof JevStageToolTraceSchema>;
 
@@ -102,7 +143,7 @@ export const JevStageTraceEventSchema = z.discriminatedUnion("kind", [
     distribution: z.array(z.object({ kind: JevStageActionKindSchema, p: z.number().min(0).max(1) })),
     choice: JevStageActionKindSchema.nullable(),
     floor: z.number().min(0).max(1),
-    /** True when the top probability was below the floor, so the turn fell back to Respond. */
+    /** True when a non-respond top pick was below the floor, so the turn fell back to Respond. */
     belowFloor: z.boolean(),
     error: z.string().nullable(),
     inputTokens: z.number().int().nonnegative(),
@@ -128,6 +169,14 @@ export const JevStageTraceEventSchema = z.discriminatedUnion("kind", [
     kind: z.literal("hop.first_token"),
     t: z.number().nonnegative(),
     hopId: z.string().min(1),
+  }),
+  z.object({
+    /** What a hop was sent. hopId "jev" is the Jev decision. Stored only in the prototype record. */
+    kind: z.literal("hop.context"),
+    t: z.number().nonnegative(),
+    hopId: z.string().min(1),
+    model: z.string(),
+    manifest: JevStageContextManifestSchema,
   }),
   z.object({
     kind: z.literal("hop.tool"),

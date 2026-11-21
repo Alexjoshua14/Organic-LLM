@@ -3,6 +3,14 @@ import "server-only";
 import { streamText, stepCountIs, tool } from "ai";
 import { z } from "zod";
 
+import {
+  contextManifest,
+  contextSegment,
+  historySegments,
+  historyWindow,
+  toolDefinitionSegment,
+} from "./context-manifest";
+import { JEV_STAGE_RESPOND_INPUT_BUDGET_USD } from "./constants";
 import { maxOutputTokensForBudget, packMessagesForInputBudget } from "./budget";
 import { resolveRespondModel } from "./respond";
 import { finishModelCall, markFirstToken, startCallClock } from "./trace";
@@ -94,7 +102,68 @@ export async function streamJevOrchestrate(args: {
   let stepIndex = 0;
   let stepStarted = performance.now();
 
+  const summaryPart = `Thread summary:\n${args.state.summary.slice(0, 2000) || "(empty)"}`;
+  const knowledgePart = `Stage knowledge:\n${JSON.stringify(stageKnowledgeContext(args.state)).slice(0, 2000)}`;
+  const newestPart = `Newest user message:\n${args.message}`;
+  const tools = {
+    ...(memory ? { memory_search: memory } : {}),
+    ...(web ? { web_search: web } : {}),
+    update_summary: tool({
+      description: "Update the durable Stage thread summary.",
+      inputSchema: z.object({ summary: z.string().min(1).max(3000) }),
+      execute: async ({ summary: next }) => {
+        summary = next;
+        args.onSummary?.(next);
+
+        return { ok: true };
+      },
+    }),
+    set_design_brief: tool({
+      description: "Queue Stage designer work for visual pieces.",
+      inputSchema: z.object({ brief: z.string().min(1).max(2000) }),
+      execute: async ({ brief }) => {
+        designBrief = brief;
+        args.onDesignBrief?.(brief);
+
+        return { ok: true };
+      },
+    }),
+    dispatch_subagent: tool({
+      description:
+        "Assign a Stage specialist (name + goal). Prefer one; at most two. Use for parallel or role-shaped work.",
+      inputSchema: StageSubagentAssignmentSchema,
+      execute: async (assignment) => {
+        if (specialists.length >= 2) {
+          return { ok: false, error: "Only two specialists can run at once." };
+        }
+        specialists.push(assignment);
+        args.onSpecialists?.([...specialists]);
+
+        return { ok: true, queued: assignment.name };
+      },
+    }),
+  };
+
   args.onHop?.({ kind: "start", model });
+  args.onHop?.({
+    kind: "context",
+    model,
+    manifest: contextManifest(
+      [
+        contextSegment("system", "System prompt", JEV_STAGE_ORCHESTRATOR_SYSTEM),
+        toolDefinitionSegment(tools),
+        contextSegment("summary", "Thread summary", summaryPart),
+        contextSegment("knowledge", "Stage knowledge", knowledgePart),
+        ...historySegments(packed.messages, false),
+        contextSegment("user", "Newest message", newestPart, "user"),
+      ],
+      historyWindow({
+        total: args.state.messages.length + 1,
+        kept: packed.messages.length,
+        budgetUsd: JEV_STAGE_RESPOND_INPUT_BUDGET_USD,
+      })
+    ),
+  });
 
   const result = streamText({
     ...budget,
@@ -121,54 +190,17 @@ export async function streamJevOrchestrate(args: {
     model,
     instructions: JEV_STAGE_ORCHESTRATOR_SYSTEM,
     prompt: [
-      `Thread summary:\n${args.state.summary.slice(0, 2000) || "(empty)"}`,
-      `Stage knowledge:\n${JSON.stringify(stageKnowledgeContext(args.state)).slice(0, 2000)}`,
+      summaryPart,
+      knowledgePart,
       `Recent messages:\n${packed.messages
         .map((message) => `${message.role}: ${message.text}`)
         .join("\n")}`,
-      `Newest user message:\n${args.message}`,
+      newestPart,
     ].join("\n\n"),
     maxOutputTokens: maxOutputTokensForBudget(model),
     stopWhen: stepCountIs(6),
     // Each tool execution is timed and streamed to the insight timeline as it finishes.
-    tools: traceToolSet({
-      ...(memory ? { memory_search: memory } : {}),
-      ...(web ? { web_search: web } : {}),
-      update_summary: tool({
-        description: "Update the durable Stage thread summary.",
-        inputSchema: z.object({ summary: z.string().min(1).max(3000) }),
-        execute: async ({ summary: next }) => {
-          summary = next;
-          args.onSummary?.(next);
-
-          return { ok: true };
-        },
-      }),
-      set_design_brief: tool({
-        description: "Queue Stage designer work for visual pieces.",
-        inputSchema: z.object({ brief: z.string().min(1).max(2000) }),
-        execute: async ({ brief }) => {
-          designBrief = brief;
-          args.onDesignBrief?.(brief);
-
-          return { ok: true };
-        },
-      }),
-      dispatch_subagent: tool({
-        description:
-          "Assign a Stage specialist (name + goal). Prefer one; at most two. Use for parallel or role-shaped work.",
-        inputSchema: StageSubagentAssignmentSchema,
-        execute: async (assignment) => {
-          if (specialists.length >= 2) {
-            return { ok: false, error: "Only two specialists can run at once." };
-          }
-          specialists.push(assignment);
-          args.onSpecialists?.([...specialists]);
-
-          return { ok: true, queued: assignment.name };
-        },
-      }),
-    }, (tool) => args.onHop?.({ kind: "tool", tool })),
+    tools: traceToolSet(tools, (tool) => args.onHop?.({ kind: "tool", tool })),
     abortSignal: AbortSignal.timeout(120_000),
     providerOptions: {
       ...buildEffortProviderOptions(model, args.settings?.effort),
@@ -183,7 +215,7 @@ export async function streamJevOrchestrate(args: {
     args.onDelta(delta);
   }
 
-  const usage = await result.usage;
+  const usage = await result.totalUsage;
   const call = finishModelCall({
     id: crypto.randomUUID(),
     operation: "orchestrate",

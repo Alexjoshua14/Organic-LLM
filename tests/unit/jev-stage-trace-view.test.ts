@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
+import { contextManifest, contextSegment, costBreakdown } from "@/lib/jev-stage/context-manifest";
+
 import {
   initialInsightPager,
   insightPage,
@@ -179,6 +181,32 @@ describe("jev-stage trace view reducer", () => {
     expect(view.done?.outcome).toBe("ok");
     expect(traceForInsight({ ...insight, trace: turn })).toBe(turn);
   });
+});
+
+test("the live and replayed pipeline retain model context and cache costs", () => {
+  const manifest = contextManifest([contextSegment("user", "Newest message", "Find moss", "user")]);
+  const event: JevStageTraceEvent = {
+    kind: "hop.context",
+    t: 3010,
+    hopId: "h1",
+    model: call.model,
+    manifest,
+  };
+  const view = buildJevTraceView([
+    ...turn,
+    event,
+    { kind: "hop.end", t: 19_870, hopId: "h1", ms: call.latencyMs, ok: true, call, note: null },
+  ]);
+
+  expect(view.contexts).toEqual([event]);
+  expect(view.hops[0]?.call).toEqual(call);
+  const { lines } = costBreakdown(call.model, call);
+
+  expect(lines.map((line) => [line.label, line.tokens])).toEqual([
+    ["Uncached input", call.inputTokens - call.cachedInputTokens],
+    ["Cached input", call.cachedInputTokens],
+    ["Output", call.outputTokens],
+  ]);
 });
 
 describe("jev-stage insight pager", () => {

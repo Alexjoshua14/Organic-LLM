@@ -1,8 +1,10 @@
+import { capText } from "./context-manifest";
 import {
   JevStageActionKindSchema,
   type JevStageActionKind,
   type JevStageActionVia,
   type JevStageCandidate,
+  type JevStageContextManifest,
   type JevStageHopStep,
   type JevStageToolTrace,
   type JevStageTraceEvent,
@@ -37,6 +39,17 @@ export function summarizeTraceValue(value: unknown, max = JEV_TRACE_VALUE_CHARS)
   text = text.replace(/\s+/g, " ").trim();
 
   return text.length > max ? `${text.slice(0, Math.max(0, max - 1))}…` : text;
+}
+
+/** A tool output as the model received it, pretty-printed and capped for the Context tab. */
+export function fullTraceValue(value: unknown): string {
+  if (value === undefined) return "";
+  if (typeof value === "string") return capText(value);
+  try {
+    return capText(JSON.stringify(value, null, 2) ?? String(value));
+  } catch {
+    return capText(String(value));
+  }
 }
 
 /** Stage state each effect tool changes, as the timeline names it. */
@@ -122,6 +135,7 @@ export function traceToolSet<T extends Record<string, unknown>>(
                 result: summarizeToolResult(output),
                 ms: Math.max(0, Math.round(now() - started)),
                 ok: !failed,
+                output: fullTraceValue(output),
               });
 
               return output;
@@ -196,6 +210,7 @@ export function hopStep(args: {
 export type JevHopSignal =
   | { kind: "start"; model: string }
   | { kind: "first_token" }
+  | { kind: "context"; model: string; manifest: JevStageContextManifest }
   | { kind: "tool"; tool: JevStageToolTrace }
   | { kind: "step"; step: JevStageHopStep };
 
@@ -235,7 +250,8 @@ export function jevDecisionEvent(
     distribution,
     choice: routed.choice,
     floor,
-    belowFloor: !!top && top.p < floor,
+    // Mirrors pickJevStageAction: a top pick of respond is never a floor fallback.
+    belowFloor: !!top && top.kind !== "respond" && top.p < floor,
     error: routed.source === "fallback" ? routed.fallbackReason : null,
     inputTokens: routed.usage.inputTokens,
     outputTokens: routed.usage.outputTokens,
@@ -293,6 +309,14 @@ export function hopListener(trace: JevTraceRecorder, hopId: string, action: JevS
       if (firstToken) return;
       firstToken = true;
       trace.record({ kind: "hop.first_token", t: trace.t(), hopId });
+    } else if (signal.kind === "context") {
+      trace.record({
+        kind: "hop.context",
+        t: trace.t(),
+        hopId,
+        model: signal.model,
+        manifest: signal.manifest,
+      });
     } else if (signal.kind === "tool") {
       trace.record({ kind: "hop.tool", t: trace.t(), hopId, tool: signal.tool });
     } else {
