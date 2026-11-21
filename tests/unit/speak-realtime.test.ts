@@ -146,6 +146,28 @@ describe("buildSpeakRealtimeInstructions continuity", () => {
     expect(on).toContain("Use search_memories silently");
   });
 
+  test("brevity rules ban padding and process narration", () => {
+    const text = buildSpeakRealtimeInstructions(DEFAULT_SPEAK_MODALITIES);
+
+    expect(text).toContain("Answer in one short sentence, then stop");
+    expect(text).toContain('Brevity request → "Got it."');
+    expect(text).toContain("Never narrate process or preferences");
+    expect(text).toContain("Do not start a second spoken turn to fill silence");
+  });
+
+  test("Ergon guidance forces an immediate tool call and bans preview deflection", () => {
+    const on = buildSpeakRealtimeInstructions(DEFAULT_SPEAK_MODALITIES, { ergonEnabled: true });
+    const off = buildSpeakRealtimeInstructions(DEFAULT_SPEAK_MODALITIES);
+
+    expect(on).toContain("- read_ergon:");
+    expect(on).toContain("call read_ergon immediately");
+    expect(on).toContain("Vague ask → list_projects");
+    expect(on).toContain("never use web preview for Ergon");
+    expect(on).not.toContain("This session has no Ergon tool");
+    expect(off).toContain("This session has no Ergon tool");
+    expect(off).toContain("Do not mention web search, web preview");
+  });
+
   test("a resumed session carries the preamble and asks not to recap", () => {
     const text = buildSpeakRealtimeInstructions(DEFAULT_SPEAK_MODALITIES, {
       resumed: true,

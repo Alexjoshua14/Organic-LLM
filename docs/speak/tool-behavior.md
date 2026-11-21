@@ -25,14 +25,14 @@ on a 300ms memory hit makes the agent feel slower than it is.
 ## Conversational defaults
 
 Realtime's [shared instructions](../../lib/system-prompt/speak-realtime.ts) default to one
-short sentence, brief greetings and brisk, clear delivery. Necessary explanations can be
-longer. Replies stop after answering; questions are reserved for information needed to proceed.
-Requests for brevity get a minimal acknowledgment, without a follow-up prompt. Pacing requests
-change delivery rather than triggering an explanation of the change.
+short sentence and stop. No padding, process narration, or fill-silence follow-ups. Greetings
+and brevity requests stay minimal. Pacing changes are silent. A second sentence is only for
+task-needed detail.
 
-Connected Ergon requests use `read_ergon` for projects and tickets; workspace access does not
-depend on the web preview toggle. The tool rechecks the session owner's OAuth connection on
-each call and exposes only reads. Missing access points to Settings → Connectors.
+Connected Ergon requests use `read_ergon` (Organic `read` scope; `write` counts as read).
+Vague "check Ergon" calls `list_projects` immediately — never web preview. The tool rechecks
+the session owner's OAuth connection on each call and exposes only reads. Missing access
+points once to Settings → Connectors.
 
 ## Per-tool defaults (starter)
 

@@ -13,7 +13,7 @@ export async function readSpeakErgon(
   const parsed = SpeakErgonReadSchema.safeParse(rawArgs);
 
   if (!parsed.success) return { error: "Invalid Ergon read arguments." };
-  const config = await ergonConfigForUser(userId, "tickets", deps);
+  const config = await ergonConfigForUser(userId, "reads", deps);
 
   if (!config)
     return { error: "Ergon access is unavailable. Connect Ergon in Settings → Connectors." };

@@ -291,7 +291,7 @@ export async function POST(req: Request) {
   const subagentContext = subagentSeed ? formatSubagentSessionContext(subagentSeed) : null;
 
   const model = getSpeakRealtimeModel();
-  const ergonEnabled = !stage && (await ergonToolsAvailable(sbUserId, "tickets"));
+  const ergonEnabled = !stage && (await ergonToolsAvailable(sbUserId, "reads"));
   const tools = compileSpeakRealtimeTools(modalities, { memoryEnabled, stage, ergonEnabled });
   const baseInstructions = stage
     ? `${STAGE_VOICE_INSTRUCTIONS}\nCurrent Stage (quoted data):\n${stageVoiceContext((await readStage(sbUserId)).state)}`
@@ -319,7 +319,8 @@ export async function POST(req: Request) {
         instructions: selectedContext ? `${instructions}\n\n${selectedContext}` : instructions,
         tools,
         tool_choice: tools.length > 0 ? "auto" : "none",
-        max_output_tokens: 800,
+        // Keep spoken turns short; the model still gets tool room via multiple steps.
+        max_output_tokens: 400,
         // The resumed-thread preamble lives in `instructions`. Retention-ratio truncation drops
         // old conversation items when the context fills but never the instructions themselves.
         truncation: {

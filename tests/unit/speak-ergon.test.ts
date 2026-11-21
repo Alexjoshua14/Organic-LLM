@@ -20,11 +20,14 @@ afterEach(uninstallConnectedErgon);
 
 describe("Speak connected Ergon reads", () => {
   test("registers for connected ordinary voice independently of visual toggles", async () => {
-    const ergonEnabled = await ergonToolsAvailable(ERGON_TEST_OWNER, "tickets");
+    const ergonEnabled = await ergonToolsAvailable(ERGON_TEST_OWNER, "reads");
     const tools = compileSpeakRealtimeTools(voiceOnly, { ergonEnabled });
 
     expect(tools.some((tool) => tool.name === "read_ergon")).toBe(true);
     expect(tools.find((tool) => tool.name === "read_ergon")?.parameters.type).toBe("object");
+    expect(tools.find((tool) => tool.name === "read_ergon")?.description).toContain(
+      "list_projects immediately"
+    );
     expect(compileSpeakRealtimeTools(voiceOnly).some((t) => t.name === "read_ergon")).toBe(false);
     expect(
       compileSpeakRealtimeTools(voiceOnly, { ergonEnabled, stage: true }).some(
@@ -41,6 +44,17 @@ describe("Speak connected Ergon reads", () => {
         stage: true,
       })
     ).toBe(false);
+  });
+
+  test("read purpose accepts read-only or write scope, not agents-only", async () => {
+    await installConnectedErgon({ scopes: ["read"] });
+    expect(await ergonToolsAvailable(ERGON_TEST_OWNER, "reads")).toBe(true);
+
+    await installConnectedErgon({ scopes: ["write"] });
+    expect(await ergonToolsAvailable(ERGON_TEST_OWNER, "reads")).toBe(true);
+
+    await installConnectedErgon({ scopes: ["agents"] });
+    expect(await ergonToolsAvailable(ERGON_TEST_OWNER, "reads")).toBe(false);
   });
 
   test("looks up the named project then its tickets as the connected owner", async () => {
