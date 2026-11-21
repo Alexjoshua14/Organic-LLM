@@ -139,6 +139,8 @@ export async function routeJevStage(args: {
   fallbackReason: string | null;
   routerMs: number;
   source: "jev" | "fallback";
+  /** The action Jev chose, or null when the call failed or chose nothing valid. */
+  choice: JevStageActionKind | null;
   /** Measured Jev usage; zero when the call failed. */
   usage: JevUsage;
   costUsd: number;
@@ -188,6 +190,7 @@ export async function routeJevStage(args: {
       fallbackReason: error,
       routerMs: result.ms,
       source: "fallback",
+      choice: null,
       usage: result.ok ? result.usage : { inputTokens: 0, outputTokens: 0 },
       costUsd: result.ok ? result.costUsd : 0,
     };
@@ -216,6 +219,7 @@ export async function routeJevStage(args: {
     ...picked,
     routerMs: result.ms,
     source: "jev",
+    choice: action.choice as JevStageActionKind,
     usage: result.usage,
     costUsd: result.costUsd,
   };

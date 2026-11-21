@@ -1,6 +1,7 @@
 import "server-only";
 
 import {
+  JEV_STAGE_CONFIDENCE_FLOOR,
   JEV_STAGE_MAX_TURN_INSIGHTS,
   JEV_STAGE_REPLY_CHAR_CAP,
   JEV_STAGE_TURN_MAX_STEPS,
@@ -25,6 +26,13 @@ import {
   writeJevStage,
 } from "./store";
 import { finishModelCall, startCallClock, withCallSummary } from "./trace";
+import {
+  actionVia,
+  createJevTraceRecorder,
+  hopListener,
+  jevDecisionEvent,
+  summarizeTraceValue,
+} from "./trace-events";
 import { invalidSelectedActionReason, settingsBlockReason } from "./validate-action";
 
 import { stageKnowledgeContext } from "@/lib/stage/knowledge";
@@ -167,12 +175,21 @@ export async function runJevStageTurn(args: {
 
     const bundle = await readJevStage(args.ownerId);
     const turnId = args.requestId;
+    // Live pipeline trace (COA-755): streamed as it happens, stored on the insight.
+    const trace = createJevTraceRecorder((event) =>
+      args.emit({ type: "trace", turnId, event })
+    );
+
+    trace.record({ kind: "jev.start", t: trace.t() });
     const routed = await routeJevStage({
       message: args.message,
       summary: bundle.stage.summary,
       knowledgeHint: JSON.stringify(stageKnowledgeContext(bundle.stage)),
       stage: bundle.stage,
     });
+    const decision = jevDecisionEvent(trace.t(), routed, JEV_STAGE_CONFIDENCE_FLOOR);
+
+    trace.record(decision);
 
     let selected = routed.selected;
     let fellBack = routed.fellBack || routed.source === "fallback";
@@ -188,6 +205,17 @@ export async function runJevStageTurn(args: {
       fellBack = true;
       fallbackReason = blocked;
     }
+    trace.record({
+      kind: "action",
+      t: trace.t(),
+      action: selected.kind,
+      via: actionVia({
+        source: routed.source,
+        belowFloor: decision.belowFloor,
+        blocked: !!blocked,
+      }),
+      reason: selected.reason,
+    });
 
     args.emit({
       type: "route",
@@ -224,6 +252,17 @@ export async function runJevStageTurn(args: {
       steps += 1;
 
       if (isDirectJevAction(action.kind)) {
+        const hopId = crypto.randomUUID();
+        const hopStarted = trace.t();
+
+        trace.record({
+          kind: "hop.start",
+          t: hopStarted,
+          hopId,
+          operation: "direct",
+          action: action.kind,
+          model: null,
+        });
         const result = await executeJevDirectTool({
           ownerId: args.ownerId,
           state: stage,
@@ -255,10 +294,23 @@ export async function runJevStageTurn(args: {
           }
         }
         args.emit({ type: "patch", stage });
+        const visible = turnHasVisibleReply(stage, args.requestId);
+        const hopEnded = trace.t();
 
-        if (turnHasVisibleReply(stage, args.requestId)) break;
+        trace.record({
+          kind: "hop.end",
+          t: hopEnded,
+          hopId,
+          ms: hopEnded - hopStarted,
+          ok: visible,
+          call: null,
+          note: result.note ? summarizeTraceValue(result.note) : null,
+        });
+
+        if (visible) break;
 
         const reason = "Direct tool left no user-visible reply; falling back to Respond";
+        trace.record({ kind: "fallback", t: trace.t(), from: action.kind, to: "respond", reason });
         action = respondCandidate(reason);
         selected = action;
         fellBack = true;
@@ -268,6 +320,7 @@ export async function runJevStageTurn(args: {
 
       if (action.kind === "orchestrate") {
         let draft = "";
+        const hopId = crypto.randomUUID();
         const streamed = await streamJevOrchestrate({
           ownerId: args.ownerId,
           clerkUserId: args.clerkUserId,
@@ -278,13 +331,27 @@ export async function runJevStageTurn(args: {
             draft += text;
             args.emit({ type: "delta", text });
           },
+          onHop: hopListener(trace, hopId, action.kind, "orchestrate"),
         });
 
         calls.push(streamed.call);
         const reply = (streamed.text || draft).trim();
 
+        trace.record({
+          kind: "hop.end",
+          t: trace.t(),
+          hopId,
+          ms: streamed.call.latencyMs,
+          ok: !!reply,
+          call: streamed.call,
+          note: streamed.specialists.length
+            ? `Dispatched ${streamed.specialists.map((agent) => agent.name).join(", ")}`
+            : null,
+        });
+
         if (!reply) {
           const reason = "Orchestrate returned no text; falling back to Respond";
+          trace.record({ kind: "fallback", t: trace.t(), from: "orchestrate", to: "respond", reason });
           action = respondCandidate(reason);
           selected = action;
           fellBack = true;
@@ -315,6 +382,7 @@ export async function runJevStageTurn(args: {
 
       // Respond (selected or fallback)
       let draft = "";
+      const hopId = crypto.randomUUID();
       const streamed = await streamJevRespond({
         ownerId: args.ownerId,
         clerkUserId: args.clerkUserId,
@@ -325,9 +393,19 @@ export async function runJevStageTurn(args: {
           draft += text;
           args.emit({ type: "delta", text });
         },
+        onHop: hopListener(trace, hopId, action.kind, "respond"),
       });
 
       calls.push(streamed.call);
+      trace.record({
+        kind: "hop.end",
+        t: trace.t(),
+        hopId,
+        ms: streamed.call.latencyMs,
+        ok: !streamed.limitError,
+        call: streamed.call,
+        note: streamed.limitError ? streamed.limitError.message : null,
+      });
       if (streamed.limitError) {
         outcome = "limit_error";
         outcomeDetail = streamed.limitError.message;
@@ -390,10 +468,17 @@ export async function runJevStageTurn(args: {
       });
       fellBack = true;
       fallbackReason = fallbackReason ?? "Safety reply after empty turn steps";
+      trace.record({
+        kind: "fallback",
+        t: trace.t(),
+        from: action.kind,
+        to: "safety",
+        reason: "Nothing visible after the turn steps; wrote a safety reply",
+      });
       args.emit({ type: "patch", stage });
     }
 
-    const insight = withCallSummary({
+    const summarized = withCallSummary({
       turnId,
       at: new Date().toISOString(),
       userMessage: args.message,
@@ -407,6 +492,9 @@ export async function runJevStageTurn(args: {
       calls,
       eval: { signal: null, note: null },
     });
+
+    trace.record({ kind: "done", t: trace.t(), outcome, totals: summarized.totals });
+    const insight: JevStageTurnInsight = { ...summarized, trace: [...trace.events] };
 
     const next: JevStageBundle = {
       stage,

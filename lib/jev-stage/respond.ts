@@ -17,7 +17,10 @@ import {
   JEV_STAGE_RESPOND_OUTPUT_BUDGET_USD,
 } from "./constants";
 import { finishModelCall, markFirstToken, startCallClock } from "./trace";
+import { hopStep, type JevHopSignal } from "./trace-events";
 import type { JevStageModelCallTrace } from "./schema";
+
+import { computeUsageCostUsd } from "@/lib/rate-limit/llm-cost";
 
 import { createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
 import { buildEffortProviderOptions } from "@/lib/schemas/chat-effort";
@@ -290,6 +293,8 @@ export async function streamJevRespond(args: {
   onDelta: (text: string) => void;
   onSummary?: (summary: string) => void;
   onDesignBrief?: (brief: string) => void;
+  /** Live pipeline trace: hop start, first token, each finished step. */
+  onHop?: (signal: JevHopSignal) => void;
 }): Promise<{
   text: string;
   summary: string | null;
@@ -325,11 +330,32 @@ export async function streamJevRespond(args: {
   const finished = { inputTokens: 0, outputTokens: 0, textChars: 0 };
   const abort = new AbortController();
   const timeout = setTimeout(() => abort.abort(), 100_000);
+  let stepIndex = 0;
+  let stepStarted = performance.now();
+
+  args.onHop?.({ kind: "start", model });
 
   try {
     const result = streamText({
       ...budget,
       onStepFinish: async (step) => {
+        const stepNow = performance.now();
+
+        args.onHop?.({
+          kind: "step",
+          step: hopStep({
+            index: stepIndex,
+            ms: stepNow - stepStarted,
+            step,
+            costUsd: computeUsageCostUsd(model, {
+              inputTokens: step.usage.inputTokens ?? 0,
+              outputTokens: step.usage.outputTokens ?? 0,
+              cachedInputTokens: step.usage.inputTokenDetails?.cacheReadTokens ?? 0,
+            }),
+          }),
+        });
+        stepIndex += 1;
+        stepStarted = stepNow;
         finished.inputTokens += step.usage.inputTokens ?? 0;
         finished.outputTokens += step.usage.outputTokens ?? 0;
         finished.textChars = text.length;
@@ -395,6 +421,7 @@ export async function streamJevRespond(args: {
 
     try {
       for await (const delta of result.textStream) {
+        if (clock.firstTokenAt == null) args.onHop?.({ kind: "first_token" });
         markFirstToken(clock);
         text += delta;
         args.onDelta(delta);

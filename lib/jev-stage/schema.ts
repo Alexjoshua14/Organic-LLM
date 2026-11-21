@@ -55,6 +55,113 @@ export const JevStageTurnEvalSchema = z.object({
 
 export type JevStageTurnEval = z.infer<typeof JevStageTurnEvalSchema>;
 
+/** One tool call inside an LLM hop step, summarized for the insight timeline. */
+export const JevStageToolTraceSchema = z.object({
+  name: z.string(),
+  args: z.string(),
+  result: z.string().nullable(),
+});
+
+export type JevStageToolTrace = z.infer<typeof JevStageToolTraceSchema>;
+
+/** One AI SDK step of a Respond / Orchestrate hop. */
+export const JevStageHopStepSchema = z.object({
+  index: z.number().int().nonnegative(),
+  ms: z.number().nonnegative(),
+  tools: z.array(JevStageToolTraceSchema),
+  inputTokens: z.number().int().nonnegative(),
+  outputTokens: z.number().int().nonnegative(),
+  cachedInputTokens: z.number().int().nonnegative(),
+  costUsd: z.number().nonnegative(),
+  finishReason: z.string().nullable(),
+});
+
+export type JevStageHopStep = z.infer<typeof JevStageHopStepSchema>;
+
+export const JevStageActionViaSchema = z.enum(["jev", "floor", "jev_error", "blocked"]);
+
+export type JevStageActionVia = z.infer<typeof JevStageActionViaSchema>;
+
+/**
+ * Pipeline trace for one turn. Emitted live over the NDJSON stream as each stage happens and
+ * stored on the turn insight, so past turns replay the same view. `t` is ms since turn start.
+ */
+export const JevStageTraceEventSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("jev.start"), t: z.number().nonnegative() }),
+  z.object({
+    kind: z.literal("jev.end"),
+    t: z.number().nonnegative(),
+    ms: z.number().nonnegative(),
+    source: z.enum(["jev", "fallback"]),
+    /** Every action with Jev's probability, highest first. Empty when Jev failed. */
+    distribution: z.array(z.object({ kind: JevStageActionKindSchema, p: z.number().min(0).max(1) })),
+    choice: JevStageActionKindSchema.nullable(),
+    floor: z.number().min(0).max(1),
+    /** True when the top probability was below the floor, so the turn fell back to Respond. */
+    belowFloor: z.boolean(),
+    error: z.string().nullable(),
+    inputTokens: z.number().int().nonnegative(),
+    outputTokens: z.number().int().nonnegative(),
+    costUsd: z.number().nonnegative(),
+  }),
+  z.object({
+    kind: z.literal("action"),
+    t: z.number().nonnegative(),
+    action: JevStageActionKindSchema,
+    via: JevStageActionViaSchema,
+    reason: z.string(),
+  }),
+  z.object({
+    kind: z.literal("hop.start"),
+    t: z.number().nonnegative(),
+    hopId: z.string().min(1),
+    operation: z.enum(["respond", "orchestrate", "direct"]),
+    action: JevStageActionKindSchema,
+    model: z.string().nullable(),
+  }),
+  z.object({
+    kind: z.literal("hop.first_token"),
+    t: z.number().nonnegative(),
+    hopId: z.string().min(1),
+  }),
+  z.object({
+    kind: z.literal("hop.step"),
+    t: z.number().nonnegative(),
+    hopId: z.string().min(1),
+    step: JevStageHopStepSchema,
+  }),
+  z.object({
+    kind: z.literal("hop.end"),
+    t: z.number().nonnegative(),
+    hopId: z.string().min(1),
+    ms: z.number().nonnegative(),
+    ok: z.boolean(),
+    call: JevStageModelCallTraceSchema.nullable(),
+    note: z.string().nullable(),
+  }),
+  z.object({
+    kind: z.literal("fallback"),
+    t: z.number().nonnegative(),
+    from: z.string(),
+    to: z.string(),
+    reason: z.string(),
+  }),
+  z.object({
+    kind: z.literal("done"),
+    t: z.number().nonnegative(),
+    outcome: z.enum(["ok", "limit_error", "error"]),
+    totals: z.object({
+      inputTokens: z.number().int().nonnegative(),
+      outputTokens: z.number().int().nonnegative(),
+      cachedInputTokens: z.number().int().nonnegative(),
+      costUsd: z.number().nonnegative(),
+      latencyMs: z.number().nonnegative(),
+    }),
+  }),
+]);
+
+export type JevStageTraceEvent = z.infer<typeof JevStageTraceEventSchema>;
+
 export const JevStageTurnInsightSchema = z.object({
   turnId: z.string().uuid(),
   at: z.string().datetime(),
@@ -76,6 +183,8 @@ export const JevStageTurnInsightSchema = z.object({
   }),
   perModelSpendUsd: z.record(z.string(), z.number()).default({}),
   eval: JevStageTurnEvalSchema.default({ signal: null, note: null }),
+  /** Pipeline trace; absent on records from before COA-755 (the view synthesizes one). */
+  trace: z.array(JevStageTraceEventSchema).optional(),
 });
 
 export type JevStageTurnInsight = z.infer<typeof JevStageTurnInsightSchema>;
@@ -111,6 +220,11 @@ export const JevStageStreamEventSchema = z.discriminatedUnion("type", [
     fellBack: z.boolean(),
     fallbackReason: z.string().nullable(),
     routerMs: z.number(),
+  }),
+  z.object({
+    type: z.literal("trace"),
+    turnId: z.string().uuid(),
+    event: JevStageTraceEventSchema,
   }),
   z.object({
     type: z.literal("patch"),
