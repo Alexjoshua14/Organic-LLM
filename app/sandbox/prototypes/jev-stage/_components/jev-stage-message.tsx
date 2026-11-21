@@ -3,10 +3,19 @@
 import { useEffect, useRef, useState } from "react";
 import { Popover } from "radix-ui";
 
+import { ChatThinking } from "@/components/chat/chat-loading";
 import { glass } from "@/components/design-system/primitives";
 import { cn } from "@/lib/utils";
 
-export function JevStageMessage({ text, status }: { text: string; status: string }) {
+export function JevStageMessage({
+  text,
+  status,
+  working,
+}: {
+  text: string;
+  status: string;
+  working: boolean;
+}) {
   const preview = useRef<HTMLParagraphElement>(null);
   const [clipped, setClipped] = useState(false);
 
@@ -24,8 +33,8 @@ export function JevStageMessage({ text, status }: { text: string; status: string
   }, [text]);
 
   return (
-    <div className="mt-2 w-full max-w-sm space-y-1 px-2 text-center text-xs text-muted-foreground motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-1">
-      <p ref={preview} className="line-clamp-2 whitespace-pre-wrap wrap-anywhere">
+    <div className="mt-2 w-full max-w-sm space-y-1 px-2 text-center text-2xs text-muted-foreground motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-1">
+      <p ref={preview} className="line-clamp-2 whitespace-pre-wrap wrap-anywhere italic">
         {text}
       </p>
       {clipped && (
@@ -51,9 +60,15 @@ export function JevStageMessage({ text, status }: { text: string; status: string
           </Popover.Portal>
         </Popover.Root>
       )}
-      <p className="truncate" title={status} role="status">
-        {status}
-      </p>
+      {working ? (
+        <div className="overflow-hidden text-xs font-medium text-foreground" title={status}>
+          <ChatThinking text={status} />
+        </div>
+      ) : (
+        <p className="text-xs font-medium text-destructive" role="status">
+          {status}
+        </p>
+      )}
     </div>
   );
 }

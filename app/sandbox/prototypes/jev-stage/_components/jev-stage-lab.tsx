@@ -51,6 +51,7 @@ export function JevStageLab() {
               key={stage.submittedMessage.id}
               text={stage.submittedMessage.text}
               status={stage.turnStatus}
+              working={stage.sending}
             />
           )
         }
