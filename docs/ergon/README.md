@@ -19,9 +19,12 @@ Each signed-in user connects their Ergon workspace in **Settings → Connectors*
 While connected:
 
 - **Mira** (`agent-planner`, `tools.ergon`) loads docs / briefs / hooks / agent-run tools over
-  **MCP** (`createErgonAgentTools` → `callErgonTool` / `callErgonMcpTool`).
+  **MCP** (`createErgonAgentTools` → `callErgonTool` / `callErgonMcpTool`). Chat dispatches her
+  as a hard-set worker; **Stage** assigns the same persona as a Stage subagent
+  (`agentId: "agent-planner"`) so Ergon work lands on the canvas —
+  [Stage decision](../stage/decisions/20261120-stage-mira-ergon.md).
 - **Main chat** loads write ticket tools (`createErgonTicketTools`) when the connection includes
-  Organic `write` scope (same MCP OAuth session).
+  Organic `write` scope (same MCP OAuth session). Stage Mira does not write tickets.
 - Workbench shorthand: `connector:ergon` (status only — no credentials; routes to Mira).
 
 There is **no second Ergon hard-set agent** — Mira owns `tools.ergon`. Disconnect clears stored
