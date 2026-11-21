@@ -15,6 +15,7 @@ import { readStage } from "@/lib/stage/store";
 import { StageTurnSettingsSchema } from "@/lib/stage/schema";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { compileSpeakRealtimeTools } from "@/lib/llm/compile-speak-tools";
+import { ergonToolsAvailable } from "@/lib/llm/ergon-config";
 import { createLogger } from "@/lib/logger";
 import { buildPersonaInstructions } from "@/lib/personas/unified/prompt";
 import { getPersonaStore } from "@/lib/personas/unified/store";
@@ -290,11 +291,13 @@ export async function POST(req: Request) {
   const subagentContext = subagentSeed ? formatSubagentSessionContext(subagentSeed) : null;
 
   const model = getSpeakRealtimeModel();
-  const tools = compileSpeakRealtimeTools(modalities, { memoryEnabled, stage });
+  const ergonEnabled = !stage && (await ergonToolsAvailable(sbUserId, "tickets"));
+  const tools = compileSpeakRealtimeTools(modalities, { memoryEnabled, stage, ergonEnabled });
   const baseInstructions = stage
     ? `${STAGE_VOICE_INSTRUCTIONS}\nCurrent Stage (quoted data):\n${stageVoiceContext((await readStage(sbUserId)).state)}`
     : buildSpeakRealtimeInstructions(modalities, {
         memoryEnabled,
+        ergonEnabled,
         sessionContext,
         resumed: withThreadContext,
         subagentContext,
