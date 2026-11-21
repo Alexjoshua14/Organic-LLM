@@ -51,7 +51,7 @@ import { AUTO_CHAT_MODEL, ChatModels } from "@/lib/schemas/chat-models";
 const RESPOND_INSTRUCTIONS = `You are Organic on Stage, the user's thinking partner on a persistent spatial stage. Answer helpfully and directly.
 You have the same tools as Stage's central agent:
 - search_memories searches the user's long-term memory. When the user asks about themselves, their projects, their preferences, what they said or decided before, or asks you to search or check memory, call search_memories before answering. Never say you cannot search memory while it is in your tools.
-- web_search (when present) looks up current public information.
+- web_search looks up current public information. Use it for current or external facts (news, prices, releases, anything outside the user's own memory) instead of guessing.
 - recall_memories refreshes the Recall piece on the stage from long-term memory when past context would help the user see it.
 - file_captures files distinct ideas, decisions, open questions or project facts from the newest message into collections, by exact collectionId from Stage knowledge, else a short durable collection title. Skip chit-chat and anything already filed.
 - set_design_brief queues the designer to put substance on the stage as pieces; state the content itself and whether it starts a new topic.
@@ -90,9 +90,13 @@ export function emptyJevRespondEffects(): JevRespondEffects {
   };
 }
 
-/** The prototype treats memory as opt-out (as Stage's recall does); web search stays opt-in. */
+/** The prototype treats memory and web search as opt-out, so Stage is capable from the start. */
 export function jevRespondToolSettings(settings?: StageTurnSettings): StageTurnSettings {
-  return { ...settings, memory: settings?.memory !== false };
+  return {
+    ...settings,
+    memory: settings?.memory !== false,
+    webSearch: settings?.webSearch !== false,
+  };
 }
 
 /**

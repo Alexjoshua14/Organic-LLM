@@ -87,7 +87,7 @@ export async function streamJevOrchestrate(args: {
   let text = "";
 
   const memory = args.settings?.memory !== false ? createMemorySearchTool(args.ownerId) : null;
-  const web = args.settings?.webSearch
+  const web = args.settings?.webSearch !== false
     ? createWebSearchTool({ maxNumResults: 3, sbUserId: args.ownerId })
     : null;
 

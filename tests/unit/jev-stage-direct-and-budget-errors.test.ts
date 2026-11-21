@@ -94,6 +94,12 @@ describe("jev-stage respond toolset", () => {
     expect(respondToolNames({ webSearch: true })).toContain("web_search");
   });
 
+  test("includes web search by default, unless settings turn it off", () => {
+    expect(respondToolNames(undefined)).toContain("web_search");
+    expect(respondToolNames({})).toContain("web_search");
+    expect(respondToolNames({ webSearch: false })).not.toContain("web_search");
+  });
+
   test("covers Stage's structured turn effects as tools", () => {
     expect(respondToolNames({})).toEqual(
       expect.arrayContaining([
@@ -146,5 +152,7 @@ describe("jev-stage action validation", () => {
     expect(settingsBlockReason("memory_search", { memory: false })).toMatch(/memory/i);
     expect(settingsBlockReason("web_search", { webSearch: false })).toMatch(/web/i);
     expect(settingsBlockReason("web_search", { webSearch: true })).toBeNull();
+    expect(settingsBlockReason("web_search", undefined)).toBeNull();
+    expect(settingsBlockReason("web_search", {})).toBeNull();
   });
 });

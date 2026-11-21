@@ -57,7 +57,7 @@ export function settingsBlockReason(
   if ((kind === "memory_search" || kind === "recall") && settings?.memory === false) {
     return `${kind} blocked: memory is off`;
   }
-  if (kind === "web_search" && settings?.webSearch !== true) {
+  if (kind === "web_search" && settings?.webSearch === false) {
     return "web_search blocked: web search is off";
   }
 
