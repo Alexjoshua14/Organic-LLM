@@ -3,6 +3,8 @@ import type { StageWorkerPiece } from "./worker-output";
 import { placeStageWorkerPieces } from "./artifacts";
 import {
   STAGE_MAX_SUBAGENTS,
+  STAGE_MIRA_AGENT_ID,
+  isStageMiraSubagent,
   stageSubagentActive,
   type StageState,
   type StageSubagent,
@@ -25,17 +27,22 @@ export function assignStageSubagents(
     ...state,
     subagents: [
       ...active,
-      ...accepted.map(
-        (assignment): StageSubagent => ({
+      ...accepted.map((assignment): StageSubagent => {
+        const mira = isStageMiraSubagent(assignment);
+
+        return {
           ...assignment,
+          name: mira ? "Mira" : assignment.name,
+          agentId: mira ? STAGE_MIRA_AGENT_ID : assignment.agentId,
           id: crypto.randomUUID(),
           status: "queued",
           startedAt,
           result: null,
           memory: settings?.memory === true,
-          webSearch: settings?.webSearch === true,
-        })
-      ),
+          // Mira's hard-set policy keeps web search off; Ergon is her source of truth.
+          webSearch: mira ? false : settings?.webSearch === true,
+        };
+      }),
     ],
   };
 }

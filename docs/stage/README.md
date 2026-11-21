@@ -12,6 +12,9 @@ key registry configuration.
 - `lib/stage/schema.ts`, `layout.ts`, `reconcile.ts`: bounded component registry, placement,
   and reconciliation against the designer's original snapshot.
 - `lib/stage/agent.ts`, `design.ts`: separate central conversation and background designer.
+- `lib/stage/subagents.ts`, `subagent-state.ts`: queued Stage workers (memory/web) and Mira
+  (`agent-planner`) for connected Ergon reads and agent runs —
+  [decision](./decisions/20261120-stage-mira-ergon.md).
 - `lib/stage/store.ts`: authenticated callers' owner-scoped encrypted snapshot log and head.
 - `lib/stage/knowledge.ts`, `memory.ts`: capture filing into collection pieces, the Recall piece,
   and their Mem0 read/write.
