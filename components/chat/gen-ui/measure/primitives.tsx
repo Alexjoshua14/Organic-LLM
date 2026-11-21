@@ -7,19 +7,14 @@ import { motion, useReducedMotion } from "framer-motion";
 
 import { MEASURE_SPAN_REDUCED, MEASURE_SPAN_SPRING } from "./measure-timing";
 import { type Domain, toPct } from "./measure-math";
+import { toneClass } from "./tone";
 
 import { formatMeasureValue } from "@/lib/schemas/gen-ui/measure";
 import { cn } from "@/lib/utils";
 
 export type { Domain } from "./measure-math";
 export { makeTicks, toPct } from "./measure-math";
-
-/** Filled track tones — semantic design tokens, not sketch hex. */
-export const toneClass: Record<MeasureTone, string> = {
-  accent: "bg-accent",
-  action: "bg-accent-warm",
-  muted: "bg-muted-foreground/35",
-};
+export { toneClass } from "./tone";
 
 /** Shared axis surface with gridlines. Children are absolutely positioned layers. */
 export function Track({

@@ -67,6 +67,7 @@ Available block types (archetypes):
 - shopping-list — grouped grocery items with have/need status
 - restaurant-card — venue with hero/gallery https images, combined ratings (yelp/google/beli), hours, menu with lastUpdated, popular times, links
 - measure — rows on a shared numeric scale (share, ranges, scores, progress)
+- profile-map — Living Profile domains and nodes with dependency chips
 
 Tools:
 - select_gen_ui_archetype — when the user wants to view, focus, or switch to a specific archetype

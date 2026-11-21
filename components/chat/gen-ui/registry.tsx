@@ -6,6 +6,7 @@ import { AudioSnippet } from "./blocks/AudioSnippet";
 import { CodeDiff } from "./blocks/CodeDiff";
 import { DecisionMatrix } from "./blocks/DecisionMatrix";
 import { Measure } from "./blocks/Measure";
+import { ProfileMap } from "./blocks/ProfileMap";
 import { PlanTimeline } from "./blocks/PlanTimeline";
 import { RecipeCard } from "./blocks/RecipeCard";
 import { RestaurantCard } from "./blocks/restaurant-card/RestaurantCard";
@@ -24,6 +25,7 @@ import {
   ResearchReportBlockSchema,
   CodeDiffBlockSchema,
   MeasureBlockSchema,
+  ProfileMapBlockSchema,
   codeDiffTitle,
 } from "@/lib/schemas/gen-ui";
 
@@ -44,7 +46,8 @@ export type GenUIRegistryEntry = {
     | typeof RestaurantCardBlockSchema
     | typeof ResearchReportBlockSchema
     | typeof CodeDiffBlockSchema
-    | typeof MeasureBlockSchema;
+    | typeof MeasureBlockSchema
+    | typeof ProfileMapBlockSchema;
   Component: ComponentType<GenUIBlockComponentProps>;
   toMarkdown: (block: GenUIBlock) => string;
 };
@@ -110,6 +113,12 @@ export const GEN_UI_REGISTRY: Record<GenUIBlockType, GenUIRegistryEntry> = {
     Component: Measure as ComponentType<GenUIBlockComponentProps>,
     toMarkdown: genUIBlockToMarkdown,
   },
+  "profile-map": {
+    label: "Profile map",
+    schema: ProfileMapBlockSchema,
+    Component: ProfileMap as ComponentType<GenUIBlockComponentProps>,
+    toMarkdown: genUIBlockToMarkdown,
+  },
 };
 
 export function getGenUIBlockTitle(block: GenUIBlock): string {
@@ -117,6 +126,7 @@ export function getGenUIBlockTitle(block: GenUIBlock): string {
     case "answer-card":
     case "research-report":
     case "measure":
+    case "profile-map":
       return block.title;
     case "decision-matrix":
       return block.question;

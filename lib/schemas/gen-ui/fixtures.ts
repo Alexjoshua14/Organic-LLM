@@ -784,6 +784,58 @@ export const FIXTURE_MEASURE: GenUIBlock = {
   footnote: "Ancient figures are estimates.",
 };
 
+export const FIXTURE_PROFILE_MAP: GenUIBlock = {
+  type: "profile-map",
+  version: 1,
+  title: "Living profile",
+  domains: [
+    { id: "build", label: "Building", tone: "accent" },
+    { id: "craft", label: "Craft and taste", tone: "action" },
+  ],
+  nodes: [
+    {
+      id: "profiletree",
+      kind: "project",
+      title: "ProfileTree",
+      domain: "build",
+      complexity: 4,
+      status: "active",
+      dependencies: ["mem0", "supabase"],
+      confidence: 0.9,
+      summary: "Living, revisable relational profile of people, projects, goals.",
+      evidence: [{ source: "chat", quote: "ProfileTree: a Living Profile" }],
+    },
+    {
+      id: "mem0",
+      kind: "tool",
+      title: "Mem0",
+      domain: "build",
+      complexity: 3,
+      dependencies: [],
+      confidence: 0.85,
+    },
+    {
+      id: "supabase",
+      kind: "tool",
+      title: "Supabase",
+      domain: "build",
+      complexity: 2,
+      dependencies: [],
+      confidence: 0.85,
+    },
+    {
+      id: "remy",
+      kind: "project",
+      title: "Remy",
+      domain: "craft",
+      complexity: 3,
+      dependencies: ["profiletree"],
+      confidence: 0.8,
+      summary: "Culinary specialist that tunes recipes to the profile.",
+    },
+  ],
+};
+
 export const ALL_VALID_FIXTURES: GenUIBlock[] = [
   FIXTURE_ANSWER_CARD,
   FIXTURE_DECISION_MATRIX,
@@ -795,4 +847,5 @@ export const ALL_VALID_FIXTURES: GenUIBlock[] = [
   FIXTURE_RESEARCH_REPORT,
   FIXTURE_CODE_DIFF,
   FIXTURE_MEASURE,
+  FIXTURE_PROFILE_MAP,
 ];

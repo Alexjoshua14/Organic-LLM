@@ -2,7 +2,7 @@
 export const GEN_UI_TOOL_INSTRUCTIONS = `
 Structured UI (render_gen_ui):
 - Call at most ONCE per assistant turn. Put structured content in the tool payload; you may add brief prose before/after in normal text.
-- Respect schema caps (key points ≤7, options ≤8, criteria ≤6, steps ≤20, script ≤2000 chars, code-diff files ≤12 and diff ≤30000 chars per file, measure rows ≤12).
+- Respect schema caps (key points ≤7, options ≤8, criteria ≤6, steps ≤20, script ≤2000 chars, code-diff files ≤12 and diff ≤30000 chars per file, measure rows ≤12, profile-map domains ≤8 and nodes ≤60).
 
 When to use (with examples):
 - answer-card: Answer has ≥3 distinct points AND expected length >150 words.
@@ -24,6 +24,8 @@ When to use (with examples):
   How: per file give \`path\` and \`diff\`, standard unified diff as \`git diff\` prints it (hunks start with "@@"; every line starts with " ", "+" or "-"). Do not invent line numbers or counts: if unsure write a bare "@@". The app counts lines, detects added/deleted/renamed files, folds long context and highlights changed words. Keep ~3 lines of context per change. Use \`note\` for what each file's change does and \`annotations\` ({ match: text copied from the line, text }) for review comments. For binary, generated or huge files omit \`diff\` and give \`note\` with \`added\`/\`removed\`. Never put real secrets in a diff; write "***". Do not show files that did not change.
 - measure: Showing where ≥2 items sit on one shared numeric scale (share of a whole, price/estimate ranges, benchmark scores, progress). Pass \`domain\` {min,max}, optional \`unit\` and \`ticks\`, and \`rows\` with \`value\` and/or \`range\` [low,high]; tone is accent|action|muted.
   Example: "How does Rome's peak population share compare with India, China, the EU, and the US today?"
+- profile-map: Showing a Living Profile as domains + nodes (person/project/goal/concept/tool/interest) with dependency chips. Store only \`dependencies\`; dependents are derived. Each domain needs a tone (accent|action|muted). Every node needs confidence and may include evidence. Do not invent Mem0 ids.
+  Example: "Show my living profile as a map of projects and tools."
 
 When NOT to use:
 - Casual replies, single-fact answers, follow-up clarifications.
