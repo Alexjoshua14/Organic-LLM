@@ -5,6 +5,8 @@ import { AnswerCard } from "./blocks/AnswerCard";
 import { AudioSnippet } from "./blocks/AudioSnippet";
 import { CodeDiff } from "./blocks/CodeDiff";
 import { DecisionMatrix } from "./blocks/DecisionMatrix";
+import { ErgonBoard } from "./blocks/ErgonBoard";
+import { ErgonProposal } from "./blocks/ErgonProposal";
 import { Measure } from "./blocks/Measure";
 import { ProfileMap } from "./blocks/ProfileMap";
 import { PlanTimeline } from "./blocks/PlanTimeline";
@@ -26,6 +28,8 @@ import {
   CodeDiffBlockSchema,
   MeasureBlockSchema,
   ProfileMapBlockSchema,
+  ErgonBoardBlockSchema,
+  ErgonProposalBlockSchema,
   codeDiffTitle,
 } from "@/lib/schemas/gen-ui";
 
@@ -47,7 +51,9 @@ export type GenUIRegistryEntry = {
     | typeof ResearchReportBlockSchema
     | typeof CodeDiffBlockSchema
     | typeof MeasureBlockSchema
-    | typeof ProfileMapBlockSchema;
+    | typeof ProfileMapBlockSchema
+    | typeof ErgonBoardBlockSchema
+    | typeof ErgonProposalBlockSchema;
   Component: ComponentType<GenUIBlockComponentProps>;
   toMarkdown: (block: GenUIBlock) => string;
 };
@@ -119,6 +125,18 @@ export const GEN_UI_REGISTRY: Record<GenUIBlockType, GenUIRegistryEntry> = {
     Component: ProfileMap as ComponentType<GenUIBlockComponentProps>,
     toMarkdown: genUIBlockToMarkdown,
   },
+  "ergon-board": {
+    label: "Ergon board",
+    schema: ErgonBoardBlockSchema,
+    Component: ErgonBoard as ComponentType<GenUIBlockComponentProps>,
+    toMarkdown: genUIBlockToMarkdown,
+  },
+  "ergon-proposal": {
+    label: "Ergon proposal",
+    schema: ErgonProposalBlockSchema,
+    Component: ErgonProposal as ComponentType<GenUIBlockComponentProps>,
+    toMarkdown: genUIBlockToMarkdown,
+  },
 };
 
 export function getGenUIBlockTitle(block: GenUIBlock): string {
@@ -127,6 +145,8 @@ export function getGenUIBlockTitle(block: GenUIBlock): string {
     case "research-report":
     case "measure":
     case "profile-map":
+    case "ergon-board":
+    case "ergon-proposal":
       return block.title;
     case "decision-matrix":
       return block.question;

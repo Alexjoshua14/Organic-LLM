@@ -16,6 +16,8 @@ export function primaryZoneForBlockType(type: GenUIBlockType): SpatialZone {
     case "shopping-list":
     case "measure":
     case "profile-map":
+    case "ergon-board":
+    case "ergon-proposal":
     default:
       return "bookshelf";
   }

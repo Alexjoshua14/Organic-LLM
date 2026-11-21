@@ -836,6 +836,55 @@ export const FIXTURE_PROFILE_MAP: GenUIBlock = {
   ],
 };
 
+export const FIXTURE_ERGON_BOARD: GenUIBlock = {
+  type: "ergon-board",
+  version: 1,
+  title: "Ergon · Preview",
+  columns: [
+    { id: "ready", label: "Ready" },
+    { id: "active", label: "Active" },
+    { id: "done", label: "Done" },
+  ],
+  items: [
+    {
+      id: "preview-1",
+      source: "todo",
+      title: "Try the inline Ergon board",
+      state: "Ready",
+      stateType: "ready",
+      priority: "medium",
+      estMinutes: 5,
+    },
+    {
+      id: "COA-191",
+      source: "ticket",
+      title: "Ship measure and profile-map gen-UI",
+      state: "Active",
+      stateType: "active",
+      priority: "high",
+      group: "Gen UI",
+      assignee: "Alex",
+    },
+  ],
+  footnote: "Preview only. Changes stay on this screen until a host apply path is wired.",
+};
+
+export const FIXTURE_ERGON_PROPOSAL: GenUIBlock = {
+  type: "ergon-proposal",
+  version: 1,
+  title: "Apply Ergon updates?",
+  source: "todo",
+  changes: [
+    {
+      id: "c1",
+      op: "complete",
+      targetId: "preview-1",
+      title: "Try the inline Ergon board",
+      fields: [{ name: "state", from: "Ready", to: "Done" }],
+    },
+  ],
+};
+
 export const ALL_VALID_FIXTURES: GenUIBlock[] = [
   FIXTURE_ANSWER_CARD,
   FIXTURE_DECISION_MATRIX,
@@ -848,4 +897,6 @@ export const ALL_VALID_FIXTURES: GenUIBlock[] = [
   FIXTURE_CODE_DIFF,
   FIXTURE_MEASURE,
   FIXTURE_PROFILE_MAP,
+  FIXTURE_ERGON_BOARD,
+  FIXTURE_ERGON_PROPOSAL,
 ];

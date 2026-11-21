@@ -105,6 +105,8 @@ Structured blocks as first-class UI, not markdown-only. Block types (Zod schemas
 | **code-diff** | A change to existing code. The model sends standard unified-diff text per file (plus optional title, summary, notes and line comments); the app parses it, counts lines, detects added/deleted/renamed files, folds long context and marks changed words. See [`lib/diff/`](../lib/diff/) and [`components/chat/gen-ui/diff/`](../components/chat/gen-ui/diff/). |
 | **measure** | Rows on a shared numeric scale — share of a whole, estimate ranges, benchmark scores, or progress. Schema in [`lib/schemas/gen-ui/measure.ts`](../lib/schemas/gen-ui/measure.ts); view in [`components/chat/gen-ui/measure/`](../components/chat/gen-ui/measure/). |
 | **profile-map** | Living Profile map: domains + nodes with tappable dependency chips (dependents derived). Schema in [`lib/schemas/gen-ui/profile-map.ts`](../lib/schemas/gen-ui/profile-map.ts); view in [`components/chat/gen-ui/profile-map/`](../components/chat/gen-ui/profile-map/). Host surfaces may pass `onEdit` / `onDelete`; Mem0 mapping is not wired yet. |
+| **ergon-board** | Status board for personal todos and engineering tickets (shared `WorkItem` shape). Schema/view in [`lib/schemas/gen-ui/ergon.ts`](../lib/schemas/gen-ui/ergon.ts) and [`components/chat/gen-ui/ergon/`](../components/chat/gen-ui/ergon/). |
+| **ergon-proposal** | Consent gate before writes. Host binds `apply`; preview without `apply` is read-only. |
 
 Also available in the **Delphi** memory-ingest chamber (stricter guidance: one compact block, reserved for hard-commit drafts, session recaps, or genuine filing choices; rendered in the delivery slot beneath the assistant caption).
 

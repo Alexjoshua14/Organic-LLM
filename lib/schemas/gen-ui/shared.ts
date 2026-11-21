@@ -15,6 +15,8 @@ export const GEN_UI_BLOCK_TYPES = [
   "code-diff",
   "measure",
   "profile-map",
+  "ergon-board",
+  "ergon-proposal",
 ] as const;
 
 export type GenUIBlockType = (typeof GEN_UI_BLOCK_TYPES)[number];

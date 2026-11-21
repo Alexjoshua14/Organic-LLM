@@ -51,6 +51,14 @@ import {
   profileMapToMarkdown,
   profileMapToMarkdownLoose,
 } from "./profile-map";
+import {
+  ErgonBoardBlockSchema,
+  ErgonProposalBlockSchema,
+  ergonBoardToMarkdown,
+  ergonBoardToMarkdownLoose,
+  ergonProposalToMarkdown,
+  ergonProposalToMarkdownLoose,
+} from "./ergon";
 import { GEN_UI_BLOCK_TYPES, type GenUIBlockType } from "./shared";
 
 export { GEN_UI_VERSION, GEN_UI_BLOCK_TYPES, type GenUIBlockType } from "./shared";
@@ -65,6 +73,7 @@ export * from "./research-report";
 export * from "./code-diff";
 export * from "./measure";
 export * from "./profile-map";
+export * from "./ergon";
 
 export const GenUIBlockSchema = z.discriminatedUnion("type", [
   AnswerCardBlockSchema,
@@ -78,6 +87,8 @@ export const GenUIBlockSchema = z.discriminatedUnion("type", [
   CodeDiffBlockSchema,
   MeasureBlockSchema,
   ProfileMapBlockSchema,
+  ErgonBoardBlockSchema,
+  ErgonProposalBlockSchema,
 ]);
 
 export type GenUIBlock = z.infer<typeof GenUIBlockSchema>;
@@ -175,6 +186,16 @@ function tryLenientParse(type: GenUIBlockType, raw: unknown): GenUIBlock | null 
 
       return r.success ? r.data : null;
     }
+    case "ergon-board": {
+      const r = ErgonBoardBlockSchema.safeParse(raw);
+
+      return r.success ? r.data : null;
+    }
+    case "ergon-proposal": {
+      const r = ErgonProposalBlockSchema.safeParse(raw);
+
+      return r.success ? r.data : null;
+    }
     default:
       return null;
   }
@@ -246,6 +267,10 @@ export function genUIBlockToMarkdown(block: GenUIBlock): string {
       return measureToMarkdown(block);
     case "profile-map":
       return profileMapToMarkdown(block);
+    case "ergon-board":
+      return ergonBoardToMarkdown(block);
+    case "ergon-proposal":
+      return ergonProposalToMarkdown(block);
   }
 }
 
@@ -280,6 +305,10 @@ export function genUIBlockToMarkdownLoose(raw: unknown): string {
       return measureToMarkdownLoose(o);
     case "profile-map":
       return profileMapToMarkdownLoose(o);
+    case "ergon-board":
+      return ergonBoardToMarkdownLoose(o);
+    case "ergon-proposal":
+      return ergonProposalToMarkdownLoose(o);
     default:
       return "_Structured block (could not render)_";
   }

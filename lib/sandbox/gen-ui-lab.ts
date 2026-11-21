@@ -68,6 +68,8 @@ Available block types (archetypes):
 - restaurant-card — venue with hero/gallery https images, combined ratings (yelp/google/beli), hours, menu with lastUpdated, popular times, links
 - measure — rows on a shared numeric scale (share, ranges, scores, progress)
 - profile-map — Living Profile domains and nodes with dependency chips
+- ergon-board — status board of personal todos and engineering tickets
+- ergon-proposal — consent gate before applying Ergon changes
 
 Tools:
 - select_gen_ui_archetype — when the user wants to view, focus, or switch to a specific archetype

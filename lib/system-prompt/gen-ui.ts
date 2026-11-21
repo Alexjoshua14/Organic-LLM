@@ -2,7 +2,7 @@
 export const GEN_UI_TOOL_INSTRUCTIONS = `
 Structured UI (render_gen_ui):
 - Call at most ONCE per assistant turn. Put structured content in the tool payload; you may add brief prose before/after in normal text.
-- Respect schema caps (key points ≤7, options ≤8, criteria ≤6, steps ≤20, script ≤2000 chars, code-diff files ≤12 and diff ≤30000 chars per file, measure rows ≤12, profile-map domains ≤8 and nodes ≤60).
+- Respect schema caps (key points ≤7, options ≤8, criteria ≤6, steps ≤20, script ≤2000 chars, code-diff files ≤12 and diff ≤30000 chars per file, measure rows ≤12, profile-map domains ≤8 and nodes ≤60, ergon-board items ≤60, ergon-proposal changes ≤12).
 
 When to use (with examples):
 - answer-card: Answer has ≥3 distinct points AND expected length >150 words.
@@ -26,6 +26,10 @@ When to use (with examples):
   Example: "How does Rome's peak population share compare with India, China, the EU, and the US today?"
 - profile-map: Showing a Living Profile as domains + nodes (person/project/goal/concept/tool/interest) with dependency chips. Store only \`dependencies\`; dependents are derived. Each domain needs a tone (accent|action|muted). Every node needs confidence and may include evidence. Do not invent Mem0 ids.
   Example: "Show my living profile as a map of projects and tools."
+- ergon-board: Showing personal todos and/or engineering tickets on a status board (one column at a time on mobile). Prefer real tool results over invented rows. stateType must match a column id (backlog|ready|active|review|done).
+  Example: "Show my Ergon board for this week."
+- ergon-proposal: Consent gate before writes — list create/update/complete/comment changes with field diffs. Do not claim writes happened until the user applies.
+  Example: "Propose marking these three tasks done."
 
 When NOT to use:
 - Casual replies, single-fact answers, follow-up clarifications.

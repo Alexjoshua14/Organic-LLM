@@ -5,6 +5,7 @@ import { CodeDiffBlockSchema } from "@/lib/schemas/gen-ui/code-diff";
 import { DecisionMatrixBlockSchema } from "@/lib/schemas/gen-ui/decision-matrix";
 import { MeasureBlockSchema } from "@/lib/schemas/gen-ui/measure";
 import { ProfileMapBlockSchema } from "@/lib/schemas/gen-ui/profile-map";
+import { ErgonBoardBlockSchema, ErgonProposalBlockSchema } from "@/lib/schemas/gen-ui/ergon";
 import { PlanTimelineBlockSchema } from "@/lib/schemas/gen-ui/plan-timeline";
 import { RecipeCardBlockSchema } from "@/lib/schemas/gen-ui/recipe-card";
 import { RestaurantCardBlockSchema } from "@/lib/schemas/gen-ui/restaurant-card";
@@ -22,6 +23,8 @@ const DESIGNER_BLOCKS = {
   "code-diff": CodeDiffBlockSchema,
   measure: MeasureBlockSchema,
   "profile-map": ProfileMapBlockSchema,
+  "ergon-board": ErgonBoardBlockSchema,
+  "ergon-proposal": ErgonProposalBlockSchema,
 } as const;
 
 type DesignerBlockType = keyof typeof DESIGNER_BLOCKS;

@@ -88,6 +88,18 @@ export function GenUISkeleton({ type }: GenUISkeletonProps) {
         </div>
       ) : null}
 
+      {type === "ergon-board" || type === "ergon-proposal" ? (
+        <div className="space-y-3">
+          <Shimmer className="h-4 w-2/3" />
+          <div className="flex gap-2">
+            <Shimmer className="h-11 w-20 rounded-full" />
+            <Shimmer className="h-11 w-20 rounded-full" />
+          </div>
+          <Shimmer className="h-14 w-full rounded-xl" />
+          <Shimmer className="h-14 w-full rounded-xl" />
+        </div>
+      ) : null}
+
       {type === "restaurant-card" ? (
         <div className="flex gap-3">
           <Shimmer className="size-16 shrink-0 rounded-lg" />
