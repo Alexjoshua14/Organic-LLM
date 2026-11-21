@@ -101,7 +101,7 @@ export function ProfileMapView({ block, onEdit, onDelete }: ProfileMapViewProps)
             type="button"
             onClick={() => setKind(k)}
             className={cn(
-              "shrink-0 rounded-full px-3 py-1 text-xs",
+              "shrink-0 rounded-full px-inset-md py-1 text-xs",
               kind === k
                 ? "bg-accent text-accent-foreground"
                 : "bg-muted/60 text-muted-foreground",
@@ -123,7 +123,7 @@ export function ProfileMapView({ block, onEdit, onDelete }: ProfileMapViewProps)
 
           return (
             <div key={domain.id}>
-              <div className="mb-1.5 flex items-center gap-2">
+              <div className="mb-1.5 flex items-center gap-inline-sm">
                 <Orb cls={toneClass[domain.tone]} />
                 <span className="text-xs uppercase tracking-wide text-muted-foreground">
                   {domain.label}
@@ -142,7 +142,7 @@ export function ProfileMapView({ block, onEdit, onDelete }: ProfileMapViewProps)
                         type="button"
                         onClick={() => setOpen(isOpen ? null : node.id)}
                         className={cn(
-                          "flex w-full items-center gap-3 p-3 text-left",
+                          "flex w-full items-center gap-inline-md p-inset-md text-left",
                           FILTER_FOCUS
                         )}
                         aria-expanded={isOpen}
@@ -171,13 +171,13 @@ export function ProfileMapView({ block, onEdit, onDelete }: ProfileMapViewProps)
                             }
                             className="overflow-hidden"
                           >
-                            <div className={cn("px-3 pb-3", spacing.card.blockItems)}>
+                            <div className={cn("px-inset-md pb-inset-md", spacing.card.blockItems)}>
                               {node.summary ? (
                                 <p className="text-sm text-muted-foreground">{node.summary}</p>
                               ) : null}
 
                               <div>
-                                <p className="mb-1 text-xs uppercase text-muted-foreground/70">
+                                <p className="mb-stack-xs text-xs uppercase text-muted-foreground/70">
                                   Needs
                                 </p>
                                 <div className="flex flex-wrap gap-1.5">
@@ -185,14 +185,14 @@ export function ProfileMapView({ block, onEdit, onDelete }: ProfileMapViewProps)
                                 </div>
                               </div>
                               <div>
-                                <p className="mb-1 text-xs uppercase text-muted-foreground/70">
+                                <p className="mb-stack-xs text-xs uppercase text-muted-foreground/70">
                                   Feeds
                                 </p>
                                 <div className="flex flex-wrap gap-1.5">{chips(feeds)}</div>
                               </div>
 
                               <div>
-                                <div className="mb-1 flex justify-between font-mono text-xs text-muted-foreground">
+                                <div className="mb-stack-xs flex justify-between font-mono text-xs text-muted-foreground">
                                   <span>confidence</span>
                                   <span>{Math.round(node.confidence * 100)}%</span>
                                 </div>
@@ -205,7 +205,7 @@ export function ProfileMapView({ block, onEdit, onDelete }: ProfileMapViewProps)
                               </div>
 
                               {node.evidence.length > 0 ? (
-                                <ul className="space-y-1 border-l border-border/50 pl-2">
+                                <ul className="space-y-stack-xs border-l border-border/50 pl-inset-sm">
                                   {node.evidence.map((e, i) => (
                                     <li key={i} className="text-xs text-muted-foreground">
                                       <span className="font-mono text-xs text-muted-foreground/70">
@@ -218,13 +218,13 @@ export function ProfileMapView({ block, onEdit, onDelete }: ProfileMapViewProps)
                               ) : null}
 
                               {onEdit || onDelete ? (
-                                <div className="flex gap-2 pt-1">
+                                <div className="flex gap-inline-sm pt-1">
                                   {onEdit ? (
                                     <button
                                       type="button"
                                       onClick={() => onEdit(node)}
                                       className={cn(
-                                        "rounded-lg bg-accent-warm px-3 py-1.5 text-xs font-medium text-accent-foreground",
+                                        "rounded-lg bg-accent-warm px-inset-md py-1.5 text-xs font-medium text-accent-foreground",
                                         FILTER_FOCUS
                                       )}
                                     >
@@ -236,7 +236,7 @@ export function ProfileMapView({ block, onEdit, onDelete }: ProfileMapViewProps)
                                       type="button"
                                       onClick={() => onDelete(node)}
                                       className={cn(
-                                        "rounded-lg border border-border/60 px-3 py-1.5 text-xs text-muted-foreground",
+                                        "rounded-lg border border-border/60 px-inset-md py-1.5 text-xs text-muted-foreground",
                                         FILTER_FOCUS
                                       )}
                                     >

@@ -55,14 +55,14 @@ export function ErgonProposalView({ block, apply }: ErgonProposalViewProps) {
       <h3 className="text-sm font-medium text-foreground">{block.title}</h3>
       <ul className={spacing.card.blockItems}>
         {block.changes.map((change) => (
-          <li key={change.id} className="rounded-xl bg-muted/40 p-3 text-sm">
+          <li key={change.id} className="rounded-xl bg-muted/40 p-inset-md text-sm">
             <p className="text-xs text-muted-foreground">
               {change.op}
               {change.targetId ? ` · ${change.targetId}` : ""}
             </p>
             <p className="break-words text-foreground">{change.title}</p>
             {change.fields.length > 0 ? (
-              <dl className="mt-2 space-y-1">
+              <dl className="mt-stack-sm space-y-stack-xs">
                 {change.fields.map((field, i) => (
                   <div key={`${field.name}:${i}`} className="break-words text-xs">
                     <dt className="text-muted-foreground">{field.name}</dt>
@@ -93,13 +93,13 @@ export function ErgonProposalView({ block, apply }: ErgonProposalViewProps) {
       </div>
 
       {status === "ready" ? (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-inline-sm">
           {apply ? (
             <button
               type="button"
               onClick={() => void approve()}
               className={cn(
-                "min-h-11 rounded-lg bg-accent-warm px-3 text-sm font-medium text-accent-foreground",
+                "min-h-11 rounded-lg bg-accent-warm px-inset-md text-sm font-medium text-accent-foreground",
                 BUTTON_FOCUS
               )}
             >
@@ -110,7 +110,7 @@ export function ErgonProposalView({ block, apply }: ErgonProposalViewProps) {
             type="button"
             onClick={() => setStatus("dismissed")}
             className={cn(
-              "min-h-11 rounded-lg border border-border/60 px-3 text-sm text-muted-foreground",
+              "min-h-11 rounded-lg border border-border/60 px-inset-md text-sm text-muted-foreground",
               BUTTON_FOCUS
             )}
           >

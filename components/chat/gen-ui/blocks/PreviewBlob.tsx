@@ -35,7 +35,7 @@ export function PreviewBlob({ block, onCommit }: PreviewBlobProps) {
 
   return (
     <section className={cn("w-full rounded-2xl bg-muted/30 p-inset-md", spacing.card.section)}>
-      <div className="flex items-baseline justify-between gap-3">
+      <div className="flex items-baseline justify-between gap-inline-md">
         <h3 className="text-sm font-medium text-foreground">{block.title}</h3>
         {block.costEstimate ? (
           <span className="font-mono text-xs text-muted-foreground">{block.costEstimate}</span>
@@ -60,13 +60,13 @@ export function PreviewBlob({ block, onCommit }: PreviewBlobProps) {
             expanded && "max-h-96"
           )}
         />
-        <span className="block px-3 py-2 text-xs text-muted-foreground">
+        <span className="block px-inset-md py-inset-sm text-xs text-muted-foreground">
           {expanded ? "Tap to collapse" : "Tap to expand preview"}
         </span>
       </button>
 
       {block.prompt ? (
-        <p className="rounded-xl bg-muted/30 p-3 text-xs text-muted-foreground">
+        <p className="rounded-xl bg-muted/30 p-inset-md text-xs text-muted-foreground">
           <span className="font-medium text-foreground">Prompt · </span>
           {block.prompt}
         </p>
@@ -86,7 +86,7 @@ export function PreviewBlob({ block, onCommit }: PreviewBlobProps) {
           type="button"
           onClick={() => void commit()}
           className={cn(
-            "min-h-11 rounded-lg bg-accent px-3 text-sm font-medium text-accent-foreground",
+            "min-h-11 rounded-lg bg-accent px-inset-md text-sm font-medium text-accent-foreground",
             FOCUS
           )}
         >

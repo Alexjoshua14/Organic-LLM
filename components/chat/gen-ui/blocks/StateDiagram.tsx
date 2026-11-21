@@ -38,7 +38,7 @@ export function StateDiagram({ block, onSelectState }: StateDiagramProps) {
           const outbound = block.transitions.filter((t) => t.from === state.id);
 
           return (
-            <li key={state.id} className="flex items-start gap-3">
+            <li key={state.id} className="flex items-start gap-inline-md">
               <button
                 type="button"
                 aria-pressed={selected}
@@ -70,7 +70,7 @@ export function StateDiagram({ block, onSelectState }: StateDiagramProps) {
                   {state.label}
                 </button>
                 {outbound.length > 0 ? (
-                  <ul className="mt-1 space-y-0.5">
+                  <ul className="mt-stack-xs space-y-0.5">
                     {outbound.map((t, i) => (
                       <li key={`${t.from}-${t.to}-${i}`} className="text-xs text-muted-foreground">
                         <span aria-hidden>→ </span>

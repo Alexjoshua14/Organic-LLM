@@ -24,7 +24,7 @@ export function ProgressTrack({ block }: ProgressTrackProps) {
 
   return (
     <section className={cn("w-full rounded-2xl bg-muted/30 p-inset-md", spacing.card.section)}>
-      <div className="flex items-baseline justify-between gap-3">
+      <div className="flex items-baseline justify-between gap-inline-md">
         <h3 className="text-sm font-medium text-foreground">{block.title}</h3>
         <span className="font-mono text-xs tabular-nums text-muted-foreground">
           {block.current}
@@ -59,7 +59,7 @@ export function ProgressTrack({ block }: ProgressTrackProps) {
       </div>
 
       {block.milestones.length > 0 ? (
-        <ul className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+        <ul className="flex flex-wrap gap-x-inline-md gap-y-stack-xs text-xs text-muted-foreground">
           {block.milestones.map((m) => (
             <li key={`${m.label}:${m.value}`} className="font-mono tabular-nums">
               {m.label} · {m.value}

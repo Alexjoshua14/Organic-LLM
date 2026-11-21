@@ -50,7 +50,7 @@ export function PriorityMark({ p }: { p: ErgonWorkItem["priority"] }) {
 export const Chip = ({ children, hot = false }: { children: ReactNode; hot?: boolean }) => (
   <span
     className={cn(
-      "rounded-full px-2 py-0.5 font-mono text-xs",
+      "rounded-full px-inset-sm py-0.5 font-mono text-xs",
       hot ? "bg-accent-warm/20 text-accent-warm" : "bg-muted/60 text-muted-foreground"
     )}
   >
@@ -95,7 +95,7 @@ export const Button = ({
     type="button"
     onClick={onClick}
     className={cn(
-      "min-h-11 rounded-lg px-3 py-1.5 text-xs font-medium",
+      "min-h-11 rounded-lg px-inset-md py-1.5 text-xs font-medium",
       tone === "action"
         ? "bg-accent-warm text-accent-foreground"
         : "border border-border/60 text-muted-foreground",

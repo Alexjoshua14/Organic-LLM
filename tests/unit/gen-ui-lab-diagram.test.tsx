@@ -224,7 +224,7 @@ describe("Gen UI Lab Diagram states: Auto", () => {
 
   const advance = () => act(() => jest.advanceTimersByTime(GEN_UI_ARRANGEMENT_INTERVAL_MS));
 
-  test("Auto is off by default, cycles once on, pauses on hover and off-page", () => {
+  test("Auto cycles while active, pauses on hover, and stays off after leaving", () => {
     const view = render(<DiagramHarness />);
     const auto = view.getByRole("button", { name: "Auto" });
     const count = LAB_DIAGRAM_PRESETS.length;
@@ -245,9 +245,14 @@ describe("Gen UI Lab Diagram states: Auto", () => {
     fireEvent.pointerLeave(host);
 
     view.rerender(<DiagramHarness active={false} />);
+    expect(auto.getAttribute("aria-pressed")).toBe("false");
     advance();
     expect(view.getByLabelText(`State 2 of ${count}`)).toBeTruthy();
     view.rerender(<DiagramHarness active />);
+    advance();
+    expect(view.getByLabelText(`State 2 of ${count}`)).toBeTruthy();
+
+    fireEvent.click(auto);
     advance();
     expect(view.getByLabelText(`State 3 of ${count}`)).toBeTruthy();
   });

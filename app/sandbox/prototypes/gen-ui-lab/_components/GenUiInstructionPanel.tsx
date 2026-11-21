@@ -20,8 +20,8 @@ const FOCUS =
 const PROSE_BODY = cn(
   "prose prose-sm max-w-none dark:prose-invert",
   "prose-headings:scroll-mt-4 prose-headings:text-foreground",
-  "prose-h2:mb-2 prose-h2:mt-0 prose-h2:text-sm prose-h2:font-semibold prose-h2:tracking-tight",
-  "prose-h3:mb-1.5 prose-h3:mt-3 prose-h3:text-sm prose-h3:font-medium",
+  "prose-h2:mb-stack-sm prose-h2:mt-0 prose-h2:text-sm prose-h2:font-semibold prose-h2:tracking-tight",
+  "prose-h3:mb-1.5 prose-h3:mt-stack-md prose-h3:text-sm prose-h3:font-medium",
   "prose-p:leading-relaxed prose-p:text-muted-foreground",
   "prose-li:text-muted-foreground",
   "prose-code:text-foreground prose-pre:bg-muted/50"
@@ -44,7 +44,7 @@ function InstructionSection({
     >
       <CollapsibleTrigger
         className={cn(
-          "group flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition-colors",
+          "group flex w-full items-start gap-inline-md rounded-xl px-inset-md py-inset-md text-left transition-colors",
           "hover:bg-muted/30",
           FOCUS
         )}
@@ -66,7 +66,7 @@ function InstructionSection({
         </span>
       </CollapsibleTrigger>
       <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-none">
-        <div className={cn("border-t border-border/40 px-3 py-3", PROSE_BODY)}>
+        <div className={cn("border-t border-border/40 px-inset-md py-inset-md", PROSE_BODY)}>
           <ChatMessageMarkdown
             content={section.body}
             id={`${docId}-${section.id}`}
@@ -91,8 +91,8 @@ export function GenUiInstructionPanel({ doc }: GenUiInstructionPanelProps) {
 
   return (
     <article className={cn(glass({ opaque: true }), "space-y-stack-md rounded-2xl p-inset-md")}>
-      <header className="space-y-1">
-        <p className="text-2xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
+      <header className="space-y-stack-xs">
+        <p className="text-2xs font-medium uppercase tracking-widest text-muted-foreground">
           {doc.eyebrow}
         </p>
         <h2 className="font-commissioner text-xl font-light tracking-tight text-foreground sm:text-2xl">

@@ -42,7 +42,7 @@ export function ErgonBoardView({ block }: ErgonBoardViewProps) {
     <section className={cn("w-full rounded-2xl bg-muted/30 p-inset-md", spacing.card.section)}>
       <h3 className="text-sm font-medium text-foreground">{block.title}</h3>
 
-      <div className="flex gap-2 overflow-x-auto pb-1" role="group" aria-label="Work status">
+      <div className="flex gap-inline-sm overflow-x-auto pb-1" role="group" aria-label="Work status">
         {block.columns.map((column) => {
           const count = block.items.filter((item) => item.stateType === column.id).length;
 
@@ -56,7 +56,7 @@ export function ErgonBoardView({ block }: ErgonBoardViewProps) {
                 setOpen(null);
               }}
               className={cn(
-                "flex min-h-11 shrink-0 items-center gap-2 rounded-full px-3 text-xs",
+                "flex min-h-11 shrink-0 items-center gap-inline-sm rounded-full px-inset-md text-xs",
                 col === column.id
                   ? "bg-accent/20 text-foreground"
                   : "bg-muted/50 text-muted-foreground",
@@ -72,7 +72,7 @@ export function ErgonBoardView({ block }: ErgonBoardViewProps) {
       </div>
 
       {items.length === 0 ? (
-        <p className="px-1 py-3 text-sm text-muted-foreground">No items here.</p>
+        <p className="px-1 py-inset-md text-sm text-muted-foreground">No items here.</p>
       ) : null}
 
       <ul className={spacing.card.blockItems}>
@@ -89,7 +89,7 @@ export function ErgonBoardView({ block }: ErgonBoardViewProps) {
                 aria-expanded={expanded}
                 onClick={() => setOpen(expanded ? null : key)}
                 className={cn(
-                  "flex min-h-11 w-full items-center gap-3 p-3 text-left",
+                  "flex min-h-11 w-full items-center gap-inline-md p-inset-md text-left",
                   FILTER_FOCUS
                 )}
               >
@@ -106,7 +106,7 @@ export function ErgonBoardView({ block }: ErgonBoardViewProps) {
               </button>
 
               {expanded ? (
-                <div className={cn("px-3 pb-3", spacing.card.blockItems)}>
+                <div className={cn("px-inset-md pb-inset-md", spacing.card.blockItems)}>
                   <div className="flex flex-wrap gap-1.5">
                     {item.due ? <Chip>Due {item.due}</Chip> : null}
                     {item.planned ? <Chip>Planned {item.planned}</Chip> : null}
@@ -118,7 +118,7 @@ export function ErgonBoardView({ block }: ErgonBoardViewProps) {
                       {item.notes}
                     </p>
                   ) : null}
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-inline-sm">
                     {item.source === "ticket" &&
                     item.stateType !== "done" &&
                     next &&

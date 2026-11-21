@@ -95,19 +95,19 @@ export function ShoppingList({
     .filter((i) => i.status === "need" && !i.checked).length;
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-baseline justify-between gap-2">
+    <div className="space-y-stack-md">
+      <div className="flex items-baseline justify-between gap-inline-sm">
         <p className="text-sm font-semibold text-foreground">{block.title}</p>
-        <span className="text-[11px] text-muted-foreground">{needCount} still to buy</span>
+        <span className="text-xs text-muted-foreground">{needCount} still to buy</span>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-stack-md">
         {block.groups.map((group, groupIndex) => (
           <div key={group.category}>
             <p className="mb-1.5 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
               {group.category}
             </p>
-            <ul className="space-y-1">
+            <ul className="space-y-stack-xs">
               {group.items.map((rawItem, itemIndex) => {
                 const item = { ...rawItem, ...resolve(groupIndex, itemIndex, rawItem) };
                 const Box = item.checked ? Check : Square;
@@ -117,7 +117,7 @@ export function ShoppingList({
                 return (
                   <li
                     key={`${item.name}-${itemIndex}`}
-                    className="flex items-center gap-2 text-xs text-foreground"
+                    className="flex items-center gap-inline-sm text-xs text-foreground"
                   >
                     {/* Interactive unless `partial`: a streaming list can still change under the user. */}
                     {partial ? (
@@ -149,7 +149,7 @@ export function ShoppingList({
                     {!partial ? (
                       <button
                         className={cn(
-                          "rounded-full px-2 py-0.5 text-2xs font-medium focus-visible:outline-none focus-visible:underline",
+                          "rounded-full px-inset-sm py-0.5 text-2xs font-medium focus-visible:outline-none focus-visible:underline",
                           item.status === "have"
                             ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
                             : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
@@ -162,7 +162,7 @@ export function ShoppingList({
                     ) : (
                       <span
                         className={cn(
-                          "rounded-full px-2 py-0.5 text-2xs font-medium",
+                          "rounded-full px-inset-sm py-0.5 text-2xs font-medium",
                           item.status === "have"
                             ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
                             : "bg-amber-500/15 text-amber-700 dark:text-amber-300"

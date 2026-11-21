@@ -134,4 +134,28 @@ describe("Gen UI Lab shell", () => {
     expect(preview.style.aspectRatio).toBe("11 / 18");
     expect(within(preview).getByText("Ancient population share")).toBeTruthy();
   });
+
+  test("horizontal touch swipes step variants and vertical gestures leave the state alone", () => {
+    const view = renderShell();
+    const section = view.container.querySelector<HTMLElement>('[data-archetype="measure"]')!;
+    const demo = within(section);
+
+    function swipe(startX: number, startY: number, endX: number, endY: number) {
+      const preview = demo.getByRole("region", { name: "Stage preview" }).firstElementChild!;
+
+      fireEvent.touchStart(preview, {
+        touches: [{ identifier: 1, clientX: startX, clientY: startY }],
+      });
+      fireEvent.touchEnd(preview, {
+        changedTouches: [{ identifier: 1, clientX: endX, clientY: endY }],
+      });
+    }
+
+    swipe(180, 180, 95, 60);
+    expect(demo.getByText("Share of world population")).toBeTruthy();
+    swipe(180, 180, 95, 165);
+    expect(demo.getByText("Ancient population share")).toBeTruthy();
+    swipe(95, 165, 180, 180);
+    expect(demo.getByText("Share of world population")).toBeTruthy();
+  });
 });

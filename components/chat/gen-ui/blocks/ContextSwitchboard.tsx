@@ -113,7 +113,7 @@ export function ContextSwitchboard({ block, onRerun }: ContextSwitchboardProps) 
   return (
     <section className={cn("w-full rounded-2xl bg-muted/30 p-inset-md", spacing.card.section)}>
       <header className="space-y-stack-sm">
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start justify-between gap-inline-md">
           <div className="min-w-0 space-y-0.5">
             <h3 className="text-sm font-medium text-foreground">{block.title}</h3>
             {block.question ? (
@@ -165,7 +165,7 @@ export function ContextSwitchboard({ block, onRerun }: ContextSwitchboardProps) 
                 <li
                   key={kind}
                   className={cn(
-                    "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-2xs",
+                    "inline-flex items-center gap-inline-xs rounded-full px-inset-sm py-0.5 text-2xs",
                     meta.chip
                   )}
                 >
@@ -195,7 +195,7 @@ export function ContextSwitchboard({ block, onRerun }: ContextSwitchboardProps) 
                 aria-checked={on}
                 onClick={() => toggle(item.id)}
                 className={cn(
-                  "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors",
+                  "flex w-full items-center gap-inline-md rounded-xl px-inset-md py-2.5 text-left transition-colors",
                   on ? "bg-muted/45" : "bg-muted/15 opacity-55",
                   FOCUS
                 )}
@@ -211,7 +211,7 @@ export function ContextSwitchboard({ block, onRerun }: ContextSwitchboardProps) 
                 </span>
 
                 <span className="min-w-0 flex-1">
-                  <span className="flex items-baseline gap-2">
+                  <span className="flex items-baseline gap-inline-sm">
                     <span className="truncate text-sm text-foreground">{item.label}</span>
                     <span className="shrink-0 text-2xs uppercase tracking-wide text-muted-foreground">
                       {meta.label}
@@ -246,7 +246,7 @@ export function ContextSwitchboard({ block, onRerun }: ContextSwitchboardProps) 
 
       <div
         role="status"
-        className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground"
+        className="flex flex-wrap items-center gap-x-inline-sm gap-y-stack-xs text-xs text-muted-foreground"
       >
         <span>
           {excludedCount === 0
@@ -265,7 +265,7 @@ export function ContextSwitchboard({ block, onRerun }: ContextSwitchboardProps) 
           disabled={status === "running" || includedCount === 0}
           onClick={() => void rerun()}
           className={cn(
-            "min-h-11 rounded-lg bg-accent px-3 text-sm font-medium text-accent-foreground",
+            "min-h-11 rounded-lg bg-accent px-inset-md text-sm font-medium text-accent-foreground",
             "disabled:opacity-40",
             FOCUS
           )}

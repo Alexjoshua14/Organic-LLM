@@ -341,7 +341,7 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
                 className={cn(
                   glass(),
                   LAB_CONTROL,
-                  "inline-flex min-h-9 items-center justify-center gap-2 rounded-xl border border-border/70 px-inset-md text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
+                  "inline-flex min-h-9 items-center justify-center gap-inline-sm rounded-xl border border-border/70 px-inset-md text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
                 )}
                 // Kept in place (not hidden) so the column does not shift while scrolling past
                 // the Diagram page.
@@ -360,7 +360,7 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
                 type="button"
                 className={cn(
                   LAB_CONTROL,
-                  "inline-flex min-h-9 items-center justify-center gap-2 rounded-xl border border-border px-inset-md text-xs text-muted-foreground hover:text-foreground disabled:opacity-60"
+                  "inline-flex min-h-9 items-center justify-center gap-inline-sm rounded-xl border border-border px-inset-md text-xs text-muted-foreground hover:text-foreground disabled:opacity-60"
                 )}
                 disabled={isProcessing}
                 onClick={handleResetFixtures}
@@ -372,7 +372,7 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
                 type="button"
                 className={cn(
                   LAB_CONTROL,
-                  "inline-flex min-h-9 items-center justify-center gap-2 rounded-xl px-inset-md text-sm text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                  "inline-flex min-h-9 items-center justify-center gap-inline-sm rounded-xl px-inset-md text-sm text-muted-foreground hover:bg-muted/40 hover:text-foreground"
                 )}
                 aria-expanded={question.isOpen}
                 onClick={question.open}

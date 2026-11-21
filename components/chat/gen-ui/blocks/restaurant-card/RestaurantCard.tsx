@@ -79,7 +79,7 @@ function ExpandedBody({
   viewTransitionNames: RestaurantCardViewTransitionNames;
 }) {
   return (
-    <div className={cn(spacing.card.section, fullscreen && "pb-8")}>
+    <div className={cn(spacing.card.section, fullscreen && "pb-inset-2xl")}>
       <div className="relative w-full">
         <div
           className="relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-muted/30 sm:aspect-[21/9]"
@@ -94,7 +94,7 @@ function ExpandedBody({
             src={block.heroImage.url}
           />
         </div>
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 rounded-b-xl bg-gradient-to-t from-black/70 via-black/30 to-transparent px-4 pb-4 pt-12">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 rounded-b-xl bg-gradient-to-t from-black/70 via-black/30 to-transparent px-inset-lg pb-inset-lg pt-12">
           <div>
             <p
               className="text-lg font-semibold text-white sm:text-xl"
@@ -106,7 +106,7 @@ function ExpandedBody({
             </p>
             {block.rating ? (
               <div
-                className={cn("mt-1 flex flex-wrap items-center", spacing.gap.md)}
+                className={cn("mt-stack-xs flex flex-wrap items-center", spacing.gap.md)}
                 style={viewTransitionStyle(viewTransitionNames.rating, {
                   viewTransitionClass: RESTAURANT_CARD_RATING_VT_CLASS,
                 })}
@@ -156,13 +156,13 @@ function ExpandedBody({
       {block.rating?.sources && block.rating.sources.length > 0 ? (
         <div
           className={cn(
-            "flex flex-wrap text-[11px] text-muted-foreground",
+            "flex flex-wrap text-xs text-muted-foreground",
             spacing.gap.sm,
             spacing.card.sourcesLead
           )}
         >
           {block.rating.sources.map((source) => (
-            <span key={source.name} className="rounded-full bg-muted/50 px-2 py-0.5 capitalize">
+            <span key={source.name} className="rounded-full bg-muted/50 px-inset-sm py-0.5 capitalize">
               {source.name}
               {source.rating != null ? ` ${source.rating.toFixed(1)}★` : null}
               {source.reviewCount != null ? ` (${formatReviewCount(source.reviewCount)})` : null}
@@ -184,18 +184,18 @@ function RestaurantCardExpanded({
   if (fullscreen) {
     return (
       <div className="relative h-full overflow-y-auto overscroll-contain bg-background">
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border/50 bg-background/95 px-4 py-3 backdrop-blur-md">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border/50 bg-background/95 px-inset-lg py-inset-md backdrop-blur-md">
           <p className="truncate text-sm font-semibold">{block.name}</p>
           <button
             type="button"
             aria-label="Close restaurant card"
-            className="rounded-full p-2 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+            className="rounded-full p-inset-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground"
             onClick={onClose}
           >
             <X className="size-5" />
           </button>
         </div>
-        <div className="px-4 pt-4">
+        <div className="px-inset-lg pt-inset-lg">
           <ExpandedBody
             block={block}
             fullscreen
@@ -285,7 +285,7 @@ export function RestaurantCard({ block, partial }: RestaurantCardProps) {
           )
         : null}
 
-      {partial ? <div className={cn("mt-2 h-3 w-1/2 rounded bg-muted/40 animate-pulse")} /> : null}
+      {partial ? <div className={cn("mt-stack-sm h-3 w-1/2 rounded bg-muted/40 animate-pulse")} /> : null}
     </>
   );
 }

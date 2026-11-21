@@ -17,7 +17,7 @@ export function AuditLine({ block }: AuditLineProps) {
 
       <ol className={spacing.card.blockItems}>
         {block.events.map((event, index) => (
-          <li key={`${event.time}-${event.action}-${index}`} className="flex items-start gap-3">
+          <li key={`${event.time}-${event.action}-${index}`} className="flex items-start gap-inline-md">
             <span className="mt-1.5 size-2 shrink-0 rounded-full bg-accent" aria-hidden />
             <div className="min-w-0 flex-1">
               <p className="font-mono text-xs text-muted-foreground">{event.time}</p>

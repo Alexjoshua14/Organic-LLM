@@ -70,11 +70,11 @@ export function RipplePreview({ block, onApply }: RipplePreviewProps) {
     <section className={cn("w-full rounded-2xl bg-muted/30 p-inset-md", spacing.card.section)}>
       <h3 className="text-sm font-medium text-foreground">{block.title}</h3>
 
-      <div className="rounded-xl bg-muted/40 p-3">
+      <div className="rounded-xl bg-muted/40 p-inset-md">
         <p className="text-xs uppercase tracking-wide text-muted-foreground">Staged change</p>
         <p className="text-sm text-foreground">{block.change.summary}</p>
         {block.change.detail ? (
-          <p className="mt-1 text-xs text-muted-foreground">{block.change.detail}</p>
+          <p className="mt-stack-xs text-xs text-muted-foreground">{block.change.detail}</p>
         ) : null}
       </div>
 
@@ -91,13 +91,13 @@ export function RipplePreview({ block, onApply }: RipplePreviewProps) {
                 aria-checked={on}
                 onClick={() => setApproved((prev) => ({ ...prev, [ripple.id]: !prev[ripple.id] }))}
                 className={cn(
-                  "flex w-full items-start gap-3 rounded-xl p-3 text-left",
+                  "flex w-full items-start gap-inline-md rounded-xl p-inset-md text-left",
                   on ? "bg-muted/40" : "bg-muted/20 opacity-70",
                   FOCUS
                 )}
               >
                 <span
-                  className={cn("mt-1 size-2.5 shrink-0 rounded-full", KIND_TONE[ripple.kind])}
+                  className={cn("mt-stack-xs size-2.5 shrink-0 rounded-full", KIND_TONE[ripple.kind])}
                   aria-hidden
                 />
                 <span className="min-w-0 flex-1">
@@ -107,7 +107,7 @@ export function RipplePreview({ block, onApply }: RipplePreviewProps) {
                     {on ? "" : " · skipped"}
                   </span>
                   {ripple.detail ? (
-                    <span className="mt-1 block text-xs text-muted-foreground">{ripple.detail}</span>
+                    <span className="mt-stack-xs block text-xs text-muted-foreground">{ripple.detail}</span>
                   ) : null}
                 </span>
               </button>
@@ -129,13 +129,13 @@ export function RipplePreview({ block, onApply }: RipplePreviewProps) {
       </div>
 
       {status === "ready" ? (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-inline-sm">
           {onApply ? (
             <button
               type="button"
               onClick={() => void apply()}
               className={cn(
-                "min-h-11 rounded-lg bg-accent-warm px-3 text-sm font-medium text-accent-foreground",
+                "min-h-11 rounded-lg bg-accent-warm px-inset-md text-sm font-medium text-accent-foreground",
                 FOCUS
               )}
             >
@@ -146,7 +146,7 @@ export function RipplePreview({ block, onApply }: RipplePreviewProps) {
             type="button"
             onClick={() => setStatus("dismissed")}
             className={cn(
-              "min-h-11 rounded-lg border border-border/60 px-3 text-sm text-muted-foreground",
+              "min-h-11 rounded-lg border border-border/60 px-inset-md text-sm text-muted-foreground",
               FOCUS
             )}
           >

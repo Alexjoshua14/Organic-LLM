@@ -92,7 +92,7 @@ export function Axis({
   unit: string;
 }) {
   return (
-    <div className="relative mt-2 h-4 font-mono text-xs text-muted-foreground">
+    <div className="relative mt-stack-sm h-4 font-mono text-xs text-muted-foreground">
       {ticks.map((t, i) => (
         <span
           key={t}
@@ -122,12 +122,12 @@ export function RowShell({
 }) {
   return (
     <li>
-      <div className="mb-1 flex items-baseline justify-between gap-3">
+      <div className="mb-stack-xs flex items-baseline justify-between gap-inline-md">
         <span className="text-sm text-foreground">{label}</span>
         <span className="font-mono text-sm tabular-nums text-foreground">{value}</span>
       </div>
       {children}
-      {note ? <p className="mt-1 text-xs text-muted-foreground">{note}</p> : null}
+      {note ? <p className="mt-stack-xs text-xs text-muted-foreground">{note}</p> : null}
     </li>
   );
 }

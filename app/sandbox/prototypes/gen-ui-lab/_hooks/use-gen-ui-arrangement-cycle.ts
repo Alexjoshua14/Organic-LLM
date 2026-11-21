@@ -28,9 +28,19 @@ export function useGenUiArrangementCycle<T extends GenUiArrangement>(
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
   const [visible, setVisible] = useState(true);
+  const [wasActive, setWasActive] = useState(active);
   const reducedMotion = useReducedMotion() === true;
   const count = arrangements.length;
   const arrangement = arrangements[index % count]!;
+
+  if (wasActive !== active) {
+    setWasActive(active);
+    if (!active) {
+      setAuto(false);
+      setHovered(false);
+      setFocused(false);
+    }
+  }
 
   useEffect(() => {
     const update = () => setVisible(!document.hidden);

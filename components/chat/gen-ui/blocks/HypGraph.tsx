@@ -48,13 +48,13 @@ export function HypGraph({ block, onSelectNode }: HypGraphProps) {
                   onSelectNode?.(node.id);
                 }}
                 className={cn(
-                  "flex w-full items-start gap-3 rounded-xl p-3 text-left",
+                  "flex w-full items-start gap-inline-md rounded-xl p-inset-md text-left",
                   selected ? "bg-muted/50" : "bg-muted/20",
                   FOCUS
                 )}
               >
                 <span
-                  className={cn("mt-1 size-2.5 shrink-0 rounded-full", toneClass[node.tone])}
+                  className={cn("mt-stack-xs size-2.5 shrink-0 rounded-full", toneClass[node.tone])}
                   aria-hidden
                 />
                 <span className="min-w-0 flex-1">
@@ -64,7 +64,7 @@ export function HypGraph({ block, onSelectNode }: HypGraphProps) {
                     {outbound > 0 ? ` · ${outbound} out` : ""}
                   </span>
                   {node.detail ? (
-                    <span className="mt-1 block text-xs text-muted-foreground">{node.detail}</span>
+                    <span className="mt-stack-xs block text-xs text-muted-foreground">{node.detail}</span>
                   ) : null}
                 </span>
               </button>
@@ -91,14 +91,14 @@ export function HypGraph({ block, onSelectNode }: HypGraphProps) {
               return (
                 <li
                   key={`${edge.from}-${edge.to}-${i}`}
-                  className="rounded-xl bg-muted/30 px-3 py-2 text-sm text-foreground"
+                  className="rounded-xl bg-muted/30 px-inset-md py-inset-sm text-sm text-foreground"
                 >
                   <span className="font-medium">{from}</span>
                   <span className="text-muted-foreground"> → </span>
                   <span className="font-medium">{to}</span>
                   <span className="font-mono text-xs text-muted-foreground">{weight}</span>
                   {edge.label ? (
-                    <span className="mt-1 block text-xs text-muted-foreground">{edge.label}</span>
+                    <span className="mt-stack-xs block text-xs text-muted-foreground">{edge.label}</span>
                   ) : null}
                 </li>
               );

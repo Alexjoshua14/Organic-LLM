@@ -78,7 +78,7 @@ export function PromptField({ block, onUse }: PromptFieldProps) {
       />
 
       {block.suggestions.length > 0 ? (
-        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Suggestions">
+        <div className="flex flex-wrap gap-inline-sm" role="group" aria-label="Suggestions">
           {block.suggestions.map((s) => {
             const on = promptSuggestionApplied(value, s.insertionText);
 
@@ -89,7 +89,7 @@ export function PromptField({ block, onUse }: PromptFieldProps) {
                 aria-pressed={on}
                 onClick={() => setValue((prev) => togglePromptSuggestion(prev, s.insertionText))}
                 className={cn(
-                  "rounded-full border px-3 py-1 text-xs transition-colors",
+                  "rounded-full border px-inset-md py-1 text-xs transition-colors",
                   on
                     ? "border-accent bg-accent/15 text-foreground"
                     : "border-border/50 text-muted-foreground hover:bg-muted/50",
@@ -109,7 +109,7 @@ export function PromptField({ block, onUse }: PromptFieldProps) {
           disabled={!value.trim()}
           onClick={() => onUse(value)}
           className={cn(
-            "min-h-11 rounded-lg bg-accent px-3 text-sm font-medium text-accent-foreground",
+            "min-h-11 rounded-lg bg-accent px-inset-md text-sm font-medium text-accent-foreground",
             "disabled:opacity-40",
             FOCUS
           )}

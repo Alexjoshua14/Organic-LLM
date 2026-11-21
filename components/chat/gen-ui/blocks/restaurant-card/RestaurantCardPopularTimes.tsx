@@ -50,13 +50,13 @@ export function RestaurantCardPopularTimes({ popularTimes }: RestaurantCardPopul
             Busiest around {formatHourLabel(peak.hour)} · typical pattern (not live)
           </p>
         </div>
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap gap-inline-xs">
           {popularTimes.map((entry) => (
             <button
               key={entry.day}
               type="button"
               className={cn(
-                "rounded-full px-2 py-0.5 text-2xs capitalize transition-colors",
+                "rounded-full px-inset-sm py-0.5 text-2xs capitalize transition-colors",
                 entry.day === selectedDay
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted/50 text-muted-foreground hover:text-foreground"
@@ -71,14 +71,14 @@ export function RestaurantCardPopularTimes({ popularTimes }: RestaurantCardPopul
 
       <div
         aria-label={`Popular times for ${dayLabel(dayData.day, today)}`}
-        className="flex h-16 items-end gap-0.5 rounded-lg border border-border/40 bg-muted/15 px-2 py-2"
+        className="flex h-16 items-end gap-0.5 rounded-lg border border-border/40 bg-muted/15 px-inset-sm py-inset-sm"
         role="img"
       >
         {dayData.bars.map((bar) => {
           const height = Math.max(12, Math.round((bar.occupancy / maxOccupancy) * 100));
 
           return (
-            <div key={bar.hour} className="flex flex-1 flex-col items-center justify-end gap-1">
+            <div key={bar.hour} className="flex flex-1 flex-col items-center justify-end gap-inline-xs">
               <div
                 className={cn(
                   "w-full max-w-3 rounded-sm bg-primary/70 transition-all",
@@ -88,11 +88,11 @@ export function RestaurantCardPopularTimes({ popularTimes }: RestaurantCardPopul
                 title={`${formatHourLabel(bar.hour)}: ${bar.occupancy}% busy`}
               />
               {bar.hour % 3 === 0 ? (
-                <span className="text-[8px] text-muted-foreground">
+                <span className="text-2xs text-muted-foreground">
                   {formatHourLabel(bar.hour)}
                 </span>
               ) : (
-                <span className="text-[8px] opacity-0">·</span>
+                <span className="text-2xs opacity-0">·</span>
               )}
             </div>
           );

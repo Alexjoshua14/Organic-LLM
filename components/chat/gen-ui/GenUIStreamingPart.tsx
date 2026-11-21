@@ -25,9 +25,9 @@ export function GenUIStreamingPart({ input }: GenUIStreamingPartProps) {
   }
 
   return (
-    <div className="not-prose space-y-2">
+    <div className="not-prose space-y-stack-sm">
       <GenUISkeleton />
-      <div className="rounded-lg border border-border/40 bg-background-tertiary/20 px-3 py-2">
+      <div className="rounded-lg border border-border/40 bg-background-tertiary/20 px-inset-md py-inset-sm">
         <ChatThinking text="Structuring response…" />
       </div>
     </div>
