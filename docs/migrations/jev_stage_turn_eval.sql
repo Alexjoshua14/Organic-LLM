@@ -58,7 +58,7 @@ USING (user_id = (SELECT public.current_profile_id()))
 WITH CHECK (user_id = (SELECT public.current_profile_id()));
 REVOKE ALL ON public.jev_stage_turn_eval FROM PUBLIC, anon, authenticated, service_role;
 GRANT SELECT, DELETE ON public.jev_stage_turn_eval TO authenticated;
-GRANT INSERT (user_id, turn_id, signal) ON public.jev_stage_turn_eval TO authenticated;
+GRANT INSERT (user_id, turn_id, signal, note_ciphertext) ON public.jev_stage_turn_eval TO authenticated;
 GRANT UPDATE (user_id, turn_id, signal, note_ciphertext) ON public.jev_stage_turn_eval TO authenticated;
 GRANT SELECT ON public.jev_stage_turn_eval TO service_role;
 

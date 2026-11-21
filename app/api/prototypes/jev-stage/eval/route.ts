@@ -21,19 +21,18 @@ export async function POST(req: Request) {
     const lab = await requireLabAccess();
 
     if (!lab) return json({ error: "Unauthorized" }, 401);
-    const parsed = BodySchema.safeParse(await req.json());
+    let raw: unknown;
+
+    try {
+      raw = await req.json();
+    } catch {
+      return json({ error: "Invalid JSON" }, 400);
+    }
+    const parsed = BodySchema.safeParse(raw);
 
     if (!parsed.success) return json({ error: "Invalid eval" }, 400);
 
-    // Redis insight updates immediately so the panel stays in sync.
-    const bundle = await setJevStageTurnEval({
-      ownerId: lab.sbUserId,
-      turnId: parsed.data.turnId,
-      signal: parsed.data.signal,
-      note: parsed.data.note,
-    });
-
-    // Durable lean row when the migration is present.
+    // Durable row first — Redis alone must not look like a successful save.
     const durable = await upsertJevStageTurnEval({
       userId: lab.sbUserId,
       turnId: parsed.data.turnId,
@@ -41,11 +40,24 @@ export async function POST(req: Request) {
       note: parsed.data.note,
     });
 
-    return json({
-      bundle,
-      durable: durable.data,
-      durableError: durable.error,
+    if (durable.error || !durable.data) {
+      return json(
+        {
+          error: "Could not persist eval",
+          durableError: durable.error ?? "missing row",
+        },
+        502
+      );
+    }
+
+    const bundle = await setJevStageTurnEval({
+      ownerId: lab.sbUserId,
+      turnId: parsed.data.turnId,
+      signal: parsed.data.signal,
+      note: parsed.data.note,
     });
+
+    return json({ bundle, durable: durable.data });
   } catch {
     return json({ error: "Could not save eval" }, 500);
   }

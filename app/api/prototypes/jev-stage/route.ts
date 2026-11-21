@@ -69,7 +69,13 @@ export async function POST(req: Request) {
     if (!lab) return json({ error: "Unauthorized" }, 401);
     if (!(await checkStageLimit(lab.sbUserId, true)))
       return json({ error: "Too many requests" }, 429);
-    const raw = await req.json();
+    let raw: unknown;
+
+    try {
+      raw = await req.json();
+    } catch {
+      return json({ error: "Invalid JSON" }, 400);
+    }
     const reset = z.object({ action: z.literal("reset") }).strict().safeParse(raw);
 
     if (reset.success) return json(await resetJevStage(lab.sbUserId));
