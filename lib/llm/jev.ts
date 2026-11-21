@@ -1,13 +1,24 @@
 import { gateway } from "@ai-sdk/gateway";
-import { experimental_decide, type Experimental_DecisionQuestion } from "ai";
+import { experimental_decide } from "ai";
+
+import type { JevQuestions } from "@/lib/llm/jev-answers";
 
 import {
   JEV_GATEWAY_MODEL_ID,
   jevRouterCallConfig,
   type JevZdrProviderOptions,
 } from "@/lib/llm/subagents/orchestrator/router-zdr";
+import { readJevProbability } from "@/lib/llm/jev-answers";
 import { createLogger } from "@/lib/logger";
 import { computeUsageCostUsd } from "@/lib/rate-limit/llm-cost";
+import { readGatewayBilledCostUsd } from "@/lib/usage/gateway-attribution";
+
+export {
+  readJevChoice,
+  readJevProbability,
+  type JevChoice,
+  type JevQuestions,
+} from "@/lib/llm/jev-answers";
 
 const logger = createLogger("lib/llm/jev");
 
@@ -22,8 +33,6 @@ const logger = createLogger("lib/llm/jev");
  * fallback instead of throwing.
  */
 const DEFAULT_TIMEOUT_MS = 2_500;
-
-export type JevQuestions = Record<string, Experimental_DecisionQuestion>;
 
 /** Text or JSON. A JSON array must be wrapped in an object (`{ items }`). */
 export type JevState = string | Record<string, unknown>;
@@ -79,56 +88,13 @@ export function jevCallCostUsd(
   usage: { inputTokens?: number } | undefined,
   providerMetadata?: unknown
 ): number {
-  const reported = (providerMetadata as { gateway?: { cost?: unknown } } | undefined)?.gateway
-    ?.cost;
-
-  if (reported !== undefined && reported !== null) {
-    const value = Number(reported);
-
-    if (Number.isFinite(value) && value >= 0) return value;
-  }
-
-  return computeUsageCostUsd(JEV_GATEWAY_MODEL_ID, {
-    inputTokens: usage?.inputTokens ?? 0,
-    outputTokens: 0,
-  });
-}
-
-export type JevChoice<K extends string> = {
-  choice: K;
-  /** Every option Jev scored, as returned (TypeSafe rounds; sums may be 0.99). */
-  probabilities: Partial<Record<K, number>>;
-};
-
-/** Reads a choice answer, or null when the selected key is not one of `keys`. */
-export function readJevChoice<K extends string>(
-  answer: unknown,
-  keys: readonly K[]
-): JevChoice<K> | null {
-  const raw = answer as { choice?: unknown; probabilities?: unknown } | undefined;
-  const choice = raw?.choice;
-
-  if (typeof choice !== "string" || !(keys as readonly string[]).includes(choice)) return null;
-  const probabilities: Partial<Record<K, number>> = {};
-
-  if (raw?.probabilities && typeof raw.probabilities === "object") {
-    for (const [key, value] of Object.entries(raw.probabilities as Record<string, unknown>)) {
-      if ((keys as readonly string[]).includes(key) && typeof value === "number") {
-        probabilities[key as K] = Math.min(1, Math.max(0, value));
-      }
-    }
-  }
-
-  return { choice: choice as K, probabilities };
-}
-
-/** P(true) from a boolean answer, or null when absent. */
-export function readJevProbability(answer: unknown): number | null {
-  const value = (answer as { probability?: unknown } | undefined)?.probability;
-
-  return typeof value === "number" && Number.isFinite(value)
-    ? Math.min(1, Math.max(0, value))
-    : null;
+  return (
+    readGatewayBilledCostUsd(providerMetadata) ??
+    computeUsageCostUsd(JEV_GATEWAY_MODEL_ID, {
+      inputTokens: usage?.inputTokens ?? 0,
+      outputTokens: 0,
+    })
+  );
 }
 
 export type JevDecision =

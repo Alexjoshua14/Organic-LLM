@@ -133,6 +133,7 @@ describe("Stage 1 — evaluateAutoModelChangeGate (material change + Jev ZDR gat
   test("passes mandatory Jev ZDR providerOptions when invoking injected Stage 1 generator", async () => {
     let capturedModel = "";
     let capturedZdr = false;
+    let capturedQuestions: Record<string, { type: string }> = {};
 
     const gate = await evaluateAutoModelChangeGate(
       {
@@ -144,11 +145,15 @@ describe("Stage 1 — evaluateAutoModelChangeGate (material change + Jev ZDR gat
         generateGate: async (args) => {
           capturedModel = args.model;
           capturedZdr = args.providerOptions.gateway.zeroDataRetention;
+          capturedQuestions = args.questions as typeof capturedQuestions;
           return {
-            object: {
-              shouldReroute: true,
-              domainShift: "math_science",
-              confidence: 0.97,
+            answers: {
+              shouldReroute: { type: "boolean", probability: 0.97 },
+              domainShift: {
+                type: "choice",
+                choice: "math_science",
+                probabilities: { math_science: 0.9, coding: 0.1 },
+              },
             },
           };
         },
@@ -157,9 +162,34 @@ describe("Stage 1 — evaluateAutoModelChangeGate (material change + Jev ZDR gat
 
     expect(capturedModel).toBe(JEV_GATEWAY_MODEL_ID);
     expect(capturedZdr).toBe(true);
+    expect(capturedQuestions.shouldReroute?.type).toBe("boolean");
+    expect(capturedQuestions.domainShift?.type).toBe("choice");
     expect(gate.usedJevLive).toBe(true);
     expect(gate.shouldReroute).toBe(true);
     expect(gate.domainShift).toBe("math_science");
+    expect(gate.confidence).toBe(0.97);
+  });
+
+  test("a Jev 'no' keeps the sync domain when the choice is unusable", async () => {
+    const gate = await evaluateAutoModelChangeGate(
+      {
+        text: "Can you fix this TypeScript hook?\n```ts\nconst x = useEffect(() => {}, []);\n```",
+        previousText: "hey",
+        activityState: "typing",
+      },
+      {
+        generateGate: async () => ({
+          answers: {
+            shouldReroute: { type: "boolean", probability: 0.2 },
+            domainShift: { type: "choice", choice: "astrology" },
+          },
+        }),
+      }
+    );
+
+    expect(gate.shouldReroute).toBe(false);
+    expect(gate.confidence).toBeCloseTo(0.8, 10);
+    expect(gate.domainShift).toBe("coding");
   });
 });
 
