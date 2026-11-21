@@ -770,8 +770,8 @@ export const FIXTURE_MEASURE: GenUIBlock = {
       tone: "action",
       note: "About 55–65M of 250–300M people",
     },
-    { id: "india", label: "India", value: 17.8 },
-    { id: "china", label: "China", value: 17.5 },
+    { id: "india", label: "India", value: 17.8, tone: "accent" },
+    { id: "china", label: "China", value: 17.5, tone: "accent" },
     { id: "eu", label: "EU", value: 5.5, tone: "muted" },
     {
       id: "usa",
@@ -781,6 +781,8 @@ export const FIXTURE_MEASURE: GenUIBlock = {
       note: "About 25% of world GDP",
     },
   ],
+  variant: "scale",
+  size: "md",
   footnote: "Ancient figures are estimates.",
 };
 
@@ -872,6 +874,7 @@ export const FIXTURE_PROFILE_MAP: GenUIBlock = {
       status: "active",
       dependencies: ["alex"],
       confidence: 0.88,
+      evidence: [],
       summary: "Profile as a revisable graph with confidence, evidence, and dependency chips.",
     },
     {
@@ -895,6 +898,7 @@ export const FIXTURE_PROFILE_MAP: GenUIBlock = {
       status: "active",
       dependencies: ["organic"],
       confidence: 0.9,
+      evidence: [],
       summary: "Typed blocks (measure, profile-map, Ergon, …) rendered as first-class chat UI.",
     },
     {
@@ -906,6 +910,7 @@ export const FIXTURE_PROFILE_MAP: GenUIBlock = {
       status: "active",
       dependencies: ["organic"],
       confidence: 0.85,
+      evidence: [],
       summary: "Realtime voice agent with Fluid Glass presence and Ergon-aware tools.",
       updatedAt: "2026-11-18",
     },
@@ -918,6 +923,7 @@ export const FIXTURE_PROFILE_MAP: GenUIBlock = {
       status: "active",
       dependencies: ["organic", "gen-ui"],
       confidence: 0.8,
+      evidence: [],
       summary: "Spatial canvas where the designer places notes, mermaid, and gen-UI blocks.",
     },
     {
@@ -929,6 +935,7 @@ export const FIXTURE_PROFILE_MAP: GenUIBlock = {
       status: "active",
       dependencies: [],
       confidence: 0.9,
+      evidence: [],
       summary: "Long-term memory substrate keyed to the profile id.",
     },
     {
@@ -940,6 +947,7 @@ export const FIXTURE_PROFILE_MAP: GenUIBlock = {
       status: "active",
       dependencies: [],
       confidence: 0.9,
+      evidence: [],
       summary: "Auth, threads, and durable app state.",
     },
     {
@@ -951,6 +959,7 @@ export const FIXTURE_PROFILE_MAP: GenUIBlock = {
       status: "active",
       dependencies: [],
       confidence: 0.9,
+      evidence: [],
       summary: "Preview deploys and AI Gateway models.",
     },
     {
@@ -979,6 +988,7 @@ export const FIXTURE_PROFILE_MAP: GenUIBlock = {
       status: "active",
       dependencies: ["organic"],
       confidence: 0.75,
+      evidence: [],
       summary: "Smoke glass, Lumen focus, and quiet motion — taste constraints for every surface.",
     },
     {
@@ -1008,6 +1018,7 @@ export const FIXTURE_PROFILE_MAP: GenUIBlock = {
       status: "paused",
       dependencies: ["organic"],
       confidence: 0.7,
+      evidence: [],
       summary: "Board and proposal blocks that consent before writes.",
     },
     {
@@ -1031,6 +1042,7 @@ export const FIXTURE_PROFILE_MAP: GenUIBlock = {
       status: "active",
       dependencies: ["remy"],
       confidence: 0.78,
+      evidence: [],
       summary: "Batch something fragrant; leftovers carry the week.",
     },
     {
@@ -1042,6 +1054,7 @@ export const FIXTURE_PROFILE_MAP: GenUIBlock = {
       status: "idea",
       dependencies: ["alex"],
       confidence: 0.55,
+      evidence: [],
       summary: "Three easy runs a week — not a race plan.",
     },
   ],
