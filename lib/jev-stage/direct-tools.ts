@@ -9,6 +9,7 @@ import { placeStageArtifacts } from "@/lib/stage/artifacts";
 import { StageLayoutError } from "@/lib/stage/layout";
 import { resolveStageView } from "@/lib/stage/views";
 import {
+  STAGE_MAX_PENDING_DESIGNS,
   StageSubagentAssignmentSchema,
   type StageState,
   type StageTurnSettings,
@@ -136,11 +137,14 @@ export async function executeJevDirectTool(args: {
       return { state: next, note: null };
     }
     case "designer_brief": {
+      if (state.design && state.pendingDesigns.length >= STAGE_MAX_PENDING_DESIGNS) {
+        return { state, note: "The designer queue is full. Try again after a design finishes." };
+      }
       const brief =
         typeof selected.args.brief === "string" && selected.args.brief.trim()
           ? selected.args.brief.trim().slice(0, 2000)
           : message.slice(0, 2000);
-      const job = { id: crypto.randomUUID(), brief };
+      const job = { id: requestId, brief };
 
       state = {
         ...state,

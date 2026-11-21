@@ -272,6 +272,7 @@ export type JevStageTurnRequest = z.infer<typeof JevStageTurnRequestSchema>;
 
 /** Stream / NDJSON event envelope for the prototype client. */
 export const JevStageStreamEventSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("heartbeat") }),
   z.object({
     type: z.literal("route"),
     turnId: z.string().uuid(),

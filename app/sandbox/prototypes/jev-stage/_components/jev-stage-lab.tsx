@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { JevStageMessage } from "./jev-stage-message";
 
+import { ChatThinking } from "@/components/chat/chat-loading";
 import { JevStageInsightPanel } from "@/components/jev-stage/insight-panel";
 import { useJevStage } from "@/components/jev-stage/use-jev-stage";
 import { StageView } from "@/components/stage/stage";
@@ -14,6 +15,8 @@ import { cn } from "@/lib/utils";
 export function JevStageLab() {
   const stage = useJevStage();
   const [conversationRail, setConversationRail] = useState<HTMLDivElement | null>(null);
+  const activeDesign = stage.state?.design;
+  const designStatus = stage.designerStatus ?? activeDesign?.error;
 
   return (
     <div className="relative flex min-h-0 flex-1">
@@ -51,28 +54,44 @@ export function JevStageLab() {
         </nav>
         <StageView
           scripted
+          defaultWebSearch
           stage={stage}
           conversationRail={conversationRail}
           agentMessage={
-            stage.submittedMessage && (
+            stage.submittedMessage ? (
               <JevStageMessage
                 key={stage.submittedMessage.id}
                 text={stage.submittedMessage.text}
                 status={stage.turnStatus}
-                working={stage.sending}
+                working={stage.sending || stage.recovering}
               />
-            )
+            ) : stage.designerStatus ? (
+              <div
+                className="mt-2 w-full overflow-hidden text-xs font-medium text-foreground"
+                title={stage.designerStatus}
+              >
+                <ChatThinking text={stage.designerStatus} />
+              </div>
+            ) : null
           }
         />
         <div className="pointer-events-none absolute inset-x-4 bottom-28 top-20 z-20">
           <JevStageInsightPanel
             insights={stage.insights}
+            design={
+              activeDesign && designStatus
+                ? { turnId: activeDesign.id, status: designStatus }
+                : undefined
+            }
             live={
               stage.submittedMessage &&
               !stage.insights.some((insight) => insight.turnId === stage.submittedMessage?.id)
                 ? {
                     text: stage.submittedMessage.text,
-                    status: stage.sending ? stage.turnStatus : (stage.error ?? stage.turnStatus),
+                    status:
+                      stage.sending || stage.recovering
+                        ? stage.turnStatus
+                        : (stage.error ?? stage.turnStatus),
                     events: stage.liveTrace,
                   }
                 : undefined

@@ -2,6 +2,7 @@ import "server-only";
 
 import { createHash } from "node:crypto";
 
+import { JEV_STAGE_TURN_DEADLINE_MS } from "./constants";
 import { emptyJevStageBundle, type JevStageBundle } from "./schema";
 
 import {
@@ -23,6 +24,7 @@ function keys(ownerId: string) {
     head: `${prefix}:head`,
     requests: `${prefix}:requests`,
     turnLease: `${prefix}:turn-lease`,
+    designLease: `${prefix}:design-lease`,
   };
 }
 
@@ -63,19 +65,65 @@ export async function markJevStageRequest(ownerId: string, requestId: string): P
   await redis.hset(keys(ownerId).requests, { [requestId]: "1" });
 }
 
-const LEASE_MS = 120_000;
+type JevLeaseScope = "turn" | "design";
 
-export async function acquireJevStageLease(ownerId: string): Promise<string | null> {
+const TURN_LEASE_MS = JEV_STAGE_TURN_DEADLINE_MS + 30_000;
+const DESIGN_LEASE_MS = 290_000;
+
+function leaseKey(ownerId: string, scope: JevLeaseScope) {
+  const pair = keys(ownerId);
+
+  return scope === "design" ? pair.designLease : pair.turnLease;
+}
+
+export async function acquireJevStageLease(
+  ownerId: string,
+  scope: JevLeaseScope = "turn"
+): Promise<string | null> {
   const token = crypto.randomUUID();
-  const key = keys(ownerId).turnLease;
-  const ok = await redis.set(key, token, { nx: true, px: LEASE_MS });
+  const ok = await redis.set(leaseKey(ownerId, scope), token, {
+    nx: true,
+    px: scope === "design" ? DESIGN_LEASE_MS : TURN_LEASE_MS,
+  });
 
   return ok === "OK" ? token : null;
 }
 
-export async function releaseJevStageLease(ownerId: string, token: string): Promise<void> {
-  const key = keys(ownerId).turnLease;
-  const current = await redis.get<string>(key);
+export async function releaseJevStageLease(
+  ownerId: string,
+  token: string,
+  scope: JevLeaseScope = "turn"
+) {
+  await redis.eval(
+    "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) end return 0",
+    [leaseKey(ownerId, scope)],
+    [token]
+  );
+}
 
-  if (current === token) await redis.del(key);
+/** Serialize a brief background update with the prototype's conversational turn. */
+export async function mutateJevStage(
+  ownerId: string,
+  update: (bundle: JevStageBundle) => JevStageBundle,
+  signal?: AbortSignal
+): Promise<JevStageBundle | null> {
+  for (;;) {
+    signal?.throwIfAborted();
+    const lease = await acquireJevStageLease(ownerId);
+
+    if (lease) {
+      try {
+        const current = await readJevStage(ownerId);
+        const next = update(current);
+
+        if (next !== current) await writeJevStage(ownerId, next);
+
+        return next;
+      } finally {
+        await releaseJevStageLease(ownerId, lease);
+      }
+    }
+    if (!signal) return null;
+    await new Promise<void>((resolve) => setTimeout(resolve, 500));
+  }
 }

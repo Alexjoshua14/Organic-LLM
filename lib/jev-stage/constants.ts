@@ -28,7 +28,7 @@ export const JEV_STAGE_REPLY_CHAR_CAP = 8000;
  * steps and returns view/captures/recall/specialists as structured output; Respond makes those
  * tool calls, so it gets room for lookups, a couple of Stage effects, and the closing reply.
  */
-export const JEV_STAGE_RESPOND_MAX_STEPS = 6;
+export const JEV_STAGE_MODEL_MAX_STEPS = 8;
 
 /**
  * Turn execution steps after Jev routes: e.g. one direct tool + one Respond fallback.
@@ -36,5 +36,8 @@ export const JEV_STAGE_RESPOND_MAX_STEPS = 6;
  */
 export const JEV_STAGE_TURN_MAX_STEPS = 3;
 
-/** Client aborts a hung NDJSON turn so Stage cannot stick on “Thinking with you”. */
-export const JEV_STAGE_CLIENT_TIMEOUT_MS = 90_000;
+/** Heartbeats confirm a quiet connection while a model or tool works. */
+export const JEV_STAGE_HEARTBEAT_MS = 10_000;
+export const JEV_STAGE_CLIENT_TIMEOUT_MS = 45_000;
+export const JEV_STAGE_DESIGN_POLL_MS = 3_000;
+export const JEV_STAGE_TURN_DEADLINE_MS = 260_000;

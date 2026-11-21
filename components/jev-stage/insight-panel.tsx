@@ -132,11 +132,13 @@ function Glance({
 export function JevStageInsightPanel({
   insights,
   live,
+  design,
   onEval,
   className,
 }: {
   insights: JevStageTurnInsight[];
   live?: { text: string; status: string; events: JevStageTraceEvent[] };
+  design?: { turnId: string; status: string };
   onEval: (turnId: string, signal: "up" | "down", note?: string | null) => Promise<void>;
   className?: string;
 }) {
@@ -233,6 +235,11 @@ export function JevStageInsightPanel({
             value="pipeline"
             className="organic-focus min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain py-2"
           >
+            {design && insight?.turnId === design.turnId && (
+              <p role="status" className="text-2xs font-medium">
+                {design.status}
+              </p>
+            )}
             {livePage && (
               <p role="status" className="text-2xs text-muted-foreground">
                 {live.status}

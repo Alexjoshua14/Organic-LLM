@@ -10,7 +10,7 @@ import {
   historyWindow,
   toolDefinitionSegment,
 } from "./context-manifest";
-import { JEV_STAGE_RESPOND_INPUT_BUDGET_USD } from "./constants";
+import { JEV_STAGE_MODEL_MAX_STEPS, JEV_STAGE_RESPOND_INPUT_BUDGET_USD } from "./constants";
 import { maxOutputTokensForBudget, packMessagesForInputBudget } from "./budget";
 import { resolveRespondModel } from "./respond";
 import { finishModelCall, markFirstToken, startCallClock } from "./trace";
@@ -23,7 +23,12 @@ import { createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
 import { createMemorySearchTool, createWebSearchTool } from "@/lib/llm/llm-tool-kit";
 import { ORCHESTRATOR_TOOL_INSTRUCTIONS } from "@/lib/llm/subagents/orchestrator/orchestrator-tools";
 import { buildEffortProviderOptions } from "@/lib/schemas/chat-effort";
-import { StageSubagentAssignmentSchema, type StageState, type StageTurnSettings } from "@/lib/stage/schema";
+import {
+  STAGE_MAX_PENDING_DESIGNS,
+  StageSubagentAssignmentSchema,
+  type StageState,
+  type StageTurnSettings,
+} from "@/lib/stage/schema";
 import { stageKnowledgeContext } from "@/lib/stage/knowledge";
 
 /**
@@ -59,6 +64,7 @@ export async function streamJevOrchestrate(args: {
   state: StageState;
   message: string;
   settings?: StageTurnSettings;
+  signal?: AbortSignal;
   onDelta: (text: string) => void;
   onSummary?: (summary: string) => void;
   onDesignBrief?: (brief: string) => void;
@@ -95,9 +101,10 @@ export async function streamJevOrchestrate(args: {
   let text = "";
 
   const memory = args.settings?.memory !== false ? createMemorySearchTool(args.ownerId) : null;
-  const web = args.settings?.webSearch !== false
-    ? createWebSearchTool({ maxNumResults: 3, sbUserId: args.ownerId })
-    : null;
+  const web =
+    args.settings?.webSearch !== false
+      ? createWebSearchTool({ maxNumResults: 3, sbUserId: args.ownerId })
+      : null;
 
   let stepIndex = 0;
   let stepStarted = performance.now();
@@ -122,6 +129,12 @@ export async function streamJevOrchestrate(args: {
       description: "Queue Stage designer work for visual pieces.",
       inputSchema: z.object({ brief: z.string().min(1).max(2000) }),
       execute: async ({ brief }) => {
+        if (args.state.design && args.state.pendingDesigns.length >= STAGE_MAX_PENDING_DESIGNS)
+          return {
+            ok: false,
+            error: "The designer queue is full. Try again after a design finishes.",
+          };
+
         designBrief = brief;
         args.onDesignBrief?.(brief);
 
@@ -165,6 +178,7 @@ export async function streamJevOrchestrate(args: {
     ),
   });
 
+  const deadline = AbortSignal.timeout(120_000);
   const result = streamText({
     ...budget,
     onStepFinish: async (step) => {
@@ -198,10 +212,10 @@ export async function streamJevOrchestrate(args: {
       newestPart,
     ].join("\n\n"),
     maxOutputTokens: maxOutputTokensForBudget(model),
-    stopWhen: stepCountIs(6),
+    stopWhen: stepCountIs(JEV_STAGE_MODEL_MAX_STEPS),
     // Each tool execution is timed and streamed to the insight timeline as it finishes.
     tools: traceToolSet(tools, (tool) => args.onHop?.({ kind: "tool", tool })),
-    abortSignal: AbortSignal.timeout(120_000),
+    abortSignal: args.signal ? AbortSignal.any([args.signal, deadline]) : deadline,
     providerOptions: {
       ...buildEffortProviderOptions(model, args.settings?.effort),
       gateway: { zeroDataRetention: true },

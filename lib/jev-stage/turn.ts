@@ -5,6 +5,7 @@ import {
   JEV_STAGE_MAX_TURN_INSIGHTS,
   JEV_STAGE_REPLY_CHAR_CAP,
   JEV_STAGE_TURN_MAX_STEPS,
+  JEV_STAGE_TURN_DEADLINE_MS,
   JEV_GATEWAY_TRACE_MODEL,
 } from "./constants";
 import { jevContextManifest } from "./context-manifest";
@@ -22,6 +23,7 @@ import {
   acquireJevStageLease,
   hasJevStageRequest,
   markJevStageRequest,
+  mutateJevStage,
   readJevStage,
   releaseJevStageLease,
   writeJevStage,
@@ -63,7 +65,7 @@ function applyStreamedReply(args: {
   model: string;
 }): StageState {
   const job = args.designBrief
-    ? { id: crypto.randomUUID(), brief: args.designBrief }
+    ? { id: args.requestId, brief: args.designBrief }
     : null;
   let next: StageState = {
     ...args.state,
@@ -157,6 +159,8 @@ export async function runJevStageTurn(args: {
   if (!lease) {
     throw new JevStageTurnError("Another turn is already running on this prototype stage.", 409);
   }
+
+  const signal = AbortSignal.timeout(JEV_STAGE_TURN_DEADLINE_MS);
 
   try {
     if (await hasJevStageRequest(args.ownerId, args.requestId)) {
@@ -257,6 +261,7 @@ export async function runJevStageTurn(args: {
 
     // Bounded execution loop: direct tool → optional Respond fallback → safety net.
     while (steps < JEV_STAGE_TURN_MAX_STEPS) {
+      signal.throwIfAborted();
       steps += 1;
 
       if (isDirectJevAction(action.kind)) {
@@ -335,6 +340,7 @@ export async function runJevStageTurn(args: {
           state: stage,
           message: args.message,
           settings: args.settings,
+          signal,
           onDelta: (text) => {
             draft += text;
             args.emit({ type: "delta", text });
@@ -397,6 +403,7 @@ export async function runJevStageTurn(args: {
         state: stage,
         message: args.message,
         settings: args.settings,
+        signal,
         onDelta: (text) => {
           draft += text;
           args.emit({ type: "delta", text });
@@ -509,6 +516,7 @@ export async function runJevStageTurn(args: {
       insights: [...bundle.insights, insight].slice(-JEV_STAGE_MAX_TURN_INSIGHTS),
     };
 
+    signal.throwIfAborted();
     await writeJevStage(args.ownerId, next);
     await markJevStageRequest(args.ownerId, args.requestId);
     args.emit({ type: "done", insight, stage });
@@ -523,9 +531,14 @@ export async function resetJevStage(ownerId: string): Promise<JevStageBundle> {
   const { emptyJevStageBundle } = await import("./schema");
   const next = emptyJevStageBundle();
 
-  await writeJevStage(ownerId, next);
+  const reset = await mutateJevStage(ownerId, (current) => ({
+    ...next,
+    stage: { ...next.stage, revision: current.stage.revision + 1 },
+  }));
 
-  return next;
+  if (!reset) throw new JevStageTurnError("Wait for the current turn before resetting Stage.", 409);
+
+  return reset;
 }
 
 export async function setJevStageTurnEval(args: {
@@ -534,22 +547,22 @@ export async function setJevStageTurnEval(args: {
   signal: "up" | "down";
   note?: string | null;
 }): Promise<JevStageBundle> {
-  const bundle = await readJevStage(args.ownerId);
-  const insights = bundle.insights.map((insight) =>
-    insight.turnId === args.turnId
-      ? {
-          ...insight,
-          eval: {
-            signal: args.signal,
-            note: args.note?.trim() ? args.note.trim().slice(0, 500) : null,
-          },
-        }
-      : insight
-  );
+  const next = await mutateJevStage(args.ownerId, (bundle) => ({
+    ...bundle,
+    insights: bundle.insights.map((insight) =>
+      insight.turnId === args.turnId
+        ? {
+            ...insight,
+            eval: {
+              signal: args.signal,
+              note: args.note?.trim() ? args.note.trim().slice(0, 500) : null,
+            },
+          }
+        : insight
+    ),
+  }));
 
-  const next = { ...bundle, insights };
-
-  await writeJevStage(args.ownerId, next);
+  if (!next) throw new JevStageTurnError("Wait for the current turn before saving feedback.", 409);
 
   return next;
 }

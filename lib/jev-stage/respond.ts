@@ -13,7 +13,7 @@ import {
 } from "./budget";
 import {
   JEV_STAGE_RESPOND_INPUT_BUDGET_USD,
-  JEV_STAGE_RESPOND_MAX_STEPS,
+  JEV_STAGE_MODEL_MAX_STEPS,
   JEV_STAGE_RESPOND_OUTPUT_BUDGET_USD,
 } from "./constants";
 import { finishModelCall, markFirstToken, startCallClock } from "./trace";
@@ -45,6 +45,7 @@ import {
 import { StageLayoutError } from "@/lib/stage/layout";
 import { recallStageMemories } from "@/lib/stage/memory";
 import {
+  STAGE_MAX_PENDING_DESIGNS,
   StageSubagentAssignmentSchema,
   type StageState,
   type StageSubagentAssignment,
@@ -61,7 +62,7 @@ You have the same tools as Stage's central agent:
 - web_search looks up current public information. Use it for current or external facts (news, prices, releases, anything outside the user's own memory) instead of guessing.
 - recall_memories refreshes the Recall piece on the stage from long-term memory when past context would help the user see it.
 - file_captures files distinct ideas, decisions, open questions or project facts from the newest message into collections, by exact collectionId from Stage knowledge, else a short durable collection title. Skip chit-chat and anything already filed.
-- set_design_brief queues the designer to put substance on the stage as pieces; state the content itself and whether it starts a new topic.
+- set_design_brief queues the designer to put substance on the stage as pieces. For requested code blocks, include the actual code examples and source links in the brief. Say whether it starts a new topic.
 - switch_view shows an existing view (organic, overview, an author, a piece) from space.availableViews.
 - dispatch_specialists assigns up to two bounded goals to parallel specialists; use only for genuinely parallel or role-shaped work.
 - update_summary replaces the durable thread summary when enduring context changes.
@@ -138,6 +139,9 @@ export function createJevRespondTools(args: {
       description: "Queue a Stage designer brief for pieces that should show the answer.",
       inputSchema: z.object({ brief: z.string().min(1).max(2000) }),
       execute: async ({ brief }) => {
+        if (args.state.design && args.state.pendingDesigns.length >= STAGE_MAX_PENDING_DESIGNS)
+          return { ok: false, error: "The designer queue is full. Try again after a design finishes." };
+
         effects.designBrief = brief;
         args.onDesignBrief?.(brief);
 
@@ -301,6 +305,7 @@ export async function streamJevRespond(args: {
   state: StageState;
   message: string;
   settings?: StageTurnSettings;
+  signal?: AbortSignal;
   onDelta: (text: string) => void;
   onSummary?: (summary: string) => void;
   onDesignBrief?: (brief: string) => void;
@@ -448,10 +453,10 @@ export async function streamJevRespond(args: {
       ].join("\n\n"),
       maxOutputTokens: maxOut,
       // Without stopWhen, tool calls can finish the turn with no user-visible text.
-      stopWhen: stepCountIs(JEV_STAGE_RESPOND_MAX_STEPS),
+      stopWhen: stepCountIs(JEV_STAGE_MODEL_MAX_STEPS),
       // Each tool execution is timed and streamed to the insight timeline as it finishes.
       tools: traceToolSet(tools, (tool) => args.onHop?.({ kind: "tool", tool })),
-      abortSignal: abort.signal,
+      abortSignal: args.signal ? AbortSignal.any([args.signal, abort.signal]) : abort.signal,
       providerOptions: {
         ...buildEffortProviderOptions(model, args.settings?.effort),
         gateway: { zeroDataRetention: true },

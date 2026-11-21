@@ -100,12 +100,14 @@ export function StageView({
   scripted = false,
   agentMessage,
   conversationRail,
+  defaultWebSearch = false,
 }: {
   stage: StageController;
   /** A scripted stage has no real threads, calls, or voice session to attach to. */
   scripted?: boolean;
   agentMessage?: ReactNode;
   conversationRail?: HTMLElement | null;
+  defaultWebSearch?: boolean;
 }) {
   const liveVoice = useVoiceSessionOptional();
   const voice = scripted ? null : liveVoice;
@@ -133,7 +135,7 @@ export function StageView({
   }, [confirmingReset]);
   const modelRef = useRef<ChatModel>(DEFAULT_COMPOSER_MODEL);
   const effortRef = useRef<ChatEffortLevel>("auto");
-  const searchRef = useRef(false);
+  const searchRef = useRef(defaultWebSearch);
   const memoryRef = useRef(DEFAULT_COMPOSER_MEMORIES);
   const speechRef = useRef(false);
   const [composerError, setComposerError] = useState<Error | null>(null);
@@ -499,14 +501,16 @@ export function StageView({
           onClose={closeArrangement}
         />
       )}
-      {panel && state && (
-        panel === "conversation" && conversationRail
-          ? createPortal(
-              <StageHistory recessed mode={panel} state={state} onClose={() => setPanel(null)} />,
-              conversationRail
-            )
-          : <StageHistory key={panel} mode={panel} state={state} onClose={() => setPanel(null)} />
-      )}
+      {panel &&
+        state &&
+        (panel === "conversation" && conversationRail ? (
+          createPortal(
+            <StageHistory recessed mode={panel} state={state} onClose={() => setPanel(null)} />,
+            conversationRail
+          )
+        ) : (
+          <StageHistory key={panel} mode={panel} state={state} onClose={() => setPanel(null)} />
+        ))}
 
       <footer className="stage-footer">
         {/* Organic's words belong to the home view (and to reading). With pieces showing, the
@@ -582,7 +586,7 @@ export function StageView({
                 useWebSearchRef={searchRef}
                 useMemoriesRef={memoryRef}
                 useSpeechFriendlyRef={speechRef}
-                defaultWebSearch={false}
+                defaultWebSearch={defaultWebSearch}
                 defaultMemories={DEFAULT_COMPOSER_MEMORIES}
                 disabled={!state}
                 status={sending ? "submitted" : "ready"}

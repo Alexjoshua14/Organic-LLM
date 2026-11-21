@@ -23,11 +23,14 @@ After Jev routes, execution is a bounded step loop (`JEV_STAGE_TURN_MAX_STEPS`):
 1. Run the selected action (direct tool, Respond, or Orchestrate).
 2. If a direct tool (or empty Orchestrate) leaves no Conversation line for this request,
    fall through to **Respond**.
-3. Respond / Orchestrate use the AI SDK `stopWhen: stepCountIs(…)` tool loop so tool calls
-   can continue into a visible reply instead of ending the turn blank.
+3. Respond / Orchestrate allow up to eight AI SDK steps so lookups and Stage tools have
+   room before the closing reply. Respond still applies its existing input and output budgets.
 4. A final safety reply is written if the turn would otherwise complete with nothing visible.
-5. The client aborts hung streams after `JEV_STAGE_CLIENT_TIMEOUT_MS` so Stage cannot stick
-   on a pending turn.
+5. The server sends heartbeats while the turn runs. When the stream loses contact,
+   the client checks for the saved turn by request ID without sending the message again.
+6. Designer jobs reuse Stage's generator and layout reconciler against the prototype store.
+   Stage polls for queued and working jobs, shows progress, and opens Overview when new
+   pieces land from the Organic view. Failed jobs offer a retry.
 
 ## Code map
 
