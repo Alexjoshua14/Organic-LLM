@@ -46,7 +46,7 @@ three-line glance for cost / latency / cache / per-model spend; thumbs + optiona
 
 ## Confidence floor
 
-`JEV_STAGE_CONFIDENCE_FLOOR = 0.55` in `lib/jev-stage/constants.ts`. Tunable; threshold research
+`JEV_STAGE_CONFIDENCE_FLOOR = 0.45` (owner, 2026-11-21; gates direct tools and Orchestrate only: a top pick of `respond` always runs as a normal Jev decision) in `lib/jev-stage/constants.ts`. Tunable; threshold research
 is out of scope for this lab.
 
 ## Promote recipe (later)

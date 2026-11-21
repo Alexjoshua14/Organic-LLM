@@ -31,6 +31,18 @@ describe("jev-stage router", () => {
     expect(picked.selected.kind).toBe("respond");
   });
 
+  test("a top pick of respond runs as a normal Jev decision even below the floor", () => {
+    const picked = pickJevStageAction({
+      candidates: [
+        { kind: "respond", confidence: JEV_STAGE_CONFIDENCE_FLOOR - 0.1, reason: "chat", args: {} },
+        { kind: "memory_search", confidence: 0.17, reason: "memory", args: {} },
+      ],
+    });
+
+    expect(picked.fellBack).toBe(false);
+    expect(picked.selected.kind).toBe("respond");
+  });
+
   test("routeJevStage uses injected generate and falls back on failure", async () => {
     const generate: JevGenerate = async () => {
       throw new Error("timeout");

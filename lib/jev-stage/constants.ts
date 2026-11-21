@@ -1,5 +1,5 @@
 /** Tunable confidence floor for selecting a Jev action (research follow-up). */
-export const JEV_STAGE_CONFIDENCE_FLOOR = 0.55;
+export const JEV_STAGE_CONFIDENCE_FLOOR = 0.45;
 
 /** Respond tool: max USD of input context for the selected model. */
 export const JEV_STAGE_RESPOND_INPUT_BUDGET_USD = 0.2;

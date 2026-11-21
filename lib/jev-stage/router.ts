@@ -96,7 +96,7 @@ export function pickJevStageAction(
   const ranked = [...route.candidates].sort((a, b) => b.confidence - a.confidence);
   const top = ranked[0];
 
-  if (!top || top.confidence < floor) {
+  if (!top || (top.kind !== "respond" && top.confidence < floor)) {
     return {
       selected: {
         kind: "respond",
