@@ -180,6 +180,7 @@ export function ContextSwitchboard({ block, onRerun }: ContextSwitchboardProps) 
         ) : null}
       </header>
 
+      {/* eslint-disable-next-line jsx-a11y/no-redundant-roles -- explicit role keeps list semantics in Safari/VoiceOver under list-style reset */}
       <ul className={spacing.card.blockItems} role="list">
         {block.items.map((item) => {
           const on = Boolean(included[item.id]);

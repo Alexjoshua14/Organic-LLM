@@ -32,6 +32,7 @@ export function HypGraph({ block, onSelectNode }: HypGraphProps) {
     <section className={cn("w-full rounded-2xl bg-muted/30 p-inset-md", spacing.card.section)}>
       <h3 className="text-sm font-medium text-foreground">{block.title}</h3>
 
+      {/* eslint-disable-next-line jsx-a11y/no-redundant-roles -- explicit role keeps list semantics in Safari/VoiceOver under list-style reset */}
       <ul className={spacing.card.blockItems} role="list">
         {block.nodes.map((node) => {
           const selected = active === node.id;
@@ -76,6 +77,7 @@ export function HypGraph({ block, onSelectNode }: HypGraphProps) {
         <p className="text-xs uppercase tracking-wide text-muted-foreground">
           {active ? `Edges for ${byId.get(active)?.label ?? active}` : "Edges"}
         </p>
+        {/* eslint-disable-next-line jsx-a11y/no-redundant-roles -- explicit role keeps list semantics in Safari/VoiceOver under list-style reset */}
         <ul className={spacing.card.blockItems} role="list">
           {related.length === 0 ? (
             <li className="text-sm text-muted-foreground">No edges from this node.</li>

@@ -31,6 +31,7 @@ export function StateDiagram({ block, onSelectState }: StateDiagramProps) {
     <section className={cn("w-full rounded-2xl bg-muted/30 p-inset-md", spacing.card.section)}>
       <h3 className="text-sm font-medium text-foreground">{block.title}</h3>
 
+      {/* eslint-disable-next-line jsx-a11y/no-redundant-roles -- explicit role keeps list semantics in Safari/VoiceOver under list-style reset */}
       <ul className={spacing.card.blockItems} role="list">
         {block.states.map((state) => {
           const selected = active === state.id;

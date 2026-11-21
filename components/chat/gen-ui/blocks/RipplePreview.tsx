@@ -78,6 +78,7 @@ export function RipplePreview({ block, onApply }: RipplePreviewProps) {
         ) : null}
       </div>
 
+      {/* eslint-disable-next-line jsx-a11y/no-redundant-roles -- explicit role keeps list semantics in Safari/VoiceOver under list-style reset */}
       <ul className={spacing.card.blockItems} role="list">
         {block.ripples.map((ripple) => {
           const on = Boolean(approved[ripple.id]);
