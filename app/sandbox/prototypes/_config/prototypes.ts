@@ -434,6 +434,25 @@ export const prototypes: PrototypeEntry[] = [
       updatedAt: "2026-11-14",
     },
   },
+  {
+    slug: "jev-stage",
+    title: "Jev Stage",
+    description:
+      "Stage with Jev as the first hop: a cheap intelligent switch that ranks direct tools and LLM paths (Respond / Orchestrate), with an insight panel for confidence and spend.",
+    about: {
+      what: "A promotable Stage fork. User messages hit Jev first; Jev ranks Stage-surface tools and LLM tools (streamed Respond with $0.20/$0.10 budgets, Arcadia-shaped Orchestrate). Real /stage is untouched. Insight panel pages past turns with confidence, cost, and thumbs evals.",
+      howToUse:
+        "Open the lab, send a message. Watch the sticky Insight card: what Jev ranked, top confidences, spend glance. Thumbs and an optional note evaluate the turn. Mobile uses a chip that opens a sheet.",
+      authorThoughts:
+        "Jev as a very cheap, very fast way to process the user's message while using the full power of language models where reasonable, but directly invoking tools when that's more likely what the user is trying to do.",
+    },
+    ranking: {
+      importance: 9,
+      frequency: 5,
+      createdAt: "2026-11-20",
+      updatedAt: "2026-11-20",
+    },
+  },
 ];
 
 export type PrototypeTierId = "flagship" | "featured" | "library";

@@ -64,6 +64,7 @@ Canon for the product: what we're building, who owns which kind of truth, how ag
   - [Reasoning display](./design/reasoning-display.md) — secondary summary typography, stable disclosure, and streaming verification
   - [Rabbit-hole tool presence](./design/rabbit-hole-tool-presence.md) — data-shaped rabbit-hole cards (article trees, matched articles), dev-only tool details
   - [Subagent identity mark](./design/subagent-identity-mark.md) — SVG dot states, glass diffusion, local layering
+  - [Jev Stage](./design/jev-stage.md) — Stage fork with Jev switch, insight panel, promote seams
   - [Glass distortion](./design/glass-distortion.md) — opt-in source refraction beneath glass, Safari compatibility
   - [Liquid chrome materials](./design/liquid-chrome-materials.md) — theme-specific shader materials, fallbacks, and refraction parity
   - [Welcome scene](./design/welcome-scene.md) — pane projection, scroll perspective, and themed floor continuity
