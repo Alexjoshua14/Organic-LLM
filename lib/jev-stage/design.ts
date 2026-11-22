@@ -4,6 +4,7 @@ import type { StageState } from "@/lib/stage/schema";
 
 import { after } from "next/server";
 
+import { rankJevDesignerBlocks } from "./designer-block-rank";
 import { acquireJevStageLease, mutateJevStage, releaseJevStageLease } from "./store";
 
 import { generateStageDesign } from "@/lib/stage/agent";
@@ -22,6 +23,7 @@ const designRuntime = {
   mutate: mutateJevStage,
   release: releaseJevStageLease,
   generate: generateStageDesign,
+  rank: rankJevDesignerBlocks,
 };
 
 export function scheduleJevStageDesign(identity: Identity, state: StageState) {
@@ -84,6 +86,7 @@ export async function runJevStageDesign(
 
     if (job?.id !== jobId || job.status !== "working" || job.phase !== "working") return;
     const signal = AbortSignal.any([deadline, AbortSignal.timeout(DESIGN_MODEL_DEADLINE_MS)]);
+    const blockTypes = await runtime.rank(job.brief);
     let base = start.stage;
     let feedback: string | undefined;
 
@@ -91,7 +94,9 @@ export async function runJevStageDesign(
       const result = await runtime.generate({
         ...identity,
         state: base,
-        brief: `${job.brief}\nIf the brief requests code examples, show them in the supported code-diff block as added example files. The code is for display only.`,
+        brief: job.brief,
+        plainCodeExamples: true,
+        blockTypes,
         feedback,
         signal,
       });

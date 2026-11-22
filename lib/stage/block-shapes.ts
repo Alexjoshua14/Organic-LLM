@@ -20,32 +20,40 @@ const DESIGNER_BLOCKS = {
   "code-diff": CodeDiffBlockSchema,
 } as const;
 
-type DesignerBlockType = keyof typeof DESIGNER_BLOCKS;
+export type DesignerBlockType = keyof typeof DESIGNER_BLOCKS;
+
+export const DESIGNER_BLOCK_TYPES = Object.keys(DESIGNER_BLOCKS) as DesignerBlockType[];
 
 /** Compact JSON Schemas, derived from the real zod schemas so the prompt can't drift from them. */
-let shapes: string | null = null;
+const shapes = new Map<DesignerBlockType, string>();
 
-export function designerBlockShapes(): string {
-  shapes ??= Object.entries(DESIGNER_BLOCKS)
-    .map(([type, schema]) => {
-      const json = z.toJSONSchema(schema, { io: "input", unrepresentable: "any" }) as Record<
-        string,
-        unknown
-      >;
+export function designerBlockShapes(
+  types: readonly DesignerBlockType[] = DESIGNER_BLOCK_TYPES
+): string {
+  return types
+    .map((type) => {
+      const cached = shapes.get(type);
+
+      if (cached) return cached;
+      const json = z.toJSONSchema(DESIGNER_BLOCKS[type], {
+        io: "input",
+        unrepresentable: "any",
+      }) as Record<string, unknown>;
 
       delete json.$schema;
 
-      // Drop only noise. A record's value shape lives in `additionalProperties`, so stripping
-      // that key whole hid what a decision-matrix score is and every score came back wrong.
-      return `${type}: ${JSON.stringify(json, (key, value) =>
+      // Drop only noise. Preserve the value shape of maps such as decision-matrix scores.
+      const shape = `${type}: ${JSON.stringify(json, (key, value) =>
         key === "description" || (key === "additionalProperties" && value === false)
           ? undefined
           : value
       )}`;
+
+      shapes.set(type, shape);
+
+      return shape;
     })
     .join("\n");
-
-  return shapes;
 }
 
 /** A designer-authored block as a parsed value, or the exact fields that were wrong. */

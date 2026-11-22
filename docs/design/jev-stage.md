@@ -30,7 +30,10 @@ After Jev routes, execution is a bounded step loop (`JEV_STAGE_TURN_MAX_STEPS`):
    the client checks for the saved turn by request ID without sending the message again.
 6. Designer jobs reuse Stage's generator and layout reconciler against the prototype store.
    Stage polls for queued and working jobs, shows progress, and opens Overview when new
-   pieces land from the Organic view. Failed jobs offer a retry.
+   pieces land from the Organic view. Failed jobs offer a retry. Jev ranks the authorable
+   gen UI formats from the design brief and the designer receives up to three relevant schemas.
+   Plain source examples use fenced Markdown in a note. Diff blocks are for patches and
+   before/after comparisons. If ranking is unavailable, the designer receives the full catalog.
 
 ## Code map
 
@@ -54,7 +57,7 @@ Conversation. A failed turn leaves the echo visible until retry or reset.
 On desktop, Conversation opens in a recessed column and Stage adjusts its width. The
 fixed-height Insight note can move within the Stage area by dragging its grip or using the
 arrow keys on the focused grip. Home returns it to its initial position. Mobile keeps the
-Insight sheet.
+Insight sheet opens from the Stage toolbar. Pieces stack in a full-width reading column.
 
 Insight follows the latest interaction by default, including the in-flight turn. Paging back
 pauses following. The Follow latest toggle or paging to the newest turn resumes it.

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
+import { rankJevDesignerBlocks } from "@/lib/jev-stage/designer-block-rank";
 import { runJevStageDesign } from "@/lib/jev-stage/design";
 import { emptyJevStageBundle } from "@/lib/jev-stage/schema";
 import { DESIGN_PLAN } from "@/lib/stage/design-schema";
@@ -23,6 +24,7 @@ function queuedDesign() {
       return bundle;
     },
     runtime: {
+      rank: async () => [],
       acquire: async () => "lease-token",
       release: async () => undefined,
       mutate: async (_ownerId: string, update: (current: typeof bundle) => typeof bundle) => {
@@ -39,9 +41,11 @@ describe("Jev Stage designer", () => {
 
     await runJevStageDesign(identity, jobId, {
       ...fixture.runtime,
-      generate: async ({ state, brief }) => {
+      generate: async ({ state, brief, plainCodeExamples, blockTypes }) => {
         expect(state.design?.phase).toBe("working");
-        expect(brief).toContain("code-diff");
+        expect(brief).toBe("Show a simple SDK code sample.");
+        expect(plainCodeExamples).toBe(true);
+        expect(blockTypes).toEqual([]);
 
         return {
           model: "test",
@@ -51,21 +55,14 @@ describe("Jev Stage designer", () => {
             operations: [
               {
                 operation: "upsert",
-                kind: "block",
+                kind: "note",
                 title: "SDK example",
                 targetId: null,
                 rect: null,
                 view: null,
-                text: null,
+                text: "```ts\nexport const example = true;\n```",
                 code: null,
-                block: JSON.stringify({
-                  type: "code-diff",
-                  version: 1,
-                  title: "SDK example",
-                  files: [
-                    { path: "example.ts", diff: "@@ -0,0 +1 @@\n+export const example = true;" },
-                  ],
-                }),
+                block: null,
                 url: null,
                 ingredients: null,
                 steps: null,
@@ -77,7 +74,9 @@ describe("Jev Stage designer", () => {
     });
 
     expect(fixture.bundle.stage.design).toBeNull();
-    expect(fixture.bundle.stage.widgets).toMatchObject([{ kind: "block", title: "SDK example" }]);
+    expect(fixture.bundle.stage.widgets).toMatchObject([
+      { kind: "note", title: "SDK example", text: "```ts\nexport const example = true;\n```" },
+    ]);
     expect(fixture.bundle.stage.viewCommand?.target.kind).toBe("overview");
   });
 
@@ -100,4 +99,31 @@ describe("Jev Stage designer", () => {
     expect(feedback).toEqual([undefined, "The designer returned no stage pieces."]);
     expect(fixture.bundle.stage.design).toMatchObject({ id: jobId, status: "failed" });
   });
+});
+
+test("Jev shortlists relevant schemas for a mixed brief and leaves plain code to native pieces", async () => {
+  const ranked = await rankJevDesignerBlocks(
+    "Show code examples and a rollout timeline.",
+    async () => ({
+      answers: {
+        block: {
+          choice: "native-piece",
+          probabilities: { "native-piece": 0.69, "plan-timeline": 0.24, "code-diff": 0.07 },
+        },
+      },
+    })
+  );
+
+  expect(ranked).toEqual(["plan-timeline"]);
+});
+
+test("Jev keeps the diff schema for a real patch and falls back when ranking is unavailable", async () => {
+  expect(
+    await rankJevDesignerBlocks("Show the patch between these versions.", async () => ({
+      answers: { block: { choice: "code-diff" } },
+    }))
+  ).toEqual(["code-diff"]);
+  expect(
+    await rankJevDesignerBlocks("Draw a timeline.", async () => ({ answers: {} }))
+  ).toBeUndefined();
 });
