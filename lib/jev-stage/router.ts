@@ -24,16 +24,16 @@ import { stageNavigation, stageViews } from "@/lib/stage/views";
  */
 const ACTION_CRITERIA: Record<JevStageActionKind, string> = {
   respond:
-    "Reply to the user in conversation with a normal language-model answer, explanation or plan in prose",
+    "Answer a question or prepare new explanatory content for Stage. For a requested guide or example, gather the facts, then give the Designer a brief with the substance.",
   orchestrate:
     "Hand the request to the agent orchestrator for multi-step work that needs specialists, research then writing, or several parallel goals",
   memory_search: "Search the owner's saved memories for something they told Organic before",
-  web_search: "Search the public web for fresh or external information",
+  web_search: "Run a standalone public lookup when the user primarily wants search results. Use Respond or Orchestrate for a guide that needs sources synthesized.",
   view_switch:
     "Switch the Stage view to show Organic, all pieces, one author's tab or one piece, with nothing else asked",
   captures: "File the user's ideas or notes as captures into a collection on the Stage",
   recall: "Refresh the Recall piece on the Stage with memories related to the message",
-  designer_brief: "Ask the layout designer to place, update or rearrange pieces on the Stage",
+  designer_brief: "Present or rearrange material already supplied by the user or present on Stage. For a new guide or version-sensitive examples, use Respond or Orchestrate to prepare the material first.",
   specialists: "Start a Stage specialist agent working on the user's goal in the background",
 };
 
