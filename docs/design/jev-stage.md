@@ -61,6 +61,32 @@ For the SDK example, use a **Chat controls** section with separate **Send**, **S
 **Retry** rows. Follow it with one sentence about what the SDK handles. Give the code its own
 **Chat screen** heading and put `app/page.tsx` on a line before the fence.
 
+## UI eval for AI SDK controls
+
+Send this exact prompt in a disposable Jev Stage session:
+
+> Show me the Vercel AI SDK controls / usage of it.
+
+Review the finished Stage on desktop and phone. Score each row as met, partial, or missed.
+Save the result in the turn's Insight eval note with the viewport, selected model, and the
+first thing a reader struggled to find. A pass meets every row.
+
+| Check | What the reviewer should see |
+|---|---|
+| Controls at a glance | Send, Stop, and Retry each have a distinct row. The reader can tell which API each calls, when it is available, and what happens on failure. |
+| Request lifecycle | The UI explains submitted, streaming, ready, and error states. It distinguishes the SDK's state and transport from the buttons and rendering the app owns. |
+| Usable examples | A minimal client and server example are separately labeled, use compatible imports and message shapes, and show how the client connects to the streaming route. Code is copyable. API claims link to official docs. |
+| Reading order and layout | The controls are visible before a long code sample. Headings, lists, filenames, and code are visually distinct. Pieces fit the phone width, and toolbar or composer controls leave the content accessible. |
+| Completion | Stage visibly progresses from receiving the request to placing the pieces. A queued acknowledgment by itself is a miss. |
+
+Then send “Improve the UI please, and show me again.” Review whether headings and layout
+improve while the factual content, example behavior, and source links survive, without
+duplicate pieces.
+
+Reference checks: [useChat](https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-chat),
+[Chatbot](https://ai-sdk.dev/docs/ai-sdk-ui/chatbot), and
+[Transport](https://ai-sdk.dev/docs/ai-sdk-ui/transport).
+
 ## Sent message
 
 The prototype echoes a submitted message beneath Organic while the turn runs. The two-line
