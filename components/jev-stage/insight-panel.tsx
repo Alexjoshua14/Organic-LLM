@@ -2,7 +2,7 @@
 
 import type { JevStageTraceEvent, JevStageTurnInsight } from "@/lib/jev-stage/schema";
 
-import { useEffect, useMemo, useReducer, useState } from "react";
+import { useMemo, useReducer, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -12,11 +12,12 @@ import {
   ThumbsUp,
   X,
 } from "lucide-react";
-import { Popover, Tabs } from "radix-ui";
+import { Dialog, Popover, Tabs } from "radix-ui";
 
 import { InsightContext } from "./insight-context";
 import { useInsightPosition } from "./use-insight-position";
 
+import { DialogOverlay } from "@/components/third-party/ui/dialog";
 import { JEV_GATEWAY_TRACE_MODEL } from "@/lib/jev-stage/constants";
 import { glass } from "@/components/design-system/primitives";
 import {
@@ -73,7 +74,10 @@ function ConfidenceBars({ trace }: { trace: JevTraceView }) {
           <Popover.Portal>
             <Popover.Content
               align="start"
-              className={cn(glass({ opaque: true }), "z-50 w-64 rounded-xl p-3 text-2xs shadow-xl")}
+              className={cn(
+                glass({ opaque: true }),
+                "z-240 w-64 rounded-xl p-3 text-2xs shadow-xl"
+              )}
               sideOffset={6}
             >
               <ul className="space-y-1.5">
@@ -144,7 +148,6 @@ export function JevStageInsightPanel({
 }) {
   const { panel, offset, handle } = useInsightPosition();
   const [pager, page] = useReducer(insightPagerReducer, undefined, () => initialInsightPager());
-  const [sheetOpen, setSheetOpen] = useState(false);
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
   const [tab, setTab] = useState("pipeline");
   const count = insights.length + (live ? 1 : 0);
@@ -196,17 +199,6 @@ export function JevStageInsightPanel({
       Follow latest
     </button>
   );
-
-  useEffect(() => {
-    if (!sheetOpen) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setSheetOpen(false);
-    };
-
-    window.addEventListener("keydown", onKey);
-
-    return () => window.removeEventListener("keydown", onKey);
-  }, [sheetOpen]);
 
   const body =
     !insight && !livePage ? (
@@ -351,7 +343,7 @@ export function JevStageInsightPanel({
                 </Popover.Trigger>
                 <Popover.Portal>
                   <Popover.Content
-                    className={cn(glass({ opaque: true }), "z-50 w-64 rounded-xl p-3 shadow-xl")}
+                    className={cn(glass({ opaque: true }), "z-240 w-64 rounded-xl p-3 shadow-xl")}
                     sideOffset={6}
                   >
                     <textarea
@@ -437,49 +429,30 @@ export function JevStageInsightPanel({
         {body}
       </aside>
 
-      <div className="md:hidden">
-        <button
-          aria-expanded={sheetOpen}
+      <Dialog.Portal>
+        <DialogOverlay className="bg-background/70" />
+        <Dialog.Content
+          aria-describedby={undefined}
           className={cn(
             glass({ opaque: true }),
-            "pointer-events-auto fixed bottom-24 right-4 z-30 rounded-full px-3 py-2 text-2xs shadow-lg"
+            "fixed inset-x-3 bottom-0 z-230 flex h-96 max-h-dvh flex-col overflow-hidden rounded-t-2xl p-3 shadow-xl"
           )}
-          type="button"
-          onClick={() => setSheetOpen(true)}
         >
-          Insight{insights.length ? ` · ${insights.length}` : ""}
-        </button>
-        {sheetOpen && (
-          <div
-            aria-modal="true"
-            className="pointer-events-auto fixed inset-0 z-40 flex items-end bg-background/70 p-3"
-            role="dialog"
-          >
-            <div
-              className={cn(
-                glass({ opaque: true }),
-                "flex h-96 max-h-full w-full flex-col overflow-hidden rounded-2xl p-3 shadow-xl"
-              )}
+          <div className="mb-2 flex shrink-0 items-center justify-between">
+            <Dialog.Title className="text-2xs font-medium uppercase tracking-widest text-muted-foreground">
+              Insight
+            </Dialog.Title>
+            {follow}
+            <Dialog.Close
+              aria-label="Close insight"
+              className="organic-focus flex size-11 items-center justify-center rounded-md text-muted-foreground"
             >
-              <div className="mb-2 flex shrink-0 items-center justify-between">
-                <h2 className="text-2xs font-medium uppercase tracking-widest text-muted-foreground">
-                  Insight
-                </h2>
-                {follow}
-                <button
-                  aria-label="Close insight"
-                  className="rounded-md p-1 text-muted-foreground"
-                  type="button"
-                  onClick={() => setSheetOpen(false)}
-                >
-                  <X className="size-4" />
-                </button>
-              </div>
-              <div className="flex min-h-0 flex-1 flex-col">{body}</div>
-            </div>
+              <X aria-hidden className="size-4" />
+            </Dialog.Close>
           </div>
-        )}
-      </div>
+          <div className="scroll-area-safe-bottom flex min-h-0 flex-1 flex-col">{body}</div>
+        </Dialog.Content>
+      </Dialog.Portal>
     </>
   );
 }

@@ -77,6 +77,7 @@ export function StageResponse({
       )}
       {/* eslint-disable jsx-a11y/no-noninteractive-tabindex -- Named scroll region supports keyboard reading. */}
       <div
+        key={active.message.id}
         aria-label={`${active.name}’s response`}
         className="stage-response-copy stage-prose"
         role="region"

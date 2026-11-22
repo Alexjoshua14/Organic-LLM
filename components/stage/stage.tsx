@@ -101,6 +101,9 @@ export function StageView({
   agentMessage,
   conversationRail,
   defaultWebSearch = false,
+  extraTools,
+  stackPiecesOnMobile = false,
+  composerPlaceholder = "What’s on your mind?",
 }: {
   stage: StageController;
   /** A scripted stage has no real threads, calls, or voice session to attach to. */
@@ -108,6 +111,9 @@ export function StageView({
   agentMessage?: ReactNode;
   conversationRail?: HTMLElement | null;
   defaultWebSearch?: boolean;
+  extraTools?: ReactNode;
+  stackPiecesOnMobile?: boolean;
+  composerPlaceholder?: string;
 }) {
   const liveVoice = useVoiceSessionOptional();
   const voice = scripted ? null : liveVoice;
@@ -321,6 +327,17 @@ export function StageView({
     setPreview(null);
   }
 
+  const hasMobilePieces = stackPiecesOnMobile && frame.pieces.length > 0;
+  const pieces = (
+    <StagePieces
+      widgets={state?.widgets ?? []}
+      visible={frame.pieces}
+      selectedId={selectedId}
+      onArrange={arrangePiece}
+      onChange={mutate}
+    />
+  );
+
   return (
     <div
       ref={root}
@@ -346,9 +363,20 @@ export function StageView({
           <span className="stage-wordmark-slash">/</span>
           <span>stage</span>
         </div>
-        <nav aria-label="Stage controls" className="stage-tools">
+        <nav
+          aria-label="Stage controls"
+          className={extraTools ? "stage-tools max-md:relative" : "stage-tools"}
+        >
           {/* Hidden, not unmounted: the context picker keeps its selection while closed. */}
-          <div className="stage-tool-tray" hidden={!toolsOpen} id="stage-tool-tray">
+          <div
+            className={
+              extraTools
+                ? "stage-tool-tray max-md:absolute max-md:inset-e-0 max-md:top-full max-md:z-10 max-md:w-max max-md:rounded-lg max-md:border max-md:border-border max-md:bg-background"
+                : "stage-tool-tray"
+            }
+            hidden={!toolsOpen}
+            id="stage-tool-tray"
+          >
             {!scripted && (
               <ContextPicker
                 compact
@@ -450,43 +478,58 @@ export function StageView({
             <MessageCircle size={15} />
             <span>Conversation</span>
           </button>
+          {extraTools}
         </nav>
       </header>
 
       <section aria-label="Your 32 by 32 stage" className="stage-surface">
-        <StageAgent
-          message={agentMessage}
-          status={
-            frame.tiny
-              ? sending
-                ? "Thinking"
-                : activeSubagents
-                  ? "Working together"
-                  : "Here, with you"
-              : status
-          }
-          rect={frame.parent}
-          hero={frame.hero}
-          state={sending ? "working" : loading || activeSubagents > 0 ? "waiting" : "idle"}
-          onFocus={() => {
-            chooseAuthor("organic");
-            composer.current?.querySelector("textarea")?.focus();
-          }}
-        />
-        <StageSubagents
-          agents={state?.subagents ?? []}
-          design={state?.design}
-          rects={frame.children}
-          onSelect={chooseAuthor}
-          onCancel={cancelSubagent}
-        />
-        <StagePieces
-          widgets={state?.widgets ?? []}
-          visible={frame.pieces}
-          selectedId={selectedId}
-          onArrange={arrangePiece}
-          onChange={mutate}
-        />
+        <div className={hasMobilePieces ? "contents max-md:hidden" : "contents"}>
+          <StageAgent
+            message={agentMessage}
+            status={
+              frame.tiny
+                ? sending
+                  ? "Thinking"
+                  : activeSubagents
+                    ? "Working together"
+                    : "Here, with you"
+                : status
+            }
+            rect={frame.parent}
+            hero={frame.hero}
+            state={sending ? "working" : loading || activeSubagents > 0 ? "waiting" : "idle"}
+            onFocus={() => {
+              chooseAuthor("organic");
+              composer.current?.querySelector("textarea")?.focus();
+            }}
+          />
+          <StageSubagents
+            agents={state?.subagents ?? []}
+            design={state?.design}
+            rects={frame.children}
+            onSelect={chooseAuthor}
+            onCancel={cancelSubagent}
+          />
+        </div>
+        {stackPiecesOnMobile ? (
+          <div
+            className={
+              hasMobilePieces
+                ? "contents max-md:flex max-md:min-h-0 max-md:min-w-0 max-md:flex-col max-md:gap-4 max-md:overflow-y-auto max-md:overscroll-contain max-md:[&>.stage-piece:not([hidden])]:shrink-0 max-md:[&>.stage-piece]:max-h-full"
+                : "contents"
+            }
+            style={stageCellStyle({ ...frame.body, x: 0, w: frame.header.w })}
+          >
+            {hasMobilePieces && agentMessage && (
+              <div className="flex shrink-0 justify-center text-center md:hidden">
+                {agentMessage}
+              </div>
+            )}
+            {pieces}
+          </div>
+        ) : (
+          pieces
+        )}
       </section>
 
       {selected && (
@@ -596,7 +639,7 @@ export function StageView({
                 showContextBudget={false}
                 featureHints={false}
                 composerInject={composerInject}
-                placeholder={loading ? "Opening your space…" : "What’s on your mind?"}
+                placeholder={loading ? "Opening your space…" : composerPlaceholder}
                 sendMessage={async (message) => {
                   const text =
                     "text" in (message ?? {}) ? String((message as { text: string }).text) : "";
