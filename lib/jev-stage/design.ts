@@ -95,7 +95,7 @@ export async function runJevStageDesign(
         ...identity,
         state: base,
         brief: job.brief,
-        plainCodeExamples: true,
+        presentationProfile: "jev-stage",
         blockTypes,
         feedback,
         signal,

@@ -44,6 +44,23 @@ After Jev routes, execution is a bounded step loop (`JEV_STAGE_TURN_MAX_STEPS`):
 | `components/jev-stage/` | Hook + insight panel |
 | `docs/migrations/jev_stage_turn_eval.sql` | Lean Supabase eval table |
 
+## Generated piece hierarchy
+
+- Start with the answer or action. Use short sentence-case section headings and separate
+  Markdown paragraphs. Keep each section about one thing the reader needs to understand or do.
+- Present action mappings as a list with a bold action and an inline-code API call. Ordered
+  lists describe steps. Diagrams show meaningful branches or dependencies. A timeline is for
+  phases, and a decision matrix is for comparing options against criteria.
+- Introduce a code example with a descriptive heading and, when it matters, a filename on its
+  own line. Leave a blank line before the language-tagged fence. Use a full-width piece for
+  longer code and give substantial explanation a companion piece. Diff blocks show patches.
+- During a layout revision, preserve facts, code behavior and sources. Update existing pieces
+  that serve the same purpose.
+
+For the SDK example, use a **Chat controls** section with separate **Send**, **Stop**, and
+**Retry** rows. Follow it with one sentence about what the SDK handles. Give the code its own
+**Chat screen** heading and put `app/page.tsx` on a line before the fence.
+
 ## Sent message
 
 The prototype echoes a submitted message beneath Organic while the turn runs. The two-line
@@ -54,10 +71,9 @@ Conversation. A failed turn leaves the echo visible until retry or reset.
 
 ## Insight panel
 
-On desktop, Conversation opens in a recessed column and Stage adjusts its width. The
+On desktop, Conversation opens in a recessed right column and Stage adjusts its width. The
 fixed-height Insight note can move within the Stage area by dragging its grip or using the
-arrow keys on the focused grip. Home returns it to its initial position. Mobile keeps the
-Insight sheet opens from the Stage toolbar. Pieces stack in a full-width reading column.
+arrow keys on the focused grip. Home returns it to its initial position. On mobile, the Insight sheet opens from the Stage toolbar. Pieces stack in a full-width reading column.
 
 Insight follows the latest interaction by default, including the in-flight turn. Paging back
 pauses following. The Follow latest toggle or paging to the newest turn resumes it.

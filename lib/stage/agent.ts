@@ -235,6 +235,30 @@ function retryableDesignFailure(error: unknown, signal?: AbortSignal) {
   return !signal?.aborted && NoObjectGeneratedError.isInstance(error);
 }
 
+const JEV_STAGE_PRESENTATION_RULES = [
+  "Design each piece for a quick scan and a closer read. Lead with a short, specific sentence-case heading, then the information that matters most. A note's title identifies the piece. Put headings the reader needs in its Markdown body. Use real headings and blank lines between sections, lists, and code fences.",
+  "Match formats to the material. Use a list for action-to-command mappings, ordered steps for tasks the reader must do in sequence, and a compact diagram for branching or dependencies. Use a decision matrix for scored comparisons and a timeline for dated or phased work, when their schemas are provided. Use an answer card for a standalone takeaway or links. Skip ornamental labels and redundant summaries.",
+  "Put each control on its own list item. Use a bold human-readable label and inline code for the API call or state. Explain ownership and failure states separately, in a short paragraph or flow. Avoid all-caps headings, chains of unrelated commands in one paragraph, and numbered headings for things that are not steps.",
+  "For display-only examples use a note with a language-tagged Markdown fence. This is an exception to the plain-text note rule. Add a short example heading, a separate inline-code file path when useful, then the fence. Keep examples full-width and give long examples their own piece when possible. Keep brief setup with the code, and put longer explanations in a companion piece. Use code-diff for an actual patch or before/after comparison.",
+  "On a presentation revision, preserve the facts, code behavior, and source links. Improve headings, grouping and placement first. Use an existing piece ID when updating the same piece, and avoid adding duplicate content.",
+  "Example of the reading order and Markdown structure:",
+  "## Chat controls",
+  "",
+  "- **Send** · `sendMessage({ text })`",
+  "- **Stop** · `stop()`",
+  "- **Retry** · `regenerate()`",
+  "",
+  "The SDK manages the stream. The app owns the buttons and renders the message parts.",
+  "",
+  "## Chat screen",
+  "",
+  "`app/page.tsx`",
+  "",
+  "```tsx",
+  "const { sendMessage, stop, regenerate } = useChat();",
+  "```",
+].join("\n");
+
 export async function generateStageDesign(args: {
   ownerId: string;
   clerkUserId: string;
@@ -242,7 +266,7 @@ export async function generateStageDesign(args: {
   brief: string;
   /** Why the previous plan was rejected; the designer must correct it. */
   feedback?: string;
-  plainCodeExamples?: boolean;
+  presentationProfile?: "jev-stage";
   blockTypes?: readonly DesignerBlockType[];
   signal?: AbortSignal;
 }) {
@@ -266,10 +290,8 @@ export async function generateStageDesign(args: {
       : "Use native Stage pieces for this brief.",
   ];
 
-  if (args.plainCodeExamples) {
-    instructions.push(
-      "Use a note with a language-tagged Markdown code fence for display-only source examples. This is an exception to the plain-text note rule. Use code-diff only for requested changes between versions, patches, or diffs. Use regular notes for explanations and control maps. Prefer a full-width piece for code."
-    );
+  if (args.presentationProfile === "jev-stage") {
+    instructions.push(JEV_STAGE_PRESENTATION_RULES);
   }
 
   for (let attempt = 0; ; attempt++) {

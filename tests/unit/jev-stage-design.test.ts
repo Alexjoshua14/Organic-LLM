@@ -41,10 +41,10 @@ describe("Jev Stage designer", () => {
 
     await runJevStageDesign(identity, jobId, {
       ...fixture.runtime,
-      generate: async ({ state, brief, plainCodeExamples, blockTypes }) => {
+      generate: async ({ state, brief, presentationProfile, blockTypes }) => {
         expect(state.design?.phase).toBe("working");
         expect(brief).toBe("Show a simple SDK code sample.");
-        expect(plainCodeExamples).toBe(true);
+        expect(presentationProfile).toBe("jev-stage");
         expect(blockTypes).toEqual([]);
 
         return {

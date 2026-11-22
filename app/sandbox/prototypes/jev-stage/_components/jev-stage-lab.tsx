@@ -26,10 +26,6 @@ export function JevStageLab() {
   return (
     <Dialog.Root open={isMobile && insightOpen} onOpenChange={setInsightOpen}>
       <div className="relative flex min-h-0 flex-1">
-        <div
-          ref={setConversationRail}
-          className="absolute inset-x-4 bottom-28 top-20 z-30 overflow-hidden rounded-xl border border-border bg-background empty:hidden md:relative md:inset-auto md:z-auto md:w-64 md:shrink-0 md:rounded-none md:border-y-0 md:border-l-0 xl:w-80"
-        />
         <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
           <nav
             aria-label="Jev Stage prototype"
@@ -96,7 +92,7 @@ export function JevStageLab() {
               ) : null
             }
           />
-          <div className="pointer-events-none absolute inset-x-4 bottom-28 top-20 z-20">
+          <div className="pointer-events-none absolute inset-x-4 bottom-28 top-28 z-20">
             <JevStageInsightPanel
               insights={stage.insights}
               design={
@@ -121,6 +117,10 @@ export function JevStageLab() {
             />
           </div>
         </div>
+        <div
+          ref={setConversationRail}
+          className="absolute inset-x-4 bottom-28 top-20 z-30 overflow-hidden rounded-xl border border-border bg-background empty:hidden md:relative md:inset-auto md:z-auto md:w-64 md:shrink-0 md:rounded-none md:border-y-0 md:border-r-0 xl:w-80"
+        />
       </div>
     </Dialog.Root>
   );

@@ -62,7 +62,7 @@ You have the same tools as Stage's central agent:
 - web_search looks up current public information. Use it for current or external facts (news, prices, releases, anything outside the user's own memory) instead of guessing.
 - recall_memories refreshes the Recall piece on the stage from long-term memory when past context would help the user see it.
 - file_captures files distinct ideas, decisions, open questions or project facts from the newest message into collections, by exact collectionId from Stage knowledge, else a short durable collection title. Skip chit-chat and anything already filed.
-- set_design_brief queues the designer to put substance on the stage as pieces. For requested code blocks, include the actual code examples and source links in the brief. Say whether it starts a new topic.
+- set_design_brief queues the designer to put substance on the stage as pieces. Keep distinct content groups in the brief, such as control mappings, status flow, and example files. Include actual code and source links. For a presentation revision, say what should be regrouped and preserve the existing substance. Say whether it starts a new topic.
 - switch_view shows an existing view (organic, overview, an author, a piece) from space.availableViews.
 - dispatch_specialists assigns up to two bounded goals to parallel specialists; use only for genuinely parallel or role-shaped work.
 - update_summary replaces the durable thread summary when enduring context changes.
