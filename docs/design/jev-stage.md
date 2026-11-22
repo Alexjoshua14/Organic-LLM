@@ -61,6 +61,11 @@ For the SDK example, use a **Chat controls** section with separate **Send**, **S
 **Retry** rows. Follow it with one sentence about what the SDK handles. Give the code its own
 **Chat screen** heading and put `app/page.tsx` on a line before the fence.
 
+Stage applies this hierarchy across content types. A recipe uses a recipe piece with quantities
+and ordered steps. An architecture walkthrough pairs a diagram of components and connections
+with a short note on assumptions or tradeoffs. For a deeper request with an existing specialist
+artifact, Stage introduces the result and links to it. Framing requires a known, embeddable URL.
+
 ## UI eval for AI SDK controls
 
 Send this exact prompt in a disposable Jev Stage session:
@@ -87,6 +92,14 @@ Reference checks: [useChat](https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-chat
 [Chatbot](https://ai-sdk.dev/docs/ai-sdk-ui/chatbot), and
 [Transport](https://ai-sdk.dev/docs/ai-sdk-ui/transport).
 
+Two companion prompts check that the UI can change formats:
+
+- “Show two quick chickpea dinners for two, with quantities and steps.” Expect two identifiable
+  recipe pieces with serving sizes, measured ingredients, and steps in order.
+- “Diagram how a web client, API, worker queue, and database handle a background export.”
+  Expect a diagram with named components and labeled handoffs, plus a short explanation of
+  how the client learns that the export is ready.
+
 ## Sent message
 
 The prototype echoes a submitted message beneath Organic while the turn runs. The two-line
@@ -106,7 +119,7 @@ pauses following. The Follow latest toggle or paging to the newest turn resumes 
 
 - **Pipeline** shows the route, top-three probabilities, confidence floor, tool results, step
   timing, spend, and fallbacks. Older turns use stored traces when available.
-- **Context** shows the inputs captured for Jev, Respond and Orchestrate, plus expandable tool
+- **Context** shows the inputs captured for Jev, Respond, Orchestrate, and linked Designer attempts, plus expandable tool
   outputs, the message packing window and model usage. Input segment counts are estimates.
   Tool definitions list names and descriptions, and long stored text is capped. Cache reads
   are attributed to the model call because providers report totals at that level.

@@ -1,9 +1,18 @@
 import "server-only";
 
+import type {
+  JevStageBundle,
+  JevStageModelCallTrace,
+  JevStageTraceEvent,
+  JevStageTurnInsight,
+} from "./schema";
 import type { StageState } from "@/lib/stage/schema";
 
 import { after } from "next/server";
 
+import { contextManifest, contextSegment } from "./context-manifest";
+import { finishModelCall, startCallClock, summarizeCalls } from "./trace";
+import { traceForInsight } from "./trace-view";
 import { rankJevDesignerBlocks } from "./designer-block-rank";
 import { acquireJevStageLease, mutateJevStage, releaseJevStageLease } from "./store";
 
@@ -26,6 +35,94 @@ const designRuntime = {
   rank: rankJevDesignerBlocks,
 };
 
+function captureDesignerAttempts(insight: JevStageTurnInsight | undefined) {
+  const events: JevStageTraceEvent[] = [];
+  const calls: JevStageModelCallTrace[] = [];
+  const previous = insight ? traceForInsight(insight) : [];
+  const replyTime =
+    previous.findLast((event) => event.kind === "hop.end" && event.call?.operation !== "design")
+      ?.t ?? 0;
+  const t = () =>
+    Math.max(previous.at(-1)?.t ?? 0, replyTime + Date.now() - Date.parse(insight?.at ?? ""));
+
+  const observe: NonNullable<Parameters<typeof generateStageDesign>[0]["observeAttempt"]> = ({
+    model,
+    instructions,
+    stageContext,
+    brief,
+    correction,
+  }) => {
+    const hopId = crypto.randomUUID();
+    const clock = startCallClock();
+    const started = t();
+    const segments = [
+      contextSegment("user", "Design brief", brief),
+      contextSegment("space", "Stage layout and pieces", stageContext),
+      contextSegment("system", "Designer instructions and schema shortlist", instructions),
+    ];
+
+    if (correction) segments.push(contextSegment("system", "Retry feedback", correction));
+    events.push(
+      {
+        kind: "hop.start",
+        t: started,
+        hopId,
+        operation: "design",
+        action: "designer_brief",
+        model,
+      },
+      { kind: "hop.context", t: started, hopId, model, manifest: contextManifest(segments) }
+    );
+
+    return (usage, ok) => {
+      const call = finishModelCall({ id: hopId, operation: "design", model, clock, ...usage });
+
+      calls.push(call);
+      events.push({
+        kind: "hop.end",
+        t: t(),
+        hopId,
+        ms: call.latencyMs,
+        call,
+        ok,
+        note: ok ? null : "Designer attempt failed",
+      });
+    };
+  };
+
+  function apply(bundle: JevStageBundle): JevStageBundle {
+    if (!insight || !events.length) return bundle;
+
+    return {
+      ...bundle,
+      insights: bundle.insights.map((entry) => {
+        if (entry.turnId !== insight.turnId) return entry;
+        const nextCalls = [...entry.calls, ...calls];
+        const spend = summarizeCalls(nextCalls);
+        const trace = traceForInsight(entry).filter((event) => event.kind !== "done");
+
+        return {
+          ...entry,
+          ...spend,
+          calls: nextCalls,
+          trace: [
+            ...trace,
+            ...events,
+            {
+              kind: "done",
+              t: t(),
+              outcome: entry.outcome,
+              totals: spend.totals,
+            },
+          ],
+        };
+      }),
+    };
+  }
+
+  return { observe: insight ? observe : undefined, apply };
+}
+
 export function scheduleJevStageDesign(identity: Identity, state: StageState) {
   if (state.design?.status !== "working") return;
   const jobId = state.design.id;
@@ -42,6 +139,7 @@ export async function runJevStageDesign(
 
   if (!lease) return;
   const deadline = AbortSignal.timeout(DESIGN_COMMIT_DEADLINE_MS);
+  let capture: ReturnType<typeof captureDesignerAttempts> | undefined;
 
   try {
     let started = false;
@@ -87,6 +185,8 @@ export async function runJevStageDesign(
     if (job?.id !== jobId || job.status !== "working" || job.phase !== "working") return;
     const signal = AbortSignal.any([deadline, AbortSignal.timeout(DESIGN_MODEL_DEADLINE_MS)]);
     const blockTypes = await runtime.rank(job.brief);
+    capture = captureDesignerAttempts(start.insights.find((insight) => insight.turnId === jobId));
+    const { observe, apply } = capture;
     let base = start.stage;
     let feedback: string | undefined;
 
@@ -97,6 +197,7 @@ export async function runJevStageDesign(
         brief: job.brief,
         presentationProfile: "jev-stage",
         blockTypes,
+        observeAttempt: observe,
         feedback,
         signal,
       });
@@ -129,7 +230,7 @@ export async function runJevStageDesign(
                 (stage.presentation?.view.kind ?? "organic") === "organic" &&
                 plan.operations.some((operation) => operation.operation === "upsert");
 
-              return {
+              return apply({
                 ...current,
                 stage: {
                   ...stage,
@@ -149,7 +250,7 @@ export async function runJevStageDesign(
                     ? { viewCommand: { id: crypto.randomUUID(), target: STAGE_OVERVIEW } }
                     : {}),
                 },
-              };
+              });
             } catch (error) {
               base = stage;
               throw error;
@@ -167,18 +268,19 @@ export async function runJevStageDesign(
   } catch (error) {
     const failure = describeStageDesignFailure(error);
 
-    await runtime.mutate(identity.ownerId, (current) =>
-      current.stage.design?.id === jobId
-        ? {
-            ...current,
-            stage: {
-              ...current.stage,
-              revision: current.stage.revision + 1,
-              design: { ...current.stage.design, status: "failed", error: failure.message },
-            },
-          }
-        : current
-    );
+    await runtime.mutate(identity.ownerId, (current) => {
+      if (current.stage.design?.id !== jobId) return current;
+      const next: JevStageBundle = {
+        ...current,
+        stage: {
+          ...current.stage,
+          revision: current.stage.revision + 1,
+          design: { ...current.stage.design, status: "failed", error: failure.message },
+        },
+      };
+
+      return capture?.apply(next) ?? next;
+    });
   } finally {
     await runtime.release(identity.ownerId, lease, "design");
   }

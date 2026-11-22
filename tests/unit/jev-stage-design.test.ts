@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 
 import { rankJevDesignerBlocks } from "@/lib/jev-stage/designer-block-rank";
 import { runJevStageDesign } from "@/lib/jev-stage/design";
+import { withCallSummary } from "@/lib/jev-stage/trace";
+import { traceForInsight, buildJevTraceView } from "@/lib/jev-stage/trace-view";
 import { emptyJevStageBundle } from "@/lib/jev-stage/schema";
 import { DESIGN_PLAN } from "@/lib/stage/design-schema";
 
@@ -38,14 +40,39 @@ function queuedDesign() {
 describe("Jev Stage designer", () => {
   test("runs a persisted queued job, places a code block and opens overview", async () => {
     const fixture = queuedDesign();
+    const candidate = { kind: "designer_brief" as const, confidence: 1, reason: "", args: {} };
+
+    fixture.bundle.insights.push(
+      withCallSummary({
+        turnId: jobId,
+        at: new Date().toISOString(),
+        userMessage: "Show an SDK example.",
+        selected: candidate,
+        candidates: [candidate],
+        fellBack: false,
+        fallbackReason: null,
+        routerMs: 4,
+        outcome: "ok",
+        outcomeDetail: null,
+        calls: [],
+        eval: { signal: null, note: null },
+      })
+    );
 
     await runJevStageDesign(identity, jobId, {
       ...fixture.runtime,
-      generate: async ({ state, brief, presentationProfile, blockTypes }) => {
+      generate: async ({ state, brief, presentationProfile, blockTypes, observeAttempt }) => {
         expect(state.design?.phase).toBe("working");
         expect(brief).toBe("Show a simple SDK code sample.");
         expect(presentationProfile).toBe("jev-stage");
         expect(blockTypes).toEqual([]);
+        observeAttempt?.({
+          model: "test",
+          instructions: "Use a code fence.",
+          stageContext: "Synthetic Stage context.",
+          brief,
+          correction: "",
+        })({ inputTokens: 100, outputTokens: 50, cachedInputTokens: 42 }, true);
 
         return {
           model: "test",
@@ -78,6 +105,15 @@ describe("Jev Stage designer", () => {
       { kind: "note", title: "SDK example", text: "```ts\nexport const example = true;\n```" },
     ]);
     expect(fixture.bundle.stage.viewCommand?.target.kind).toBe("overview");
+    const insight = fixture.bundle.insights[0]!;
+
+    expect(insight.totals.cachedInputTokens).toBe(42);
+    const context = buildJevTraceView(traceForInsight(insight)).contexts.at(-1)?.manifest;
+
+    expect(context?.segments[0]).toMatchObject({
+      label: "Design brief",
+      text: "Show a simple SDK code sample.",
+    });
   });
 
   test("retries an empty plan and publishes a visible failure after the second attempt", async () => {

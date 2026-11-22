@@ -98,19 +98,8 @@ function ConfidenceBars({ trace }: { trace: JevTraceView }) {
   );
 }
 
-function Glance({
-  insight,
-}: {
-  insight: Pick<JevStageTurnInsight, "calls" | "totals" | "perModelSpendUsd">;
-}) {
+function Glance({ insight }: { insight: Pick<JevStageTurnInsight, "calls" | "totals"> }) {
   const rate = insight.calls.findLast((call) => call.tokensPerSecond != null)?.tokensPerSecond;
-  const details = [
-    `in ${insight.totals.inputTokens} / out ${insight.totals.outputTokens}`,
-    ...Object.entries(insight.perModelSpendUsd).map(
-      ([model, spend]) => `${model.split("/").pop()}: ${formatTraceUsd(spend)}`
-    ),
-    ...(rate != null ? [`${rate} tok/s`] : []),
-  ].join(" · ");
 
   return (
     <div className="grid grid-cols-3 gap-1 text-2xs tabular-nums text-muted-foreground">
@@ -126,9 +115,11 @@ function Glance({
         <div className="text-foreground/80">{insight.totals.cachedInputTokens}</div>
         <div>cached tok</div>
       </div>
-      <p className="col-span-3 truncate" title={details}>
-        {details}
-      </p>
+      <div className="col-span-3 flex flex-wrap gap-x-2 text-2xs leading-snug tabular-nums">
+        <span>{insight.totals.inputTokens.toLocaleString()} in</span>
+        <span>{insight.totals.outputTokens.toLocaleString()} out</span>
+        {rate != null && <span>{rate} tok/s</span>}
+      </div>
     </div>
   );
 }
@@ -280,16 +271,16 @@ export function JevStageInsightPanel({
                 >
                   <p
                     className={cn(
-                      "font-medium wrap-anywhere",
+                      "text-2xs font-medium wrap-anywhere",
                       row.status === "failed" && "text-destructive"
                     )}
                   >
                     {row.title}
                   </p>
                   {row.detail && (
-                    <p className="wrap-anywhere text-muted-foreground">{row.detail}</p>
+                    <p className="text-2xs wrap-anywhere text-muted-foreground">{row.detail}</p>
                   )}
-                  <p className="tabular-nums text-muted-foreground">
+                  <p className="text-2xs tabular-nums text-muted-foreground">
                     {row.ms != null && formatTraceMs(row.ms)}
                     {row.ms != null && row.costUsd != null && " · "}
                     {row.costUsd != null && formatTraceUsd(row.costUsd)}

@@ -161,7 +161,7 @@ export const JevStageTraceEventSchema = z.discriminatedUnion("kind", [
     kind: z.literal("hop.start"),
     t: z.number().nonnegative(),
     hopId: z.string().min(1),
-    operation: z.enum(["respond", "orchestrate", "direct"]),
+    operation: z.enum(["respond", "orchestrate", "direct", "design"]),
     action: JevStageActionKindSchema,
     model: z.string().nullable(),
   }),

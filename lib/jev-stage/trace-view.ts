@@ -203,9 +203,10 @@ export function traceForInsight(insight: JevStageTurnInsight): JevStageTraceEven
   for (const call of insight.calls) {
     if (call.operation === "jev.route") continue;
     const hopId = call.id;
-    const operation = call.operation === "orchestrate" ? "orchestrate" : "respond";
+    const operation = call.operation === "design" ? "design" : call.operation === "orchestrate" ? "orchestrate" : "respond";
+    const action = operation === "design" ? "designer_brief" : operation;
 
-    events.push({ kind: "hop.start", t, hopId, operation, action: operation, model: call.model });
+    events.push({ kind: "hop.start", t, hopId, operation, action, model: call.model });
     t += Math.round(call.latencyMs);
     events.push({ kind: "hop.end", t, hopId, ms: call.latencyMs, ok: true, call, note: null });
   }
@@ -374,7 +375,7 @@ export function jevTraceTimeline(view: JevTraceView): {
       id: hop.hopId,
       kind: "hop",
       depth: 0,
-      title: hop.operation === "direct" ? `Direct · ${hop.action}` : `${hop.operation === "respond" ? "Respond" : "Orchestrate"}${model ? ` · ${model}` : ""}`,
+      title: hop.operation === "direct" ? `Direct · ${hop.action}` : `${hop.operation === "respond" ? "Respond" : hop.operation === "design" ? "Designer" : "Orchestrate"}${model ? ` · ${model}` : ""}`,
       detail: hop.note ?? (hop.firstTokenT != null ? `first token ${formatTraceMs(hop.firstTokenT - hop.startT)}` : hop.status === "active" ? "running…" : ""),
       ms: hop.call?.latencyMs ?? (hop.endT != null ? hop.endT - hop.startT : null),
       costUsd: hop.call?.costUsd ?? null,
