@@ -67,7 +67,7 @@ export async function finishJevStageRequest(
   bundle: JevStageBundle
 ) {
   const { active, head, requests, turnLease } = jevStageKeys(ownerId);
-  const saved = await redis.eval<number>(
+  const saved = await redis.eval<unknown[], number>(
     `if redis.call('GET', KEYS[3]) ~= ARGV[3] then return 0 end
      if tonumber(redis.call('ZSCORE', KEYS[4], ARGV[2])) ~= tonumber(ARGV[4]) then return 0 end
      redis.call('SET', KEYS[1], ARGV[1])
@@ -88,7 +88,7 @@ export async function beginJevStageRequest(ownerId: string, requestId: string, l
   const { active, turnLease } = jevStageKeys(ownerId);
   const now = Date.now();
 
-  return redis.eval<number>(
+  return redis.eval<unknown[], number>(
     `if redis.call('GET', KEYS[2]) ~= ARGV[5] then return 0 end
      redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', ARGV[1])
      if redis.call('ZSCORE', KEYS[1], ARGV[3]) then return 0 end
@@ -175,7 +175,7 @@ export async function mutateJevStage(
 
         if (next !== current) {
           const { head, turnLease } = jevStageKeys(ownerId);
-          const saved = await redis.eval<number>(
+          const saved = await redis.eval<unknown[], number>(
             `if redis.call('GET', KEYS[2]) ~= ARGV[2] then return 0 end
              redis.call('SET', KEYS[1], ARGV[1])
              return 1`,

@@ -19,7 +19,7 @@ function specialistRuntime(ownerId: string): StageSubagentRuntime {
   return {
     namespace: "jev-stage",
     route: "/api/prototypes/jev-stage",
-    read: readJevStage,
+    read: async (id) => ({ state: (await readJevStage(id)).stage }),
     async mutate(id, _cause, update) {
       let changed = false;
       const bundle = await mutateJevStage(

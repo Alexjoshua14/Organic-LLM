@@ -32,13 +32,17 @@ function seal(ownerId: string, key: string, data: unknown) {
   return encryptForStorage(JSON.stringify(data), {
     userId: ownerId,
     threadId: key,
-    fieldName: "value",
+    fieldName: "jev-stage.steering",
   });
 }
 
 function open<T>(ownerId: string, key: string, data: string): T {
   return JSON.parse(
-    decryptFromStorage(data, { userId: ownerId, threadId: key, fieldName: "value" })
+    decryptFromStorage(data, {
+      userId: ownerId,
+      threadId: key,
+      fieldName: "jev-stage.steering",
+    })
   ) as T;
 }
 
@@ -68,7 +72,7 @@ export async function submitJevCorrection(args: {
   const worker = workerKey(ownerId, target.turnId);
   const mailbox = mailboxKey(ownerId, target.hopId);
   const status = statusKey(ownerId, id);
-  const result = await redis.eval<number>(
+  const result = await redis.eval<unknown[], number>(
     `if redis.call('LLEN', KEYS[2]) >= tonumber(ARGV[2]) then return 0 end
      if not redis.call('GET', KEYS[1]) or redis.call('EXISTS', KEYS[4]) == 1 then return 0 end
      redis.call('RPUSH', KEYS[2], ARGV[1])
