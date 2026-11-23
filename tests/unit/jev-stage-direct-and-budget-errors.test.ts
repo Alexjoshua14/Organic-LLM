@@ -7,6 +7,10 @@ import {
 import { JEV_STAGE_RESPOND_OUTPUT_BUDGET_USD } from "@/lib/jev-stage/constants";
 import { executeJevDirectTool } from "@/lib/jev-stage/direct-tools";
 import {
+  directToolNeedsPhrase,
+  leanPhraseContext,
+} from "@/lib/jev-stage/phrase";
+import {
   invalidSelectedActionReason,
   settingsBlockReason,
 } from "@/lib/jev-stage/validate-action";
@@ -35,8 +39,45 @@ describe("jev-stage direct tools", () => {
     });
 
     expect(result.note).toMatch(/invalid/i);
+    expect(result.needsPhrase).toBe(false);
     expect(result.state.widgets).toEqual(state.widgets);
     expect(result.state.revision).toBe(state.revision);
+  });
+
+  test("recall patches Stage and requests a phrase hop without a status reply", async () => {
+    const state = emptyStageState();
+    const requestId = "00000000-0000-4000-8000-000000000010";
+    const result = await executeJevDirectTool({
+      ownerId: "00000000-0000-0000-0000-000000000001",
+      state,
+      selected: {
+        kind: "recall",
+        confidence: 0.9,
+        reason: "what do you know",
+        args: { query: "What do you know about me?" },
+      },
+      message: "What do you know about me?",
+      requestId,
+    });
+
+    expect(result.needsPhrase).toBe(true);
+    expect(result.phraseContext).toContain("recall");
+    expect(result.phraseContext).toContain("What do you know about me?");
+    expect(result.note).toBeNull();
+    expect(result.state.messages).toEqual(state.messages);
+    expect(result.state.revision).toBe(state.revision + 1);
+    expect(result.state.widgets.some((widget) => widget.kind === "recall")).toBe(true);
+  });
+
+  test("phrase helper marks only lookup directs", () => {
+    expect(directToolNeedsPhrase("recall")).toBe(true);
+    expect(directToolNeedsPhrase("memory_search")).toBe(true);
+    expect(directToolNeedsPhrase("web_search")).toBe(true);
+    expect(directToolNeedsPhrase("clear_pieces")).toBe(false);
+    expect(directToolNeedsPhrase("respond")).toBe(false);
+    expect(leanPhraseContext("recall", { query: "me", items: ["a".repeat(4000)] }).length).toBeLessThanOrEqual(
+      1600
+    );
   });
 });
 
@@ -73,6 +114,21 @@ describe("jev-stage respond toolset", () => {
     expect(respondToolNames(undefined)).toContain("search_memories");
     expect(respondToolNames({})).toContain("search_memories");
     expect(respondToolNames({ memory: false })).not.toContain("search_memories");
+  });
+
+  test("phrase hop can omit lookup tools already satisfied by a direct digest", () => {
+    const names = Object.keys(
+      createJevRespondTools({
+        ownerId,
+        state: emptyStageState(),
+        effects: emptyJevRespondEffects(),
+        omitLookupTools: ["search_memories", "recall_memories"],
+      })
+    );
+
+    expect(names).not.toContain("search_memories");
+    expect(names).not.toContain("recall_memories");
+    expect(names).toContain("web_search");
   });
 
   test("is a superset of Stage's central-model toolset for every settings shape", () => {

@@ -128,6 +128,11 @@ export const StageSubagentAssignmentSchema = z
   .object({
     name: z.string().trim().min(1).max(40),
     goal: z.string().trim().min(1).max(2000),
+    /**
+     * `arcadia` = child thread under the shared Arcadia multitask runtime (prompt-cache
+     * strands). Stage Redis workers must not also run these.
+     */
+    backend: z.enum(["stage", "arcadia"]).optional(),
   })
   .strict();
 export const StageSubagentSchema = StageSubagentAssignmentSchema.extend({

@@ -31,10 +31,16 @@ export const JEV_STAGE_REPLY_CHAR_CAP = 8000;
 export const JEV_STAGE_MODEL_MAX_STEPS = 8;
 
 /**
- * Turn execution steps after Jev routes: e.g. one direct tool + one Respond fallback.
+ * Turn execution steps after Jev routes: e.g. one direct tool + one Respond phrase hop.
  * Route itself is not counted here.
  */
 export const JEV_STAGE_TURN_MAX_STEPS = 3;
+
+/**
+ * Cap for the compact digest a lookup direct tool hands to the Respond phrase hop.
+ * Keeps the phrase call from re-spending a full memory/web payload in context.
+ */
+export const JEV_STAGE_PHRASE_CONTEXT_CHARS = 1_600;
 
 /** Heartbeats confirm a quiet connection while a model or tool works. */
 export const JEV_STAGE_HEARTBEAT_MS = 10_000;

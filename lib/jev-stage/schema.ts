@@ -83,6 +83,7 @@ export const JevStageContextSegmentSchema = z.object({
     "question",
     "summary",
     "knowledge",
+    "phrase",
     "space",
     "specialists",
     "history",
@@ -268,12 +269,18 @@ export type JevStageTurnInsight = z.infer<typeof JevStageTurnInsightSchema>;
 export const JevStageBundleSchema = z.object({
   stage: z.custom<StageState>((value) => !!value && typeof value === "object"),
   insights: z.array(JevStageTurnInsightSchema).default([]),
+  /**
+   * Durable Arcadia multitask parent thread for this lab session. Specialist child
+   * threads (continue-history / prompt-cache strands) hang off it via the shared
+   * Arcadia orchestrator runtime — not a duplicated Stage Redis worker path.
+   */
+  arcadiaThreadId: z.string().uuid().nullable().optional(),
 });
 
 export type JevStageBundle = z.infer<typeof JevStageBundleSchema>;
 
 export function emptyJevStageBundle(): JevStageBundle {
-  return { stage: emptyStageState(), insights: [] };
+  return { stage: emptyStageState(), insights: [], arcadiaThreadId: null };
 }
 
 export const JevStageTurnRequestSchema = z

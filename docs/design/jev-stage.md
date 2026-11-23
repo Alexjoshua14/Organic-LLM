@@ -9,12 +9,16 @@ Real `/stage` and `/api/stage` are **untouched**. This fork keeps its own Redis 
 Jev is the first hop on every turn — an intelligent switch, not the responder. It ranks:
 
 - **Direct tools** that patch Stage programmatically (view, captures, recall, clear pieces,
-  designer brief, specialists, memory search, web search) with no LLM phrasing when the tool
-  owns the surface. Clear requests prefer `clear_pieces`. A designer brief that only clears
-  may still return `fresh: true` with an empty operations list; that is a valid clear, not a
-  failed plan.
+  designer brief, specialists, memory search, web search). Surface-only actions finish without
+  an LLM when the tool owns the reply. Lookup actions (`recall`, `memory_search`, `web_search`)
+  still take a cheap Respond **phrase hop** over a capped digest. Clear requests prefer
+  `clear_pieces`. A designer brief that only clears may still return `fresh: true` with an
+  empty operations list; that is a valid clear, not a failed plan.
 - **LLM tools**: **Respond** (streamed, $0.20 input / $0.10 output budgets) and **Orchestrate**
-  (Arcadia-shaped system prompt + tools, including `dispatch_subagent`).
+  (real Arcadia Multiagent tools via a durable parent thread per lab session —
+  `dispatch_subagent` / worktable / `read_subagent_thread`). Specialists are Arcadia child
+  threads with continue-history so later turns can hit prompt cache; Stage only mirrors them
+  for the grid and does not run a second Redis worker.
 
 Downstream uses an NDJSON event stream (receipt → route → delta → done), analogous to Arcadia’s
 custom stream writer / AIData side channel.
@@ -24,27 +28,32 @@ custom stream writer / AIData side channel.
 After Jev routes, execution is a bounded step loop (`JEV_STAGE_TURN_MAX_STEPS`):
 
 1. Run the selected action (direct tool, Respond, or Orchestrate).
-2. If a direct tool (or empty Orchestrate) leaves no Conversation line for this request,
-   fall through to **Respond**.
-3. Respond / Orchestrate allow up to eight AI SDK steps so lookups and Stage tools have
+2. **Lookup directs** (`recall`, `memory_search`, `web_search`) patch Stage, then take a
+   **phrase hop**: Respond answers from a capped digest of what the tool already fetched
+   (and skips the matching lookup tools when the digest has substance) so the turn does not
+   end on a status caption or re-spend a full retrieval. Pure surface actions (view, clear,
+   captures, designer queue, specialists) still finish on their own note when they write one.
+3. If any other direct tool (or empty Orchestrate) leaves no Conversation line for this
+   request, fall through to **Respond**.
+4. Respond / Orchestrate allow up to eight AI SDK steps so lookups and Stage tools have
    room before the closing reply. Respond still applies its existing input and output budgets.
-4. A final safety reply is written if the turn would otherwise complete with nothing visible.
-5. The server sends heartbeats while the turn runs. When the stream loses contact,
+5. A final safety reply is written if the turn would otherwise complete with nothing visible.
+6. The server sends heartbeats while the turn runs. When the stream loses contact,
    the client checks for the saved turn by request ID without sending the message again.
-6. Designer jobs reuse Stage's generator and layout reconciler against the prototype store.
+7. Designer jobs reuse Stage's generator and layout reconciler against the prototype store.
    Stage polls for queued and working jobs, shows progress, and opens Overview when new
    pieces land from the Organic view. Failed jobs offer a retry. Jev ranks the authorable
    gen UI formats from the design brief and the designer receives up to three relevant schemas.
    Plain source examples use fenced Markdown in a note. Diff blocks are for patches and
    before/after comparisons. If ranking is unavailable, the designer receives the full catalog.
-7. Insight can copy a plain-text debug log for the open turn (route, timeline, tool args and
+8. Insight can copy a plain-text debug log for the open turn (route, timeline, tool args and
    results, model call spend).
 
 ## Code map
 
 | Path | Role |
 |------|------|
-| `lib/jev-stage/` | Router, budgets, direct tools, respond/orchestrate streams, store, turn |
+| `lib/jev-stage/` | Router, budgets, direct tools, phrase hop, Arcadia host bridge, respond/orchestrate streams, store, turn |
 | `app/api/prototypes/jev-stage/` | GET bundle, POST NDJSON turn / reset, eval POST |
 | `components/jev-stage/` | Hook + insight panel |
 | `docs/migrations/jev_stage_turn_eval.sql` | Lean Supabase eval table |

@@ -60,7 +60,10 @@ export function scheduleStageSubagents(
   state: StageState,
   runtime = defaultRuntime
 ) {
-  const jobs = state.subagents?.filter((agent) => agent.status === "queued") ?? [];
+  const jobs =
+    state.subagents?.filter(
+      (agent) => agent.status === "queued" && agent.backend !== "arcadia"
+    ) ?? [];
 
   if (jobs.length) after(() => Promise.all(jobs.map((agent) => runStageSubagent(actor, agent, runtime))));
 }

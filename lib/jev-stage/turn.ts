@@ -11,6 +11,7 @@ import {
 import { jevContextManifest } from "./context-manifest";
 import { executeJevDirectTool, isDirectJevAction } from "./direct-tools";
 import { streamJevOrchestrate } from "./orchestrate";
+import type { JevPhraseOmitTool } from "./phrase";
 import { applyJevRespondEffects, streamJevRespond } from "./respond";
 import { routeJevStage } from "./router";
 import type {
@@ -283,6 +284,9 @@ export async function runJevStageTurn(args: {
     let action = selected;
     let steps = 0;
     let correction: JevStageCorrection | undefined;
+    /** Lean digest + tool skips for the Respond phrase hop after a lookup direct. */
+    let phraseHint: string | null = null;
+    let omitLookupTools: JevPhraseOmitTool[] = [];
     const target = workers.find((worker) => worker.turnId === routed.correctionTarget);
 
     if (target) {
@@ -343,7 +347,7 @@ export async function runJevStageTurn(args: {
         });
 
         stage = result.state;
-        if (result.note) {
+        if (result.note && !result.needsPhrase) {
           args.emit({ type: "delta", text: result.note });
           const alreadyLogged = stage.messages.some((entry) => entry.id === args.requestId);
 
@@ -371,10 +375,31 @@ export async function runJevStageTurn(args: {
           t: hopEnded,
           hopId,
           ms: hopEnded - hopStarted,
-          ok: visible,
+          ok: result.needsPhrase || visible,
           call: null,
-          note: result.note ? summarizeTraceValue(result.note) : null,
+          note: result.needsPhrase
+            ? summarizeTraceValue(result.phraseContext ?? `${action.kind} → phrase`)
+            : result.note
+              ? summarizeTraceValue(result.note)
+              : null,
         });
+
+        // Lookup directs patch Stage then continue to Respond with a capped digest.
+        if (result.needsPhrase) {
+          phraseHint = result.phraseContext;
+          omitLookupTools = result.omitLookupTools;
+          const reason = `Phrase after ${action.kind} (Stage already updated)`;
+          trace.record({
+            kind: "fallback",
+            t: trace.t(),
+            from: action.kind,
+            to: "respond",
+            reason,
+          });
+          action = respondCandidate(reason);
+          selected = action;
+          continue;
+        }
 
         if (visible) break;
 
@@ -448,8 +473,12 @@ export async function runJevStageTurn(args: {
         break;
       }
 
-      // Respond (selected or fallback)
+      // Respond (selected, empty-tool fallback, or phrase hop after a lookup direct)
       const hopId = crypto.randomUUID();
+      const phraseForHop = phraseHint;
+      const omitForHop = omitLookupTools;
+      phraseHint = null;
+      omitLookupTools = [];
       const streamed = await withJevStageSteering(args.ownerId, turnId, args.message, (steering) =>
         streamJevRespond({
           steering,
@@ -459,6 +488,8 @@ export async function runJevStageTurn(args: {
           message: args.message,
           settings: args.settings,
           signal,
+          phraseHint: phraseForHop,
+          omitLookupTools: omitForHop,
           onDelta: (text) => args.emit({ type: "delta", text }),
           onHop: hopListener(trace, hopId, action.kind, "respond"),
         })
@@ -612,7 +643,12 @@ export async function resetJevStage(ownerId: string): Promise<JevStageBundle> {
     ) {
       throw new JevStageTurnError("Wait for active requests before resetting Stage.", 409);
     }
-    return { ...next, stage: { ...next.stage, revision: current.stage.revision + 1 } };
+    // Keep the Arcadia parent thread so specialist child strands (prompt cache) survive a Stage wipe.
+    return {
+      ...next,
+      arcadiaThreadId: current.arcadiaThreadId ?? null,
+      stage: { ...next.stage, revision: current.stage.revision + 1 },
+    };
   });
 
   if (!reset) throw new JevStageTurnError("Wait for the current turn before resetting Stage.", 409);

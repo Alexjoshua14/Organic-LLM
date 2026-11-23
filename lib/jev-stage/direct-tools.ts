@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { JevStageCandidate } from "./schema";
+import { leanPhraseContext, type JevPhraseOmitTool } from "./phrase";
 
 import { fileStageCaptures, placeStageRecall, type StageCapture } from "@/lib/stage/knowledge";
 import { recallStageMemories } from "@/lib/stage/memory";
@@ -22,7 +23,20 @@ export type DirectToolResult = {
   state: StageState;
   /** Optional caption when something should also appear in Conversation. */
   note: string | null;
+  /**
+   * Lookup directs patch Stage then hand off to Respond for a real reply.
+   * Surface-only actions leave this false and may end on `note`.
+   */
+  needsPhrase: boolean;
+  /** Lean digest for the phrase hop (capped); null when no phrase is needed. */
+  phraseContext: string | null;
+  /** Skip duplicate lookup tools on the phrase hop when the digest already has substance. */
+  omitLookupTools: JevPhraseOmitTool[];
 };
+
+function surfaceResult(state: StageState, note: string | null): DirectToolResult {
+  return { state, note, needsPhrase: false, phraseContext: null, omitLookupTools: [] };
+}
 
 function asCaptures(raw: unknown): StageCapture[] {
   const parsed = z
@@ -64,11 +78,11 @@ export async function executeJevDirectTool(args: {
       const view = StageViewSchema.safeParse(selected.args.view);
 
       if (!view.success) {
-        return { state, note: "Jev asked for a view switch but the view was invalid." };
+        return surfaceResult(state, "Jev asked for a view switch but the view was invalid.");
       }
       const target = resolveStageView(state, view.data);
 
-      if (!target) return { state, note: "That view is no longer available." };
+      if (!target) return surfaceResult(state, "That view is no longer available.");
       const presentation = settings?.presentation ?? state.presentation;
 
       state = {
@@ -80,13 +94,13 @@ export async function executeJevDirectTool(args: {
         viewCommand: { id: requestId, target },
       };
 
-      return { state, note: null };
+      return surfaceResult(state, null);
     }
     case "captures": {
       const captures = asCaptures(selected.args.captures);
 
       if (!captures.length) {
-        return { state, note: "No captures were provided." };
+        return surfaceResult(state, "No captures were provided.");
       }
       const withMessages = {
         ...state,
@@ -103,12 +117,12 @@ export async function executeJevDirectTool(args: {
       };
       const filing = fileStageCaptures(withMessages, captures);
 
-      return {
-        state: filing.state,
-        note: filing.unfiled.length
+      return surfaceResult(
+        filing.state,
+        filing.unfiled.length
           ? `Filed ${filing.filed.length}; ${filing.unfiled.length} needed more room.`
-          : null,
-      };
+          : null
+      );
     }
     case "recall": {
       const query =
@@ -116,25 +130,30 @@ export async function executeJevDirectTool(args: {
           ? selected.args.query.trim().slice(0, 300)
           : message.slice(0, 300);
       const memories = (await recallStageMemories(args.ownerId, query)) ?? [];
+      const items = memories
+        .map((memory) => memory.text.trim().slice(0, 180))
+        .filter(Boolean)
+        .slice(0, 8);
       const next = placeStageRecall(
-        {
-          ...state,
-          revision: state.revision + 1,
-          messages: [
-            ...state.messages,
-            { id: requestId, role: "user" as const, text: message },
-            {
-              id: crypto.randomUUID(),
-              role: "assistant" as const,
-              text: `Refreshed Recall for “${query}”.`,
-            },
-          ].slice(-24),
-        },
+        { ...state, revision: state.revision + 1 },
         query,
         memories
       );
 
-      return { state: next, note: null };
+      // Patch Recall on Stage; Respond phrases the answer from the lean digest.
+      return {
+        state: next,
+        note: null,
+        needsPhrase: true,
+        phraseContext: leanPhraseContext("recall", {
+          query,
+          itemCount: memories.length,
+          items,
+        }),
+        omitLookupTools: items.length
+          ? (["search_memories", "recall_memories"] satisfies JevPhraseOmitTool[])
+          : [],
+      };
     }
     case "clear_pieces": {
       const before = state.widgets.length;
@@ -161,11 +180,14 @@ export async function executeJevDirectTool(args: {
         ].slice(-24),
       };
 
-      return { state, note: null };
+      return surfaceResult(state, null);
     }
     case "designer_brief": {
       if (state.design && state.pendingDesigns.length >= STAGE_MAX_PENDING_DESIGNS) {
-        return { state, note: "The designer queue is full. Try again after a design finishes." };
+        return surfaceResult(
+          state,
+          "The designer queue is full. Try again after a design finishes."
+        );
       }
       const brief =
         typeof selected.args.brief === "string" && selected.args.brief.trim()
@@ -196,7 +218,7 @@ export async function executeJevDirectTool(args: {
         pendingDesigns: state.design ? [...state.pendingDesigns, job] : state.pendingDesigns,
       };
 
-      return { state, note: null };
+      return surfaceResult(state, null);
     }
     case "specialists": {
       const parsed = z
@@ -206,7 +228,7 @@ export async function executeJevDirectTool(args: {
       const assignments = parsed.success ? parsed.data : [];
 
       if (!assignments.length) {
-        return { state, note: "No specialist assignments were provided." };
+        return surfaceResult(state, "No specialist assignments were provided.");
       }
       try {
         state = assignStageSubagents(
@@ -228,15 +250,15 @@ export async function executeJevDirectTool(args: {
         );
       } catch (error) {
         if (error instanceof StageLayoutError) {
-          return {
+          return surfaceResult(
             state,
-            note: "Make room below Organic before starting specialists.",
-          };
+            "Make room below Organic before starting specialists."
+          );
         }
         throw error;
       }
 
-      return { state, note: null };
+      return surfaceResult(state, null);
     }
     case "memory_search": {
       const query =
@@ -248,31 +270,28 @@ export async function executeJevDirectTool(args: {
         | ((input: { query: string }) => Promise<unknown>)
         | undefined;
 
-      if (!execute) return { state, note: "Memory search is unavailable." };
+      if (!execute) return surfaceResult(state, "Memory search is unavailable.");
       const raw = await execute({ query });
       const text =
         typeof raw === "string"
           ? raw
           : JSON.stringify(raw).slice(0, 4000) || "No memories matched.";
+      const excerpt = text.slice(0, 1200);
       const placed = placeStageArtifacts(
-        {
-          ...state,
-          revision: state.revision + 1,
-          messages: [
-            ...state.messages,
-            { id: requestId, role: "user" as const, text: message },
-            {
-              id: crypto.randomUUID(),
-              role: "assistant" as const,
-              text: "Pulled matching memories onto the stage.",
-            },
-          ].slice(-24),
-        },
+        { ...state, revision: state.revision + 1 },
         text.slice(0, 1800),
         "Organic"
       );
 
-      return { state: placed, note: null };
+      return {
+        state: placed,
+        note: null,
+        needsPhrase: true,
+        phraseContext: leanPhraseContext("memory_search", { query, excerpt }),
+        omitLookupTools: excerpt.trim()
+          ? (["search_memories"] satisfies JevPhraseOmitTool[])
+          : [],
+      };
     }
     case "web_search": {
       const query =
@@ -284,38 +303,32 @@ export async function executeJevDirectTool(args: {
         | ((input: { query: string }) => Promise<unknown>)
         | undefined;
 
-      if (!execute) return { state, note: "Web search is unavailable." };
+      if (!execute) return surfaceResult(state, "Web search is unavailable.");
       const raw = await execute({ query });
       const text =
         typeof raw === "string" ? raw : JSON.stringify(raw).slice(0, 4000) || "No web results.";
+      const excerpt = text.slice(0, 1200);
       const placed = placeStageArtifacts(
-        {
-          ...state,
-          revision: state.revision + 1,
-          messages: [
-            ...state.messages,
-            { id: requestId, role: "user" as const, text: message },
-            {
-              id: crypto.randomUUID(),
-              role: "assistant" as const,
-              text: "Placed web findings on the stage.",
-            },
-          ].slice(-24),
-        },
+        { ...state, revision: state.revision + 1 },
         text.slice(0, 1800),
         "Organic"
       );
 
-      return { state: placed, note: null };
+      return {
+        state: placed,
+        note: null,
+        needsPhrase: true,
+        phraseContext: leanPhraseContext("web_search", { query, excerpt }),
+        omitLookupTools: excerpt.trim()
+          ? (["web_search"] satisfies JevPhraseOmitTool[])
+          : [],
+      };
     }
     default:
-      return { state, note: `Direct tool ${selected.kind} is not wired.` };
+      return surfaceResult(state, `Direct tool ${selected.kind} is not wired.`);
   }
 }
 
 export function isDirectJevAction(kind: JevStageCandidate["kind"]): boolean {
-  return (
-    kind !== "respond" &&
-    kind !== "orchestrate"
-  );
+  return kind !== "respond" && kind !== "orchestrate";
 }

@@ -28,6 +28,7 @@ import {
 } from "./context-manifest";
 import { hopStep, traceToolSet, type JevHopSignal } from "./trace-events";
 import type { JevStageModelCallTrace } from "./schema";
+import type { JevPhraseOmitTool } from "./phrase";
 
 import { computeUsageCostUsd } from "@/lib/rate-limit/llm-cost";
 
@@ -124,11 +125,14 @@ export function createJevRespondTools(args: {
   effects: JevRespondEffects;
   onSummary?: (summary: string) => void;
   onDesignBrief?: (brief: string) => void;
+  /** Drop lookup tools the direct hop already satisfied (token-saving phrase path). */
+  omitLookupTools?: readonly JevPhraseOmitTool[];
 }) {
   const settings = jevRespondToolSettings(args.settings);
   const { effects } = args;
+  const omit = new Set(args.omitLookupTools ?? []);
 
-  return {
+  const tools: Record<string, unknown> = {
     ...createStageTurnTools(args.ownerId, settings),
     update_summary: tool({
       description: "Replace the durable thread summary with a concise update.",
@@ -231,6 +235,12 @@ export function createJevRespondTools(args: {
       },
     }),
   };
+
+  for (const name of omit) {
+    delete tools[name];
+  }
+
+  return tools;
 }
 
 /**
@@ -332,6 +342,9 @@ export async function streamJevRespond(args: {
   settings?: StageTurnSettings;
   signal?: AbortSignal;
   steering?: JevSteering;
+  /** Compact digests from a prior lookup direct — answer from this; avoid re-fetching. */
+  phraseHint?: string | null;
+  omitLookupTools?: readonly JevPhraseOmitTool[];
   onDelta: (text: string) => void;
   onSummary?: (summary: string) => void;
   onDesignBrief?: (brief: string) => void;
@@ -375,13 +388,21 @@ export async function streamJevRespond(args: {
   let stepIndex = 0;
   let stepStarted = performance.now();
 
+  const phraseHint = args.phraseHint?.trim() || null;
   const instructions = `${RESPOND_INSTRUCTIONS}${
+    phraseHint
+      ? "\nA Stage lookup already ran this turn. Its compact result is in Direct lookup result. Answer the user from that and Stage knowledge; do not repeat the same lookup unless the result is empty or clearly insufficient. Keep the reply conversational and specific."
+      : ""
+  }${
     args.settings?.speechFriendly
       ? "\nKeep replies easy to read aloud: brief, conversational sentences."
       : ""
   }`;
   const summaryPart = `Thread summary:\n${args.state.summary.slice(0, 1200) || "(empty)"}`;
   const knowledgePart = `Stage knowledge:\n${JSON.stringify(stageKnowledgeContext(args.state)).slice(0, 1200)}`;
+  const phrasePart = phraseHint
+    ? `Direct lookup result (already on Stage — prefer this over re-fetching):\n${phraseHint}`
+    : null;
   const spacePart = `Stage space (views you can switch to):\n${JSON.stringify(
     stageSpaceContext(args.state, args.settings?.presentation)
   ).slice(0, 1600)}`;
@@ -393,6 +414,7 @@ export async function streamJevRespond(args: {
     state: args.state,
     settings: args.settings,
     effects,
+    omitLookupTools: args.omitLookupTools,
     onSummary: args.onSummary,
     onDesignBrief: args.onDesignBrief,
   });
@@ -407,6 +429,9 @@ export async function streamJevRespond(args: {
         toolDefinitionSegment(tools),
         contextSegment("summary", "Thread summary", summaryPart),
         contextSegment("knowledge", "Stage knowledge", knowledgePart),
+        ...(phrasePart
+          ? [contextSegment("phrase", "Direct lookup result", phrasePart)]
+          : []),
         contextSegment("space", "Stage space", spacePart),
         contextSegment("specialists", "Active specialists", specialistsPart),
         ...historySegments(packed.messages),
@@ -473,6 +498,7 @@ export async function streamJevRespond(args: {
       prompt: [
         summaryPart,
         knowledgePart,
+        ...(phrasePart ? [phrasePart] : []),
         spacePart,
         specialistsPart,
         `Recent messages (budget-packed${packed.truncated ? ", truncated" : ""}):\n${packed.messages
