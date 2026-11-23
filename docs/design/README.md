@@ -9,6 +9,7 @@ feel — so improvements stay consistent and do not regress quality.
 | Doc | When to read |
 |-----|----------------|
 | [Stage grid](./stage-grid.md) | Quiet grid entry/exit, compositor-only layers, no interaction delay |
+| [Volume morphs](./volume-morphs.md) | Bounded volume motion, contact, and depth clearance lab |
 | [Code blocks](./code-blocks.md) | Default fenced-code block, palettes, highlighting cost and the streaming rule |
 | [Lumen](./lumen.md) | Natural light in dark mode, shadow in light mode: tokens, intensities, rules for new surfaces |
 | [Focus feedback](./focus-feedback.md) | Lumen-based keyboard focus, shared controls and system-color fallback |

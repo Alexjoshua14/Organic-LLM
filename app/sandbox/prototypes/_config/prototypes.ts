@@ -361,6 +361,16 @@ export const prototypes: PrototypeEntry[] = [
     },
   },
   {
+    slug: "volume-morphs",
+    title: "Volume morphs",
+    description: "Test bounded spring-driven motion, collision, and depth clearance.",
+    about: {
+      what: "A 20 by 15 coordinate grid with six depth units and two 3 by 3 pieces.",
+      howToUse: "Pick a scenario, move B, or give the designer a placement command with x and y.",
+      adminQuestion: "How much contact feedback should a blocked move show?",
+    },
+  },
+  {
     slug: "morphs",
     title: "Morph input (physics)",
     description:

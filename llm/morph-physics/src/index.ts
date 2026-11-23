@@ -10,6 +10,7 @@ export {
   type ShellLayoutInfo,
 } from "./layoutRelaxation";
 export * from "./physics/frameLoop";
+export * from "./physics/volumeScene";
 export { solveSpring, solveSpringVector4 } from "./physics/springSolver";
 export * from "./schemas/physicsSchemas";
 export * from "./schemas/springSolverSchemas";
