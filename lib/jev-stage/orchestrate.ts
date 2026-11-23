@@ -77,32 +77,28 @@ function wrapArcadiaDispatch(
   tools: ToolSet,
   onDispatch: (assignment: StageSubagentAssignment) => void
 ): ToolSet {
-  const dispatch = tools.dispatch_subagent as
-    | { execute?: (input: Record<string, unknown>) => Promise<unknown> }
-    | undefined;
+  const dispatch = tools.dispatch_subagent;
 
-  if (!dispatch?.execute) return tools;
-  const execute = dispatch.execute.bind(dispatch);
+  if (!dispatch || typeof dispatch.execute !== "function") return tools;
+  const execute = dispatch.execute;
 
   return {
     ...tools,
     dispatch_subagent: {
       ...dispatch,
-      execute: async (input: Record<string, unknown>) => {
-        const result = (await execute(input)) as {
-          ok?: boolean;
-          success?: boolean;
-          name?: string;
-        } | null;
+      execute: async (...args: Parameters<typeof execute>) => {
+        const result = await execute(...args);
+        const input = (args[0] ?? {}) as Record<string, unknown>;
+        const output = result as { ok?: boolean; success?: boolean; name?: string } | null;
         const brief =
           typeof input.brief === "string"
             ? input.brief
             : typeof input.goal === "string"
               ? input.goal
               : "";
-        const name = typeof result?.name === "string" ? result.name : null;
+        const name = typeof output?.name === "string" ? output.name : null;
 
-        if ((result?.ok || result?.success) && name && brief.trim()) {
+        if ((output?.ok || output?.success) && name && brief.trim()) {
           onDispatch({
             name: name.slice(0, 40),
             goal: brief.trim().slice(0, 2000),
@@ -113,7 +109,7 @@ function wrapArcadiaDispatch(
         return result;
       },
     },
-  };
+  } as ToolSet;
 }
 
 export async function streamJevOrchestrate(args: {

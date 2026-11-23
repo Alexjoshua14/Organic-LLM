@@ -2,7 +2,7 @@ import "server-only";
 
 import type { JevSteering } from "./steering";
 
-import { streamText, stepCountIs, tool } from "ai";
+import { streamText, stepCountIs, tool, type ToolSet } from "ai";
 import { z } from "zod";
 
 import {
@@ -127,12 +127,12 @@ export function createJevRespondTools(args: {
   onDesignBrief?: (brief: string) => void;
   /** Drop lookup tools the direct hop already satisfied (token-saving phrase path). */
   omitLookupTools?: readonly JevPhraseOmitTool[];
-}) {
+}): ToolSet {
   const settings = jevRespondToolSettings(args.settings);
   const { effects } = args;
   const omit = new Set(args.omitLookupTools ?? []);
 
-  const tools: Record<string, unknown> = {
+  const tools: ToolSet = {
     ...createStageTurnTools(args.ownerId, settings),
     update_summary: tool({
       description: "Replace the durable thread summary with a concise update.",
