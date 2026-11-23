@@ -83,6 +83,59 @@ export const LAB_DIAGRAM_PRESETS: ReadonlyArray<DiagramPreset> = [
   },
 ];
 
+/** Each smaller drawing represents the same fixture and keeps its central path. */
+const CONDENSED_DIAGRAMS: Record<string, string> = {
+  glance: [
+    "flowchart TD",
+    'Ask["Dinner request"] -->|"preferences known"| Remy',
+    'Ask -->|"cold start"| Prefs["Ask preferences"] --> Remy',
+    'Remy --> Recipe["Recipe card"]',
+  ].join("\n"),
+  sequence: [
+    "sequenceDiagram",
+    "You->>Speak: Voice turn",
+    "Speak->>Realtime: Generate audio",
+    "opt Board lookup",
+    "Speak->>Ergon: Get ticket context",
+    "end",
+    "Speak-->>You: Spoken reply",
+  ].join("\n"),
+  state: [
+    "stateDiagram-v2",
+    "Backlog --> Ready",
+    "Ready --> Active",
+    "Active --> Review",
+    "Review --> Done: merge",
+    "Review --> Active: revise",
+  ].join("\n"),
+  er: [
+    "erDiagram",
+    "PROFILE ||--o{ DOMAIN : groups",
+    "DOMAIN ||--o{ NODE : holds",
+    "NODE }o--o{ NODE : depends_on",
+    "NODE ||--o{ EVIDENCE : cites",
+  ].join("\n"),
+  overview: [
+    "flowchart TD",
+    "You --> Arcadia --> LLM",
+    "Arcadia --> Tools",
+    'Tools --> GenUI["Gen UI"] --> Thread["In-thread UI"]',
+  ].join("\n"),
+  detailed: [
+    "flowchart TD",
+    "You --> Arcadia --> LLM",
+    "Arcadia --> Tools",
+    'Tools --> GenUI["Gen UI"] --> Thread["In-thread UI"]',
+    "Tools --> Mermaid --> Thread",
+  ].join("\n"),
+  "long-labels": [
+    "flowchart TD",
+    "You --> Arcadia",
+    'Arcadia -->|"route"| LLM',
+    'Arcadia -->|"invoke"| Tools --> GenUI["Structured UI"]',
+  ].join("\n"),
+};
+
 export function useGenUiMermaidDiagramDemo(active = true) {
   return useGenUiArrangementCycle(LAB_DIAGRAM_PRESETS, active);
 }
@@ -94,18 +147,33 @@ export function GenUiMermaidDiagramDemoToolbar({ demo }: { demo: MermaidDiagramD
 }
 
 /** The real chat diagram, unwrapped: no lab card around the well the component already draws. */
-export function GenUiMermaidDiagramDemo({ demo }: { demo: MermaidDiagramDemoState }) {
+export function GenUiMermaidDiagramDemo({
+  demo,
+  condensed = false,
+}: {
+  demo: MermaidDiagramDemoState;
+  condensed?: boolean;
+}) {
   const preset = demo.arrangement;
+
+  const code = condensed ? CONDENSED_DIAGRAMS[preset.id] : undefined;
+  const output = code
+    ? { ...preset.output, code, overviewCode: code, density: "glance" }
+    : preset.output;
+
+  const diagram = (
+    /* Keyed by preset so each step remounts and replays the arrival reveal. */
+    <MermaidToolDiagram
+      key={preset.id}
+      interactive
+      output={output}
+      toolCallId={`lab-diagram-${preset.id}`}
+    />
+  );
 
   return (
     <GenUiArrangementPauseZone cycle={demo}>
-      {/* Keyed by preset so each step remounts and replays the arrival reveal. */}
-      <MermaidToolDiagram
-        key={preset.id}
-        interactive
-        output={preset.output}
-        toolCallId={`lab-diagram-${preset.id}`}
-      />
+      {condensed ? <div className="mx-auto w-full max-w-sm">{diagram}</div> : diagram}
     </GenUiArrangementPauseZone>
   );
 }

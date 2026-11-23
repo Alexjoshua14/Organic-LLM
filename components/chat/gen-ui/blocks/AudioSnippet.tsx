@@ -113,9 +113,10 @@ const META_CONTROL_CLASS =
 type AudioSnippetProps = {
   block: AudioSnippetBlock;
   partial?: boolean;
+  condensed?: boolean;
 };
 
-export function AudioSnippet({ block, partial }: AudioSnippetProps) {
+export function AudioSnippet({ block, partial, condensed = false }: AudioSnippetProps) {
   const scriptPanelId = useId();
   const cost = useMemo(
     () => calculateTokenUsage(block.script, AUDIO_SNIPPET_TTS_MODEL),
@@ -423,7 +424,9 @@ export function AudioSnippet({ block, partial }: AudioSnippetProps) {
               block.preview.title
             )}
           </p>
-          <p className="text-sm text-muted-foreground leading-snug">{block.preview.teaser}</p>
+          {!condensed ? (
+            <p className="text-sm text-muted-foreground leading-snug">{block.preview.teaser}</p>
+          ) : null}
 
           <div
             className={cn(
@@ -431,16 +434,20 @@ export function AudioSnippet({ block, partial }: AudioSnippetProps) {
               spacing.gap.sm
             )}
           >
-            {metaItems.map((item) => (
-              <span
-                key={item.key}
-                className="inline-flex items-center gap-inline-sm whitespace-nowrap"
-              >
-                <span className={item.tabularNums ? "tabular-nums" : undefined}>{item.label}</span>
-                {/* Trailing sep keeps · off the next line start when the row wraps. */}
-                <span aria-hidden="true">·</span>
-              </span>
-            ))}
+            {metaItems
+              .filter((item) => !condensed || item.key !== "tone")
+              .map((item) => (
+                <span
+                  key={item.key}
+                  className="inline-flex items-center gap-inline-sm whitespace-nowrap"
+                >
+                  <span className={item.tabularNums ? "tabular-nums" : undefined}>
+                    {item.label}
+                  </span>
+                  {/* Trailing sep keeps · off the next line start when the row wraps. */}
+                  <span aria-hidden="true">·</span>
+                </span>
+              ))}
             <button
               type="button"
               className={cn(META_CONTROL_CLASS, "whitespace-nowrap")}

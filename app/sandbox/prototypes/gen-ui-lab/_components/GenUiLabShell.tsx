@@ -456,7 +456,19 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
                     }
                     registerRef={registerSection(type)}
                   >
-                    <GenUiArchetypeViewTabs archetype={type}>
+                    <GenUiArchetypeViewTabs
+                      archetype={type}
+                      sizeControl={
+                        type === "decision-matrix" ? decisionDemo.sizeControl : undefined
+                      }
+                      condensedPreview={
+                        type === LAB_DIAGRAM_ARCHETYPE ? (
+                          <GenUiMermaidDiagramDemo demo={diagramDemo} condensed />
+                        ) : type === "code-diff" ? (
+                          <GenUiCodeDemo demo={codeDemo} fixture={blocks[type]} condensed />
+                        ) : undefined
+                      }
+                    >
                       {type === LAB_DIAGRAM_ARCHETYPE ? (
                         <GenUiMermaidDiagramDemo demo={diagramDemo} />
                       ) : type === "decision-matrix" ? (

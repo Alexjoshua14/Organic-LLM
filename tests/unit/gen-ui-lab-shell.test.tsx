@@ -112,27 +112,70 @@ describe("Gen UI Lab shell", () => {
     expect(within(section as HTMLElement).getByText("Just started")).toBeTruthy();
   });
 
-  test("Stage size changes the preview footprint independently of component state", () => {
+  test("each condensed preview keeps its core data and Full uses its own layout", () => {
     const view = renderShell();
-    const section = view.container.querySelector<HTMLElement>('[data-archetype="measure"]')!;
-    const demo = within(section);
-    const size = demo.getByRole<HTMLSelectElement>("combobox", { name: "Stage size" });
-    const preview = demo.getByRole("region", { name: "Stage preview" });
+    const page = (type: string) =>
+      within(view.container.querySelector<HTMLElement>(`[data-archetype="${type}"]`)!);
+    const measure = page("measure");
+    const measurePreview = measure.getByRole("region", { name: "Component preview" });
+    const measureSize = measure.getByRole<HTMLSelectElement>("combobox", { name: "Preview size" });
 
-    expect(preview.style.width).toBe("100%");
-    expect(preview.style.aspectRatio).toBe("24 / 18");
-    expect(within(preview).getByText("Share of world population")).toBeTruthy();
+    expect(measureSize.value).toBe("full");
+    expect(measurePreview.style.aspectRatio).toBe("");
+    expect(measurePreview.className).not.toContain("overflow");
+    fireEvent.change(measureSize, { target: { value: "condensed" } });
+    expect(within(measurePreview).getByText("20–25%")).toBeTruthy();
+    expect(within(measurePreview).getByText("22.5% point estimate")).toBeTruthy();
+    expect(within(measurePreview).getByText("Ancient figures are estimates.")).toBeTruthy();
 
-    fireEvent.change(size, { target: { value: "0" } });
-    expect(size.selectedOptions[0].textContent).toContain("Quarter");
-    expect(parseFloat(preview.style.width)).toBeCloseTo((11 / 24) * 100);
-    expect(preview.style.aspectRatio).toBe("11 / 8");
-    expect(within(preview).getByText("Share of world population")).toBeTruthy();
+    const restaurant = page("restaurant-card");
 
-    fireEvent.change(size, { target: { value: "1" } });
-    fireEvent.click(demo.getByRole("button", { name: "Next state" }));
-    expect(preview.style.aspectRatio).toBe("11 / 18");
-    expect(within(preview).getByText("Ancient population share")).toBeTruthy();
+    fireEvent.change(restaurant.getByRole("combobox", { name: "Preview size" }), {
+      target: { value: "condensed" },
+    });
+    expect(restaurant.getByRole("heading", { name: "State Bird Provisions" })).toBeTruthy();
+    expect(restaurant.getByText("4.5 / 5")).toBeTruthy();
+    expect(restaurant.getByText(/1529 Fillmore St/)).toBeTruthy();
+    expect(restaurant.queryByText(/3.8k reviews/)).toBeNull();
+
+    const decision = page("decision-matrix");
+    const decisionSize = decision.getByRole<HTMLSelectElement>("combobox", {
+      name: "Preview size",
+    });
+
+    fireEvent.change(decisionSize, { target: { value: "condensed" } });
+    const criterion = decision.getByRole<HTMLSelectElement>("combobox", {
+      name: "Compare by criterion",
+    });
+
+    expect(decision.getByText("Condensed briefing")).toBeTruthy();
+    expect(decision.getByRole("heading", { name: /Which database/ })).toBeTruthy();
+    expect(decision.getByText("SQLite")).toBeTruthy();
+    fireEvent.change(criterion, { target: { value: criterion.options[1].value } });
+    expect(criterion.selectedIndex).toBe(1);
+    fireEvent.click(decision.getByRole("button", { name: "Next arrangement" }));
+    expect(decisionSize.value).toBe("full");
+    expect(decision.queryByRole("combobox", { name: "Compare by criterion" })).toBeNull();
+  });
+
+  test("every Lab archetype has a readable Condensed view and can return to Full", () => {
+    const view = renderShell();
+    const pages = view.container.querySelectorAll<HTMLElement>("[data-archetype]");
+
+    for (const section of pages) {
+      const page = within(section);
+      const size = page.getByRole<HTMLSelectElement>("combobox", { name: "Preview size" });
+      const preview = page.getByRole("region", { name: "Component preview" });
+
+      expect([...size.options].map((option) => option.textContent)).toEqual(["Full", "Condensed"]);
+      fireEvent.change(size, { target: { value: "condensed" } });
+      expect(size.value).toBe("condensed");
+      expect(preview.firstElementChild).not.toBeNull();
+      expect(preview.style.height).toBe("");
+      expect(preview.style.aspectRatio).toBe("");
+      fireEvent.change(size, { target: { value: "full" } });
+      expect(size.value).toBe("full");
+    }
   });
 
   test("horizontal touch swipes step variants and vertical gestures leave the state alone", () => {
@@ -141,7 +184,7 @@ describe("Gen UI Lab shell", () => {
     const demo = within(section);
 
     function swipe(startX: number, startY: number, endX: number, endY: number) {
-      const preview = demo.getByRole("region", { name: "Stage preview" }).firstElementChild!;
+      const preview = demo.getByRole("region", { name: "Component preview" }).firstElementChild!;
 
       fireEvent.touchStart(preview, {
         touches: [{ identifier: 1, clientX: startX, clientY: startY }],

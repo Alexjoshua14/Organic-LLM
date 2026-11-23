@@ -82,15 +82,7 @@ export function Pin({ at, domain }: { at: number; domain: Domain }) {
 }
 
 /** Tick labels under the last row. */
-export function Axis({
-  domain,
-  ticks,
-  unit,
-}: {
-  domain: Domain;
-  ticks: number[];
-  unit: string;
-}) {
+export function Axis({ domain, ticks, unit }: { domain: Domain; ticks: number[]; unit: string }) {
   return (
     <div className="relative mt-stack-sm h-4 font-mono text-xs text-muted-foreground">
       {ticks.map((t, i) => (
@@ -114,17 +106,30 @@ export function RowShell({
   value,
   note,
   children,
+  condensed,
+  estimate,
 }: {
   label: string;
   value: string;
   note?: string;
+  condensed?: boolean;
+  estimate?: string;
   children: ReactNode;
 }) {
   return (
     <li>
-      <div className="mb-stack-xs flex items-baseline justify-between gap-inline-md">
-        <span className="text-sm text-foreground">{label}</span>
-        <span className="font-mono text-sm tabular-nums text-foreground">{value}</span>
+      <div className="mb-stack-xs flex flex-wrap items-baseline justify-between gap-x-inline-md text-foreground">
+        <span className={cn("min-w-0 wrap-anywhere", condensed ? "text-xs" : "text-sm")}>
+          {label}
+        </span>
+        <span className={cn("font-mono tabular-nums", condensed ? "text-xs" : "text-sm")}>
+          {value}
+          {estimate ? (
+            <span className="sr-only">
+              , <span>{estimate}</span>
+            </span>
+          ) : null}
+        </span>
       </div>
       {children}
       {note ? <p className="mt-stack-xs text-xs text-muted-foreground">{note}</p> : null}

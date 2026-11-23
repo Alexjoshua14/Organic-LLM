@@ -6,35 +6,52 @@ import { makeTicks } from "./measure-math";
 import { Axis, Pin, RowShell, Span, Track } from "./primitives";
 import { MEASURE_ROW_STAGGER_S } from "./measure-timing";
 
-import { measureRowValueLabel } from "@/lib/schemas/gen-ui/measure";
+import { formatMeasureValue, measureRowValueLabel } from "@/lib/schemas/gen-ui/measure";
 import { spacing } from "@/lib/design-tokens/spacing";
 import { cn } from "@/lib/utils";
 
 type MeasureViewProps = {
   block: MeasureBlock;
   partial?: boolean;
+  condensed?: boolean;
 };
 
-export function MeasureView({ block }: MeasureViewProps) {
+export function MeasureView({ block, condensed = false }: MeasureViewProps) {
   const { domain, unit } = block;
-  const ticks = block.ticks ?? makeTicks(domain);
+  const ticks = condensed ? [domain.min, domain.max] : (block.ticks ?? makeTicks(domain));
 
   return (
-    <section className={cn("w-full rounded-2xl bg-muted/30 p-inset-md", spacing.card.section)}>
+    <section
+      className={cn(
+        "w-full",
+        condensed
+          ? "mx-auto max-w-sm space-y-stack-sm"
+          : cn("rounded-2xl bg-muted/30 p-inset-md", spacing.card.section)
+      )}
+    >
       <header className={spacing.card.labelStack}>
         <h3 className="text-sm font-medium text-foreground">{block.title}</h3>
-        {block.subtitle ? (
-          <p className="text-xs text-muted-foreground">{block.subtitle}</p>
-        ) : null}
+        {block.subtitle ? <p className="text-xs text-muted-foreground">{block.subtitle}</p> : null}
       </header>
 
-      <ul className={spacing.card.blockItems}>
+      <ul className={condensed ? "space-y-stack-xs" : spacing.card.blockItems}>
         {block.rows.map((row, i) => {
           const delay = i * MEASURE_ROW_STAGGER_S;
           const label = measureRowValueLabel(row, unit);
+          const estimate =
+            row.range && row.value !== undefined
+              ? `${formatMeasureValue(row.value, unit)} point estimate`
+              : undefined;
 
           return (
-            <RowShell key={row.id} label={row.label} value={label} note={row.note}>
+            <RowShell
+              key={row.id}
+              label={row.label}
+              value={label}
+              note={condensed ? undefined : row.note}
+              condensed={condensed}
+              estimate={estimate}
+            >
               <Track domain={domain} ticks={ticks}>
                 {row.range ? (
                   <>
@@ -63,9 +80,7 @@ export function MeasureView({ block }: MeasureViewProps) {
       </ul>
 
       <Axis domain={domain} ticks={ticks} unit={unit} />
-      {block.footnote ? (
-        <p className="text-xs text-muted-foreground">{block.footnote}</p>
-      ) : null}
+      {block.footnote ? <p className="text-xs text-muted-foreground">{block.footnote}</p> : null}
     </section>
   );
 }

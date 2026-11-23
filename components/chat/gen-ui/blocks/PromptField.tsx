@@ -13,6 +13,7 @@ const FOCUS =
 type PromptFieldProps = {
   block: PromptFieldBlock;
   partial?: boolean;
+  condensed?: boolean;
   /** Host receives the draft when the user taps Use. */
   onUse?: (text: string) => void;
 };
@@ -54,7 +55,7 @@ export function togglePromptSuggestion(value: string, insertionText: string): st
   return parts.length === 0 ? needle : `${parts.join("\n\n")}\n\n${needle}`;
 }
 
-export function PromptField({ block, onUse }: PromptFieldProps) {
+export function PromptField({ block, onUse, condensed = false }: PromptFieldProps) {
   const [value, setValue] = useState(block.default);
 
   useEffect(() => {
@@ -62,17 +63,23 @@ export function PromptField({ block, onUse }: PromptFieldProps) {
   }, [block.default]);
 
   return (
-    <section className={cn("w-full rounded-2xl bg-muted/30 p-inset-md", spacing.card.section)}>
+    <section
+      className={cn(
+        "w-full rounded-2xl bg-muted/30 p-inset-md",
+        condensed ? spacing.card.blockItems : spacing.card.section
+      )}
+    >
       <h3 className="text-sm font-medium text-foreground">{block.title}</h3>
 
       <textarea
         value={value}
         onChange={(e) => setValue(e.target.value)}
         placeholder={block.placeholder ?? "Write a prompt…"}
-        rows={6}
+        rows={condensed ? 2 : 6}
         className={cn(
-          "w-full min-h-32 resize-y rounded-xl border border-border/50 bg-background/40 p-inset-md",
+          "w-full resize-y rounded-xl border border-border/50 bg-background/40 p-inset-md",
           "text-sm text-foreground placeholder:text-muted-foreground/60",
+          condensed ? "min-h-16" : "min-h-32",
           FOCUS
         )}
       />

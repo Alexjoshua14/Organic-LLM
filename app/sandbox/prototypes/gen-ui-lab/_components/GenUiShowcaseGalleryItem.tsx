@@ -9,7 +9,11 @@ import {
   useGenUiBlockShowcase,
 } from "./GenUiBlockShowcase";
 import { GenUiArchetypeViewTabs } from "./GenUiArchetypeViewTabs";
+import { GenUiArrangementPauseZone } from "./GenUiArrangementToolbar";
+import { GenUiCondensedBlock } from "./GenUiCondensedPreviews";
 import { GenUiGallerySection } from "./GenUiGallerySection";
+
+import { GenUIRenderer } from "@/components/chat/gen-ui/GenUIRenderer";
 
 type GenUiShowcaseGalleryItemProps = {
   type: GenUiShowcaseType;
@@ -29,6 +33,14 @@ export function GenUiShowcaseGalleryItem({
   registerRef,
 }: GenUiShowcaseGalleryItemProps) {
   const showcase = useGenUiBlockShowcase(type, liveBlock, active);
+  const fullPreview = <GenUiBlockShowcasePreview showcase={showcase} messageId={`lab-${type}`} />;
+  const condensedPreview = (
+    <GenUiArrangementPauseZone cycle={showcase.cycle}>
+      <GenUiCondensedBlock block={showcase.block}>
+        <GenUIRenderer data={{ block: showcase.block }} messageId={`lab-${type}`} />
+      </GenUiCondensedBlock>
+    </GenUiArrangementPauseZone>
+  );
 
   return (
     <GenUiGallerySection
@@ -37,8 +49,8 @@ export function GenUiShowcaseGalleryItem({
       header={<GenUiBlockShowcaseToolbar showcase={showcase} />}
       registerRef={registerRef}
     >
-      <GenUiArchetypeViewTabs archetype={type}>
-        <GenUiBlockShowcasePreview showcase={showcase} messageId={`lab-${type}`} />
+      <GenUiArchetypeViewTabs archetype={type} condensedPreview={condensedPreview}>
+        {fullPreview}
       </GenUiArchetypeViewTabs>
     </GenUiGallerySection>
   );

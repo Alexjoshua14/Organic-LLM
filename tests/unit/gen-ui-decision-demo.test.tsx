@@ -50,7 +50,7 @@ describe("Gen UI comparison arrangement demo", () => {
     expect(view.getByText(question)).toBeTruthy();
     fireEvent.click(view.getByRole("button", { name: "Previous arrangement" }));
     expect(view.getByLabelText("Arrangement 5 of 5")).toBeTruthy();
-    expect(view.getByText("Compact briefing")).toBeTruthy();
+    expect(view.getByText("Condensed briefing")).toBeTruthy();
     fireEvent.click(view.getByRole("button", { name: "Next arrangement" }));
     expect(view.getByLabelText("Arrangement 1 of 5")).toBeTruthy();
     expect(view.getByText(question)).toBeTruthy();
