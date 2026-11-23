@@ -225,7 +225,9 @@ describe("Diff slide language picker", () => {
       seen.push(shown());
     }
     for (let i = 1; i < seen.length; i += 1) expect(seen[i]).not.toBe(seen[i - 1]);
-    expect(within(section).getByText("Diff")).toBeTruthy();
+    const presets = within(section).getByRole("group", { name: "Code presets" });
+
+    expect(within(presets).getByText("Diff")).toBeTruthy();
   });
 
   test("Shuffle stops when the reader leaves for the Fixture slide", () => {
