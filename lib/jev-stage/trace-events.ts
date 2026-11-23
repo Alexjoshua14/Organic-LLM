@@ -6,9 +6,12 @@ import {
   type JevStageCandidate,
   type JevStageContextManifest,
   type JevStageHopStep,
+  type JevStageStepBoundary,
   type JevStageToolTrace,
   type JevStageTraceEvent,
 } from "./schema";
+
+import { createLogger } from "@/lib/logger";
 
 /**
  * Builders for the Jev Stage pipeline trace (COA-755). The turn records each stage as it happens
@@ -22,6 +25,7 @@ export const JEV_TRACE_VALUE_CHARS = 96;
 export const JEV_TRACE_MAX_TOOLS_PER_STEP = 8;
 
 const ACTION_KINDS = JevStageActionKindSchema.options;
+const logger = createLogger("lib/jev-stage/trace-events.ts");
 
 /** Compact one-line summary of a tool value, truncated with an ellipsis. */
 export function summarizeTraceValue(value: unknown, max = JEV_TRACE_VALUE_CHARS): string {
@@ -294,6 +298,35 @@ export function createJevTraceRecorder(
 }
 
 export type JevTraceRecorder = ReturnType<typeof createJevTraceRecorder>;
+
+/** Reports completed routing, direct tools, and model steps once from the live trace. */
+export function jevStepBoundaryListener(
+  turnId: string,
+  onStepBoundary?: (boundary: JevStageStepBoundary) => void | Promise<void>
+) {
+  let index = 0;
+
+  return (event: JevStageTraceEvent) => {
+    if (!onStepBoundary) return;
+    const phase =
+      event.kind === "action"
+        ? "route"
+        : event.kind === "hop.step"
+          ? "model"
+          : event.kind === "hop.end" && event.call === null
+            ? "direct"
+            : null;
+
+    if (!phase) return;
+    const warn = () => logger.warn("jevStepBoundaryListener", "Step boundary callback failed");
+
+    try {
+      void Promise.resolve(onStepBoundary({ turnId, index: ++index, phase })).catch(warn);
+    } catch {
+      warn();
+    }
+  };
+}
 
 /**
  * Listener for one LLM hop: records hop.start / first token / steps against a hop id. Steps are

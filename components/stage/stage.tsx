@@ -99,6 +99,7 @@ export function StageView({
   stage,
   scripted = false,
   agentMessage,
+  renderAgentStatus,
   conversationRail,
   defaultWebSearch = false,
   extraTools,
@@ -109,6 +110,7 @@ export function StageView({
   /** A scripted stage has no real threads, calls, or voice session to attach to. */
   scripted?: boolean;
   agentMessage?: ReactNode;
+  renderAgentStatus?: (status: string) => ReactNode;
   conversationRail?: HTMLElement | null;
   defaultWebSearch?: boolean;
   extraTools?: ReactNode;
@@ -486,6 +488,7 @@ export function StageView({
         <div className={hasMobilePieces ? "contents max-md:hidden" : "contents"}>
           <StageAgent
             message={agentMessage}
+            renderStatus={renderAgentStatus}
             status={
               frame.tiny
                 ? sending

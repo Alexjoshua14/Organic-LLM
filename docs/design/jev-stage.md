@@ -104,9 +104,16 @@ Two companion prompts check that the UI can change formats:
 
 The prototype echoes a submitted message beneath Organic while the turn runs. The two-line
 preview opens in a scrollable popover when clipped. Organic’s action phrase uses Arcadia’s
-processing shimmer. Route, fallback, model and tool updates
-come from the turn stream. Once the reply is saved, the full message is available in
-Conversation. A failed turn leaves the echo visible until retry or reset.
+processing shimmer. The turn sends a `step_boundary` event when routing, a direct tool, or a
+model step finishes. Each event includes the turn ID, one-based step index, and phase.
+`runJevStageTurn` accepts an optional `onStepBoundary` observer. Observer errors leave the
+turn running.
+
+The label gets one 480 ms ripple across its text. This keeps the effect within the functional
+motion budget and gives close-together steps time to settle. Events received during the sweep
+leave it running to completion. Reduced motion and forced colors skip the ripple. Route,
+fallback, model, and tool updates come from the turn stream. Once the reply is saved, the full
+message is available in Conversation. A failed turn leaves the echo visible until retry or reset.
 
 ## Insight panel
 

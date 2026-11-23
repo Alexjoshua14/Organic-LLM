@@ -9,6 +9,7 @@
   --stage-feedback: 140ms;
   --stage-grid-enter: 220ms;
   --stage-grid-exit: 140ms;
+  --stage-agent-size: calc(var(--spacing) * 19);
   --stage-inset: clamp(16px, 2.6vw, 40px);
   /* The wordmark's width, measured in use-stage-frame.ts (this is the value before the first
      measure). Docked, Organic and its specialists center on this same rail. */
@@ -243,8 +244,8 @@
   border-radius: 20px;
 }
 .stage-agent-mark {
-  width: 76px;
-  height: 76px;
+  width: var(--stage-agent-size);
+  height: var(--stage-agent-size);
 }
 /* The wordmark already names Organic once; the mark's own name is for assistive tech. */
 .stage-agent h1 {
@@ -352,6 +353,21 @@
   .organic-stage[data-docked="true"] .stage-agent {
     justify-self: start;
     width: var(--stage-rail);
+  }
+  .jev-stage .organic-stage[data-docked="true"]:not([data-tiny="true"]) .stage-agent {
+    justify-self: stretch;
+    width: auto;
+    container-type: size;
+  }
+  .jev-stage .organic-stage[data-docked="true"]:not([data-tiny="true"]) .stage-agent-mark {
+    /* Fit the mark inside its grid cells with room below for the status text. */
+    --stage-jev-agent-size: min(
+      calc(var(--stage-agent-size) * 4),
+      calc(100cqi - var(--spacing-inline-sm) * 2),
+      calc(100cqb - var(--spacing-stack-4xl))
+    );
+    width: var(--stage-jev-agent-size);
+    height: var(--stage-jev-agent-size);
   }
   /* Slid together, the two cells overlap: only their contents take the pointer, and a name
      wraps inside its own half. */

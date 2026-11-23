@@ -6,8 +6,8 @@ import { ArrowLeft, ListTree } from "lucide-react";
 import { Dialog } from "radix-ui";
 
 import { JevStageMessage } from "./jev-stage-message";
+import { JevStageStatus } from "./jev-stage-status";
 
-import { ChatThinking } from "@/components/chat/chat-loading";
 import { JevStageInsightPanel } from "@/components/jev-stage/insight-panel";
 import { useJevStage } from "@/components/jev-stage/use-jev-stage";
 import { StageView } from "@/components/stage/stage";
@@ -22,11 +22,12 @@ export function JevStageLab() {
   const [conversationRail, setConversationRail] = useState<HTMLDivElement | null>(null);
   const activeDesign = stage.state?.design;
   const designStatus = stage.designerStatus ?? activeDesign?.error;
+  const working = stage.sending || stage.recovering;
 
   return (
     <Dialog.Root open={isMobile && insightOpen} onOpenChange={setInsightOpen}>
       <div className="relative flex min-h-0 flex-1">
-        <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+        <div className="jev-stage relative flex min-h-0 min-w-0 flex-1 flex-col">
           <nav
             aria-label="Jev Stage prototype"
             className={cn(
@@ -79,18 +80,25 @@ export function JevStageLab() {
                 <JevStageMessage
                   key={stage.submittedMessage.id}
                   text={stage.submittedMessage.text}
-                  status={stage.turnStatus}
-                  working={stage.sending || stage.recovering}
                 />
-              ) : stage.designerStatus ? (
-                <div
-                  className="mt-2 w-full overflow-hidden text-xs font-medium text-foreground"
-                  title={stage.designerStatus}
-                >
-                  <ChatThinking text={stage.designerStatus} />
-                </div>
               ) : null
             }
+            renderAgentStatus={(status) => (
+              <JevStageStatus
+                className={
+                  stage.submittedMessage || stage.designerStatus
+                    ? cn(
+                        "w-full overflow-hidden text-xs font-medium",
+                        stage.submittedMessage ? "mt-1" : "mt-2",
+                        stage.submittedMessage && !working ? "text-destructive" : "text-foreground"
+                      )
+                    : "stage-agent-status"
+                }
+                pulse={stage.statusPulse}
+                text={stage.submittedMessage ? stage.turnStatus : (stage.designerStatus ?? status)}
+                working={stage.submittedMessage ? working : !!stage.designerStatus}
+              />
+            )}
           />
           <div className="pointer-events-none absolute inset-x-4 bottom-28 top-28 z-20">
             <JevStageInsightPanel

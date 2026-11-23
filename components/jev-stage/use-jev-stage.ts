@@ -69,6 +69,7 @@ export function useJevStage(): StageController & {
   streamingText: string;
   submittedMessage: { id: string; text: string } | null;
   turnStatus: string;
+  statusPulse: number;
   liveTrace: JevStageTraceEvent[];
   recovering: boolean;
   designerStatus: string | null;
@@ -84,6 +85,7 @@ export function useJevStage(): StageController & {
     null
   );
   const [turnStatus, setTurnStatus] = useState("");
+  const [statusPulse, setStatusPulse] = useState(0);
   const [liveTrace, setLiveTrace] = useState<JevStageTraceEvent[]>([]);
   const [quietTurn, setQuietTurn] = useState(false);
   const [recovery, setRecovery] = useState<{ id: string; until: number } | null>(null);
@@ -261,6 +263,8 @@ export function useJevStage(): StageController & {
                 ? `Falling back to ${action}`
                 : `Jev chose ${action} · ${event.selected.confidence.toFixed(2)}`
             );
+          } else if (event.type === "step_boundary" && event.turnId === requestId) {
+            setStatusPulse((pulse) => pulse + 1);
           } else if (event.type === "trace") {
             const trace = event.event;
 
@@ -454,6 +458,7 @@ export function useJevStage(): StageController & {
         : quietTurn && sending
           ? `Still working · ${turnStatus}`
           : turnStatus,
+      statusPulse,
       liveTrace,
       recovering: !!recovery,
       designerStatus,
@@ -475,6 +480,7 @@ export function useJevStage(): StageController & {
       streamingText,
       submittedMessage,
       turnStatus,
+      statusPulse,
       liveTrace,
       recovery,
       designerStatus,

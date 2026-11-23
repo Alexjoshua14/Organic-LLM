@@ -270,9 +270,18 @@ export const JevStageTurnRequestSchema = z
 
 export type JevStageTurnRequest = z.infer<typeof JevStageTurnRequestSchema>;
 
+const JevStageStepBoundarySchema = z.object({
+  turnId: z.string().uuid(),
+  index: z.number().int().positive(),
+  phase: z.enum(["route", "direct", "model"]),
+});
+
+export type JevStageStepBoundary = z.infer<typeof JevStageStepBoundarySchema>;
+
 /** Stream / NDJSON event envelope for the prototype client. */
 export const JevStageStreamEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("heartbeat") }),
+  JevStageStepBoundarySchema.extend({ type: z.literal("step_boundary") }),
   z.object({
     type: z.literal("route"),
     turnId: z.string().uuid(),

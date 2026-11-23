@@ -3,19 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Popover } from "radix-ui";
 
-import { ChatThinking } from "@/components/chat/chat-loading";
 import { glass } from "@/components/design-system/primitives";
 import { cn } from "@/lib/utils";
 
-export function JevStageMessage({
-  text,
-  status,
-  working,
-}: {
-  text: string;
-  status: string;
-  working: boolean;
-}) {
+export function JevStageMessage({ text }: { text: string }) {
   const preview = useRef<HTMLParagraphElement>(null);
   const [clipped, setClipped] = useState(false);
 
@@ -59,15 +50,6 @@ export function JevStageMessage({
             </Popover.Content>
           </Popover.Portal>
         </Popover.Root>
-      )}
-      {working ? (
-        <div className="overflow-hidden text-xs font-medium text-foreground" title={status}>
-          <ChatThinking text={status} />
-        </div>
-      ) : (
-        <p className="text-xs font-medium text-destructive" role="status">
-          {status}
-        </p>
       )}
     </div>
   );

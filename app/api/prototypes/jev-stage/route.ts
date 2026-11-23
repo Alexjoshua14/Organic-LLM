@@ -132,6 +132,7 @@ export async function POST(req: Request) {
         requestId: parsed.data.requestId,
         settings: parsed.data.settings,
         emit,
+        onStepBoundary: (boundary) => emit({ type: "step_boundary", ...boundary }),
       });
 
       // Leave the designer its own invocation on a long turn. The client’s first

@@ -16,6 +16,7 @@ import { routeJevStage } from "./router";
 import type {
   JevStageBundle,
   JevStageCandidate,
+  JevStageStepBoundary,
   JevStageStreamEvent,
   JevStageTurnInsight,
 } from "./schema";
@@ -34,6 +35,7 @@ import {
   createJevTraceRecorder,
   hopListener,
   jevDecisionEvent,
+  jevStepBoundaryListener,
   summarizeTraceValue,
 } from "./trace-events";
 import { invalidSelectedActionReason, settingsBlockReason } from "./validate-action";
@@ -149,6 +151,8 @@ export async function runJevStageTurn(args: {
   requestId: string;
   settings?: StageTurnSettings;
   emit: (event: JevStageStreamEvent) => void;
+  /** Observe each completed step without blocking or changing turn execution. */
+  onStepBoundary?: (boundary: JevStageStepBoundary) => void | Promise<void>;
 }): Promise<JevStageBundle> {
   if (await hasJevStageRequest(args.ownerId, args.requestId)) {
     return emitDuplicateDone(args.ownerId, args.requestId, args.emit);
@@ -180,10 +184,12 @@ export async function runJevStageTurn(args: {
 
     const bundle = await readJevStage(args.ownerId);
     const turnId = args.requestId;
+    const onStepBoundary = jevStepBoundaryListener(turnId, args.onStepBoundary);
     // Live pipeline trace (COA-755): streamed as it happens, stored on the insight.
-    const trace = createJevTraceRecorder((event) =>
-      args.emit({ type: "trace", turnId, event })
-    );
+    const trace = createJevTraceRecorder((event) => {
+      args.emit({ type: "trace", turnId, event });
+      onStepBoundary(event);
+    });
 
     trace.record({ kind: "jev.start", t: trace.t() });
     const routed = await routeJevStage({

@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  JevStageStreamEventSchema,
   JevStageTraceEventSchema,
+  type JevStageStepBoundary,
   type JevStageToolTrace,
   type JevStageTraceEvent,
 } from "@/lib/jev-stage/schema";
@@ -11,6 +13,7 @@ import {
   hopListener,
   hopStep,
   jevDecisionEvent,
+  jevStepBoundaryListener,
   JEV_TRACE_VALUE_CHARS,
   stepTools,
   summarizeToolResult,
@@ -19,6 +22,7 @@ import {
   traceToolSet,
   type JevRoutedLike,
 } from "@/lib/jev-stage/trace-events";
+import { finishModelCall, startCallClock } from "@/lib/jev-stage/trace";
 
 function routed(overrides: Partial<JevRoutedLike> = {}): JevRoutedLike {
   return {
@@ -215,6 +219,55 @@ describe("jev-stage trace events", () => {
       finishReason: "tool-calls",
       tools: [],
     });
+  });
+
+  test("only completed routing, direct tools, and SDK steps yield ordered boundaries", async () => {
+    const turnId = "00000000-0000-4000-8000-000000000001";
+    const boundaries: JevStageStepBoundary[] = [];
+    const trace = createJevTraceRecorder(
+      jevStepBoundaryListener(turnId, (boundary) => {
+        boundaries.push(boundary);
+        if (boundary.index === 1) throw new Error("synchronous observer failure");
+        if (boundary.index === 2) return Promise.reject(new Error("async observer failure"));
+      }),
+      () => 0
+    );
+    const call = finishModelCall({
+      id: "respond",
+      operation: "respond",
+      model: "unknown",
+      inputTokens: 0,
+      outputTokens: 0,
+      clock: startCallClock(),
+    });
+    const hopEnd = { kind: "hop.end", t: 0, hopId: "hop", ms: 0, ok: true, note: null } as const;
+
+    trace.record({ kind: "jev.start", t: 0 });
+    trace.record(jevDecisionEvent(0, routed(), 0.55));
+    trace.record({ kind: "action", t: 0, action: "captures", via: "jev", reason: "file captures" });
+    trace.record({ ...hopEnd, call: null });
+    trace.record({ kind: "fallback", t: 0, from: "captures", to: "respond", reason: "empty" });
+    const onHop = hopListener(trace, "hop", "respond", "respond");
+
+    onHop({ kind: "start", model: "unknown" });
+    onHop({ kind: "first_token" });
+    for (const index of [1, 2]) {
+      onHop({ kind: "step", step: hopStep({ index, ms: 0, costUsd: 0, step: {} }) });
+    }
+    trace.record({ ...hopEnd, call });
+    await Promise.resolve();
+
+    expect(boundaries).toEqual([
+      { turnId, index: 1, phase: "route" },
+      { turnId, index: 2, phase: "direct" },
+      { turnId, index: 3, phase: "model" },
+      { turnId, index: 4, phase: "model" },
+    ]);
+    for (const boundary of boundaries) {
+      const event = JevStageStreamEventSchema.safeParse({ type: "step_boundary", ...boundary });
+
+      expect(event.success).toBe(true);
+    }
   });
 
   test("the recorder stamps time from turn start and streams every event in order", () => {
