@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import type { AgentDotState } from "@/components/agents/agent-dot-grid-motion";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, ListTree } from "lucide-react";
 import { Dialog } from "radix-ui";
@@ -8,6 +10,7 @@ import { Dialog } from "radix-ui";
 import { JevStageMessage } from "./jev-stage-message";
 import { JevStageStatus } from "./jev-stage-status";
 
+import { AGENT_DOT_COMPLETION_MS } from "@/components/agents/agent-dot-grid-motion";
 import { JevStageInsightPanel } from "@/components/jev-stage/insight-panel";
 import { useJevStage } from "@/components/jev-stage/use-jev-stage";
 import { StageView } from "@/components/stage/stage";
@@ -22,7 +25,26 @@ export function JevStageLab() {
   const [conversationRail, setConversationRail] = useState<HTMLDivElement | null>(null);
   const activeDesign = stage.state?.design;
   const designStatus = stage.designerStatus ?? activeDesign?.error;
-  const working = stage.sending || stage.recovering;
+  const working = stage.working;
+  const latestTurn = stage.insights.at(-1);
+  const outcome = latestTurn?.outcome;
+  const completedTurnId = outcome === "ok" ? latestTurn?.turnId : undefined;
+  const [settledTurnId, setSettledTurnId] = useState<string>();
+  const agentState: AgentDotState =
+    working || stage.sending || stage.designerStatus
+      ? "working"
+      : stage.error || activeDesign?.status === "failed" || (outcome && outcome !== "ok")
+        ? "blocked"
+        : completedTurnId && settledTurnId !== completedTurnId
+          ? "complete"
+          : "idle";
+
+  useEffect(() => {
+    if (agentState !== "complete" || !completedTurnId) return;
+    const timer = window.setTimeout(() => setSettledTurnId(completedTurnId), AGENT_DOT_COMPLETION_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [agentState, completedTurnId]);
 
   return (
     <Dialog.Root open={isMobile && insightOpen} onOpenChange={setInsightOpen}>
@@ -62,6 +84,7 @@ export function JevStageLab() {
             defaultWebSearch
             stackPiecesOnMobile
             stage={stage}
+            agentState={agentState}
             conversationRail={conversationRail}
             composerPlaceholder="Ask Organic…"
             extraTools={
@@ -88,14 +111,16 @@ export function JevStageLab() {
                 className={
                   stage.submittedMessage || stage.designerStatus
                     ? cn(
-                        "w-full overflow-hidden text-xs font-medium",
+                        "w-full shrink-0 break-words text-xs font-medium",
                         stage.submittedMessage ? "mt-1" : "mt-2",
                         stage.submittedMessage && !working ? "text-destructive" : "text-foreground"
                       )
                     : "stage-agent-status"
                 }
                 pulse={stage.statusPulse}
-                text={stage.submittedMessage ? stage.turnStatus : (stage.designerStatus ?? status)}
+                text={stage.submittedMessage
+                  ? stage.turnStatus
+                  : (stage.correctionStatus ?? stage.designerStatus ?? (working ? "Working on earlier requests" : status))}
                 working={stage.submittedMessage ? working : !!stage.designerStatus}
               />
             )}
@@ -114,7 +139,7 @@ export function JevStageLab() {
                   ? {
                       text: stage.submittedMessage.text,
                       status:
-                        stage.sending || stage.recovering
+                        working
                           ? stage.turnStatus
                           : (stage.error ?? stage.turnStatus),
                       events: stage.liveTrace,

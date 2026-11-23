@@ -136,6 +136,33 @@ export async function executeJevDirectTool(args: {
 
       return { state: next, note: null };
     }
+    case "clear_pieces": {
+      const before = state.widgets.length;
+      const widgets = state.widgets.filter(
+        (widget) => widget.kind === "collection" || widget.kind === "recall"
+      );
+      const cleared = before - widgets.length;
+
+      state = {
+        ...state,
+        revision: state.revision + 1,
+        widgets,
+        messages: [
+          ...state.messages,
+          { id: requestId, role: "user" as const, text: message },
+          {
+            id: crypto.randomUUID(),
+            role: "assistant" as const,
+            text:
+              cleared > 0
+                ? `Cleared ${cleared} piece${cleared === 1 ? "" : "s"} from the stage.`
+                : "The stage was already clear.",
+          },
+        ].slice(-24),
+      };
+
+      return { state, note: null };
+    }
     case "designer_brief": {
       if (state.design && state.pendingDesigns.length >= STAGE_MAX_PENDING_DESIGNS) {
         return { state, note: "The designer queue is full. Try again after a design finishes." };

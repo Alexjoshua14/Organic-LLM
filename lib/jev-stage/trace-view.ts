@@ -422,3 +422,58 @@ function toolRow(id: string, tool: JevStageToolTrace): JevTraceRow {
     status: tool.ok === false ? "failed" : "done",
   };
 }
+
+/** Plain-text debug dump for one Insight turn (copy to clipboard). */
+export function formatJevInsightDebugLog(args: {
+  insight?: Pick<
+    JevStageTurnInsight,
+    "turnId" | "at" | "userMessage" | "selected" | "fellBack" | "fallbackReason" | "outcome" | "outcomeDetail" | "calls" | "totals" | "eval"
+  > | null;
+  live?: { text: string; status: string } | null;
+  trace: JevTraceView;
+}): string {
+  const { insight, live, trace } = args;
+  const { rows } = jevTraceTimeline(trace);
+  const lines: string[] = [
+    "# Jev Stage turn debug",
+    `turnId: ${insight?.turnId ?? "(live)"}`,
+    `at: ${insight?.at ?? "in progress"}`,
+    `user: ${insight?.userMessage ?? live?.text ?? ""}`,
+  ];
+
+  if (live?.status) lines.push(`liveStatus: ${live.status}`);
+  if (insight) {
+    lines.push(
+      `selected: ${insight.selected.kind} (${insight.selected.confidence.toFixed(2)}) — ${insight.selected.reason}`,
+      `fellBack: ${insight.fellBack}${insight.fallbackReason ? ` — ${insight.fallbackReason}` : ""}`,
+      `outcome: ${insight.outcome}${insight.outcomeDetail ? ` — ${insight.outcomeDetail}` : ""}`,
+      `totals: $${insight.totals.costUsd.toFixed(6)} · ${insight.totals.latencyMs}ms · in ${insight.totals.inputTokens} · out ${insight.totals.outputTokens} · cached ${insight.totals.cachedInputTokens}`,
+      `eval: ${insight.eval.signal ?? "none"}${insight.eval.note ? ` — ${insight.eval.note}` : ""}`
+    );
+  }
+  lines.push("", "## Timeline");
+  for (const row of rows) {
+    const indent = "  ".repeat(row.depth);
+    const meta = [
+      row.ms != null ? formatTraceMs(row.ms) : null,
+      row.costUsd != null ? formatTraceUsd(row.costUsd) : null,
+      row.status !== "done" ? row.status : null,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+
+    lines.push(`${indent}- ${row.title}${meta ? ` (${meta})` : ""}`);
+    if (row.detail) lines.push(`${indent}  ${row.detail}`);
+  }
+  if (insight?.calls.length) {
+    lines.push("", "## Model calls");
+    for (const call of insight.calls) {
+      lines.push(
+        `- ${call.operation} · ${call.model}: in ${call.inputTokens} · out ${call.outputTokens} · cached ${call.cachedInputTokens} · $${call.costUsd.toFixed(6)} · ${call.latencyMs}ms`
+      );
+    }
+  }
+  lines.push("", `path: ${jevTracePath(trace).map((node) => node.label).join(" → ")}`);
+
+  return `${lines.join("\n")}\n`;
+}

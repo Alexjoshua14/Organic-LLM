@@ -8,12 +8,15 @@ Real `/stage` and `/api/stage` are **untouched**. This fork keeps its own Redis 
 
 Jev is the first hop on every turn — an intelligent switch, not the responder. It ranks:
 
-- **Direct tools** that patch Stage programmatically (view, captures, recall, designer brief,
-  specialists, memory search, web search) with no LLM phrasing when the tool owns the surface.
+- **Direct tools** that patch Stage programmatically (view, captures, recall, clear pieces,
+  designer brief, specialists, memory search, web search) with no LLM phrasing when the tool
+  owns the surface. Clear requests prefer `clear_pieces`. A designer brief that only clears
+  may still return `fresh: true` with an empty operations list; that is a valid clear, not a
+  failed plan.
 - **LLM tools**: **Respond** (streamed, $0.20 input / $0.10 output budgets) and **Orchestrate**
   (Arcadia-shaped system prompt + tools, including `dispatch_subagent`).
 
-Downstream uses an NDJSON event stream (route → delta/patch → done), analogous to Arcadia’s
+Downstream uses an NDJSON event stream (receipt → route → delta → done), analogous to Arcadia’s
 custom stream writer / AIData side channel.
 
 ## Turn loop
@@ -34,6 +37,8 @@ After Jev routes, execution is a bounded step loop (`JEV_STAGE_TURN_MAX_STEPS`):
    gen UI formats from the design brief and the designer receives up to three relevant schemas.
    Plain source examples use fenced Markdown in a note. Diff blocks are for patches and
    before/after comparisons. If ranking is unavailable, the designer receives the full catalog.
+7. Insight can copy a plain-text debug log for the open turn (route, timeline, tool args and
+   results, model call spend).
 
 ## Code map
 
@@ -145,3 +150,39 @@ is out of scope for this lab.
 3. Keep insight panel opt-in until product accepts it.
 4. Run the eval migration in production Supabase.
 5. Bump app semver; do not delete the lab until the owner says so.
+
+## Concurrent turns and corrections
+
+The composer shows receipt immediately and reopens once the authenticated request clears the
+plan and message limits and claims a request slot. Jev routing and the downstream stream can
+continue independently. The target is roughly two seconds to admission. This needs a browser
+measurement on the deployed prototype with live auth and Redis.
+
+The prototype uses the existing owner-scoped Redis store. Up to four foreground requests may
+run at once. A short lease serializes admission and final writes. Conversation groups appear in
+completion order. Each group is committed with its Insight and request ID. Designer jobs join
+the current queue. Concurrent layout changes that would overwrite newer state are skipped and
+reported in Conversation and Insight.
+
+Jev gets a compact list of active model goals and can choose an unambiguous correction target
+alongside its normal action decision. An encrypted, hop-specific Redis mailbox carries the
+correction to the instance running Respond, Orchestrate or a specialist. The worker reads it
+at a completed model step, after any tool execution, and passes it to AI SDK v7 steering.
+Insight records the terminal delivery status. Conversation saves the answer from the most
+recently corrected step onward for Respond and Orchestrate. Tools and the Designer keep their existing
+execution paths. A correction near worker completion may miss the last step. Each model hop
+accepts up to four corrections and retains its normal token, step and time limits.
+
+The SDK appends corrections to the running prompt. Existing system instructions, tools and
+earlier messages keep their order. On the prototype specialist path, live Stage context is
+placed after the goal so the instruction prefix stays stable across assignments. Insight
+reports SDK cache reads by the served model and Gateway provider where returned. Unreported
+usage is shown explicitly. The Jev decision API does not return cache-read counts. The
+Designer continues to report its existing per-attempt cache total.
+
+A model-tier experiment can compare the current flow against a stronger planner given a
+bounded brief, Stage summary and active goals, with a cheaper handler consuming the plan and
+compact worker results. Test both paths on the same correction, independent-request and
+multi-worker examples. Compare admission latency, quality, total billed spend, cache reads and
+whether the handler needs to ask for missing context. Model IDs, result handoff shape and
+escalation thresholds remain open.

@@ -62,6 +62,7 @@ const TOOL_EFFECTS: Record<string, string> = {
   file_captures: "Captures filed",
   update_summary: "Summary updated",
   set_design_brief: "Designer brief queued",
+  clear_stage_pieces: "Stage pieces cleared",
   recall_memories: "Recall refreshed",
   dispatch_specialists: "Specialists dispatched",
   dispatch_subagent: "Specialist dispatched",

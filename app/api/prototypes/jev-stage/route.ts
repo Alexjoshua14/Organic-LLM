@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 
 import { requireLabAccess } from "@/lib/admin/lab-access";
 import { JEV_STAGE_HEARTBEAT_MS } from "@/lib/jev-stage/constants";
@@ -10,12 +10,17 @@ import {
 } from "@/lib/jev-stage/design";
 import { checkJevStageLimit } from "@/lib/jev-stage/limit";
 import { JevStageTurnRequestSchema, type JevStageStreamEvent } from "@/lib/jev-stage/schema";
+import {
+  cancelJevStageSpecialist,
+  recoverJevStageSpecialists,
+  scheduleJevStageSpecialists,
+} from "@/lib/jev-stage/specialists";
 import { readJevStage } from "@/lib/jev-stage/store";
 import { JevStageTurnError, resetJevStage, runJevStageTurn } from "@/lib/jev-stage/turn";
 
 export const maxDuration = 300;
 
-const DESIGN_BACKGROUND_START_WINDOW_MS = 25_000;
+const BACKGROUND_START_WINDOW_MS = 25_000;
 
 const headers = { "Cache-Control": "private, no-store" };
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status, headers });
@@ -23,35 +28,40 @@ const json = (body: unknown, status = 200) => NextResponse.json(body, { status, 
 function ndjsonStream(run: (emit: (event: JevStageStreamEvent) => void) => Promise<void>) {
   const encoder = new TextEncoder();
   let disconnected = false;
+  let execution: Promise<void> | undefined;
   const stream = new ReadableStream<Uint8Array>({
-    async start(controller) {
-      const emit = (event: JevStageStreamEvent) => {
-        if (disconnected) return;
-        controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
-      };
+    start(controller) {
+      execution = (async () => {
+        const emit = (event: JevStageStreamEvent) => {
+          if (disconnected) return;
+          controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+        };
 
-      const heartbeat = setInterval(() => emit({ type: "heartbeat" }), JEV_STAGE_HEARTBEAT_MS);
+        const heartbeat = setInterval(() => emit({ type: "heartbeat" }), JEV_STAGE_HEARTBEAT_MS);
 
-      try {
-        await run(emit);
-      } catch (error) {
-        const message =
-          error instanceof JevStageTurnError
-            ? error.message
-            : error instanceof Error
+        try {
+          await run(emit);
+        } catch (error) {
+          const message =
+            error instanceof JevStageTurnError
               ? error.message
-              : "Jev Stage turn failed";
+              : error instanceof Error
+                ? error.message
+                : "Jev Stage turn failed";
 
-        emit({ type: "error", message });
-      } finally {
-        clearInterval(heartbeat);
-        if (!disconnected) controller.close();
-      }
+          emit({ type: "error", message });
+        } finally {
+          clearInterval(heartbeat);
+          if (!disconnected) controller.close();
+        }
+      })();
     },
     cancel() {
       disconnected = true;
     },
   });
+
+  after(() => execution);
 
   return new Response(stream, {
     headers: {
@@ -69,9 +79,12 @@ export async function GET() {
     if (!(await checkJevStageLimit(lab.sbUserId))) return json({ error: "Too many requests" }, 429);
     const bundle = await readJevStage(lab.sbUserId);
 
-    scheduleJevStageDesign({ ownerId: lab.sbUserId, clerkUserId: lab.clerkUserId }, bundle.stage);
+    const stage = await recoverJevStageSpecialists(lab.sbUserId, bundle.stage);
+    const identity = { ownerId: lab.sbUserId, clerkUserId: lab.clerkUserId };
+    scheduleJevStageDesign(identity, stage);
+    scheduleJevStageSpecialists(identity, stage);
 
-    return json(bundle);
+    return json(stage === bundle.stage ? bundle : await readJevStage(lab.sbUserId));
   } catch {
     return json({ error: "Could not load Jev Stage" }, 500);
   }
@@ -96,9 +109,13 @@ export async function POST(req: Request) {
       .discriminatedUnion("action", [
         z.object({ action: z.literal("retry-design") }).strict(),
         z.object({ action: z.literal("cancel-design"), jobId: z.string().uuid() }).strict(),
+        z.object({ action: z.literal("cancel-specialist"), jobId: z.string().uuid() }).strict(),
       ])
       .safeParse(raw);
 
+    if (design.success && design.data.action === "cancel-specialist") {
+      return json(await cancelJevStageSpecialist(identity.ownerId, design.data.jobId));
+    }
     if (design.success) {
       const bundle =
         design.data.action === "retry-design"
@@ -137,8 +154,10 @@ export async function POST(req: Request) {
 
       // Leave the designer its own invocation on a long turn. The client’s first
       // design poll will start it through GET.
-      if (performance.now() - openedAt < DESIGN_BACKGROUND_START_WINDOW_MS)
+      if (performance.now() - openedAt < BACKGROUND_START_WINDOW_MS) {
         scheduleJevStageDesign(identity, bundle.stage);
+        scheduleJevStageSpecialists(identity, bundle.stage);
+      }
     });
   } catch (error) {
     if (error instanceof JevStageTurnError) return json({ error: error.message }, error.status);

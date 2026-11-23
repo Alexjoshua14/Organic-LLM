@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { JevSteering } from "./steering";
+
 import { streamText, stepCountIs, tool } from "ai";
 import { z } from "zod";
 
@@ -13,7 +15,7 @@ import {
 import { JEV_STAGE_MODEL_MAX_STEPS, JEV_STAGE_RESPOND_INPUT_BUDGET_USD } from "./constants";
 import { maxOutputTokensForBudget, packMessagesForInputBudget } from "./budget";
 import { resolveRespondModel } from "./respond";
-import { finishModelCall, markFirstToken, startCallClock } from "./trace";
+import { cacheByProvider, finishModelCall, markFirstToken, replyAfterLastCorrection, startCallClock } from "./trace";
 import { hopStep, traceToolSet, type JevHopSignal } from "./trace-events";
 import type { JevStageModelCallTrace } from "./schema";
 
@@ -66,6 +68,7 @@ export async function streamJevOrchestrate(args: {
   message: string;
   settings?: StageTurnSettings;
   signal?: AbortSignal;
+  steering?: JevSteering;
   onDelta: (text: string) => void;
   onSummary?: (summary: string) => void;
   onDesignBrief?: (brief: string) => void;
@@ -182,6 +185,7 @@ export async function streamJevOrchestrate(args: {
   const deadline = AbortSignal.timeout(120_000);
   const result = streamText({
     ...budget,
+    experimental_steering: args.steering?.sdk,
     onStepFinish: async (step) => {
       const stepNow = performance.now();
 
@@ -201,6 +205,7 @@ export async function streamJevOrchestrate(args: {
       stepIndex += 1;
       stepStarted = stepNow;
       await budget.onStepFinish(step);
+      await args.steering?.pull();
     },
     model,
     instructions: JEV_STAGE_ORCHESTRATOR_SYSTEM,
@@ -230,16 +235,17 @@ export async function streamJevOrchestrate(args: {
     args.onDelta(delta);
   }
 
-  const usage = await result.totalUsage;
+  const [usage, steps] = await Promise.all([result.totalUsage, result.steps]);
   const call = finishModelCall({
     id: crypto.randomUUID(),
     operation: "orchestrate",
     model,
     inputTokens: usage.inputTokens ?? packed.estimatedTokens,
     outputTokens: usage.outputTokens ?? Math.ceil(text.length / 4),
-    cachedInputTokens: usage.inputTokenDetails?.cacheReadTokens ?? 0,
+    cachedInputTokens: usage.inputTokenDetails?.cacheReadTokens,
+    cacheByProvider: cacheByProvider(model, steps),
     clock,
   });
 
-  return { text, summary, designBrief, specialists, model, call };
+  return { text: replyAfterLastCorrection(text, steps), summary, designBrief, specialists, model, call };
 }

@@ -168,3 +168,28 @@ describe("jev-stage router", () => {
     expect(routed.selected.args).toEqual({ view: { kind: "overview", id: null } });
   });
 });
+
+test("a correction targets only the owner’s clearly selected active worker", async () => {
+  const worker = { turnId: crypto.randomUUID(), goal: "Compare walking routes" };
+  const activeWorkers = [worker, { turnId: crypto.randomUUID(), goal: "Look up dinner options" }];
+  const route = (choice: string, probability: number) =>
+    routeJevStage({
+      activeWorkers,
+      message: "Use bike paths for that route comparison",
+      summary: "",
+      knowledgeHint: "",
+      generate: async ({ questions }) => {
+        expect(questions.correction).toBeDefined();
+        return {
+          answers: {
+            action: { type: "choice", choice: "respond" },
+            correction: { type: "choice", choice, probabilities: { [choice]: probability } },
+          },
+        };
+      },
+    });
+
+  expect((await route("worker0", 0.9)).correctionTarget).toBe(worker.turnId);
+  expect((await route("worker0", 0.6)).correctionTarget).toBeUndefined();
+  expect((await route("independent", 0.95)).correctionTarget).toBeUndefined();
+});

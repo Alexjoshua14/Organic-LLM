@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { JevSteering } from "./steering";
+
 import { streamText, stepCountIs, tool } from "ai";
 import { z } from "zod";
 
@@ -16,7 +18,7 @@ import {
   JEV_STAGE_MODEL_MAX_STEPS,
   JEV_STAGE_RESPOND_OUTPUT_BUDGET_USD,
 } from "./constants";
-import { finishModelCall, markFirstToken, startCallClock } from "./trace";
+import { cacheByProvider, finishModelCall, markFirstToken, replyAfterLastCorrection, startCallClock } from "./trace";
 import {
   contextManifest,
   contextSegment,
@@ -62,7 +64,8 @@ You have the same tools as Stage's central agent:
 - web_search looks up current public information. Use it for current or external facts (news, prices, releases, anything outside the user's own memory) instead of guessing. For version-sensitive API examples, check official documentation and pass the relevant links and examples to the designer when the user asks to see them on Stage.
 - recall_memories refreshes the Recall piece on the stage from long-term memory when past context would help the user see it.
 - file_captures files distinct ideas, decisions, open questions or project facts from the newest message into collections, by exact collectionId from Stage knowledge, else a short durable collection title. Skip chit-chat and anything already filed.
-- set_design_brief queues the designer to put substance on the stage as pieces. Keep distinct content groups in the brief, such as control mappings, status flow, and example files. Include actual code and source links. For a presentation revision, say what should be regrouped and preserve the existing substance. Say whether it starts a new topic.
+- clear_stage_pieces removes generated Stage pieces so the board is blank again (collections and Recall stay). Prefer this when the user asks to clear, reset, empty, or start over on the stage.
+- set_design_brief queues the designer to put substance on the stage as pieces. Keep distinct content groups in the brief, such as control mappings, status flow, and example files. Include actual code and source links. For a presentation revision, say what should be regrouped and preserve the existing substance. Say whether it starts a new topic. To clear without new content, use clear_stage_pieces instead.
 - switch_view shows an existing view (organic, overview, an author, a piece) from space.availableViews.
 - dispatch_specialists assigns up to two bounded goals to parallel specialists; use only for genuinely parallel or role-shaped work.
 - update_summary replaces the durable thread summary when enduring context changes.
@@ -79,6 +82,7 @@ export type JevRespondTier = "fast" | "balanced" | "deep";
 export type JevRespondEffects = {
   summary: string | null;
   designBrief: string | null;
+  clearPieces: boolean;
   view: StageView | null;
   captures: StageCapture[];
   recall: { query: string; memories: StageRecallMemory[] } | null;
@@ -90,6 +94,7 @@ export function emptyJevRespondEffects(): JevRespondEffects {
   return {
     summary: null,
     designBrief: null,
+    clearPieces: false,
     view: null,
     captures: [],
     recall: null,
@@ -131,6 +136,16 @@ export function createJevRespondTools(args: {
       execute: async ({ summary }) => {
         effects.summary = summary;
         args.onSummary?.(summary);
+
+        return { ok: true };
+      },
+    }),
+    clear_stage_pieces: tool({
+      description:
+        "Clear generated Stage pieces so the board is blank. Collections and Recall stay. Prefer this over set_design_brief when the user only wants the stage cleared.",
+      inputSchema: z.object({}),
+      execute: async () => {
+        effects.clearPieces = true;
 
         return { ok: true };
       },
@@ -234,6 +249,16 @@ export function applyJevRespondEffects(args: {
   const notes: string[] = [];
   let changed = false;
 
+  if (effects.clearPieces) {
+    const nextWidgets = state.widgets.filter(
+      (widget) => widget.kind === "collection" || widget.kind === "recall"
+    );
+
+    if (nextWidgets.length !== state.widgets.length) {
+      state = { ...state, widgets: nextWidgets };
+      changed = true;
+    }
+  }
   if (effects.view) {
     const target = resolveStageView(state, effects.view);
 
@@ -306,6 +331,7 @@ export async function streamJevRespond(args: {
   message: string;
   settings?: StageTurnSettings;
   signal?: AbortSignal;
+  steering?: JevSteering;
   onDelta: (text: string) => void;
   onSummary?: (summary: string) => void;
   onDesignBrief?: (brief: string) => void;
@@ -396,6 +422,7 @@ export async function streamJevRespond(args: {
   try {
     const result = streamText({
       ...budget,
+      experimental_steering: args.steering?.sdk,
       onStepFinish: async (step) => {
         const stepNow = performance.now();
 
@@ -438,6 +465,7 @@ export async function streamJevRespond(args: {
           );
           abort.abort();
         }
+        if (!abort.signal.aborted) await args.steering?.pull();
       },
       model,
       instructions,
@@ -489,6 +517,7 @@ export async function streamJevRespond(args: {
     }
 
     const usage = await Promise.resolve(result.totalUsage).catch(() => null);
+    const steps = await Promise.resolve(result.steps).catch(() => []);
     const finishReason = await Promise.resolve(result.finishReason).catch(() => null);
     const outputTokens = usage?.outputTokens ?? finished.outputTokens;
 
@@ -513,12 +542,13 @@ export async function streamJevRespond(args: {
       model,
       inputTokens: usage?.inputTokens ?? (finished.inputTokens || packed.estimatedTokens),
       outputTokens: usage?.outputTokens ?? (finished.outputTokens || Math.ceil(text.length / 4)),
-      cachedInputTokens: usage?.inputTokenDetails?.cacheReadTokens ?? 0,
+      cachedInputTokens: usage?.inputTokenDetails?.cacheReadTokens,
+      cacheByProvider: cacheByProvider(model, steps),
       clock,
     });
 
     return {
-      text,
+      text: replyAfterLastCorrection(text, steps),
       summary: effects.summary,
       designBrief: effects.designBrief,
       effects,

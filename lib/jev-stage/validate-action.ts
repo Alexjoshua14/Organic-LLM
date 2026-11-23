@@ -27,6 +27,7 @@ export function invalidSelectedActionReason(selected: JevStageCandidate): string
       return parsed.success ? null : "captures requires a non-empty captures array";
     }
     case "recall":
+    case "clear_pieces":
       return null;
     case "designer_brief": {
       const brief = selected.args.brief;

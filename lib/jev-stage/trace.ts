@@ -17,6 +17,7 @@ export function finishModelCall(args: {
   inputTokens: number;
   outputTokens: number;
   cachedInputTokens?: number;
+  cacheByProvider?: JevStageModelCallTrace["cacheByProvider"];
   clock: { started: number; firstTokenAt: number | null };
 }): JevStageModelCallTrace {
   const latencyMs = Math.round(performance.now() - args.clock.started);
@@ -40,8 +41,47 @@ export function finishModelCall(args: {
     costUsd,
     latencyMs,
     timeToFirstTokenMs,
+    cacheReported: args.cachedInputTokens != null,
+    cacheByProvider: args.cacheByProvider,
     tokensPerSecond,
   };
+}
+
+/** A superseded draft should not be committed as part of the corrected answer. */
+export function replyAfterLastCorrection(
+  text: string,
+  steps: readonly { text: string; experimental_steeringMessages?: readonly unknown[] }[]
+) {
+  const lastCorrection = steps.findLastIndex((step) => step.experimental_steeringMessages?.length);
+
+  return lastCorrection < 0 ? text : steps.slice(lastCorrection).map((step) => step.text).join("");
+}
+
+export type JevCacheStep = {
+  response: { modelId?: string };
+  providerMetadata?: { gateway?: Record<string, unknown> };
+  usage: { inputTokenDetails?: { cacheReadTokens?: number } };
+};
+
+/** Gateway fallback may change providers between steps. Keep the reported counts attributed. */
+export function cacheByProvider(model: string, steps: readonly JevCacheStep[]) {
+  const totals = new Map<string, { provider: string | null; model: string; cachedInputTokens: number | null }>();
+
+  for (const step of steps) {
+    const routing = step.providerMetadata?.gateway?.routing;
+    const reported = routing && typeof routing === "object" && "finalProvider" in routing
+      ? routing.finalProvider
+      : null;
+    const provider = typeof reported === "string" ? reported : null;
+    const servedModel = step.response.modelId || model;
+    const tokens = step.usage.inputTokenDetails?.cacheReadTokens;
+    const key = JSON.stringify([provider, servedModel, tokens == null]);
+    const previous = totals.get(key)?.cachedInputTokens ?? 0;
+
+    totals.set(key, { provider, model: servedModel, cachedInputTokens: tokens == null ? null : previous + tokens });
+  }
+
+  return [...totals.values()];
 }
 
 export function summarizeCalls(calls: ReadonlyArray<JevStageModelCallTrace>) {

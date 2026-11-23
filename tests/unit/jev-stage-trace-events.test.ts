@@ -47,7 +47,7 @@ describe("jev-stage trace events", () => {
   test("the decision event lists every action, highest first, with the floor", () => {
     const event = jevDecisionEvent(420, routed(), 0.55);
 
-    expect(event.distribution).toHaveLength(9);
+    expect(event.distribution).toHaveLength(10);
     expect(event.distribution.slice(0, 3).map((entry) => entry.kind)).toEqual([
       "captures",
       "respond",

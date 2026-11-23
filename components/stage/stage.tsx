@@ -1,6 +1,7 @@
 "use client";
 
 import "./stage.css";
+import type { AgentDotState } from "@/components/agents/agent-dot-grid-motion";
 import type { ContinuitySelection } from "@/lib/continuity/schema";
 import type { ChatModel } from "@/lib/schemas/chat";
 import type { ChatEffortLevel } from "@/lib/schemas/chat-effort";
@@ -99,6 +100,7 @@ export function StageView({
   stage,
   scripted = false,
   agentMessage,
+  agentState,
   renderAgentStatus,
   conversationRail,
   defaultWebSearch = false,
@@ -110,6 +112,7 @@ export function StageView({
   /** A scripted stage has no real threads, calls, or voice session to attach to. */
   scripted?: boolean;
   agentMessage?: ReactNode;
+  agentState?: AgentDotState;
   renderAgentStatus?: (status: string) => ReactNode;
   conversationRail?: HTMLElement | null;
   defaultWebSearch?: boolean;
@@ -500,7 +503,10 @@ export function StageView({
             }
             rect={frame.parent}
             hero={frame.hero}
-            state={sending ? "working" : loading || activeSubagents > 0 ? "waiting" : "idle"}
+            state={
+              agentState ??
+              (sending ? "working" : loading || activeSubagents > 0 ? "waiting" : "idle")
+            }
             onFocus={() => {
               chooseAuthor("organic");
               composer.current?.querySelector("textarea")?.focus();

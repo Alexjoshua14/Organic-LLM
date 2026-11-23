@@ -33,9 +33,17 @@ const ACTION_LABEL: Record<JevStageActionKind, string> = {
   view_switch: "Switch view",
   captures: "File captures",
   recall: "Recall memories",
+  clear_pieces: "Clear pieces",
   designer_brief: "Brief designer",
   specialists: "Dispatch specialists",
 };
+
+const CORRECTION_LABEL = {
+  queued: "Correction received · waiting for the next model step",
+  delivered: "Correction delivered",
+  undelivered: "Correction wasn’t delivered",
+  unconfirmed: "Correction delivery couldn’t be confirmed",
+} as const;
 
 async function readNdjson(
   response: Response,
@@ -67,6 +75,8 @@ async function readNdjson(
 export function useJevStage(): StageController & {
   insights: JevStageTurnInsight[];
   streamingText: string;
+  working: boolean;
+  correctionStatus: string | null;
   submittedMessage: { id: string; text: string } | null;
   turnStatus: string;
   statusPulse: number;
@@ -79,6 +89,8 @@ export function useJevStage(): StageController & {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [active, setActive] = useState(0);
+  const [correctionStatus, setCorrectionStatus] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [streamingText, setStreamingText] = useState("");
   const [submittedMessage, setSubmittedMessage] = useState<{ id: string; text: string } | null>(
@@ -88,9 +100,13 @@ export function useJevStage(): StageController & {
   const [statusPulse, setStatusPulse] = useState(0);
   const [liveTrace, setLiveTrace] = useState<JevStageTraceEvent[]>([]);
   const [quietTurn, setQuietTurn] = useState(false);
-  const [recovery, setRecovery] = useState<{ id: string; until: number } | null>(null);
+  const [recovery, setRecovery] = useState<Record<string, number>>({});
+  const recovering = Object.keys(recovery).length > 0;
   const [designOffline, setDesignOffline] = useState(false);
   const designActive = bundle.stage.design?.status === "working";
+  const specialistActive = bundle.stage.subagents?.some((job) =>
+    job.status === "queued" || job.status === "working" || job.status === "canceling"
+  );
   const designPhase = bundle.stage.design?.phase;
   const designerStatus = designActive
     ? designOffline
@@ -102,11 +118,21 @@ export function useJevStage(): StageController & {
   const current = useRef(bundle);
   const sendLock = useRef(false);
   const mounted = useRef(true);
+  const latestRequest = useRef<string | null>(null);
+  const resetRevision = useRef(-1);
+  const localLayoutRevision = useRef<number | null>(null);
 
-  current.current = bundle;
+  const accept = useCallback((next: JevStageBundle, localLayout = false) => {
+    if (!mounted.current || next.stage.revision < current.current.stage.revision) return;
 
-  const accept = useCallback((next: JevStageBundle) => {
-    if (!mounted.current) return;
+    if (localLayout) {
+      localLayoutRevision.current = next.stage.revision;
+    } else if (localLayoutRevision.current === next.stage.revision) {
+      next = { ...next, stage: current.current.stage };
+    } else {
+      localLayoutRevision.current = null;
+    }
+
     current.current = next;
     setBundle(next);
   }, []);
@@ -142,13 +168,13 @@ export function useJevStage(): StageController & {
   }, [load]);
 
   useEffect(() => {
-    if (sending || (!designActive && !recovery)) return;
+    if (!designActive && !specialistActive && !recovering) return;
     let disposed = false;
     let timer: number | undefined;
     let polling = false;
 
     async function poll() {
-      if (disposed || sendLock.current || polling) return;
+      if (disposed || polling) return;
       polling = true;
 
       try {
@@ -156,30 +182,41 @@ export function useJevStage(): StageController & {
           signal: AbortSignal.timeout(JEV_STAGE_CLIENT_TIMEOUT_MS),
         });
 
-        if (disposed || sendLock.current) return;
+        if (disposed) return;
         setDesignOffline(false);
-        if (
-          data.stage.revision >= current.current.stage.revision ||
-          data.stage.design?.id !== current.current.stage.design?.id ||
-          data.stage.design?.status !== current.current.stage.design?.status ||
-          data.stage.design?.phase !== current.current.stage.design?.phase
-        )
-          accept(data);
-        if (recovery && data.insights.some((insight) => insight.turnId === recovery.id)) {
-          setSubmittedMessage(null);
-          setRecovery(null);
-          setError(null);
+        accept(data);
+        for (const id of Object.keys(recovery)) {
+          const recovered = data.insights.find((insight) => insight.turnId === id);
+
+          if (!recovered) continue;
+          setRecovery((pending) => {
+            const next = { ...pending };
+
+            delete next[id];
+            return next;
+          });
+          if (latestRequest.current === id) {
+            setSubmittedMessage(null);
+            if (recovered.correction) setCorrectionStatus(CORRECTION_LABEL[recovered.correction.status]);
+            setError(null);
+          }
         }
       } catch {
         if (!disposed) setDesignOffline(true);
       } finally {
         polling = false;
         if (!disposed) {
-          if (recovery && Date.now() >= recovery.until) {
-            setRecovery(null);
-            setError(
-              "The connection was interrupted and no completed turn was found. Try sending again."
-            );
+          for (const [id, until] of Object.entries(recovery)) {
+            if (Date.now() < until) continue;
+            setRecovery((pending) => {
+              const next = { ...pending };
+
+              delete next[id];
+              return next;
+            });
+            if (latestRequest.current === id) {
+              setError("The connection was interrupted and no completed turn was found.");
+            }
           }
           timer = window.setTimeout(poll, JEV_STAGE_DESIGN_POLL_MS);
         }
@@ -192,7 +229,7 @@ export function useJevStage(): StageController & {
       disposed = true;
       window.clearTimeout(timer);
     };
-  }, [accept, designActive, recovery, sending]);
+  }, [accept, designActive, specialistActive, recovery, recovering]);
 
   const send = useCallback(
     async (message: string, settings?: StageTurnSettings) => {
@@ -202,20 +239,33 @@ export function useJevStage(): StageController & {
       setError(null);
       setStreamingText("");
       const requestId = crypto.randomUUID();
+      const isLatest = () => mounted.current && latestRequest.current === requestId;
+      latestRequest.current = requestId;
+      setActive((count) => count + 1);
+      setCorrectionStatus(null);
 
       setSubmittedMessage({ id: requestId, text: message });
       setTurnStatus("Received");
       setLiveTrace([]);
-      setRecovery(null);
       setQuietTurn(false);
       const abort = new AbortController();
       let timeout: number | undefined;
       let lastUpdate = performance.now();
       const recover = () =>
-        setRecovery({
-          id: requestId,
-          until: Date.now() + JEV_STAGE_TURN_DEADLINE_MS,
-        });
+        setRecovery((pending) => ({
+          ...pending,
+          [requestId]: Date.now() + JEV_STAGE_TURN_DEADLINE_MS,
+        }));
+      let admitted = false;
+      let resolveSend: (accepted: boolean) => void;
+      const submitted = new Promise<boolean>((resolve) => { resolveSend = resolve; });
+      const releaseComposer = (accepted: boolean) => {
+        if (admitted) return;
+        admitted = true;
+        sendLock.current = false;
+        if (mounted.current) setSending(false);
+        resolveSend(accepted);
+      };
       const resetTimeout = () => {
         window.clearTimeout(timeout);
         timeout = window.setTimeout(() => abort.abort(), JEV_STAGE_CLIENT_TIMEOUT_MS);
@@ -223,131 +273,153 @@ export function useJevStage(): StageController & {
 
       resetTimeout();
 
-      try {
-        const response = await fetch("/api/prototypes/jev-stage", {
-          method: "POST",
-          cache: "no-store",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message, requestId, settings }),
-          signal: abort.signal,
-        });
+      void (async () => {
+        try {
+          const response = await fetch("/api/prototypes/jev-stage", {
+            method: "POST",
+            cache: "no-store",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message, requestId, settings }),
+            signal: abort.signal,
+          });
 
-        if (!response.ok) {
-          const data = await response.json().catch(() => null);
+          if (!response.ok) {
+            const data = await response.json().catch(() => null);
 
-          throw new StageRequestError(data?.error ?? "Turn failed", response.status);
-        }
-
-        let sawDone = false;
-        let streamFailed = false;
-        let writing: string | null = null;
-
-        await readNdjson(response, (event) => {
-          if (!mounted.current) return;
-          resetTimeout();
-          if (event.type === "heartbeat") {
-            setQuietTurn(performance.now() - lastUpdate >= JEV_STAGE_HEARTBEAT_MS);
-
-            return;
+            throw new StageRequestError(data?.error ?? "Turn failed", response.status);
           }
-          lastUpdate = performance.now();
-          setQuietTurn(false);
-          if (event.type === "delta") {
-            setStreamingText((value) => value + event.text);
-            if (writing) setTurnStatus(writing);
-          } else if (event.type === "route") {
-            const action = ACTION_LABEL[event.selected.kind];
 
-            setTurnStatus(
-              event.fellBack
-                ? `Falling back to ${action}`
-                : `Jev chose ${action} · ${event.selected.confidence.toFixed(2)}`
-            );
-          } else if (event.type === "step_boundary" && event.turnId === requestId) {
-            setStatusPulse((pulse) => pulse + 1);
-          } else if (event.type === "trace") {
-            const trace = event.event;
+          let sawDone = false;
+          let streamFailed = false;
+          let writing: string | null = null;
 
-            setLiveTrace((events) => [...events, trace]);
-
-            switch (trace.kind) {
-              case "jev.start":
-                setTurnStatus("Jev is choosing a route");
-                break;
-              case "hop.start":
-                if (trace.model) {
-                  const model = shortModel(trace.model);
-
-                  writing = `Writing with ${model}`;
-                  setTurnStatus(
-                    trace.operation === "orchestrate"
-                      ? `Orchestrating with ${model}`
-                      : `Preparing a reply with ${model}`
-                  );
-                }
-                break;
-              case "hop.first_token":
-                setTurnStatus(writing ?? "Writing a reply");
-                break;
-              case "hop.tool": {
-                const name = trace.tool.name.replaceAll("_", " ");
-                const result = trace.tool.ok === false ? "failed" : trace.tool.result;
-
-                setTurnStatus(result ? `${name} · ${result}` : name);
-                break;
-              }
-              case "hop.end":
-                if (trace.note && trace.ok) setTurnStatus(trace.note);
-                break;
-              case "fallback":
-                setTurnStatus(
-                  trace.to === "respond" ? "Falling back to Respond" : "Preparing a fallback reply"
-                );
-                break;
+          await readNdjson(response, (event) => {
+            if (!mounted.current) return;
+            resetTimeout();
+            if (event.type === "accepted") {
+              releaseComposer(true);
+              return;
             }
-          } else if (event.type === "patch" || event.type === "done") {
-            if (event.type === "done") sawDone = true;
-            accept({
-              stage: event.stage,
-              insights:
-                event.type === "done"
-                  ? [
-                      ...current.current.insights.filter((i) => i.turnId !== event.insight.turnId),
-                      event.insight,
-                    ].slice(-JEV_STAGE_MAX_TURN_INSIGHTS)
-                  : current.current.insights,
-            });
-          } else if (event.type === "limit_error" || event.type === "error") {
-            streamFailed = true;
-            setError(event.message);
+            if (event.type === "done") {
+              sawDone = true;
+              releaseComposer(true);
+              if (event.stage.revision <= resetRevision.current) return;
+              const currentBundle = current.current;
+              if (
+                event.stage.revision < currentBundle.stage.revision &&
+                currentBundle.insights.some((item) => item.turnId === event.insight.turnId)
+              ) return;
+              const insights = [
+                ...currentBundle.insights.filter((item) => item.turnId !== event.insight.turnId),
+                event.insight,
+              ].sort((a, b) => a.at.localeCompare(b.at)).slice(-JEV_STAGE_MAX_TURN_INSIGHTS);
+
+              accept({
+                stage: event.stage.revision >= currentBundle.stage.revision
+                  ? event.stage
+                  : currentBundle.stage,
+                insights,
+              });
+            }
+            if (event.type === "limit_error" || event.type === "error") streamFailed = true;
+            if (!isLatest()) return;
+            if (event.type === "correction") {
+              const label = CORRECTION_LABEL[event.correction.status];
+
+              setCorrectionStatus(label);
+              setTurnStatus(label);
+              return;
+            }
+            if (event.type === "heartbeat") {
+              setQuietTurn(performance.now() - lastUpdate >= JEV_STAGE_HEARTBEAT_MS);
+
+              return;
+            }
+            lastUpdate = performance.now();
+            setQuietTurn(false);
+            if (event.type === "delta") {
+              setStreamingText((value) => value + event.text);
+              if (writing) setTurnStatus(writing);
+            } else if (event.type === "route") {
+              const action = ACTION_LABEL[event.selected.kind];
+
+              setTurnStatus(
+                event.fellBack
+                  ? `Falling back to ${action}`
+                  : `Jev chose ${action} · ${event.selected.confidence.toFixed(2)}`
+              );
+            } else if (event.type === "step_boundary" && event.turnId === requestId) {
+              setStatusPulse((pulse) => pulse + 1);
+            } else if (event.type === "trace") {
+              const trace = event.event;
+
+              setLiveTrace((events) => [...events, trace]);
+
+              switch (trace.kind) {
+                case "jev.start":
+                  setTurnStatus("Jev is choosing a route");
+                  break;
+                case "hop.start":
+                  if (trace.model) {
+                    const model = shortModel(trace.model);
+
+                    writing = `Writing with ${model}`;
+                    setTurnStatus(
+                      trace.operation === "orchestrate"
+                        ? `Orchestrating with ${model}`
+                        : `Preparing a reply with ${model}`
+                    );
+                  }
+                  break;
+                case "hop.first_token":
+                  setTurnStatus(writing ?? "Writing a reply");
+                  break;
+                case "hop.tool": {
+                  const name = trace.tool.name.replaceAll("_", " ");
+                  const result = trace.tool.ok === false ? "failed" : trace.tool.result;
+
+                  setTurnStatus(result ? `${name} · ${result}` : name);
+                  break;
+                }
+                case "hop.end":
+                  if (trace.note && trace.ok) setTurnStatus(trace.note);
+                  break;
+                case "fallback":
+                  setTurnStatus(
+                    trace.to === "respond" ? "Falling back to Respond" : "Preparing a fallback reply"
+                  );
+                  break;
+              }
+            } else if (event.type === "limit_error" || event.type === "error") {
+              setError(event.message);
+            }
+          });
+          if (!sawDone && !streamFailed) recover();
+          if (isLatest()) {
+            setStreamingText("");
+            if (sawDone && !streamFailed) setSubmittedMessage(null);
+            else setTurnStatus("Message could not be completed");
           }
-        });
-        // Keep the last streamed text visible until Stage messages include the reply.
-        setStreamingText("");
-        if (sawDone && !streamFailed) {
-          setSubmittedMessage(null);
-        } else {
-          if (!streamFailed) recover();
-          setTurnStatus("Message could not be completed");
+          releaseComposer(!streamFailed);
+        } catch (cause) {
+          if (isLatest()) setStreamingText("");
+          if (abort.signal.aborted || cause instanceof TypeError) {
+            recover();
+            releaseComposer(true);
+          } else {
+            if (isLatest()) {
+              setError(cause instanceof Error ? cause.message : "Your message couldn’t be sent.");
+              setTurnStatus("Message could not be completed");
+            }
+            releaseComposer(false);
+          }
+        } finally {
+          window.clearTimeout(timeout);
+          if (mounted.current) setActive((count) => count - 1);
         }
+      })();
 
-        return !streamFailed;
-      } catch (cause) {
-        setStreamingText("");
-        if (abort.signal.aborted || cause instanceof TypeError) {
-          recover();
-
-          return true;
-        }
-        setError(cause instanceof Error ? cause.message : "Your message couldn’t be sent.");
-        setTurnStatus("Message could not be completed");
-
-        return false;
-      } finally {
-        window.clearTimeout(timeout);
-        sendLock.current = false;
-        if (mounted.current) setSending(false);
-      }
+      return submitted;
     },
     [accept]
   );
@@ -359,12 +431,11 @@ export function useJevStage(): StageController & {
         const previous = current.current.stage;
         const nextStage = {
           ...previous,
-          revision: previous.revision + 1,
           widgets: applyStageOperations(previous.widgets, operations, stageReservedRects(previous)),
         };
         const next = { ...current.current, stage: nextStage };
 
-        accept(next);
+        accept(next, true);
 
         return true;
       } catch (cause) {
@@ -385,10 +456,13 @@ export function useJevStage(): StageController & {
         body: JSON.stringify({ action: "reset" }),
       });
 
+      resetRevision.current = data.stage.revision;
+      latestRequest.current = null;
       accept(data);
       setError(null);
       setSubmittedMessage(null);
-      setRecovery(null);
+      setRecovery({});
+      setCorrectionStatus(null);
 
       return true;
     } catch (cause) {
@@ -414,7 +488,7 @@ export function useJevStage(): StageController & {
   );
 
   const requestDesignChange = useCallback(
-    async (action: "retry-design" | "cancel-design", jobId?: string) => {
+    async (action: "retry-design" | "cancel-design" | "cancel-specialist", jobId?: string) => {
       try {
         const data = await stageRequest<JevStageBundle>("/api/prototypes/jev-stage", {
           method: "POST",
@@ -432,7 +506,9 @@ export function useJevStage(): StageController & {
   const retryDesign = useCallback(() => requestDesignChange("retry-design"), [requestDesignChange]);
   const cancelSubagent = useCallback(
     async (id: string) => {
-      if (id === current.current.stage.design?.id) await requestDesignChange("cancel-design", id);
+      await requestDesignChange(
+        id === current.current.stage.design?.id ? "cancel-design" : "cancel-specialist", id
+      );
     },
     [requestDesignChange]
   );
@@ -442,7 +518,9 @@ export function useJevStage(): StageController & {
       state: bundle.stage ?? emptyStageState(),
       error,
       loading,
-      sending: sending || !!recovery,
+      sending,
+      working: active > 0 || recovering,
+      correctionStatus,
       saving,
       send,
       mutate,
@@ -453,14 +531,14 @@ export function useJevStage(): StageController & {
       insights: bundle.insights,
       streamingText,
       submittedMessage,
-      turnStatus: recovery
+      turnStatus: submittedMessage && recovery[submittedMessage.id]
         ? "Connection interrupted · checking for your reply"
-        : quietTurn && sending
+        : quietTurn && active > 0
           ? `Still working · ${turnStatus}`
           : turnStatus,
       statusPulse,
       liveTrace,
-      recovering: !!recovery,
+      recovering,
       designerStatus,
       setEval,
     }),
@@ -483,6 +561,9 @@ export function useJevStage(): StageController & {
       statusPulse,
       liveTrace,
       recovery,
+      recovering,
+      active,
+      correctionStatus,
       designerStatus,
       quietTurn,
       setEval,

@@ -4,8 +4,10 @@ import type { JevStageTraceEvent, JevStageTurnInsight } from "@/lib/jev-stage/sc
 
 import { useMemo, useReducer, useState } from "react";
 import {
+  Check,
   ChevronLeft,
   ChevronRight,
+  Copy,
   Grip,
   MessageSquare,
   ThumbsDown,
@@ -18,6 +20,7 @@ import { InsightContext } from "./insight-context";
 import { useInsightPosition } from "./use-insight-position";
 
 import { DialogOverlay } from "@/components/third-party/ui/dialog";
+import { copyTextToClipboard } from "@/lib/clipboard/copy";
 import { JEV_GATEWAY_TRACE_MODEL } from "@/lib/jev-stage/constants";
 import { glass } from "@/components/design-system/primitives";
 import {
@@ -28,6 +31,7 @@ import {
 import { summarizeCalls } from "@/lib/jev-stage/trace";
 import {
   buildJevTraceView,
+  formatJevInsightDebugLog,
   formatTraceMs,
   formatTraceUsd,
   jevTracePath,
@@ -141,6 +145,7 @@ export function JevStageInsightPanel({
   const [pager, page] = useReducer(insightPagerReducer, undefined, () => initialInsightPager());
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
   const [tab, setTab] = useState("pipeline");
+  const [copied, setCopied] = useState(false);
   const count = insights.length + (live ? 1 : 0);
   const safeIndex = insightPage(pager, count);
   const insight = insights[safeIndex] ?? null;
@@ -149,6 +154,15 @@ export function JevStageInsightPanel({
   const trace = useMemo(
     () => buildJevTraceView(insight ? traceForInsight(insight) : (live?.events ?? [])),
     [insight, live?.events]
+  );
+  const debugLog = useMemo(
+    () =>
+      formatJevInsightDebugLog({
+        insight,
+        live: livePage ? live : null,
+        trace,
+      }),
+    [insight, live, livePage, trace]
   );
   const { rows } = jevTraceTimeline(trace);
   const calls = insight?.calls ?? [
@@ -257,6 +271,15 @@ export function JevStageInsightPanel({
                 <ConfidenceBars trace={trace} />
               </div>
             )}
+            {insight?.correction && (
+              <p className="text-2xs font-medium">
+                {insight.correction.status === "delivered"
+                  ? "Correction delivered to the active worker"
+                  : insight.correction.status === "unconfirmed"
+                    ? "Correction delivery couldn’t be confirmed"
+                    : "Correction wasn’t delivered to the active worker"}
+              </p>
+            )}
             {insight?.outcomeDetail && (
               <p className="text-2xs text-destructive">{insight.outcomeDetail}</p>
             )}
@@ -300,6 +323,26 @@ export function JevStageInsightPanel({
           <Glance insight={{ ...usage, totals: { ...usage.totals, latencyMs: elapsed } }} />
         </div>
         <div className="flex shrink-0 items-center gap-1 border-t border-border/40 pt-2">
+          {(insight || livePage) && (
+            <button
+              aria-label={copied ? "Debug log copied" : "Copy turn debug log"}
+              className="rounded-lg p-1.5 text-muted-foreground hover:text-foreground"
+              type="button"
+              onClick={() => {
+                void copyTextToClipboard(debugLog).then((ok) => {
+                  if (!ok) return;
+                  setCopied(true);
+                  window.setTimeout(() => setCopied(false), 1600);
+                });
+              }}
+            >
+              {copied ? (
+                <Check aria-hidden className="size-3.5" />
+              ) : (
+                <Copy aria-hidden className="size-3.5" />
+              )}
+            </button>
+          )}
           {insight && (
             <>
               {(["up", "down"] as const).map((signal) => {

@@ -18,6 +18,10 @@ export const WAITING_VARIANCE = 0.1;
 const BLOCKED_DURATION_MS = 3_600;
 const COMPLETE_DURATION_MS = 400;
 const COMPLETE_STAGGER_MS = 20;
+export const AGENT_DOT_COMPLETION_MS =
+  COMPLETE_DURATION_MS +
+  Math.max(...AGENT_DOTS.map(({ x, y }) => Math.hypot(x - 20, y - 20) / 6)) *
+    COMPLETE_STAGGER_MS;
 const EASING = "cubic-bezier(0.4, 0, 0.2, 1)";
 const EDGE_SCALE = 0.84;
 const CENTER_SIZE_BIAS = 0.26;

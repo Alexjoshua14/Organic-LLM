@@ -11,6 +11,7 @@ export const JevStageActionKindSchema = z.enum([
   "view_switch",
   "captures",
   "recall",
+  "clear_pieces",
   "designer_brief",
   "specialists",
 ]);
@@ -39,6 +40,12 @@ export const JevStageModelCallTraceSchema = z.object({
   model: z.string().min(1),
   inputTokens: z.number().int().nonnegative(),
   outputTokens: z.number().int().nonnegative(),
+  cacheReported: z.boolean().optional(),
+  cacheByProvider: z.array(z.object({
+    provider: z.string().nullable(),
+    model: z.string(),
+    cachedInputTokens: z.number().int().nonnegative().nullable(),
+  })).optional(),
   cachedInputTokens: z.number().int().nonnegative().default(0),
   costUsd: z.number().nonnegative(),
   latencyMs: z.number().nonnegative(),
@@ -222,6 +229,13 @@ export const JevStageTraceEventSchema = z.discriminatedUnion("kind", [
 
 export type JevStageTraceEvent = z.infer<typeof JevStageTraceEventSchema>;
 
+const JevStageCorrectionSchema = z.object({
+  targetTurnId: z.string().uuid(),
+  status: z.enum(["queued", "delivered", "undelivered", "unconfirmed"]),
+});
+
+export type JevStageCorrection = z.infer<typeof JevStageCorrectionSchema>;
+
 export const JevStageTurnInsightSchema = z.object({
   turnId: z.string().uuid(),
   at: z.string().datetime(),
@@ -231,6 +245,8 @@ export const JevStageTurnInsightSchema = z.object({
   fellBack: z.boolean(),
   fallbackReason: z.string().max(300).nullable().default(null),
   routerMs: z.number().nonnegative(),
+  correction: JevStageCorrectionSchema.optional(),
+  specialistIds: z.array(z.string().uuid()).optional(),
   outcome: z.enum(["ok", "limit_error", "error"]),
   outcomeDetail: z.string().max(500).nullable().default(null),
   calls: z.array(JevStageModelCallTraceSchema).default([]),
@@ -281,6 +297,8 @@ export type JevStageStepBoundary = z.infer<typeof JevStageStepBoundarySchema>;
 /** Stream / NDJSON event envelope for the prototype client. */
 export const JevStageStreamEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("heartbeat") }),
+  z.object({ type: z.literal("accepted") }),
+  z.object({ type: z.literal("correction"), correction: JevStageCorrectionSchema }),
   JevStageStepBoundarySchema.extend({ type: z.literal("step_boundary") }),
   z.object({
     type: z.literal("route"),

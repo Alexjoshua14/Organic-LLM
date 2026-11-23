@@ -204,7 +204,9 @@ export async function runJevStageDesign(
       const { plan, dropped } = sanitizeDesignPlan(result.plan);
 
       try {
-        if (!plan.operations.length) {
+        // A clear / new-topic brief may return fresh:true with no ops. That is a valid clear:
+        // mergeStageDesignPlan drops untouched pieces (collections and recall stay).
+        if (!plan.operations.length && !plan.fresh) {
           throw new StageLayoutError(dropped[0] ?? "The designer returned no stage pieces.");
         }
         await runtime.mutate(

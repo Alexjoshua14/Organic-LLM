@@ -135,6 +135,45 @@ describe("Jev Stage designer", () => {
     expect(feedback).toEqual([undefined, "The designer returned no stage pieces."]);
     expect(fixture.bundle.stage.design).toMatchObject({ id: jobId, status: "failed" });
   });
+
+  test("commits a fresh empty plan as a clear of generated pieces", async () => {
+    const fixture = queuedDesign();
+
+    fixture.bundle.stage.widgets = [
+      {
+        id: "00000000-0000-4000-8000-000000000010",
+        kind: "note",
+        title: "Keep me until clear",
+        rect: { x: 8, y: 4, w: 11, h: 18 },
+        text: "temporary",
+      },
+      {
+        id: "00000000-0000-4000-8000-000000000011",
+        kind: "collection",
+        title: "Ideas",
+        rect: { x: 20, y: 4, w: 12, h: 18 },
+        items: [],
+      },
+    ];
+    fixture.bundle.stage.design = {
+      ...fixture.bundle.stage.design!,
+      brief: "Clear the stage.",
+    };
+
+    await runJevStageDesign(identity, jobId, {
+      ...fixture.runtime,
+      generate: async () => ({
+        model: "test",
+        usage: { inputTokens: 40, outputTokens: 8 },
+        plan: { fresh: true, operations: [] },
+      }),
+    });
+
+    expect(fixture.bundle.stage.design).toBeNull();
+    expect(fixture.bundle.stage.widgets).toEqual([
+      expect.objectContaining({ kind: "collection", title: "Ideas" }),
+    ]);
+  });
 });
 
 test("Jev shortlists relevant schemas for a mixed brief and leaves plain code to native pieces", async () => {

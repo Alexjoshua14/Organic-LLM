@@ -16,19 +16,24 @@ import { routeJevStage } from "./router";
 import type {
   JevStageBundle,
   JevStageCandidate,
+  JevStageCorrection,
   JevStageStepBoundary,
   JevStageStreamEvent,
   JevStageTurnInsight,
 } from "./schema";
 import {
-  acquireJevStageLease,
+  activeJevStageRequests,
+  beginJevStageRequest,
+  endJevStageRequest,
+  finishJevStageRequest,
   hasJevStageRequest,
-  markJevStageRequest,
   mutateJevStage,
   readJevStage,
   releaseJevStageLease,
-  writeJevStage,
+  waitForJevStageLease,
 } from "./store";
+import { mergeJevStageTurn } from "./merge-turn";
+import { jevStageWorkers, submitJevCorrection, withJevStageSteering } from "./steering";
 import { finishModelCall, startCallClock, withCallSummary } from "./trace";
 import {
   actionVia,
@@ -47,6 +52,8 @@ import { StageLayoutError } from "@/lib/stage/layout";
 import type { StageState, StageTurnSettings } from "@/lib/stage/schema";
 import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
 import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
+
+const CORRECTION_SAVE_WINDOW_MS = 15_000;
 
 export class JevStageTurnError extends Error {
   constructor(
@@ -127,9 +134,7 @@ async function emitDuplicateDone(
 ) {
   const bundle = await readJevStage(ownerId);
   const insight =
-    bundle.insights.find((item) => item.turnId === requestId) ??
-    bundle.insights.at(-1) ??
-    null;
+    bundle.insights.find((item) => item.turnId === requestId);
 
   if (insight) {
     emit({ type: "done", insight, stage: bundle.stage });
@@ -158,31 +163,43 @@ export async function runJevStageTurn(args: {
     return emitDuplicateDone(args.ownerId, args.requestId, args.emit);
   }
 
-  const lease = await acquireJevStageLease(args.ownerId);
+  const signal = AbortSignal.timeout(JEV_STAGE_TURN_DEADLINE_MS);
+  const gate = await requirePlanBudget({
+    clerkUserId: args.clerkUserId,
+    sbUserId: args.ownerId,
+  });
 
-  if (!lease) {
-    throw new JevStageTurnError("Another turn is already running on this prototype stage.", 409);
+  if (gate) throw new JevStageTurnError("Your plan budget is exhausted.", gate.status);
+  const limited = await checkLlmMessageLimit(args.ownerId);
+
+  if (!limited.success) {
+    throw new JevStageTurnError(limited.error ?? "Too many messages", 429);
   }
 
-  const signal = AbortSignal.timeout(JEV_STAGE_TURN_DEADLINE_MS);
+  const admission = await waitForJevStageLease(args.ownerId, signal);
+  let admittedUntil: number;
 
   try {
     if (await hasJevStageRequest(args.ownerId, args.requestId)) {
       return emitDuplicateDone(args.ownerId, args.requestId, args.emit);
     }
-    const gate = await requirePlanBudget({
-      clerkUserId: args.clerkUserId,
-      sbUserId: args.ownerId,
-    });
-
-    if (gate) throw new JevStageTurnError("Your plan budget is exhausted.", gate.status);
-    const limited = await checkLlmMessageLimit(args.ownerId);
-
-    if (!limited.success) {
-      throw new JevStageTurnError(limited.error ?? "Too many messages", 429);
+    admittedUntil = await beginJevStageRequest(args.ownerId, args.requestId, admission);
+    if (!admittedUntil) {
+      throw new JevStageTurnError(
+        "This message is already running or Stage has four active requests.",
+        409
+      );
     }
+  } finally {
+    await releaseJevStageLease(args.ownerId, admission);
+  }
 
-    const bundle = await readJevStage(args.ownerId);
+  try {
+    args.emit({ type: "accepted" });
+    const [bundle, workers] = await Promise.all([
+      readJevStage(args.ownerId),
+      jevStageWorkers(args.ownerId),
+    ]);
     const turnId = args.requestId;
     const onStepBoundary = jevStepBoundaryListener(turnId, args.onStepBoundary);
     // Live pipeline trace (COA-755): streamed as it happens, stored on the insight.
@@ -197,6 +214,7 @@ export async function runJevStageTurn(args: {
       summary: bundle.stage.summary,
       knowledgeHint: JSON.stringify(stageKnowledgeContext(bundle.stage)),
       stage: bundle.stage,
+      activeWorkers: workers,
     });
     const decision = jevDecisionEvent(trace.t(), routed, JEV_STAGE_CONFIDENCE_FLOOR);
 
@@ -264,9 +282,42 @@ export async function runJevStageTurn(args: {
     let outcomeDetail: string | null = null;
     let action = selected;
     let steps = 0;
+    let correction: JevStageCorrection | undefined;
+    const target = workers.find((worker) => worker.turnId === routed.correctionTarget);
+
+    if (target) {
+      correction = await submitJevCorrection({
+        ownerId: args.ownerId,
+        target,
+        id: turnId,
+        text: args.message,
+        signal: AbortSignal.any([
+          signal,
+          AbortSignal.timeout(JEV_STAGE_TURN_DEADLINE_MS - CORRECTION_SAVE_WINDOW_MS),
+        ]),
+        onQueued: (receipt) => args.emit({ type: "correction", correction: receipt }),
+      });
+      args.emit({ type: "correction", correction });
+      stage = {
+        ...stage,
+        messages: [
+          ...stage.messages,
+          { id: turnId, role: "user" as const, text: args.message },
+          {
+            id: crypto.randomUUID(),
+            role: "assistant" as const,
+            text: correction.status === "delivered"
+              ? "Correction delivered to the active worker."
+              : correction.status === "unconfirmed"
+                ? "I couldn’t confirm whether the worker received your correction."
+                : "Correction wasn’t delivered. You can send it again as a new request.",
+          },
+        ].slice(-24),
+      };
+    }
 
     // Bounded execution loop: direct tool → optional Respond fallback → safety net.
-    while (steps < JEV_STAGE_TURN_MAX_STEPS) {
+    while (!correction && steps < JEV_STAGE_TURN_MAX_STEPS) {
       signal.throwIfAborted();
       steps += 1;
 
@@ -312,7 +363,6 @@ export async function runJevStageTurn(args: {
             };
           }
         }
-        args.emit({ type: "patch", stage });
         const visible = turnHasVisibleReply(stage, args.requestId);
         const hopEnded = trace.t();
 
@@ -338,24 +388,23 @@ export async function runJevStageTurn(args: {
       }
 
       if (action.kind === "orchestrate") {
-        let draft = "";
         const hopId = crypto.randomUUID();
-        const streamed = await streamJevOrchestrate({
-          ownerId: args.ownerId,
-          clerkUserId: args.clerkUserId,
-          state: stage,
-          message: args.message,
-          settings: args.settings,
-          signal,
-          onDelta: (text) => {
-            draft += text;
-            args.emit({ type: "delta", text });
-          },
-          onHop: hopListener(trace, hopId, action.kind, "orchestrate"),
-        });
+        const streamed = await withJevStageSteering(args.ownerId, turnId, args.message, (steering) =>
+          streamJevOrchestrate({
+            steering,
+            ownerId: args.ownerId,
+            clerkUserId: args.clerkUserId,
+            state: stage,
+            message: args.message,
+            settings: args.settings,
+            signal,
+            onDelta: (text) => args.emit({ type: "delta", text }),
+            onHop: hopListener(trace, hopId, action.kind, "orchestrate"),
+          })
+        );
 
         calls.push(streamed.call);
-        const reply = (streamed.text || draft).trim();
+        const reply = streamed.text.trim();
 
         trace.record({
           kind: "hop.end",
@@ -396,26 +445,24 @@ export async function runJevStageTurn(args: {
             outcomeDetail = "Specialists needed more room on the stage.";
           }
         }
-        args.emit({ type: "patch", stage });
         break;
       }
 
       // Respond (selected or fallback)
-      let draft = "";
       const hopId = crypto.randomUUID();
-      const streamed = await streamJevRespond({
-        ownerId: args.ownerId,
-        clerkUserId: args.clerkUserId,
-        state: stage,
-        message: args.message,
-        settings: args.settings,
-        signal,
-        onDelta: (text) => {
-          draft += text;
-          args.emit({ type: "delta", text });
-        },
-        onHop: hopListener(trace, hopId, action.kind, "respond"),
-      });
+      const streamed = await withJevStageSteering(args.ownerId, turnId, args.message, (steering) =>
+        streamJevRespond({
+          steering,
+          ownerId: args.ownerId,
+          clerkUserId: args.clerkUserId,
+          state: stage,
+          message: args.message,
+          settings: args.settings,
+          signal,
+          onDelta: (text) => args.emit({ type: "delta", text }),
+          onHop: hopListener(trace, hopId, action.kind, "respond"),
+        })
+      );
 
       calls.push(streamed.call);
       trace.record({
@@ -434,7 +481,7 @@ export async function runJevStageTurn(args: {
       }
 
       const reply =
-        (streamed.text || draft).trim() ||
+        streamed.text.trim() ||
         (streamed.limitError
           ? streamed.limitError.message
           : "I heard you — give me another beat and I’ll try again.");
@@ -470,7 +517,6 @@ export async function runJevStageTurn(args: {
           ),
         };
       }
-      args.emit({ type: "patch", stage });
       break;
     }
 
@@ -496,40 +542,62 @@ export async function runJevStageTurn(args: {
         to: "safety",
         reason: "Nothing visible after the turn steps; wrote a safety reply",
       });
-      args.emit({ type: "patch", stage });
     }
 
-    const summarized = withCallSummary({
-      turnId,
-      at: new Date().toISOString(),
-      userMessage: args.message,
-      selected,
-      candidates: routed.ranked,
-      fellBack,
-      fallbackReason,
-      routerMs: routed.routerMs,
-      outcome,
-      outcomeDetail,
-      calls,
-      eval: { signal: null, note: null },
-    });
+    const saveLease = await waitForJevStageLease(args.ownerId, signal);
+    try {
+      const current = await readJevStage(args.ownerId);
+      const merged = mergeJevStageTurn(bundle.stage, stage, current.stage);
 
-    trace.record({ kind: "done", t: trace.t(), outcome, totals: summarized.totals });
-    const insight: JevStageTurnInsight = { ...summarized, trace: [...trace.events] };
+      if (merged.conflict) {
+        if (!correction) {
+          merged.state.messages.push({
+            id: crypto.randomUUID(),
+            role: "assistant",
+            text: "Stage changed while I was working. I skipped the updates that conflicted.",
+          });
+          merged.state.messages = merged.state.messages.slice(-24);
+        }
+        outcomeDetail = [
+          outcomeDetail,
+          "Stage changed while this turn was working. Conflicting Stage updates were skipped.",
+        ].filter(Boolean).join(" ");
+      }
+      const summarized = withCallSummary({
+        turnId,
+        at: new Date().toISOString(),
+        userMessage: args.message,
+        selected,
+        candidates: routed.ranked,
+        fellBack,
+        fallbackReason,
+        routerMs: routed.routerMs,
+        correction,
+        specialistIds: merged.state.subagents
+          ?.filter((job) => !current.stage.subagents?.some((prior) => prior.id === job.id))
+          .map((job) => job.id),
+        outcome,
+        outcomeDetail,
+        calls,
+        eval: { signal: null, note: null },
+      });
 
-    const next: JevStageBundle = {
-      stage,
-      insights: [...bundle.insights, insight].slice(-JEV_STAGE_MAX_TURN_INSIGHTS),
-    };
+      trace.record({ kind: "done", t: trace.t(), outcome, totals: summarized.totals });
+      const insight: JevStageTurnInsight = { ...summarized, trace: [...trace.events] };
+      const next: JevStageBundle = {
+        stage: merged.state,
+        insights: [...current.insights, insight].slice(-JEV_STAGE_MAX_TURN_INSIGHTS),
+      };
 
-    signal.throwIfAborted();
-    await writeJevStage(args.ownerId, next);
-    await markJevStageRequest(args.ownerId, args.requestId);
-    args.emit({ type: "done", insight, stage });
-
-    return next;
+      signal.throwIfAborted();
+      await finishJevStageRequest(args.ownerId, turnId, saveLease, admittedUntil, next);
+      args.emit({ type: "done", insight, stage: next.stage });
+      return next;
+    } finally {
+      await releaseJevStageLease(args.ownerId, saveLease);
+    }
   } finally {
-    await releaseJevStageLease(args.ownerId, lease);
+    await endJevStageRequest(args.ownerId, args.requestId, admittedUntil);
   }
 }
 
@@ -537,10 +605,15 @@ export async function resetJevStage(ownerId: string): Promise<JevStageBundle> {
   const { emptyJevStageBundle } = await import("./schema");
   const next = emptyJevStageBundle();
 
-  const reset = await mutateJevStage(ownerId, (current) => ({
-    ...next,
-    stage: { ...next.stage, revision: current.stage.revision + 1 },
-  }));
+  const reset = await mutateJevStage(ownerId, async (current) => {
+    if (
+      current.stage.subagents?.some((job) => job.status === "working" || job.status === "canceling") ||
+      (await activeJevStageRequests(ownerId)).length
+    ) {
+      throw new JevStageTurnError("Wait for active requests before resetting Stage.", 409);
+    }
+    return { ...next, stage: { ...next.stage, revision: current.stage.revision + 1 } };
+  });
 
   if (!reset) throw new JevStageTurnError("Wait for the current turn before resetting Stage.", 409);
 
@@ -555,6 +628,7 @@ export async function setJevStageTurnEval(args: {
 }): Promise<JevStageBundle> {
   const next = await mutateJevStage(args.ownerId, (bundle) => ({
     ...bundle,
+    stage: { ...bundle.stage, revision: bundle.stage.revision + 1 },
     insights: bundle.insights.map((insight) =>
       insight.turnId === args.turnId
         ? {

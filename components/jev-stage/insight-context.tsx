@@ -36,7 +36,11 @@ export function InsightContext({
                 <div className="my-1 flex flex-wrap gap-x-2 tabular-nums text-muted-foreground">
                   <span>{call.inputTokens.toLocaleString()} in</span>
                   <span>{call.outputTokens.toLocaleString()} out</span>
-                  <span>{call.cachedInputTokens.toLocaleString()} cached</span>
+                  <span>
+                    {call.cacheReported === false
+                      ? "Cache usage unreported"
+                      : `${call.cachedInputTokens.toLocaleString()} cached`}
+                  </span>
                   <span>{formatTraceUsd(call.costUsd)}</span>
                 </div>
               )}
@@ -101,9 +105,20 @@ export function InsightContext({
             return (
               <details key={call.id}>
                 <summary className="organic-focus cursor-pointer wrap-anywhere">
-                  {shortModel(call.model)} · {formatTraceUsd(call.costUsd)}
+                  {call.operation} · {shortModel(call.model)} · {formatTraceUsd(call.costUsd)}
                 </summary>
                 <ul className="space-y-1 pt-1 text-muted-foreground">
+                  {call.cacheReported === false && !call.cacheByProvider?.length && (
+                    <li>Cache usage unreported</li>
+                  )}
+                  {call.cacheByProvider?.map((entry, index) => (
+                    <li key={index}>
+                      {entry.provider ?? "Provider unreported"} · {entry.model} ·{" "}
+                      {entry.cachedInputTokens == null
+                        ? "cache usage unreported"
+                        : `${entry.cachedInputTokens.toLocaleString()} cached tokens`}
+                    </li>
+                  ))}
                   {lines.map((line) => (
                     <li key={line.label}>
                       {line.label} · {line.tokens.toLocaleString()} tokens ·{" "}

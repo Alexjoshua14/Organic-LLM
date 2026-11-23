@@ -236,6 +236,7 @@ function retryableDesignFailure(error: unknown, signal?: AbortSignal) {
 }
 
 const JEV_STAGE_PRESENTATION_RULES = [
+  "When the brief asks only to clear, reset, empty, or start over on the stage, return fresh true with an empty operations array. Do not invent placeholder pieces. Collections and Recall stay via the reconciler.",
   "Design each piece for a quick scan and a closer read. Lead with a short, specific sentence-case heading, then the information that matters most. A note's title identifies the piece. Put headings the reader needs in its Markdown body. Use real headings and blank lines between sections, lists, and code fences.",
   "Match formats to the material. Use a list for action-to-command mappings, ordered steps for tasks the reader must do in sequence, and a compact diagram for branching or dependencies. Use a decision matrix for scored comparisons and a timeline for dated or phased work, when their schemas are provided. Use an answer card for a standalone takeaway or links. Skip ornamental labels and redundant summaries.",
   "Use Stage for a useful self-contained explanation or artifact. Show ingredients, quantities, and ordered steps in a recipe piece. For architecture, use a Mermaid diagram with named components and labeled connections, supported by a short note for assumptions or tradeoffs. For code, show the relevant snippet and the explanation needed to use it.",
