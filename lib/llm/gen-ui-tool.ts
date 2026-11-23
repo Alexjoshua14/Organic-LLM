@@ -2,20 +2,22 @@ import { tool } from "ai";
 import { z } from "zod";
 
 import { createLogger } from "@/lib/logger";
-import { GenUIBlockSchema, type GenUIBlock } from "@/lib/schemas/gen-ui";
+import { GenUIBlockSchema, GenUIChatBlockSchema, type GenUIChatBlock } from "@/lib/schemas/gen-ui";
+import { COMPOSITION_TOOL_GUIDANCE } from "@/lib/schemas/gen-ui/composition";
 
 const logger = createLogger("lib/llm/gen-ui-tool.ts");
 
 export const RENDER_GEN_UI_TOOL_NAME = "render_gen_ui";
 
-export function createRenderGenUiTool() {
+export function createRenderGenUiTool({ allowComposition = false } = {}) {
   let callsThisTurn = 0;
-  let firstBlock: GenUIBlock | null = null;
+  let firstBlock: GenUIChatBlock | null = null;
 
   return tool({
     description:
-      "Render a structured UI block in the chat thread. Use at most once per assistant turn when a structured block clearly helps. Pass the block as `block`. Types: answer-card (multi-point answers), decision-matrix (comparisons), plan-timeline (sequential plans), audio-snippet (listen/recap requests only), recipe-card, shopping-list, restaurant-card (use gather_restaurant first for verified venue data), code-diff (a change to existing code: pass unified-diff text per file; the app parses it). Respect schema size caps.",
-    inputSchema: z.object({ block: GenUIBlockSchema }),
+      "Render a structured UI block in the chat thread. Use at most once per assistant turn when a structured block clearly helps. Pass the block as `block`. Types: answer-card (multi-point answers), decision-matrix (comparisons), plan-timeline (sequential plans), audio-snippet (listen/recap requests only), recipe-card, shopping-list, restaurant-card (use gather_restaurant first for verified venue data), code-diff (a change to existing code: pass unified-diff text per file; the app parses it), measure (rows on a shared numeric scale: share of a whole, ranges, scores, progress), profile-map (Living Profile domains and nodes with dependency chips), ergon-board (status board of todos/tickets), ergon-proposal (consent gate before writes), state-diagram (named states + transitions), prompt-field (editable draft with suggestion chips), progress-track (one progress bar with milestones), context-switchboard (toggle memories/files/assumptions that shaped an answer), ripple-preview (stage a change and approve cascading effects), hyp-graph (causal nodes + directed edges with optional confidence), audit-line (timeline of actors/actions that produced the answer), preview-blob (https preview thumbnail before a full graphic render). Respect schema size caps." +
+      (allowComposition ? `\n${COMPOSITION_TOOL_GUIDANCE}` : ""),
+    inputSchema: z.object({ block: allowComposition ? GenUIChatBlockSchema : GenUIBlockSchema }),
     execute: async ({ block }) => {
       callsThisTurn += 1;
 
@@ -32,7 +34,7 @@ export function createRenderGenUiTool() {
 
       firstBlock = block;
 
-      const blockSizeBytes = JSON.stringify(block).length;
+      const blockSizeBytes = new TextEncoder().encode(JSON.stringify(block)).length;
 
       logger.log("render_gen_ui", "[render_gen_ui] rendered structured block", {
         event: "gen_ui_rendered",

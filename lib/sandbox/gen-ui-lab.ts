@@ -52,20 +52,55 @@ export function buildDefaultBlockMap(): Record<GenUIBlockType, GenUIBlock> {
     map[block.type] = block;
   }
 
+  for (const type of GEN_UI_BLOCK_TYPES) {
+    if (!map[type]) {
+      throw new Error(`Gen UI Lab fixture missing for block type: ${type}`);
+    }
+  }
+
   return map;
+}
+
+/**
+ * One-line lab hint per archetype. Required for every `GEN_UI_BLOCK_TYPES` entry so the
+ * gallery, Aion prompt, and fixtures cannot drift when a block is added.
+ */
+export const GEN_UI_LAB_ARCHETYPE_HINTS: Record<GenUIBlockType, string> = {
+  "answer-card": "multi-point answers with TL;DR and key points",
+  "decision-matrix": "weighted comparisons across options",
+  "plan-timeline": "phased plans with step status",
+  "audio-snippet": "listen/recap scripts",
+  "recipe-card": "ingredients + steps for a dish",
+  "shopping-list": "grouped grocery items with have/need status",
+  "restaurant-card":
+    "venue with hero/gallery https images, combined ratings (yelp/google/beli), hours, menu with lastUpdated, popular times, links",
+  "research-report": "Lyra research synopses, takeaways, and quoted evidence",
+  "code-diff": "unified-diff change to existing code (path + diff per file)",
+  measure: "rows on a shared numeric scale (share, ranges, scores, progress)",
+  "profile-map": "Living Profile domains and nodes with dependency chips",
+  "ergon-board": "status board of personal todos and engineering tickets",
+  "ergon-proposal": "consent gate before applying Ergon changes",
+  "state-diagram": "named states and transitions (no layout engine)",
+  "prompt-field": "editable draft prompt with suggestion chips",
+  "progress-track": "one progress bar with milestone markers",
+  "context-switchboard": "toggle memories/files/assumptions that shaped an answer",
+  "ripple-preview": "stage a change and approve cascading ripples",
+  "hyp-graph": "causal / hypothesis nodes and directed edges",
+  "audit-line": "timeline of state changes that produced an answer",
+  "preview-blob": "low-cost https graphic preview before a full render",
+};
+
+function labArchetypeList(): string {
+  return GEN_UI_BLOCK_TYPES.map((type) => `- ${type} — ${GEN_UI_LAB_ARCHETYPE_HINTS[type]}`).join(
+    "\n"
+  );
 }
 
 export const GEN_UI_LAB_AION_SYSTEM =
   `You are Aion in the Gen UI Lab — a sandbox for structured UI archetypes.
 
 Available block types (archetypes):
-- answer-card — multi-point answers with TL;DR and key points
-- decision-matrix — weighted comparisons across options
-- plan-timeline — phased plans with step status
-- audio-snippet — listen/recap scripts
-- recipe-card — ingredients + steps for a dish
-- shopping-list — grouped grocery items with have/need status
-- restaurant-card — venue with hero/gallery https images, combined ratings (yelp/google/beli), hours, menu with lastUpdated, popular times, links
+${labArchetypeList()}
 
 Tools:
 - select_gen_ui_archetype — when the user wants to view, focus, or switch to a specific archetype

@@ -21,11 +21,9 @@ export function sampleFor(id: string): LanguageSample {
   return BY_ID.get(id) ?? LANGUAGE_SAMPLES[0]!;
 }
 
-const fence = (language: string, code: string) => `\`\`\`${language}\n${code}\n\`\`\``;
-
 /** The Code page's Snippet slide: a short lead-in and the language's sample, fenced as a model would. */
 export function snippetMarkdown(sample: LanguageSample): string {
-  return `Here is the change in ${codeLanguageLabel(sample.id)}:\n\n${fence(sample.id, sample.code)}`;
+  return `Here is the change in ${codeLanguageLabel(sample.id)}:\n\n\`\`\`${sample.id}\n${sample.code}\n\`\`\``;
 }
 
 /** A code-diff block for a language's sample, exactly as the model would send it. */

@@ -50,7 +50,7 @@ describe("Gen UI comparison arrangement demo", () => {
     expect(view.getByText(question)).toBeTruthy();
     fireEvent.click(view.getByRole("button", { name: "Previous arrangement" }));
     expect(view.getByLabelText("Arrangement 5 of 5")).toBeTruthy();
-    expect(view.getByText("Compact briefing")).toBeTruthy();
+    expect(view.getByText("Condensed briefing")).toBeTruthy();
     fireEvent.click(view.getByRole("button", { name: "Next arrangement" }));
     expect(view.getByLabelText("Arrangement 1 of 5")).toBeTruthy();
     expect(view.getByText(question)).toBeTruthy();
@@ -116,7 +116,7 @@ describe("Gen UI comparison arrangement demo", () => {
     }
   });
 
-  test("auto pauses when the comparison is not the selected gallery component", () => {
+  test("auto stays off after returning to the comparison", () => {
     const view = render(<DemoHarness />);
     fireEvent.click(view.getByRole("button", { name: "Auto" }));
     advance();
@@ -125,6 +125,11 @@ describe("Gen UI comparison arrangement demo", () => {
     advance();
     expect(view.getByLabelText("Arrangement 2 of 5")).toBeTruthy();
     view.rerender(<DemoHarness active />);
+    advance();
+    expect(view.getByLabelText("Arrangement 2 of 5")).toBeTruthy();
+    expect(view.getByRole("button", { name: "Auto" }).getAttribute("aria-pressed")).toBe("false");
+
+    fireEvent.click(view.getByRole("button", { name: "Auto" }));
     advance();
     expect(view.getByLabelText("Arrangement 3 of 5")).toBeTruthy();
   });

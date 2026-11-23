@@ -10,7 +10,7 @@
   /* Row geometry, shared by the rows, the spine and the indented detail so they stay aligned. */
   --plan-pad-x: var(--spacing-inset-sm); /* 8px — rows tint edge to edge, text sits inset */
   --plan-pad-y: var(--spacing-stack-sm); /* 8px → 36px rows; 44px on coarse pointers (below) */
-  --plan-line: 1.25rem; /* one row line; the mark centres on it */
+  --plan-line: calc(var(--spacing) * 5); /* one row line; the mark centres on it */
   --plan-mark: 1rem;
   --plan-number: 1.125rem; /* "02" in tabular figures */
   --plan-gap: var(--spacing-inline-sm);
@@ -27,14 +27,14 @@
    * Type roles — the only sizes in the card. Every text run picks one role; a lead-in and the
    * value it introduces always share a role, so they share a size, line-height and baseline.
    * Step numbers are the one deliberate step down beside a label (meta beside body), as in a list.
-   *   body  13px / 20px  step labels, notes, sub-steps, relationship lead-ins + links
+   *   body  14px / 20px  step labels, notes, sub-steps, relationship lead-ins + links
    *   meta  12px / 18px  numbers, rail, summary, collapsed meta, reason line, facts
    *   tag   10px         the uppercase status word beside a label (Tailwind `text-2xs`)
    */
-  --plan-text-body: 0.8125rem;
-  --plan-text-meta: 0.75rem;
-  --plan-line-meta: 1.125rem;
-  --plan-text-tag: 0.625rem;
+  --plan-text-body: var(--text-sm);
+  --plan-text-meta: var(--text-xs);
+  --plan-line-meta: calc(var(--text-xs) * var(--leading-normal));
+  --plan-text-tag: var(--text-2xs);
 
   /*
    * Motion. The disclosure band from docs/design/motion-and-text-timing.md (recipient picker:
@@ -50,8 +50,8 @@
   container-type: inline-size;
   min-width: 0;
   color: var(--foreground);
-  font-size: 0.875rem; /* 14px */
-  line-height: 1.5;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
 }
 
 /*
@@ -114,10 +114,10 @@
 .title {
   margin: 0;
   min-width: 0;
-  font-size: 1rem; /* 16px — card heading, not a hero */
-  line-height: 1.35;
-  font-weight: 600;
-  letter-spacing: -0.015em;
+  font-size: var(--text-base);
+  line-height: var(--leading-snug);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-tight);
   overflow-wrap: anywhere;
 }
 
@@ -146,7 +146,7 @@
 
 .tally {
   display: flex;
-  gap: 2px; /* hairline between segments, below the token scale on purpose */
+  gap: calc(var(--spacing) * 0.5); /* hairline between segments, below the token scale on purpose */
 }
 
 .segment {
@@ -170,14 +170,14 @@
 
 .statusWord {
   color: var(--plan-tone-text);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 
 /* Tag role: the status word beside a step's name, in a row or in a relationship link. */
 .rowLabel .statusWord,
 .link .statusWord {
   font-size: var(--plan-text-tag);
-  letter-spacing: 0.05em;
+  letter-spacing: var(--tracking-wider);
   text-transform: uppercase;
   white-space: nowrap;
 }
@@ -289,7 +289,7 @@ button.rowHead {
 }
 
 .rowLabel .statusWord {
-  margin-left: 2px;
+  margin-left: calc(var(--spacing) * 0.5);
 }
 
 .row[data-status="done"] .rowLabel {
@@ -302,7 +302,7 @@ button.rowHead {
 }
 
 .row[data-status="now"] .rowLabel {
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 
 .rowHead:focus-visible .rowLabel,
@@ -343,7 +343,7 @@ div.rowHead:hover .rowLabel {
 .rowMeta {
   display: flex;
   flex-wrap: wrap;
-  column-gap: 6px;
+  column-gap: calc(var(--spacing) * 1.5);
   color: var(--muted-foreground);
   font-size: var(--plan-text-meta);
   line-height: var(--plan-line-meta);
@@ -353,7 +353,7 @@ div.rowHead:hover .rowLabel {
 .rowMeta > * + *::before {
   content: "·";
   content: "·" / "";
-  margin-right: 6px;
+  margin-right: calc(var(--spacing) * 1.5);
 }
 
 /* ── Lead-in + text: "Why blocked  Awaiting sign-off", "Estimate  20 min" ── */
@@ -362,12 +362,12 @@ div.rowHead:hover .rowLabel {
    halves differ only in weight and colour, so they always share a baseline and wrap as prose. */
 .leadLabel {
   color: var(--plan-lead-tone, var(--muted-foreground));
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 
 .leadText {
   color: var(--foreground);
-  font-weight: 400;
+  font-weight: var(--font-weight-normal);
 }
 
 .leadMissing {
@@ -473,7 +473,7 @@ div.rowHead:hover .rowLabel {
   margin: 0;
   color: var(--muted-foreground);
   font-size: var(--plan-text-body);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   line-height: var(--plan-line);
   font-variant-numeric: tabular-nums;
 }
@@ -497,7 +497,7 @@ div.rowHead:hover .rowLabel {
   flex: 0 0 auto;
   width: 0.875rem;
   height: 0.875rem;
-  margin-top: calc((var(--plan-line) - 0.875rem) / 2);
+  margin-top: calc((var(--plan-line) - var(--spacing) * 3.5) / 2);
   color: var(--muted-foreground);
 }
 
@@ -557,10 +557,10 @@ div.rowHead:hover .rowLabel {
   display: inline-flex;
   flex-wrap: wrap;
   align-items: baseline;
-  column-gap: 6px;
+  column-gap: calc(var(--spacing) * 1.5);
   max-width: 100%;
-  margin: 0 -4px;
-  padding: 0 4px;
+  margin: 0 calc(var(--spacing) * -1);
+  padding: 0 calc(var(--spacing) * 1);
   border: 0;
   border-radius: 4px;
   background: transparent;
@@ -623,7 +623,7 @@ div.rowHead:hover .rowLabel {
 }
 
 .condensed .tally {
-  margin: 2px 0;
+  margin: calc(var(--spacing) * 0.5) 0;
 }
 
 .condensedTitle {
@@ -632,25 +632,25 @@ div.rowHead:hover .rowLabel {
   -webkit-line-clamp: 2;
   margin: 0;
   overflow: hidden;
-  font-size: 0.875rem;
-  line-height: 1.4;
-  font-weight: 600;
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+  font-weight: var(--font-weight-semibold);
   overflow-wrap: anywhere;
 }
 
 .condensedLead {
   display: flex;
   align-items: flex-start;
-  gap: 6px;
+  gap: calc(var(--spacing) * 1.5);
   margin: 0;
   font-size: var(--plan-text-meta);
-  line-height: 1.25rem;
+  line-height: var(--plan-line);
 }
 
 .condensedLead .mark {
   width: 0.875rem;
   height: 0.875rem;
-  margin-top: 0.1875rem;
+  margin-top: calc(var(--spacing) * 0.75);
 }
 
 .condensedLead > span {

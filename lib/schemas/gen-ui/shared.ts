@@ -13,6 +13,18 @@ export const GEN_UI_BLOCK_TYPES = [
   "restaurant-card",
   "research-report",
   "code-diff",
+  "measure",
+  "profile-map",
+  "ergon-board",
+  "ergon-proposal",
+  "state-diagram",
+  "prompt-field",
+  "progress-track",
+  "context-switchboard",
+  "ripple-preview",
+  "hyp-graph",
+  "audit-line",
+  "preview-blob",
 ] as const;
 
 export type GenUIBlockType = (typeof GEN_UI_BLOCK_TYPES)[number];

@@ -40,7 +40,7 @@ export function RestaurantCardCondensed({
   return (
     <button
       type="button"
-      className="group flex w-full gap-3 rounded-xl text-left transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:bg-muted/50 focus-visible:underline focus-visible:underline-offset-4"
+      className="group flex w-full gap-inline-md rounded-xl text-left transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:bg-muted/50 focus-visible:underline focus-visible:underline-offset-4"
       onClick={onExpand}
     >
       <div
@@ -57,7 +57,7 @@ export function RestaurantCardCondensed({
         />
       </div>
 
-      <div className="flex min-w-0 flex-1 flex-col justify-center gap-1 py-0.5">
+      <div className="flex min-w-0 flex-1 flex-col justify-center gap-inline-xs py-0.5">
         <p
           className="truncate text-sm font-semibold leading-snug text-foreground"
           style={viewTransitionStyle(viewTransitionNames.title, {
@@ -69,7 +69,7 @@ export function RestaurantCardCondensed({
 
         {rating ? (
           <div
-            className="flex flex-wrap items-center gap-x-2 gap-y-0.5"
+            className="flex flex-wrap items-center gap-x-inline-sm gap-y-0.5"
             style={viewTransitionStyle(viewTransitionNames.rating, {
               viewTransitionClass: RESTAURANT_CARD_RATING_VT_CLASS,
             })}
@@ -81,7 +81,7 @@ export function RestaurantCardCondensed({
           </div>
         ) : null}
 
-        <p className="text-[11px] text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           {rating ? `${formatReviewCount(rating.reviewCount)} reviews` : "Reviews unavailable"}
           <span aria-hidden className="mx-1.5 text-border">
             ·

@@ -108,14 +108,15 @@ function isIgnorablePlayError(err: unknown): boolean {
 }
 
 const META_CONTROL_CLASS =
-  "rounded-sm text-[11px] text-muted-foreground transition-colors hover:text-foreground hover:underline hover:underline-offset-2 focus-visible:outline-none focus-visible:text-foreground focus-visible:underline focus-visible:underline-offset-2 motion-reduce:transition-none";
+  "rounded-sm text-xs text-muted-foreground transition-colors hover:text-foreground hover:underline hover:underline-offset-2 focus-visible:outline-none focus-visible:text-foreground focus-visible:underline focus-visible:underline-offset-2 motion-reduce:transition-none";
 
 type AudioSnippetProps = {
   block: AudioSnippetBlock;
   partial?: boolean;
+  condensed?: boolean;
 };
 
-export function AudioSnippet({ block, partial }: AudioSnippetProps) {
+export function AudioSnippet({ block, partial, condensed = false }: AudioSnippetProps) {
   const scriptPanelId = useId();
   const cost = useMemo(
     () => calculateTokenUsage(block.script, AUDIO_SNIPPET_TTS_MODEL),
@@ -423,24 +424,30 @@ export function AudioSnippet({ block, partial }: AudioSnippetProps) {
               block.preview.title
             )}
           </p>
-          <p className="text-sm text-muted-foreground leading-snug">{block.preview.teaser}</p>
+          {!condensed ? (
+            <p className="text-sm text-muted-foreground leading-snug">{block.preview.teaser}</p>
+          ) : null}
 
           <div
             className={cn(
-              "flex flex-wrap items-center gap-y-stack-xs text-[11px] text-muted-foreground",
+              "flex flex-wrap items-center gap-y-stack-xs text-xs text-muted-foreground",
               spacing.gap.sm
             )}
           >
-            {metaItems.map((item) => (
-              <span
-                key={item.key}
-                className="inline-flex items-center gap-inline-sm whitespace-nowrap"
-              >
-                <span className={item.tabularNums ? "tabular-nums" : undefined}>{item.label}</span>
-                {/* Trailing sep keeps · off the next line start when the row wraps. */}
-                <span aria-hidden="true">·</span>
-              </span>
-            ))}
+            {metaItems
+              .filter((item) => !condensed || item.key !== "tone")
+              .map((item) => (
+                <span
+                  key={item.key}
+                  className="inline-flex items-center gap-inline-sm whitespace-nowrap"
+                >
+                  <span className={item.tabularNums ? "tabular-nums" : undefined}>
+                    {item.label}
+                  </span>
+                  {/* Trailing sep keeps · off the next line start when the row wraps. */}
+                  <span aria-hidden="true">·</span>
+                </span>
+              ))}
             <button
               type="button"
               className={cn(META_CONTROL_CLASS, "whitespace-nowrap")}
@@ -480,10 +487,10 @@ export function AudioSnippet({ block, partial }: AudioSnippetProps) {
           {scriptOpen ? (
             <div id={scriptPanelId} className={cn("pt-stack-sm", spacing.card.labelStack)}>
               <div className="flex items-center justify-between gap-inline-sm">
-                <p className="text-[11px] text-muted-foreground">Transcript</p>
+                <p className="text-xs text-muted-foreground">Transcript</p>
                 <button
                   type="button"
-                  className={cn(META_CONTROL_CLASS, "inline-flex items-center gap-1")}
+                  className={cn(META_CONTROL_CLASS, "inline-flex items-center gap-inline-xs")}
                   aria-label={scriptCopied ? "Script copied" : "Copy script"}
                   onClick={() => void handleCopyScript()}
                 >

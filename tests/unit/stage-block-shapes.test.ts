@@ -6,7 +6,8 @@ test("designer block shapes are compact enough to ride in the prompt", () => {
   const shapes = designerBlockShapes();
 
   expect(shapes).toContain("shopping-list");
-  expect(shapes.length).toBeLessThan(16_000);
+  // Grows with designer-authored archetypes; keep under a soft budget for the stage prompt.
+  expect(shapes.length).toBeLessThan(24_000);
 });
 
 test("block parsing names the fields that failed", () => {

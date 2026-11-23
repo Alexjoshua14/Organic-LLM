@@ -61,16 +61,16 @@ const blockComponents: Components = {
     <p {...props} className="text-[length:inherit] leading-[inherit]" />
   ),
   ul: ({ node: _node, ...props }) => (
-    <ul {...props} className="list-disc space-y-1 pl-4 marker:text-muted-foreground/60" />
+    <ul {...props} className="list-disc space-y-stack-xs pl-inset-lg marker:text-muted-foreground/60" />
   ),
   ol: ({ node: _node, ...props }) => (
-    <ol {...props} className="list-decimal space-y-1 pl-5 marker:text-muted-foreground/70" />
+    <ol {...props} className="list-decimal space-y-stack-xs pl-5 marker:text-muted-foreground/70" />
   ),
   li: ({ node: _node, ...props }) => <li {...props} className="pl-0.5" />,
   pre: ({ node: _node, ...props }) => (
     <chatMarkdownCodeComponents.pre
       {...props}
-      className="rounded-lg bg-muted/50 p-3 font-mono text-xs leading-relaxed text-foreground/90"
+      className="rounded-lg bg-muted/50 p-inset-md font-mono text-xs leading-relaxed text-foreground/90"
     />
   ),
 };
@@ -119,7 +119,7 @@ export const GenUIMarkdown = memo(function GenUIMarkdown({
   }
 
   return (
-    <div className={cn("space-y-2", className)}>
+    <div className={cn("space-y-stack-sm", className)}>
       <ReactMarkdown components={blockComponents} remarkPlugins={[remarkGfm]}>
         {preserveLineBreaks(children)}
       </ReactMarkdown>

@@ -47,7 +47,7 @@ const sectionHeaderInteractiveClass = cn(
   "cursor-pointer list-none rounded-none",
   controlFocus
 );
-const labelClass = "text-2xs font-semibold uppercase tracking-[0.1em] text-muted-foreground";
+const labelClass = "text-2xs font-semibold uppercase tracking-widest text-muted-foreground";
 const linkClass =
   "underline underline-offset-2 focus-visible:outline-none focus-visible:bg-foreground focus-visible:text-background focus-visible:decoration-2";
 

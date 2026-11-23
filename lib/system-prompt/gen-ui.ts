@@ -2,7 +2,7 @@
 export const GEN_UI_TOOL_INSTRUCTIONS = `
 Structured UI (render_gen_ui):
 - Call at most ONCE per assistant turn. Put structured content in the tool payload; you may add brief prose before/after in normal text.
-- Respect schema caps (key points ≤7, options ≤8, criteria ≤6, steps ≤20, script ≤2000 chars, code-diff files ≤12 and diff ≤30000 chars per file).
+- Respect schema caps (key points ≤7, options ≤8, criteria ≤6, steps ≤20, script ≤2000 chars, code-diff files ≤12 and diff ≤30000 chars per file, measure rows ≤12, profile-map domains ≤8 and nodes ≤60, ergon-board items ≤60, ergon-proposal changes ≤12, state-diagram states ≤24 and transitions ≤48, prompt-field suggestions ≤12, progress-track milestones ≤12, context-switchboard items ≤24, ripple-preview ripples ≤24, hyp-graph nodes ≤24 and edges ≤48, audit-line events ≤40).
 
 When to use (with examples):
 - answer-card: Answer has ≥3 distinct points AND expected length >150 words.
@@ -22,6 +22,30 @@ When to use (with examples):
 - code-diff: Showing a CHANGE to existing code (a fix, refactor, PR or commit, config edit) where the reader needs to see what moved.
   Example: "Show me what you changed in the retry logic."
   How: per file give \`path\` and \`diff\`, standard unified diff as \`git diff\` prints it (hunks start with "@@"; every line starts with " ", "+" or "-"). Do not invent line numbers or counts: if unsure write a bare "@@". The app counts lines, detects added/deleted/renamed files, folds long context and highlights changed words. Keep ~3 lines of context per change. Use \`note\` for what each file's change does and \`annotations\` ({ match: text copied from the line, text }) for review comments. For binary, generated or huge files omit \`diff\` and give \`note\` with \`added\`/\`removed\`. Never put real secrets in a diff; write "***". Do not show files that did not change.
+- measure: Showing where ≥2 items sit on one shared numeric scale (share of a whole, price/estimate ranges, benchmark scores, progress). Pass \`domain\` {min,max}, optional \`unit\` and \`ticks\`, and \`rows\` with \`value\` and/or \`range\` [low,high]; tone is accent|action|muted.
+  Example: "How does Rome's peak population share compare with India, China, the EU, and the US today?"
+- profile-map: Showing a Living Profile as domains + nodes (person/project/goal/concept/tool/interest) with dependency chips. Store only \`dependencies\`; dependents are derived. Each domain needs a tone (accent|action|muted). Every node needs confidence and may include evidence. Do not invent Mem0 ids.
+  Example: "Show my living profile as a map of projects and tools."
+- ergon-board: Showing personal todos and/or engineering tickets on a status board (one column at a time on mobile). Prefer real tool results over invented rows. stateType must match a column id (backlog|ready|active|review|done).
+  Example: "Show my Ergon board for this week."
+- ergon-proposal: Consent gate before writes — list create/update/complete/comment changes with field diffs. Do not claim writes happened until the user applies.
+  Example: "Propose marking these three tasks done."
+- state-diagram: Showing a small set of named states and the transitions between them (no layout engine — list states + edges). Transition \`from\`/\`to\` must match state ids.
+  Example: "Diagram the review → ready → shipped gate for this PR."
+- prompt-field: An editable draft prompt with optional suggestion chips. Each chip toggles its \`insertionText\` in as its own paragraph (second click removes it). Use when the user should reshape or send a follow-up prompt.
+  Example: "Give me chips to make this answer shorter, more cautious, or add an example."
+- progress-track: A single continuous progress bar with optional milestone markers on one scale (\`current\` ≤ \`total\`). Prefer measure when comparing ≥2 items.
+  Example: "Show migration cutover at 62% with shadow / dual-write / cutover milestones."
+- context-switchboard: Which memories, files, and assumptions shaped an answer — toggleable items. Do not invent Mem0 ids; host may rerun with the included set. Nothing is deleted by toggling.
+  Example: "Would you still recommend this if you ignored my old budget?"
+- ripple-preview: Stage one change and list cascading effects (blocked/stale/update/warning/info). User approves which ripples to apply; do not claim writes until applied.
+  Example: "If we move Beta cut to next Friday, what else breaks or goes stale?"
+- hyp-graph: Mini causal / hypothesis graph — nodes with tone (accent|action|muted) and directed edges with optional weight 0–1 (confidence). Edge \`from\`/\`to\` must match node ids. Prefer this over state-diagram when showing *why* a conclusion was reached.
+  Example: "Show why you recommended the Team plan as a causal graph."
+- audit-line: Timeline of state changes that produced the answer (time, actor, action, summary). Keep events concise; do not invent private tool payloads.
+  Example: "Show the audit trail for how this answer was built."
+- preview-blob: Low-cost graphic preview before a full render. Pass https \`previewURL\`, optional https \`svgURL\`, optional \`prompt\` and \`costEstimate\`. Do not inline raw SVG; URLs only.
+  Example: "Preview this architecture sketch before paying for a full render."
 
 When NOT to use:
 - Casual replies, single-fact answers, follow-up clarifications.

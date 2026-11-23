@@ -523,20 +523,25 @@ describe("scaffoldFromStreamBudget", () => {
 });
 
 describe("estimateTokenCountSync", () => {
-  test("the lite o200k tokenizer counts exactly like the full gpt-5 encoding", () => {
-    const full = encodingForModel("gpt-5");
-    const samples = [
-      "user: Counting tokens with the shared o200k encoder.",
-      "const square = (a: number) => a ** 2; // 🚀 ✨",
-      "日本語のテキストと한국어 그리고 العربية",
-      "  spaced\n\n\ttabs  ",
-      "a".repeat(5_000),
-    ];
+  // js-tiktoken's full encoding load can exceed Bun's 5s default under CI load.
+  test(
+    "the lite o200k tokenizer counts exactly like the full gpt-5 encoding",
+    () => {
+      const full = encodingForModel("gpt-5");
+      const samples = [
+        "user: Counting tokens with the shared o200k encoder.",
+        "const square = (a: number) => a ** 2; // 🚀 ✨",
+        "日本語のテキストと한국어 그리고 العربية",
+        "  spaced\n\n\ttabs  ",
+        "a".repeat(5_000),
+      ];
 
-    for (const sample of samples) {
-      expect(estimateTokenCountSync(sample)).toBe(full.encode(sample.trim()).length);
-    }
-  });
+      for (const sample of samples) {
+        expect(estimateTokenCountSync(sample)).toBe(full.encode(sample.trim()).length);
+      }
+    },
+    { timeout: 20_000 }
+  );
 
   test("text with a special token is approximated, as before", () => {
     const sample = "<|endoftext|> is a special token";

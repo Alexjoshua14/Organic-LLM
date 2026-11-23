@@ -90,6 +90,7 @@ describe("Code page language picker", () => {
   test("the language controls live on the Snippet and Diff slides only, and the row keeps its space", () => {
     const { page } = renderShell();
     const section = page("code-diff");
+    const presets = within(within(section).getByRole("group", { name: "Code presets" }));
     const controls = () => within(section).queryByRole("group", { name: "Language" });
     const next = () =>
       fireEvent.click(within(section).getByRole("button", { name: "Next preset" }));
@@ -98,10 +99,10 @@ describe("Code page language picker", () => {
 
     expect(controls()).not.toBeNull();
     next();
-    expect(within(section).getByText("Diff")).toBeTruthy();
+    expect(presets.getByText("Diff")).toBeTruthy();
     expect(controls()).not.toBeNull();
     next();
-    expect(within(section).getByText("Fixture")).toBeTruthy();
+    expect(presets.getByText("Fixture")).toBeTruthy();
     expect(controls()).toBeNull();
     // The reserved row stays in the toolbar, so the arrows and the preview do not move.
     expect(section.querySelector(".min-h-9")).not.toBeNull();
@@ -224,7 +225,9 @@ describe("Diff slide language picker", () => {
       seen.push(shown());
     }
     for (let i = 1; i < seen.length; i += 1) expect(seen[i]).not.toBe(seen[i - 1]);
-    expect(within(section).getByText("Diff")).toBeTruthy();
+    const presets = within(section).getByRole("group", { name: "Code presets" });
+
+    expect(within(presets).getByText("Diff")).toBeTruthy();
   });
 
   test("Shuffle stops when the reader leaves for the Fixture slide", () => {

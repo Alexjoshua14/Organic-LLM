@@ -2,12 +2,13 @@
 
 import { useMemo } from "react";
 
+import { CompositionView, type CompositionDensity } from "./CompositionView";
 import { GenUIFallbackMarkdown } from "./GenUIFallbackMarkdown";
 import { GEN_UI_REGISTRY } from "./registry";
 
 import {
   extractGenUIBlockFromToolOutput,
-  safeParseGenUIBlock,
+  safeParseGenUIChatBlock,
   type GenUIBlock,
 } from "@/lib/schemas/gen-ui";
 import { cn } from "@/lib/utils";
@@ -16,6 +17,7 @@ type GenUIRendererProps = {
   /** Raw tool output or block object. */
   data: unknown;
   messageId?: string;
+  compositionDensity?: CompositionDensity;
 };
 
 function renderBlock(block: GenUIBlock, partial: boolean) {
@@ -28,15 +30,23 @@ function renderBlock(block: GenUIBlock, partial: boolean) {
   );
 }
 
-export function GenUIRenderer({ data, messageId }: GenUIRendererProps) {
+export function GenUIRenderer({ data, messageId, compositionDensity }: GenUIRendererProps) {
   // Schema validation walks the whole block; redo it only when the tool output changes.
   const { raw, parsed } = useMemo(() => {
     const raw = extractGenUIBlockFromToolOutput(data);
 
-    return { raw, parsed: safeParseGenUIBlock(raw) };
+    return { raw, parsed: safeParseGenUIChatBlock(raw) };
   }, [data]);
 
   if (parsed.ok) {
+    if (parsed.block.type === "composition") {
+      return (
+        <div className="not-prose">
+          <CompositionView block={parsed.block} density={compositionDensity} />
+        </div>
+      );
+    }
+
     return renderBlock(parsed.block, parsed.hadPartialFailures);
   }
 

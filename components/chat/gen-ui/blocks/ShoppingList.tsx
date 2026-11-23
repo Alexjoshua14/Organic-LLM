@@ -13,6 +13,7 @@ export type ShoppingItemLocation = { groupIndex: number; itemIndex: number };
 type ShoppingListProps = {
   block: ShoppingListBlock;
   partial?: boolean;
+  condensed?: boolean;
   /**
    * When provided, the checkbox is controlled by the caller (used by the mise view): `block`
    * already carries the state. When omitted, the list keeps the tick in local view state.
@@ -58,6 +59,7 @@ export function ShoppingList({
   partial,
   onToggleChecked,
   onToggleStatus,
+  condensed = false,
 }: ShoppingListProps) {
   const local = useLocalItemState(block);
   const toggleChecked =
@@ -95,19 +97,16 @@ export function ShoppingList({
     .filter((i) => i.status === "need" && !i.checked).length;
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-baseline justify-between gap-2">
+    <div className={condensed ? "space-y-stack-sm" : "space-y-stack-md"}>
+      <div className="flex items-baseline justify-between gap-inline-sm">
         <p className="text-sm font-semibold text-foreground">{block.title}</p>
-        <span className="text-[11px] text-muted-foreground">{needCount} still to buy</span>
+        <span className="text-xs text-muted-foreground">{needCount} still to buy</span>
       </div>
 
-      <div className="space-y-3">
-        {block.groups.map((group, groupIndex) => (
-          <div key={group.category}>
-            <p className="mb-1.5 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {group.category}
-            </p>
-            <ul className="space-y-1">
+      <div className={condensed ? "space-y-stack-sm" : "space-y-stack-md"}>
+        {block.groups.map((group, groupIndex) => {
+          const items = (
+            <ul className="space-y-stack-xs">
               {group.items.map((rawItem, itemIndex) => {
                 const item = { ...rawItem, ...resolve(groupIndex, itemIndex, rawItem) };
                 const Box = item.checked ? Check : Square;
@@ -117,7 +116,7 @@ export function ShoppingList({
                 return (
                   <li
                     key={`${item.name}-${itemIndex}`}
-                    className="flex items-center gap-2 text-xs text-foreground"
+                    className="flex items-center gap-inline-sm text-xs text-foreground"
                   >
                     {/* Interactive unless `partial`: a streaming list can still change under the user. */}
                     {partial ? (
@@ -141,7 +140,7 @@ export function ShoppingList({
 
                     <span className={cn("flex-1", item.checked && "line-through opacity-60")}>
                       {itemText(item.name, item.quantity, item.unit)}
-                      {item.recipe ? (
+                      {item.recipe && !condensed ? (
                         <span className="text-muted-foreground"> — {item.recipe}</span>
                       ) : null}
                     </span>
@@ -149,7 +148,7 @@ export function ShoppingList({
                     {!partial ? (
                       <button
                         className={cn(
-                          "rounded-full px-2 py-0.5 text-2xs font-medium focus-visible:outline-none focus-visible:underline",
+                          "rounded-full px-inset-sm py-0.5 text-2xs font-medium focus-visible:outline-none focus-visible:underline",
                           item.status === "have"
                             ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
                             : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
@@ -162,7 +161,7 @@ export function ShoppingList({
                     ) : (
                       <span
                         className={cn(
-                          "rounded-full px-2 py-0.5 text-2xs font-medium",
+                          "rounded-full px-inset-sm py-0.5 text-2xs font-medium",
                           item.status === "have"
                             ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
                             : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
@@ -175,8 +174,30 @@ export function ShoppingList({
                 );
               })}
             </ul>
-          </div>
-        ))}
+          );
+
+          if (condensed && block.groups.length > 1) {
+            return (
+              <details key={group.category} open={groupIndex === 0}>
+                <summary className="organic-focus cursor-pointer wrap-anywhere text-xs font-medium">
+                  {group.category} · {group.items.length}
+                </summary>
+                <div className="mt-stack-xs">{items}</div>
+              </details>
+            );
+          }
+
+          return (
+            <div key={group.category}>
+              {!condensed ? (
+                <p className="mb-1.5 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {group.category}
+                </p>
+              ) : null}
+              {items}
+            </div>
+          );
+        })}
       </div>
 
       {partial ? <div className="h-3 w-1/2 rounded bg-muted/40 animate-pulse" /> : null}

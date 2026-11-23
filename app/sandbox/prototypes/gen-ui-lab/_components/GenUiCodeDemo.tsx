@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import type { CodeDiffBlock, GenUIBlock } from "@/lib/schemas/gen-ui";
 
 import {
@@ -9,6 +10,7 @@ import {
 import { useGenUiLanguageRotation } from "../_hooks/use-gen-ui-language-rotation";
 
 import { GenUiArrangementPauseZone, GenUiArrangementToolbar } from "./GenUiArrangementToolbar";
+import { CondensedCard, CondensedDetail, GenUiCondensedBlock } from "./GenUiCondensedPreviews";
 import { GenUiLanguageControls } from "./GenUiLanguageControls";
 import {
   buildLanguageDiffBlock,
@@ -32,7 +34,9 @@ import { GenUIRenderer } from "@/components/chat/gen-ui/GenUIRenderer";
  */
 export const LAB_CODE_LABEL = "Code";
 
-const fence = (language: string, code: string) => `\`\`\`${language}\n${code}\n\`\`\``;
+function demoCodeFence(language: string, code: string) {
+  return `\`\`\`${language}\n${code}\n\`\`\``;
+}
 
 const REFERENCE = [
   'import { z } from "zod";',
@@ -114,35 +118,35 @@ export const LAB_CODE_PRESETS: ReadonlyArray<CodePreset> = [
     name: "Reference",
     intent:
       "A whole function you read top to bottom: line numbers, comments, types, indentation guides.",
-    markdown: `Here is the complete module:\n\n${fence("ts", REFERENCE)}`,
+    markdown: `Here is the complete module:\n\n${demoCodeFence("ts", REFERENCE)}`,
   },
   {
     id: "command",
     kind: "markdown",
     name: "Command",
     intent: "Shell is for copying. One line, one clear Copy code.",
-    markdown: `Install and run the unit tests:\n\n${fence("bash", "bun install\nbun run test:unit")}\n\nOr just one file:\n\n${fence("sh", "bun run test:unit tests/unit/foo.test.ts --verbose")}`,
+    markdown: `Install and run the unit tests:\n\n${demoCodeFence("bash", "bun install\nbun run test:unit")}\n\nOr just one file:\n\n${demoCodeFence("sh", "bun run test:unit tests/unit/foo.test.ts --verbose")}`,
   },
   {
     id: "long-lines",
     kind: "markdown",
     name: "Long lines",
     intent: "Lines wider than the column. Toggle wrap in the header; it starts as a scroll.",
-    markdown: `These lines are wider than the chat column:\n\n${fence("ts", LONG_LINES)}`,
+    markdown: `These lines are wider than the chat column:\n\n${demoCodeFence("ts", LONG_LINES)}`,
   },
   {
     id: "plain",
     kind: "markdown",
     name: "Plain",
     intent: "No language, or one we do not highlight. Same layout, no colors, still copyable.",
-    markdown: `A fence with no language:\n\n${fence("", "plain output\n  indented line\nlast line")}\n\nAnd one we do not know:\n\n${fence("cobol", "IDENTIFICATION DIVISION.\nPROGRAM-ID. HELLO.")}`,
+    markdown: `A fence with no language:\n\n${demoCodeFence("", "plain output\n  indented line\nlast line")}\n\nAnd one we do not know:\n\n${demoCodeFence("cobol", "IDENTIFICATION DIVISION.\nPROGRAM-ID. HELLO.")}`,
   },
   {
     id: "long-block",
     kind: "markdown",
     name: "Long block",
     intent: "Ninety lines, past the streaming threshold. Complete on mount, so it colors at once.",
-    markdown: fence("ts", LONG_BLOCK),
+    markdown: demoCodeFence("ts", LONG_BLOCK),
   },
 ];
 
@@ -197,17 +201,46 @@ export function GenUiCodeDemoToolbar({ demo }: { demo: CodeDemoState }) {
 export function GenUiCodeDemo({
   demo,
   fixture,
+  condensed = false,
 }: {
   demo: CodeDemoState;
   /** The page's own schema fixture (what Generate with AI replaces). */
   fixture: GenUIBlock;
+  condensed?: boolean;
 }) {
   const preset = demo.arrangement;
   const sample = sampleFor(demo.rotation.language ?? DEFAULT_LANGUAGE);
 
+  const diff = preset.kind === "diff" ? buildLanguageDiffBlock(sample) : null;
+  const source =
+    preset.kind === "snippet"
+      ? sample.code
+      : (preset.markdown?.match(/```[^\n]*\n([\s\S]*?)\n```/)?.[1] ?? "");
+  const fullPreview = diff ? (
+    // Keyed by language so each step remounts, as a new message would.
+    <GenUIRenderer
+      key={sample.id}
+      data={{ block: diff }}
+      messageId={`lab-code-diff-${sample.id}`}
+    />
+  ) : preset.kind === "fixture" ? (
+    <GenUIRenderer data={{ block: fixture }} messageId="lab-code-diff" />
+  ) : (
+    <div className="ai-message prose dark:prose-invert max-w-full space-y-stack-sm text-foreground">
+      {/* Keyed by slide and language so each step remounts, as a new message would. */}
+      <ChatMessageMarkdown
+        key={`${preset.id}-${preset.kind === "snippet" ? sample.id : ""}`}
+        content={preset.kind === "snippet" ? snippetMarkdown(sample) : (preset.markdown ?? "")}
+        id={`lab-code-${preset.id}-${sample.id}`}
+      />
+    </div>
+  );
+
   return (
     <GenUiArrangementPauseZone
       cycle={{
+        count: demo.count,
+        step: demo.step,
         setHovered: (value) => {
           demo.setHovered(value);
           demo.rotation.setHovered(value);
@@ -218,25 +251,53 @@ export function GenUiCodeDemo({
         },
       }}
     >
-      {preset.kind === "diff" ? (
-        // Keyed by language so each step remounts, as a new message would.
-        <GenUIRenderer
-          key={sample.id}
-          data={{ block: buildLanguageDiffBlock(sample) as CodeDiffBlock }}
-          messageId={`lab-code-diff-${sample.id}`}
+      {condensed ? (
+        <CondensedCodeDemo
+          preset={preset}
+          source={source}
+          diff={preset.kind === "fixture" && fixture.type === "code-diff" ? fixture : diff}
+          fullPreview={fullPreview}
         />
-      ) : preset.kind === "fixture" ? (
-        <GenUIRenderer data={{ block: fixture }} messageId="lab-code-diff" />
       ) : (
-        <div className="ai-message prose dark:prose-invert max-w-full space-y-2 text-foreground">
-          {/* Keyed by slide and language so each step remounts, as a new message would. */}
-          <ChatMessageMarkdown
-            key={`${preset.id}-${preset.kind === "snippet" ? sample.id : ""}`}
-            content={preset.kind === "snippet" ? snippetMarkdown(sample) : (preset.markdown ?? "")}
-            id={`lab-code-${preset.id}-${sample.id}`}
-          />
-        </div>
+        fullPreview
       )}
     </GenUiArrangementPauseZone>
+  );
+}
+
+function CondensedCodeDemo({
+  preset,
+  source,
+  diff,
+  fullPreview,
+}: {
+  preset: CodePreset;
+  source: string;
+  diff: CodeDiffBlock | null;
+  fullPreview: ReactNode;
+}) {
+  if (diff) return <GenUiCondensedBlock block={diff}>{fullPreview}</GenUiCondensedBlock>;
+
+  const lines = source.split("\n");
+  const excerpt = lines.slice(0, 4);
+
+  return (
+    <CondensedCard title={preset.name}>
+      {source ? (
+        <pre className="whitespace-pre-wrap font-mono text-xs wrap-anywhere">
+          {excerpt.join("\n")}
+        </pre>
+      ) : (
+        <p className="text-xs text-muted-foreground">{preset.intent}</p>
+      )}
+      {lines.length > excerpt.length ? (
+        <p className="text-xs text-muted-foreground">
+          First {excerpt.length} of {lines.length} lines
+        </p>
+      ) : null}
+      <CondensedDetail label={preset.kind === "fixture" ? "Review diff" : "Read full example"}>
+        {fullPreview}
+      </CondensedDetail>
+    </CondensedCard>
   );
 }

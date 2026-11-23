@@ -4,7 +4,7 @@ import {
   extractGenUIBlockFromToolOutput,
   genUIBlockToMarkdown,
   genUIBlockToMarkdownLoose,
-  safeParseGenUIBlock,
+  safeParseGenUIChatBlock,
 } from "@/lib/schemas/gen-ui";
 import { RESEARCH_PUBLISH_TOOL_NAME } from "@/lib/schemas/gen-ui/research-report";
 import { RENDER_GEN_UI_TOOL_NAME } from "@/lib/llm/gen-ui-tool";
@@ -40,7 +40,7 @@ export function messagePartsToCopyMarkdown(parts: UIMessage["parts"]): string {
       if (toolName !== RENDER_GEN_UI_TOOL_NAME && toolName !== RESEARCH_PUBLISH_TOOL_NAME) continue;
 
       const raw = extractGenUIBlockFromToolOutput(part.output);
-      const parsed = safeParseGenUIBlock(raw);
+      const parsed = safeParseGenUIChatBlock(raw);
 
       if (parsed.ok) {
         sections.push(genUIBlockToMarkdown(parsed.block));
