@@ -189,7 +189,8 @@ describe("Gen UI Lab Diagram page", () => {
   test("Generate with AI stays in place but is a no-op on the Diagram page", () => {
     const { view } = renderShell();
     const archetypes = view.getByRole("navigation", { name: "Gen UI archetypes" });
-    const generate = view.getByRole("button", { name: "Generate with AI" }) as HTMLButtonElement;
+    const sidebar = within(archetypes.closest("aside")!);
+    const generate = sidebar.getByRole<HTMLButtonElement>("button", { name: "Generate with AI" });
     const fetchSpy = jest.spyOn(globalThis, "fetch");
 
     expect(generate.disabled).toBe(false);
@@ -199,8 +200,8 @@ describe("Gen UI Lab Diagram page", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
 
-    fireEvent.click(view.getByRole("button", { name: "Reset fixtures" }));
-    expect(view.getByText("Reset to fixture data.")).toBeTruthy();
+    fireEvent.click(sidebar.getByRole("button", { name: "Reset fixtures" }));
+    expect(sidebar.getByText("Reset to fixture data.")).toBeTruthy();
     expect(
       view.container.querySelector(`[data-archetype="${LAB_DIAGRAM_ARCHETYPE}"]`)
     ).not.toBeNull();
