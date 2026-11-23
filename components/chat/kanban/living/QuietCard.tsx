@@ -36,8 +36,8 @@ import { cn } from "@/lib/utils";
 const SOLID_SURFACE = "bg-card dark:bg-[color-mix(in_oklch,var(--card),var(--muted))]";
 
 const WASH_TONE: Record<LightBehavior["wash"], string> = {
-  strong: "bg-[rgb(var(--lumen)/0.26)]",
-  soft: "bg-[rgb(var(--lumen)/0.16)]",
+  strong: "bg-[rgb(var(--cl-lumen)/0.26)]",
+  soft: "bg-[rgb(var(--cl-lumen)/0.16)]",
 };
 
 /** Field bloom: the model's warm light, unless the new status carries its own meaning. */
@@ -177,7 +177,7 @@ export const QuietCard = memo(function QuietCard({
         ref={glowRef}
         aria-hidden
         className={cn(
-          "pointer-events-none absolute -inset-x-1 -bottom-2 top-2 rounded-2xl bg-[rgb(var(--lumen)/0.28)] blur-[12px] transition-opacity",
+          "pointer-events-none absolute -inset-x-1 -bottom-2 top-2 rounded-2xl bg-[rgb(var(--cl-lumen)/0.28)] blur-[12px] transition-opacity",
           attended ? "opacity-100" : "opacity-0"
         )}
         style={{ transitionDuration: `${LIVING_ATTEND_FADE_S}s` }}
@@ -185,7 +185,7 @@ export const QuietCard = memo(function QuietCard({
       {isActive && behavior.activeRim === "breathing" ? (
         <span
           aria-hidden
-          className="pointer-events-none absolute -inset-[3px] rounded-[15px] border-[3px] border-[rgb(var(--lumen)/0.4)] blur-[3px] motion-safe:animate-pulse"
+          className="pointer-events-none absolute -inset-[3px] rounded-[15px] border-[3px] border-[rgb(var(--cl-lumen)/0.4)] blur-[3px] motion-safe:animate-pulse"
           style={{ animationDuration: `${LIVING_ACTIVE_BREATH_S}s` }}
         />
       ) : null}
@@ -195,7 +195,7 @@ export const QuietCard = memo(function QuietCard({
           aria-hidden
           className="pointer-events-none absolute left-1/2 top-1/2 size-24 -translate-x-1/2 -translate-y-1/2 rounded-full opacity-0 blur-xl"
           style={{
-            background: `radial-gradient(closest-side, ${BLOOM_TONE[item.status] ?? "rgb(var(--lumen) / 0.55)"}, transparent)`,
+            background: `radial-gradient(closest-side, ${BLOOM_TONE[item.status] ?? "rgb(var(--cl-lumen) / 0.55)"}, transparent)`,
           }}
         />
       ) : null}
@@ -230,7 +230,7 @@ export const QuietCard = memo(function QuietCard({
         >
           <span
             ref={sheenRef}
-            className="absolute inset-y-0 -left-1/2 w-1/2 bg-[linear-gradient(100deg,transparent,rgb(var(--lumen)/0.16),transparent)] opacity-0"
+            className="absolute inset-y-0 -left-1/2 w-1/2 bg-[linear-gradient(100deg,transparent,rgb(var(--cl-lumen)/0.16),transparent)] opacity-0"
           />
         </span>
       ) : null}

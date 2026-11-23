@@ -294,8 +294,8 @@ function buildCharacterTextShadow(
   const specAlpha = (specularHighlight * 0.24).toFixed(3);
 
   return [
-    `0 0 ${coreBlurPx}px rgb(var(--lumen-rim) / ${coreAlpha})`,
-    `${dispOffsetPx}px 0.5px ${bounceBlurPx}px rgb(var(--lumen) / ${bounceAlpha})`,
+    `0 0 ${coreBlurPx}px rgb(var(--cl-lumen-rim) / ${coreAlpha})`,
+    `${dispOffsetPx}px 0.5px ${bounceBlurPx}px rgb(var(--cl-lumen) / ${bounceAlpha})`,
     `0 -0.5px 1.5px rgb(255 244 218 / ${specAlpha})`,
   ].join(", ");
 }
@@ -487,10 +487,10 @@ export function raycastCharacterLumen(options: LumenRaycastOptions): LumenRaycas
   const sheenAlpha = Math.max(0.12, maxSpecular * 0.34).toFixed(3);
 
   const backdropCausticCss = [
-    `radial-gradient(120% 95% at 50% 52%, rgb(var(--lumen) / ${causticAlpha}) 0%, rgba(10, 10, 12, ${darkCoreAlpha}) 54%, rgba(6, 6, 8, ${edgeAlpha}) 84%, rgba(0, 0, 0, 0) 100%)`,
+    `radial-gradient(120% 95% at 50% 52%, rgb(var(--cl-lumen) / ${causticAlpha}) 0%, rgba(10, 10, 12, ${darkCoreAlpha}) 54%, rgba(6, 6, 8, ${edgeAlpha}) 84%, rgba(0, 0, 0, 0) 100%)`,
   ].join(", ");
 
-  const borderSheenCss = `linear-gradient(135deg, rgb(var(--lumen-rim) / ${sheenAlpha}) 0%, rgba(255, 255, 255, 0.06) 48%, rgb(var(--lumen-deep) / ${(Number(sheenAlpha) * 0.75).toFixed(3)}) 100%)`;
+  const borderSheenCss = `linear-gradient(135deg, rgb(var(--cl-lumen-rim) / ${sheenAlpha}) 0%, rgba(255, 255, 255, 0.06) 48%, rgb(var(--cl-lumen-deep) / ${(Number(sheenAlpha) * 0.75).toFixed(3)}) 100%)`;
 
   const elapsedMs = nowMilliseconds() - startMs;
 

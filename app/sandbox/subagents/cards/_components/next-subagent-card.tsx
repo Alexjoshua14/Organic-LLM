@@ -45,8 +45,8 @@ const TEXT_MOTION = `duration-300 ${HOVER_EASE}`;
  * the stronger halo; selection holds the softer one.
  */
 const LUMEN_FOCUS =
-  "focus-visible:outline-none focus-visible:shadow-[0_0_16px_2px_rgb(var(--lumen)/0.42)]";
-const LUMEN_SELECTED = "shadow-[0_0_12px_1px_rgb(var(--lumen)/0.2)]";
+  "focus-visible:outline-none focus-visible:shadow-[0_0_16px_2px_rgb(var(--cl-lumen)/0.42)]";
+const LUMEN_SELECTED = "shadow-[0_0_12px_1px_rgb(var(--cl-lumen)/0.2)]";
 
 /**
  * NEXT version, the working fork. Design changes land here first; "promote" copies this over the

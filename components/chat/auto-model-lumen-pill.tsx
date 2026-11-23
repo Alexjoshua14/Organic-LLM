@@ -324,12 +324,12 @@ export function AutoModelLumenPill({
             activityState === "disconnected"
               ? "bg-amber-500/50 opacity-55"
               : activityState === "typing" || activityState === "thinking"
-                ? "bg-[rgb(var(--lumen-rim))] opacity-95"
-                : "bg-[rgb(var(--lumen))] opacity-75"
+                ? "bg-[rgb(var(--cl-lumen-rim))] opacity-95"
+                : "bg-[rgb(var(--cl-lumen))] opacity-75"
           )}
           data-auto-activity-dot={activityState}
           style={{
-            boxShadow: `0 0 ${(3 + lumenFrame.meanGlow * 4).toFixed(1)}px rgb(var(--lumen-rim) / ${(0.35 + lumenFrame.meanGlow * 0.45).toFixed(2)})`,
+            boxShadow: `0 0 ${(3 + lumenFrame.meanGlow * 4).toFixed(1)}px rgb(var(--cl-lumen-rim) / ${(0.35 + lumenFrame.meanGlow * 0.45).toFixed(2)})`,
           }}
         />
         <span className="sr-only">Auto: </span>

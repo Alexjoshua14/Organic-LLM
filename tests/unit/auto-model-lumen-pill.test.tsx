@@ -107,7 +107,7 @@ describe("AutoModelLumenPill", () => {
 
     const charSpans = container.querySelectorAll<HTMLElement>("[data-lumen-char-index]");
     expect(charSpans.length).toBe("Opus 5.5".length);
-    expect(charSpans[0]?.style.textShadow).toContain("--lumen-rim");
+    expect(charSpans[0]?.style.textShadow).toContain("--cl-lumen-rim");
   });
 
   test("computes MorphPhysics target geometry that expands and contracts with model title length and includes padding buffer for measured widths", () => {

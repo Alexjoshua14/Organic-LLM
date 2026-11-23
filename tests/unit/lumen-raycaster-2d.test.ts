@@ -119,8 +119,8 @@ describe("raycastCharacterLumen frame & activity modulation", () => {
       expect(sample.glowIntensity).toBeLessThanOrEqual(1.0);
       expect(sample.bounceIrradiance).toBeGreaterThan(0);
       expect(sample.specularHighlight).toBeGreaterThan(0);
-      expect(sample.textShadowCss).toContain("--lumen-rim");
-      expect(sample.textShadowCss).toContain("--lumen");
+      expect(sample.textShadowCss).toContain("--cl-lumen-rim");
+      expect(sample.textShadowCss).toContain("--cl-lumen");
     }
 
     expect(frame.cssVars["--lumen-backdrop-caustic"]).toContain("radial-gradient");

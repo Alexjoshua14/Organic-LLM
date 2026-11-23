@@ -1,10 +1,10 @@
 /* Light-mode Lumen, shown even when the page itself is dark: the resting shadow, deeper on hover. */
 .shadowDemo {
-  box-shadow: var(--lumen-shadow-rest);
-  transition: box-shadow var(--lumen-duration) var(--lumen-ease);
+  box-shadow: var(--cl-lumen-shadow-rest);
+  transition: box-shadow var(--cl-lumen-duration) var(--cl-lumen-ease);
 }
 .shadowDemo:hover {
-  box-shadow: var(--lumen-shadow-hover);
+  box-shadow: var(--cl-lumen-shadow-hover);
 }
 @media (prefers-reduced-motion: reduce) {
   .shadowDemo {

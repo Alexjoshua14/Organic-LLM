@@ -17,6 +17,7 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./*"],
+      "@coalescence-labs/design/lumen": ["./llm/design/src/lumen/index.ts"],
       "@organic-llm/morph-physics": ["./llm/morph-physics/src/index.ts"],
       "@organic-llm/morph-physics/react": ["./llm/morph-physics/src/react.ts"],
       "@organic-llm/morph-physics/webgl": ["./llm/morph-physics/src/webgl.ts"],

@@ -195,7 +195,7 @@ export function TaskRow({
                 className={cn(
                   "pointer-events-none absolute inset-y-0 left-0 z-0 flex w-2/3 items-center justify-start gap-2 rounded-xl pl-4 text-sm font-medium transition-colors",
                   preview === "active"
-                    ? "bg-[rgb(var(--lumen)/0.14)] text-lumen"
+                    ? "bg-[rgb(var(--cl-lumen)/0.14)] text-lumen"
                     : "bg-emerald-500/10 text-emerald-500"
                 )}
               >

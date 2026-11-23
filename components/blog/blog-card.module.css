@@ -47,7 +47,7 @@
   opacity: 0;
   background: radial-gradient(
     22rem circle at var(--mx, 50%) var(--my, 0%),
-    rgb(var(--lumen) / 0.17),
+    rgb(var(--cl-lumen) / 0.17),
     transparent 65%
   );
   transition: opacity var(--blog-hover) var(--blog-ease);
@@ -55,8 +55,8 @@
 
 .card:hover,
 .card:focus-visible {
-  border-color: rgb(var(--lumen) / 0.5);
-  box-shadow: 0 16px 36px -18px rgb(var(--lumen-deep) / 0.45);
+  border-color: rgb(var(--cl-lumen) / 0.5);
+  box-shadow: 0 16px 36px -18px rgb(var(--cl-lumen-deep) / 0.45);
 }
 
 .card:hover::before,
@@ -109,7 +109,7 @@
   pointer-events: none;
   background: radial-gradient(
     60% 55% at 12% 108%,
-    rgb(var(--lumen) / 0.16),
+    rgb(var(--cl-lumen) / 0.16),
     transparent 70%
   );
 }
@@ -158,7 +158,7 @@
 
 .card:hover .arrow,
 .card:focus-visible .arrow {
-  color: rgb(var(--lumen-deep));
+  color: rgb(var(--cl-lumen-deep));
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -292,14 +292,14 @@
 
 .lumen {
   fill: none;
-  stroke: rgb(var(--lumen-deep));
+  stroke: rgb(var(--cl-lumen-deep));
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
 .lumenFill {
-  fill: rgb(var(--lumen-deep));
+  fill: rgb(var(--cl-lumen-deep));
   stroke: none;
 }
 

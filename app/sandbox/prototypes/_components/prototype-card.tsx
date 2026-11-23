@@ -121,7 +121,7 @@ export function PrototypeCard({
             "pointer-events-none absolute inset-1 -z-10 opacity-0 transition-opacity duration-300 group-hover:opacity-100",
             shell.radius,
             "shadow-[0_36px_110px_-28px_rgba(20,21,22,0.6)] dark:shadow-[0_36px_120px_-26px_rgba(0,0,0,0.95)]",
-            "bg-[radial-gradient(70%_60%_at_50%_110%,rgb(var(--lumen)/0.14),transparent_70%)]"
+            "bg-[radial-gradient(70%_60%_at_50%_110%,rgb(var(--cl-lumen)/0.14),transparent_70%)]"
           )}
         />
       )}

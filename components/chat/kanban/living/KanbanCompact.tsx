@@ -210,7 +210,7 @@ function DotLight({ status, stamp }: { status: KanbanStatus; stamp?: number }) {
       <span
         ref={pingRef}
         aria-hidden
-        className="absolute inset-0 rounded-full bg-[rgb(var(--lumen)/0.7)] opacity-0"
+        className="absolute inset-0 rounded-full bg-[rgb(var(--cl-lumen)/0.7)] opacity-0"
       />
     </span>
   );
@@ -253,7 +253,7 @@ function SpotlightRow({
         aria-hidden
         className={cn(
           "pointer-events-none absolute inset-0 -z-10 rounded-[inherit] opacity-0",
-          behavior.wash === "strong" ? "bg-[rgb(var(--lumen)/0.24)]" : "bg-[rgb(var(--lumen)/0.14)]"
+          behavior.wash === "strong" ? "bg-[rgb(var(--cl-lumen)/0.24)]" : "bg-[rgb(var(--cl-lumen)/0.14)]"
         )}
       />
       <StatusGlyph status={item.status} />

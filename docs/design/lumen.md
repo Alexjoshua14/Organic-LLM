@@ -14,11 +14,19 @@ the object. Nothing in light mode is tinted warm.
 
 **Related code**
 
-- Rim, shadow and tokens: [`styles/globals.css`](../../styles/globals.css) (`--lumen*`, `--lumen-shadow-*`, `--background-dark`)
-- Chip geometry and canonical spec: [`components/chat/use-composer-chip-lumen.ts`](../../components/chat/use-composer-chip-lumen.ts)
-- Prompt shell: [`components/chat/home-composer-lumen-shell.tsx`](../../components/chat/home-composer-lumen-shell.tsx)
-- Shared buttons, selectors and menu rows: `organic-lumen-interactive` in `styles/globals.css` (dark rim, light shadow; menu navigation uses neutral glass and a contained rim to avoid clipping).
+Lumen ships as the package [`@coalescence-labs/design`](../../llm/design/README.md), developed here
+in `llm/design/` and published to npm for other Coalescence Labs apps. Organic uses its source
+directly.
+
+- Tokens and every variant: [`llm/design/css/lumen.css`](../../llm/design/css/lumen.css) (`--cl-lumen*`, `--cl-lumen-shadow-*`). Organic sets `--cl-lumen-surface-dark` to `--background-dark` in [`styles/globals.css`](../../styles/globals.css).
+- Rim geometry and canonical spec: [`llm/design/src/lumen/use-lumen-rim.ts`](../../llm/design/src/lumen/use-lumen-rim.ts); Organic's wrapper [`components/chat/use-composer-chip-lumen.ts`](../../components/chat/use-composer-chip-lumen.ts)
+- Prompt shell: `LumenShell` in [`llm/design/src/lumen/lumen-shell.tsx`](../../llm/design/src/lumen/lumen-shell.tsx), wrapped by [`components/chat/home-composer-lumen-shell.tsx`](../../components/chat/home-composer-lumen-shell.tsx)
+- Shared buttons, selectors and menu rows: `organic-lumen-interactive` in `lumen.css` (dark rim, light shadow). Menu navigation's neutral glass and contained rim stay in `styles/globals.css`.
+- Organic-only modifiers stay in `styles/globals.css`: the memory halo (`core-input-memory-lumen`) and the chips' glass fill.
 - Chips and actions: [`components/chat/composer-action-button.tsx`](../../components/chat/composer-action-button.tsx)
+
+Every Lumen variable starts with `--cl-`. A change to a variable or class name, or to how a
+variant looks, is a breaking change for the package: bump its version (see its README).
 
 ## Dark: natural light
 
@@ -39,13 +47,13 @@ The glass fill on a chip does not change on hover: no teal ghost background, no 
 ## Light: shadow
 
 Each rim is hidden and the surface itself carries a soft shadow in the **dark theme's background
-colour** (`--background-dark`, the single source `.dark` also reads), so the shadow is the real
+colour** (`--cl-lumen-surface-dark`; Organic points it at `--background-dark`, the single source `.dark` also reads), so the shadow is the real
 absence of that light, not a generic grey.
 
 | Token                  | Value                   | Use                                                                      |
 | ---------------------- | ----------------------- | ------------------------------------------------------------------------ |
-| `--lumen-shadow-rest`  | `0 2px 8px -2px` at 14% | Engaged chips; the prompt shell at rest                                  |
-| `--lumen-shadow-hover` | `0 2px 8px -2px` at 24% | Chip hover; prompt shell focused or hovered; memory halo; selected cards |
+| `--cl-lumen-shadow-rest`  | `0 2px 8px -2px` at 14% | Engaged chips; the prompt shell at rest                                  |
+| `--cl-lumen-shadow-hover` | `0 2px 8px -2px` at 24% | Chip hover; prompt shell focused or hovered; memory halo; selected cards |
 
 Shadows ease in over 200ms on chips and 320ms on the prompt shell, the same timings as the rim.
 The shell's breathing is dark-only; the shadow is static. Reduced motion removes the transition.
@@ -62,18 +70,18 @@ Every Lumen surface is one of these. Use one before inventing another; add a new
 | **Chip rim**    | `composer-tool-chip-host` › `-stage` › `lumen-rim-backlight`                                  | Buttons and toggles: on (engaged) or a hover peek                                                                                                                                |
 | **Shell rim**   | `HomeComposerLumenShell` (`home-composer-lumen-*`)                                            | The prompt shell; sized from its resting height so a growing composer keeps the same glow                                                                                        |
 | **Card rim**    | `chat-style-card-host` › `-stage` › `chat-style-lumen-rim`, the card itself `chat-style-card` | A selected or chosen card (style cards, Launchpad starters, active task rows). The card's own edge is Lumen's too: warm in dark, neutral in light; never set it in the component |
-| **Orb**         | `lumen-orb`, colour via `--lumen-orb-color`                                                   | Lumen shown on its own, such as Kelvin swatches; dark surfaces only                                                                                                              |
+| **Orb**         | `lumen-orb`, colour via `--cl-lumen-orb-color`                                                   | Lumen shown on its own, such as Kelvin swatches; dark surfaces only                                                                                                              |
 | **Panel focus** | `.core-input-options-panel:focus-visible`                                                     | A panel that takes focus: a faint glow in dark, the hover shadow in light, never a ring                                                                                          |
 
 ## Rules for a new lumen surface
 
 1. Provide **both**: the dark rim and the light shadow, from the tokens above.
 2. In light mode hide the rim and put the shadow on the surface's own stage, using its radius
-   variable (`--composer-radius`, `--chip-radius`).
+   variable (`--cl-lumen-shell-radius`, `--cl-lumen-chip-radius`).
 3. Do not tint the light shadow warm, and do not stack a rim and a shadow in one theme.
-   That includes the surface's own border: a warm `--lumen-rim` border written into a component
+   That includes the surface's own border: a warm `--cl-lumen-rim` border written into a component
    shows in light mode too. Put a lit edge in the variant's CSS, per theme.
-4. Use `--lumen-shadow-*` and `--background-dark`; do not write a new shadow literal. If the
+4. Use `--cl-lumen-shadow-*` and `--cl-lumen-surface-dark`; do not write a new shadow literal. If the
    depth you need does not fit these two steps, ask whether to change or add a token (see
    [Spacing](./spacing.md#when-a-request-does-not-fit-the-tokens)).
 

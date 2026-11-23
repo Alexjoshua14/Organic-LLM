@@ -146,7 +146,7 @@ export function LiquidChromeTimingDemo() {
                 className={cn("h-full rounded-full")}
                 style={{
                   width: `${(leg.ms / TOTAL_MS) * 100}%`,
-                  background: `rgb(var(--lumen) / ${0.25 + i * 0.2})`,
+                  background: `rgb(var(--cl-lumen) / ${0.25 + i * 0.2})`,
                 }}
               />
             ))}
