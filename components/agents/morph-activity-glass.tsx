@@ -31,6 +31,8 @@ function backdropFilter(pose: GlassPose): string {
   return `blur(${pose.blur}px) brightness(${pose.brightness}) var(--tw-backdrop-saturate, saturate(1))`;
 }
 
+const LARGE_MARK_BLUR_GROWTH = 0.85;
+
 /** Filter the complete owned background once, including SVG dots and the grain layer. */
 export function activityBackgroundFilter(
   pose: GlassPose & { saturation?: number },
@@ -39,7 +41,13 @@ export function activityBackgroundFilter(
   const saturation =
     pose.saturation !== undefined && Number.isFinite(pose.saturation) ? pose.saturation : 1.12;
 
-  return `blur(${relativeBlur ? `${pose.blur * 2.5}cqw` : `${pose.blur}px`}) brightness(${pose.brightness}) saturate(${saturation})`;
+  const proportionalBlur = pose.blur * 2.5;
+  // Preserve the 40px calibration and soften only the extra blur above that size.
+  const blur = relativeBlur
+    ? `min(${proportionalBlur}cqw, calc(${pose.blur}px + (${proportionalBlur}cqw - ${pose.blur}px) * ${LARGE_MARK_BLUR_GROWTH}))`
+    : `${pose.blur}px`;
+
+  return `blur(${blur}) brightness(${pose.brightness}) saturate(${saturation})`;
 }
 
 /** The owner selects the target; this persistent cover springs only while it is changing. */

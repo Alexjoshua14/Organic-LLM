@@ -289,11 +289,12 @@ and reduced-motion rules. Its quiet background keeps attention on the mark itsel
 ## Large standalone marks
 
 `relativeBlur` opts a mark into container-relative background blur. It establishes an inline-size
-container and expresses blur in `cqw`, calibrated to the existing 40px mark: 4.25px at 40px becomes
-10.625cqw (about 22.1px at 208px). The state spring still operates on the existing material values;
+container and scales blur from the existing 40px calibration. Above 40px, the shared filter applies
+85% of the proportional increase, so 4.25px at 40px becomes about 19.4px at 208px.
+The state spring still operates on the existing material values;
 only the rendered background filter scales. The dot field and grain are filtered together once.
-Default small marks retain pixel blur. Speak opts in so its responsive hero retains the same
-proportional softness without a resize observer or a second animation loop.
+Default small marks retain pixel blur. OrganicAgent uses this curve wherever it renders, so marks
+of the same size share the same softness without a resize observer or a second animation loop.
 
 `dotWeight` (default 1) multiplies each dot's radius, and its glass bead, before the background
 is blurred. Blur removes ink: at the calibrated 4.25px / 10.625cqw, a field of 18 dots keeps only
