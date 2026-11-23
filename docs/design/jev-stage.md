@@ -37,6 +37,9 @@ After Jev routes, execution is a bounded step loop (`JEV_STAGE_TURN_MAX_STEPS`):
    request, fall through to **Respond**.
 4. Respond / Orchestrate allow up to eight AI SDK steps so lookups and Stage tools have
    room before the closing reply. Respond still applies its existing input and output budgets.
+   When a reply stays long without a design brief, the turn promotes that substance into a
+   designer brief and keeps only a short spoken line under Organic so the board — not a rigid
+   reply box — carries the answer.
 5. A final safety reply is written if the turn would otherwise complete with nothing visible.
 6. The server sends heartbeats while the turn runs. When the stream loses contact,
    the client checks for the saved turn by request ID without sending the message again.

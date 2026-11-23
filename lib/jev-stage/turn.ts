@@ -12,6 +12,7 @@ import { jevContextManifest } from "./context-manifest";
 import { executeJevDirectTool, isDirectJevAction } from "./direct-tools";
 import { streamJevOrchestrate } from "./orchestrate";
 import type { JevPhraseOmitTool } from "./phrase";
+import { preferStagePresentation } from "./stage-presentation";
 import { applyJevRespondEffects, streamJevRespond } from "./respond";
 import { routeJevStage } from "./router";
 import type {
@@ -453,13 +454,19 @@ export async function runJevStageTurn(args: {
           continue;
         }
 
+        const presented = preferStagePresentation({
+          message: args.message,
+          reply,
+          designBrief: streamed.designBrief,
+        });
+
         stage = applyStreamedReply({
           state: stage,
           message: args.message,
           requestId: args.requestId,
-          reply,
+          reply: presented.reply,
           summary: streamed.summary,
-          designBrief: streamed.designBrief,
+          designBrief: presented.designBrief,
           model: streamed.model,
         });
         if (streamed.specialists.length) {
@@ -511,19 +518,35 @@ export async function runJevStageTurn(args: {
         args.emit({ type: "limit_error", message: streamed.limitError.message });
       }
 
-      const reply =
+      const rawReply =
         streamed.text.trim() ||
         (streamed.limitError
           ? streamed.limitError.message
           : "I heard you — give me another beat and I’ll try again.");
+      // Prefer Stage pieces over a rigid long reply box under Organic.
+      const presented = preferStagePresentation({
+        message: args.message,
+        reply: rawReply,
+        designBrief: streamed.designBrief,
+      });
+
+      if (presented.promoted) {
+        trace.record({
+          kind: "fallback",
+          t: trace.t(),
+          from: "respond",
+          to: "designer",
+          reason: "Promoted long reply onto Stage pieces",
+        });
+      }
 
       stage = applyStreamedReply({
         state: stage,
         message: args.message,
         requestId: args.requestId,
-        reply,
+        reply: presented.reply,
         summary: streamed.summary,
-        designBrief: streamed.designBrief,
+        designBrief: presented.designBrief,
         model: streamed.model,
       });
       // View, captures, recall, specialists and tier land the same way direct tools patch state.
