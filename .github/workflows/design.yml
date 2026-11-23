@@ -1,0 +1,32 @@
+name: design
+
+on:
+  push:
+    paths:
+      - "llm/design/**"
+      - ".github/workflows/design.yml"
+  pull_request:
+    paths:
+      - "llm/design/**"
+      - ".github/workflows/design.yml"
+
+jobs:
+  design:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: llm/design
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install, typecheck, build and pack
+        run: |
+          bun install --frozen-lockfile
+          bun run typecheck
+          bun run build
+          npm pack --dry-run
