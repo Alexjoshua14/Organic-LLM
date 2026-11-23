@@ -99,6 +99,12 @@ import {
   previewBlobToMarkdown,
   previewBlobToMarkdownLoose,
 } from "./preview-blob";
+import {
+  CompositionBlockSchema,
+  compositionFallbackMarkdown,
+  compositionToMarkdown,
+  type CompositionBlock,
+} from "./composition";
 import { GEN_UI_BLOCK_TYPES, type GenUIBlockType } from "./shared";
 
 export { GEN_UI_VERSION, GEN_UI_BLOCK_TYPES, type GenUIBlockType } from "./shared";
@@ -149,9 +155,17 @@ export const GenUIBlockSchema = z.discriminatedUnion("type", [
 
 export type GenUIBlock = z.infer<typeof GenUIBlockSchema>;
 
+/** Chat accepts compositions in addition to the fixed block types used by other surfaces. */
+export const GenUIChatBlockSchema = z.discriminatedUnion("type", [
+  ...GenUIBlockSchema.options,
+  CompositionBlockSchema,
+]);
+
+export type GenUIChatBlock = GenUIBlock | CompositionBlock;
+
 /** Tool return shape — strict contract for client hydrate. */
 export const RenderGenUiToolOutputSchema = z.object({
-  block: GenUIBlockSchema,
+  block: GenUIChatBlockSchema,
 });
 
 export type RenderGenUiToolOutput = z.infer<typeof RenderGenUiToolOutputSchema>;
@@ -258,8 +272,24 @@ export function extractGenUIBlockFromToolOutput(output: unknown): unknown {
   return output;
 }
 
-export function genUIBlockToMarkdown(block: GenUIBlock): string {
+export function safeParseGenUIChatBlock(
+  raw: unknown
+): SafeParseGenUIResult | { ok: true; block: CompositionBlock; hadPartialFailures: false } {
+  if (!raw || typeof raw !== "object" || !("type" in raw) || raw.type !== "composition") {
+    return safeParseGenUIBlock(raw);
+  }
+
+  const result = CompositionBlockSchema.safeParse(raw);
+
+  return result.success
+    ? { ok: true, block: result.data, hadPartialFailures: false }
+    : { ok: false, errors: result.error };
+}
+
+export function genUIBlockToMarkdown(block: GenUIChatBlock): string {
   switch (block.type) {
+    case "composition":
+      return compositionToMarkdown(block);
     case "answer-card":
       return answerCardToMarkdown(block);
     case "decision-matrix":
@@ -311,6 +341,8 @@ export function genUIBlockToMarkdownLoose(raw: unknown): string {
     return "_Structured block (could not render)_";
   }
   const o = raw as Record<string, unknown>;
+
+  if (o.type === "composition") return compositionFallbackMarkdown(o);
   const type = getBlockType(o);
 
   switch (type) {

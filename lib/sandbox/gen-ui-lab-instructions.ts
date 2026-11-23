@@ -1,3 +1,4 @@
+import { COMPOSITION_TOOL_GUIDANCE } from "@/lib/schemas/gen-ui/composition";
 import { GEN_UI_REGISTRY } from "@/components/chat/gen-ui/registry";
 import { GEN_UI_LAB_ARCHETYPE_HINTS } from "@/lib/sandbox/gen-ui-lab";
 import { isGenUIBlockType, type GenUIBlockType } from "@/lib/schemas/gen-ui";
@@ -170,6 +171,24 @@ export function modelInstructionMarkdownForBlock(type: GenUIBlockType): string {
 
 /** Resolve the instruction doc for any lab archetype id (block or lab-only). */
 export function instructionDocForArchetype(archetype: string): LabInstructionDoc | null {
+  if (archetype === "composition") {
+    return {
+      eyebrow: "Gen UI · Model instructions",
+      title: "Read-only compositions",
+      typeId: archetype,
+      hint: "Combine reusable primitives in one result.",
+      sections: [
+        {
+          id: "model",
+          title: "Model instructions",
+          summary: "The same primitive guidance sent to Arcadia",
+          defaultOpen: true,
+          body: COMPOSITION_TOOL_GUIDANCE,
+        },
+      ],
+    };
+  }
+
   if (archetype === "mermaid-diagram") return LAB_DIAGRAM_INSTRUCTION_DOC;
   if (isGenUIBlockType(archetype)) return modelInstructionDocForBlock(archetype);
 

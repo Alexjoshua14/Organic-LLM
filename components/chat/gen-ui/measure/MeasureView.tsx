@@ -14,9 +14,14 @@ type MeasureViewProps = {
   block: MeasureBlock;
   partial?: boolean;
   condensed?: boolean;
+  heading?: "h3" | "h4";
 };
 
-export function MeasureView({ block, condensed = false }: MeasureViewProps) {
+export function MeasureView({
+  block,
+  condensed = false,
+  heading: Heading = "h3",
+}: MeasureViewProps) {
   const { domain, unit } = block;
   const ticks = condensed ? [domain.min, domain.max] : (block.ticks ?? makeTicks(domain));
 
@@ -30,7 +35,7 @@ export function MeasureView({ block, condensed = false }: MeasureViewProps) {
       )}
     >
       <header className={spacing.card.labelStack}>
-        <h3 className="text-sm font-medium text-foreground">{block.title}</h3>
+        <Heading className="text-sm font-medium text-foreground">{block.title}</Heading>
         {block.subtitle ? <p className="text-xs text-muted-foreground">{block.subtitle}</p> : null}
       </header>
 

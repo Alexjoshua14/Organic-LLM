@@ -116,6 +116,22 @@ Structured blocks as first-class UI, not markdown-only. Block types (Zod schemas
 | **audit-line** | Timeline / audit log of an iteration (`time`, `actor`, `action`, `summary`). Schema/view: [`audit-line.ts`](../lib/schemas/gen-ui/audit-line.ts), [`AuditLine.tsx`](../components/chat/gen-ui/blocks/AuditLine.tsx). |
 | **preview-blob** | Low-cost graphic preview (`previewURL`, optional `svgURL` / `prompt` / `costEstimate`). https URLs only; no inline SVG. Host may bind `onCommit` for a full-fidelity / sandbox render. Schema/view: [`preview-blob.ts`](../lib/schemas/gen-ui/preview-blob.ts), [`PreviewBlob.tsx`](../components/chat/gen-ui/blocks/PreviewBlob.tsx). |
 
+#### Read-only composition pilot
+
+Set the server flag `GEN_UI_COMPOSITION_PILOT=true` to offer the version 1 `composition` payload
+through `render_gen_ui` in Arcadia. It uses the same per-turn call limit. The agent supplies a title,
+ordered nodes, and a plain-text fallback. It can combine headings, text, lists with optional work
+status, numeric scales, source links, and one level of disclosure. Each node has a bounded shape.
+The whole composition is capped at 24 nodes and 12,000 UTF-8 bytes.
+
+Use Markdown for prose. Compose when several kinds of structured content belong in one result.
+Put the primary result at the top level and place supporting material in disclosures. Chat renders
+the saved payload with Organic components, opens disclosures by default in Full, and folds them
+on phones. The Gen UI Lab's **Read-only compositions** entry demonstrates both densities.
+The schema rejects invalid ranges, unexpected fields and non-HTTPS source links. The renderer
+recovers the supplied fallback text when validation fails. Clearing the flag disables generation
+and still allows saved compositions to render and copy as Markdown.
+
 Also available in the **Delphi** memory-ingest chamber (stricter guidance: one compact block, reserved for hard-commit drafts, session recaps, or genuine filing choices; rendered in the delivery slot beneath the assistant caption).
 
 - Implementation: [`createRenderGenUiTool`](../lib/llm/gen-ui-tool.ts) · prompt hints: [`lib/system-prompt/gen-ui.ts`](../lib/system-prompt/gen-ui.ts) (`GEN_UI_TOOL_INSTRUCTIONS`, `DELPHI_GEN_UI_TOOL_INSTRUCTIONS`)

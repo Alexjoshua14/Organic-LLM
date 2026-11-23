@@ -105,8 +105,8 @@ describe("Gen UI Lab Diagram page", () => {
     const archetypes = view.getByRole("navigation", { name: "Gen UI archetypes" });
     const pages = view.container.querySelectorAll("[data-archetype]");
 
-    // The lab-only page follows every block type.
-    expect(pages.length).toBe(Object.keys(GEN_UI_REGISTRY).length + 1);
+    // Diagram remains last, after the fixed block types and Composition demo.
+    expect(pages.length).toBe(Object.keys(GEN_UI_REGISTRY).length + 2);
     expect(pages[pages.length - 1]).toBe(section);
     expect(within(archetypes).getByRole("button", { name: /Diagram/ })).toBeTruthy();
     expect(view.getByRole("button", { name: "Diagram" })).toBeTruthy();

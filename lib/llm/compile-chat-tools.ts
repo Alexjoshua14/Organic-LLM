@@ -338,7 +338,9 @@ async function compileBaseChatTools({
     tools["make_mermaid_diagram"] = createMermaidDiagramTool({ writer, ownerId: sbUserId });
     toolInstructions +=
       "You can generate Mermaid diagrams using make_mermaid_diagram. The tool returns overview + detailed sources with shared node IDs. You may also include the overview in a ```mermaid code block for prose continuity.\n";
-    tools["render_gen_ui"] = createRenderGenUiTool();
+    tools["render_gen_ui"] = createRenderGenUiTool({
+      allowComposition: experience === "arcadia" && process.env.GEN_UI_COMPOSITION_PILOT === "true",
+    });
     tools["gather_restaurant"] = createGatherRestaurantTool({ sbUserId });
     toolInstructions += `${GEN_UI_TOOL_INSTRUCTIONS}\n`;
     toolInstructions += `${RESTAURANT_TOOL_INSTRUCTIONS}\n`;

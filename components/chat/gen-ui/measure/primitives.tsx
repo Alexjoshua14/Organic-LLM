@@ -89,7 +89,7 @@ export function Axis({ domain, ticks, unit }: { domain: Domain; ticks: number[];
         <span
           key={t}
           className={cn(
-            "absolute",
+            "absolute whitespace-nowrap",
             i === 0 ? "" : i === ticks.length - 1 ? "-translate-x-full" : "-translate-x-1/2"
           )}
           style={{ left: `${toPct(t, domain)}%` }}
