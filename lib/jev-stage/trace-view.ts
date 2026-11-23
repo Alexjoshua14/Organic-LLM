@@ -429,7 +429,18 @@ export function formatJevInsightDebugLog(args: {
     JevStageTurnInsight,
     "turnId" | "at" | "userMessage" | "selected" | "fellBack" | "fallbackReason" | "outcome" | "outcomeDetail" | "calls" | "totals" | "eval"
   > | null;
-  live?: { text: string; status: string } | null;
+  live?: {
+    text: string;
+    status: string;
+    admission?: {
+      submitToQueuedMs: number | null;
+      submitToReservedMs: number | null;
+      submitToAcceptedMs: number | null;
+      serverQueuedMs: number | null;
+      serverReservedMs: number | null;
+      serverAcceptedMs: number | null;
+    } | null;
+  } | null;
   trace: JevTraceView;
 }): string {
   const { insight, live, trace } = args;
@@ -442,6 +453,19 @@ export function formatJevInsightDebugLog(args: {
   ];
 
   if (live?.status) lines.push(`liveStatus: ${live.status}`);
+  if (live?.admission) {
+    const a = live.admission;
+    lines.push(
+      "",
+      "## Admission",
+      `client submit→queued: ${a.submitToQueuedMs ?? "—"}ms`,
+      `client submit→reserved: ${a.submitToReservedMs ?? "—"}ms`,
+      `client submit→accepted: ${a.submitToAcceptedMs ?? "—"}ms`,
+      `server queued: ${a.serverQueuedMs ?? "—"}ms`,
+      `server reserved: ${a.serverReservedMs ?? "—"}ms`,
+      `server accepted: ${a.serverAcceptedMs ?? "—"}ms`
+    );
+  }
   if (insight) {
     lines.push(
       `selected: ${insight.selected.kind} (${insight.selected.confidence.toFixed(2)}) — ${insight.selected.reason}`,

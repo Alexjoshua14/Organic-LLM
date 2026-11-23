@@ -270,6 +270,22 @@ describe("jev-stage trace events", () => {
     }
   });
 
+  test("admission milestones carry phase and server elapsed ms", () => {
+    for (const phase of ["queued", "reserved", "accepted"] as const) {
+      const parsed = JevStageStreamEventSchema.safeParse({
+        type: "admission",
+        phase,
+        t: phase === "queued" ? 0 : 12,
+      });
+
+      expect(parsed.success).toBe(true);
+    }
+    expect(JevStageStreamEventSchema.safeParse({ type: "accepted" }).success).toBe(true);
+    expect(
+      JevStageStreamEventSchema.safeParse({ type: "admission", phase: "queued" }).success
+    ).toBe(false);
+  });
+
   test("the recorder stamps time from turn start and streams every event in order", () => {
     let clock = 1000;
     const streamed: JevStageTraceEvent[] = [];

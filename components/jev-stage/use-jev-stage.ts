@@ -22,8 +22,29 @@ import {
   JEV_STAGE_MAX_TURN_INSIGHTS,
   JEV_STAGE_TURN_DEADLINE_MS,
 } from "@/lib/jev-stage/constants";
+import { createLiveStreamBatch } from "@/lib/jev-stage/live-stream-batch";
 import { emptyJevStageBundle } from "@/lib/jev-stage/schema";
 import { shortModel } from "@/lib/jev-stage/trace-view";
+
+export type JevStageAdmissionTiming = {
+  submitToQueuedMs: number | null;
+  submitToReservedMs: number | null;
+  submitToAcceptedMs: number | null;
+  serverQueuedMs: number | null;
+  serverReservedMs: number | null;
+  serverAcceptedMs: number | null;
+};
+
+function emptyAdmissionTiming(): JevStageAdmissionTiming {
+  return {
+    submitToQueuedMs: null,
+    submitToReservedMs: null,
+    submitToAcceptedMs: null,
+    serverQueuedMs: null,
+    serverReservedMs: null,
+    serverAcceptedMs: null,
+  };
+}
 
 const ACTION_LABEL: Record<JevStageActionKind, string> = {
   respond: "Respond",
@@ -81,6 +102,7 @@ export function useJevStage(): StageController & {
   turnStatus: string;
   statusPulse: number;
   liveTrace: JevStageTraceEvent[];
+  admissionTiming: JevStageAdmissionTiming | null;
   recovering: boolean;
   designerStatus: string | null;
   setEval: (turnId: string, signal: "up" | "down", note?: string | null) => Promise<void>;
@@ -99,6 +121,7 @@ export function useJevStage(): StageController & {
   const [turnStatus, setTurnStatus] = useState("");
   const [statusPulse, setStatusPulse] = useState(0);
   const [liveTrace, setLiveTrace] = useState<JevStageTraceEvent[]>([]);
+  const [admissionTiming, setAdmissionTiming] = useState<JevStageAdmissionTiming | null>(null);
   const [quietTurn, setQuietTurn] = useState(false);
   const [recovery, setRecovery] = useState<Record<string, number>>({});
   const recovering = Object.keys(recovery).length > 0;
@@ -121,7 +144,6 @@ export function useJevStage(): StageController & {
   const latestRequest = useRef<string | null>(null);
   const resetRevision = useRef(-1);
   const localLayoutRevision = useRef<number | null>(null);
-
   const accept = useCallback((next: JevStageBundle, localLayout = false) => {
     if (!mounted.current || next.stage.revision < current.current.stage.revision) return;
 
@@ -241,12 +263,22 @@ export function useJevStage(): StageController & {
       const requestId = crypto.randomUUID();
       const isLatest = () => mounted.current && latestRequest.current === requestId;
       latestRequest.current = requestId;
+      const liveBatch = createLiveStreamBatch({
+        onFlush: ({ delta, traces }) => {
+          if (!isLatest()) return;
+          if (delta) setStreamingText((value) => value + delta);
+          if (traces.length) setLiveTrace((events) => [...events, ...traces]);
+        },
+      });
       setActive((count) => count + 1);
       setCorrectionStatus(null);
 
       setSubmittedMessage({ id: requestId, text: message });
       setTurnStatus("Received");
       setLiveTrace([]);
+      const submitAt = performance.now();
+      const timing = emptyAdmissionTiming();
+      setAdmissionTiming(timing);
       setQuietTurn(false);
       const abort = new AbortController();
       let timeout: number | undefined;
@@ -266,6 +298,41 @@ export function useJevStage(): StageController & {
         if (mounted.current) setSending(false);
         resolveSend(accepted);
       };
+      const publishTiming = () => {
+        if (isLatest()) setAdmissionTiming({ ...timing });
+      };
+      const markAdmission = (
+        phase: "queued" | "reserved" | "accepted",
+        serverMs: number | null
+      ) => {
+        const clientMs = Math.round(performance.now() - submitAt);
+
+        if (phase === "queued") {
+          timing.submitToQueuedMs = clientMs;
+          timing.serverQueuedMs = serverMs;
+          performance.mark(`jev-stage:queued:${requestId}`);
+        } else if (phase === "reserved") {
+          timing.submitToReservedMs = clientMs;
+          timing.serverReservedMs = serverMs;
+          performance.mark(`jev-stage:reserved:${requestId}`);
+        } else {
+          timing.submitToAcceptedMs = clientMs;
+          timing.serverAcceptedMs = serverMs;
+          performance.mark(`jev-stage:accepted:${requestId}`);
+          try {
+            performance.measure(
+              `jev-stage:submit-to-accepted:${requestId}`,
+              `jev-stage:submit:${requestId}`,
+              `jev-stage:accepted:${requestId}`
+            );
+          } catch {
+            // Marks may be missing if the Performance API rejected an earlier mark.
+          }
+        }
+        publishTiming();
+      };
+
+      performance.mark(`jev-stage:submit:${requestId}`);
       const resetTimeout = () => {
         window.clearTimeout(timeout);
         timeout = window.setTimeout(() => abort.abort(), JEV_STAGE_CLIENT_TIMEOUT_MS);
@@ -296,12 +363,23 @@ export function useJevStage(): StageController & {
           await readNdjson(response, (event) => {
             if (!mounted.current) return;
             resetTimeout();
+            if (event.type === "admission") {
+              markAdmission(event.phase, event.t);
+              if (!isLatest()) return;
+              // Queued/reserved are progress only — never reopen the composer here.
+              if (event.phase === "queued" || event.phase === "reserved") {
+                setTurnStatus("Queued");
+              }
+              return;
+            }
             if (event.type === "accepted") {
+              if (timing.submitToAcceptedMs == null) markAdmission("accepted", null);
               releaseComposer(true);
               return;
             }
             if (event.type === "done") {
               sawDone = true;
+              liveBatch.flush();
               releaseComposer(true);
               if (event.stage.revision <= resetRevision.current) return;
               const currentBundle = current.current;
@@ -338,7 +416,7 @@ export function useJevStage(): StageController & {
             lastUpdate = performance.now();
             setQuietTurn(false);
             if (event.type === "delta") {
-              setStreamingText((value) => value + event.text);
+              liveBatch.pushDelta(event.text);
               if (writing) setTurnStatus(writing);
             } else if (event.type === "route") {
               const action = ACTION_LABEL[event.selected.kind];
@@ -353,7 +431,7 @@ export function useJevStage(): StageController & {
             } else if (event.type === "trace") {
               const trace = event.event;
 
-              setLiveTrace((events) => [...events, trace]);
+              liveBatch.pushTrace(trace);
 
               switch (trace.kind) {
                 case "jev.start":
@@ -394,6 +472,7 @@ export function useJevStage(): StageController & {
               setError(event.message);
             }
           });
+          liveBatch.flush();
           if (!sawDone && !streamFailed) recover();
           if (isLatest()) {
             setStreamingText("");
@@ -402,6 +481,7 @@ export function useJevStage(): StageController & {
           }
           releaseComposer(!streamFailed);
         } catch (cause) {
+          liveBatch.flush();
           if (isLatest()) setStreamingText("");
           if (abort.signal.aborted || cause instanceof TypeError) {
             recover();
@@ -414,6 +494,7 @@ export function useJevStage(): StageController & {
             releaseComposer(false);
           }
         } finally {
+          liveBatch.dispose();
           window.clearTimeout(timeout);
           if (mounted.current) setActive((count) => count - 1);
         }
@@ -538,6 +619,7 @@ export function useJevStage(): StageController & {
           : turnStatus,
       statusPulse,
       liveTrace,
+      admissionTiming,
       recovering,
       designerStatus,
       setEval,
@@ -560,6 +642,7 @@ export function useJevStage(): StageController & {
       turnStatus,
       statusPulse,
       liveTrace,
+      admissionTiming,
       recovery,
       recovering,
       active,

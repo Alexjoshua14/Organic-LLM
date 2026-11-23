@@ -12,6 +12,7 @@ import {
   buildJevTraceView,
   emptyJevTraceView,
   foldJevTrace,
+  formatJevInsightDebugLog,
   formatTraceUsd,
   jevTracePath,
   jevTraceTimeline,
@@ -151,6 +152,29 @@ describe("jev-stage trace view reducer", () => {
     expect(formatTraceUsd(0.0000504)).toBe("$0.0000504");
     expect(formatTraceUsd(0.004213456)).toBe("$0.004213");
     expect(formatTraceUsd(0)).toBe("$0");
+  });
+
+  test("debug log includes admission timings when provided", () => {
+    const log = formatJevInsightDebugLog({
+      insight: null,
+      live: {
+        text: "hello",
+        status: "Queued",
+        admission: {
+          submitToQueuedMs: 40,
+          submitToReservedMs: 180,
+          submitToAcceptedMs: 190,
+          serverQueuedMs: 0,
+          serverReservedMs: 120,
+          serverAcceptedMs: 121,
+        },
+      },
+      trace: emptyJevTraceView(),
+    });
+
+    expect(log).toContain("## Admission");
+    expect(log).toContain("client submit→accepted: 190ms");
+    expect(log).toContain("server reserved: 120ms");
   });
 
   test("legacy insights without a trace replay from candidates and calls", () => {

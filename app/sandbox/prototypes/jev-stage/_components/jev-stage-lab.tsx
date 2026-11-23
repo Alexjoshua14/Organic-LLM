@@ -143,6 +143,7 @@ export function JevStageLab() {
                           ? stage.turnStatus
                           : (stage.error ?? stage.turnStatus),
                       events: stage.liveTrace,
+                      admission: stage.admissionTiming,
                     }
                   : undefined
               }

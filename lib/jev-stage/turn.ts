@@ -161,16 +161,29 @@ export async function runJevStageTurn(args: {
   /** Observe each completed step without blocking or changing turn execution. */
   onStepBoundary?: (boundary: JevStageStepBoundary) => void | Promise<void>;
 }): Promise<JevStageBundle> {
-  if (await hasJevStageRequest(args.ownerId, args.requestId)) {
-    return emitDuplicateDone(args.ownerId, args.requestId, args.emit);
-  }
-
   const signal = AbortSignal.timeout(JEV_STAGE_TURN_DEADLINE_MS);
-  const gate = await requirePlanBudget({
-    clerkUserId: args.clerkUserId,
-    sbUserId: args.ownerId,
-  });
+  const admissionStarted = performance.now();
+  const emitAdmission = (phase: "queued" | "reserved" | "accepted") => {
+    args.emit({
+      type: "admission",
+      phase,
+      t: Math.round(performance.now() - admissionStarted),
+    });
+  };
 
+  // Queued: stream is open and gates are running. Composer stays locked until `accepted`.
+  emitAdmission("queued");
+
+  // Both checks are reads. The message limiter consumes quota, so run it only after both pass.
+  const [duplicate, gate] = await Promise.all([
+    hasJevStageRequest(args.ownerId, args.requestId),
+    requirePlanBudget({
+      clerkUserId: args.clerkUserId,
+      sbUserId: args.ownerId,
+    }),
+  ]);
+
+  if (duplicate) return emitDuplicateDone(args.ownerId, args.requestId, args.emit);
   if (gate) throw new JevStageTurnError("Your plan budget is exhausted.", gate.status);
   const limited = await checkLlmMessageLimit(args.ownerId);
 
@@ -197,6 +210,9 @@ export async function runJevStageTurn(args: {
   }
 
   try {
+    emitAdmission("reserved");
+    emitAdmission("accepted");
+    // Composer may reopen only after plan, rate-limit, and reservation all succeed.
     args.emit({ type: "accepted" });
     const [bundle, workers] = await Promise.all([
       readJevStage(args.ownerId),

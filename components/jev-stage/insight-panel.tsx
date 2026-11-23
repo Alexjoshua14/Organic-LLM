@@ -136,7 +136,19 @@ export function JevStageInsightPanel({
   className,
 }: {
   insights: JevStageTurnInsight[];
-  live?: { text: string; status: string; events: JevStageTraceEvent[] };
+  live?: {
+    text: string;
+    status: string;
+    events: JevStageTraceEvent[];
+    admission?: {
+      submitToQueuedMs: number | null;
+      submitToReservedMs: number | null;
+      submitToAcceptedMs: number | null;
+      serverQueuedMs: number | null;
+      serverReservedMs: number | null;
+      serverAcceptedMs: number | null;
+    } | null;
+  };
   design?: { turnId: string; status: string };
   onEval: (turnId: string, signal: "up" | "down", note?: string | null) => Promise<void>;
   className?: string;
@@ -154,15 +166,6 @@ export function JevStageInsightPanel({
   const trace = useMemo(
     () => buildJevTraceView(insight ? traceForInsight(insight) : (live?.events ?? [])),
     [insight, live?.events]
-  );
-  const debugLog = useMemo(
-    () =>
-      formatJevInsightDebugLog({
-        insight,
-        live: livePage ? live : null,
-        trace,
-      }),
-    [insight, live, livePage, trace]
   );
   const { rows } = jevTraceTimeline(trace);
   const calls = insight?.calls ?? [
@@ -329,6 +332,12 @@ export function JevStageInsightPanel({
               className="rounded-lg p-1.5 text-muted-foreground hover:text-foreground"
               type="button"
               onClick={() => {
+                const debugLog = formatJevInsightDebugLog({
+                  insight,
+                  live: livePage ? live : null,
+                  trace,
+                });
+
                 void copyTextToClipboard(debugLog).then((ok) => {
                   if (!ok) return;
                   setCopied(true);

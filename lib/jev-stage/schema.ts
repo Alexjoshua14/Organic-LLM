@@ -301,9 +301,20 @@ const JevStageStepBoundarySchema = z.object({
 
 export type JevStageStepBoundary = z.infer<typeof JevStageStepBoundarySchema>;
 
+/** Admission milestones before the composer reopens (`accepted`). */
+export const JevStageAdmissionPhaseSchema = z.enum(["queued", "reserved", "accepted"]);
+
+export type JevStageAdmissionPhase = z.infer<typeof JevStageAdmissionPhaseSchema>;
+
 /** Stream / NDJSON event envelope for the prototype client. */
 export const JevStageStreamEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("heartbeat") }),
+  z.object({
+    type: z.literal("admission"),
+    phase: JevStageAdmissionPhaseSchema,
+    /** Milliseconds from turn-handler start to this milestone. */
+    t: z.number().nonnegative(),
+  }),
   z.object({ type: z.literal("accepted") }),
   z.object({ type: z.literal("correction"), correction: JevStageCorrectionSchema }),
   JevStageStepBoundarySchema.extend({ type: z.literal("step_boundary") }),

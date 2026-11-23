@@ -165,10 +165,13 @@ is out of scope for this lab.
 
 ## Concurrent turns and corrections
 
-The composer shows receipt immediately and reopens once the authenticated request clears the
-plan and message limits and claims a request slot. Jev routing and the downstream stream can
-continue independently. The target is roughly two seconds to admission. This needs a browser
-measurement on the deployed prototype with live auth and Redis.
+The composer shows receipt immediately, then **Queued** while plan budget, message limits, and
+the request-slot lease run. It reopens only on `accepted` after those gates and reservation
+succeed — never on `admission` queued/reserved alone. The stream emits `admission` milestones
+(`queued` → `reserved` → `accepted`) with server-side `t` ms; the client records submit→milestone
+marks for the Insight debug log (built on copy, not each live event). Live text and trace paint
+are coalesced to one React flush per animation frame. The target is roughly two seconds to
+admission; measure with those marks on the deployed prototype with live auth and Redis.
 
 The prototype uses the existing owner-scoped Redis store. Up to four foreground requests may
 run at once. A short lease serializes admission and final writes. Conversation groups appear in
