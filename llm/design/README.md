@@ -93,6 +93,35 @@ Also exported: `lumenRimGeometry`, `LUMEN_RIM_RATIOS`, `kelvinToRgb`, `kelvinToC
 Lumen Kelvin anchors (`LUMEN_KELVIN_DEEP` 2800K, `LUMEN_KELVIN_BASE` 3000K, `LUMEN_KELVIN_RIM`
 3200K).
 
+## For coding agents: `/transpile`
+
+Lumen is meant to travel beyond React and CSS. The package ships two
+[agent skills](./skills/) that let a coding agent (Claude Code, Codex, a local model, anything
+that can read files and run commands) rebuild the **latest** Lumen natively in another technology,
+such as SwiftUI, a Rust TUI, Blender, Godot or Flutter, and integrate it into your project.
+
+| Skill | Does |
+| --- | --- |
+| [`transpile`](./skills/transpile/SKILL.md) | Ports a system to a target: separates Lumen's essence (intent per theme, ratios, states, timings, rules) from the web mechanism, maps each platform assumption to the target with a grade (exact, equivalent, approximated, omitted), fits the project's conventions, verifies parity, and records provenance so the port can be updated. |
+| [`survey`](./skills/survey/SKILL.md) | Builds a current, cited model of a system from the published source and spec, with coverage checks, and diffs it against a previous model. `transpile` runs it first, every time. |
+
+The skills hold the *method*, never a copy of Lumen: every value comes from the version being
+read, so a port is always of the current Lumen, and updating a port means re-surveying and
+applying the "Changes since" diff.
+
+**Use it:**
+
+```bash
+bun add -d @coalescence-labs/design          # or npm pack it anywhere
+# Claude Code: make it a slash command in this project
+mkdir -p .claude/skills && ln -s ../../node_modules/@coalescence-labs/design/skills/transpile .claude/skills/transpile && ln -s ../../node_modules/@coalescence-labs/design/skills/survey .claude/skills/survey
+```
+
+Then ask: *"/transpile Lumen to SwiftUI for this app"*. For other agents, point them at
+`node_modules/@coalescence-labs/design/skills/transpile/SKILL.md` (or the same path on
+[unpkg](https://unpkg.com/@coalescence-labs/design/skills/transpile/SKILL.md)) and ask them to
+follow it.
+
 ## Versioning
 
 Semver. Renaming a variable or class, or changing how a variant looks, is a breaking change

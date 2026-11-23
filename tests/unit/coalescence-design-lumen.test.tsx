@@ -135,6 +135,37 @@ describe("@coalescence-labs/design lumen.css", () => {
   });
 });
 
+describe("@coalescence-labs/design agent skills", () => {
+  const skill = (name: string) =>
+    readFileSync(resolve(import.meta.dir, `../../llm/design/skills/${name}/SKILL.md`), "utf8");
+  const pkg = JSON.parse(
+    readFileSync(resolve(import.meta.dir, "../../llm/design/package.json"), "utf8")
+  ) as { files: string[] };
+
+  test("ship with the package, alongside the source they read", () => {
+    expect(pkg.files).toEqual(expect.arrayContaining(["skills", "src", "css"]));
+  });
+
+  test("have frontmatter naming the skill, and transpile links to survey", () => {
+    for (const name of ["transpile", "survey"]) {
+      expect(skill(name)).toMatch(new RegExp(`^---\\nname: ${name}\\ndescription: .+\\n---\\n`));
+    }
+
+    expect(skill("transpile")).toContain("(../survey/SKILL.md)");
+  });
+
+  test("never snapshot Lumen's values, so a port always reads the current version", () => {
+    for (const name of ["transpile", "survey"]) {
+      const text = skill(name);
+
+      expect(text).not.toMatch(/--cl-lumen-[\w-]+\s*:/);
+      expect(text).not.toMatch(/\b\d+(?:\.\d+)?(?:px|ms|rem)\b/);
+      expect(text).not.toMatch(/\b(?:oklch|rgb)\(\s*\d/);
+      expect(text).not.toMatch(/cubic-bezier\(\s*\d/);
+    }
+  });
+});
+
 function escape(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
