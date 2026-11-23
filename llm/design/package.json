@@ -1,0 +1,46 @@
+{
+  "name": "@coalescence-labs/design",
+  "version": "0.1.0",
+  "description": "Coalescence Labs design system. Lumen: warm rim light in dark themes, a soft shadow in light themes, with CSS tokens, variants and React rim hooks.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "author": "Coalescence Labs",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Alexjoshua14/Organic-LLM.git",
+    "directory": "llm/design"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    "./lumen.css": "./css/lumen.css",
+    "./tailwind.css": "./css/tailwind.css",
+    "./lumen": {
+      "types": "./dist/lumen.d.ts",
+      "import": "./dist/lumen.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "css"
+  ],
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "prepack": "tsup"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "react": "^19.3.0",
+    "tsup": "^8.5.1",
+    "typescript": "~5.6.3"
+  }
+}

@@ -7,6 +7,7 @@ Shippable libraries and tooling intended to be **published independently** (for 
 | Path | Purpose |
 |------|---------|
 | [`morph-physics/`](./morph-physics/) | **`@organic-llm/morph-physics`** — spring-driven layout morphing (ported from Project Nebulae). Build: `cd morph-physics && bun run build`. |
+| [`design/`](./design/) | **`@coalescence-labs/design`** — the Coalescence Labs design system, starting with Lumen (CSS tokens and variants, React rim hooks). Organic uses its source; other apps install it from npm. Build: `cd design && bun install && bun run build`. |
 | [`.plans/`](./.plans/) | Planning docs for work in this tree |
 
 ## Plans
