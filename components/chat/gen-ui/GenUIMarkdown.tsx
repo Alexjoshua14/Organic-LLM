@@ -67,8 +67,9 @@ const blockComponents: Components = {
     <ol {...props} className="list-decimal space-y-stack-xs pl-5 marker:text-muted-foreground/70" />
   ),
   li: ({ node: _node, ...props }) => <li {...props} className="pl-0.5" />,
-  pre: ({ node: _node, ...props }) => (
+  pre: ({ node, ...props }) => (
     <chatMarkdownCodeComponents.pre
+      node={node}
       {...props}
       className="rounded-lg bg-muted/50 p-inset-md font-mono text-xs leading-relaxed text-foreground/90"
     />

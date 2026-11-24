@@ -3,6 +3,8 @@ import { cleanup, fireEvent, waitFor } from "@testing-library/react";
 
 import { render } from "../helpers/render";
 
+import { ChatMessageMarkdown } from "@/components/chat/chat-message-markdown";
+import { GenUIMarkdown } from "@/components/chat/gen-ui/GenUIMarkdown";
 import { CodeBlock } from "@/components/shared/code-block";
 import {
   HIGHLIGHT_LANGUAGES,
@@ -93,13 +95,40 @@ describe("CodeBlock", () => {
     expect(numbered.getByText("5")).toBeTruthy();
   });
 
-  test("copy sends the exact raw source, without the trailing newline", async () => {
-    const view = block(SOURCE, "ts");
+  test("copies only the source with an icon and announces success", async () => {
+    const filename = "packages/ai/src/generate-text.ts";
+    const view = block(SOURCE, "ts", { filename });
+    const copy = view.getByRole("button", { name: "Copy code" });
 
-    fireEvent.click(view.getByRole("button", { name: "Copy code" }));
+    expect(view.getByText(filename)).toBeTruthy();
+    expect(copy.textContent).toBe("");
+    fireEvent.click(copy);
     await waitFor(() => expect(copyText).toHaveBeenCalledTimes(1));
     expect(copyText.mock.calls[0][0]).toBe(SOURCE);
-    await waitFor(() => expect(view.getByText("Copied")).toBeTruthy());
+    await waitFor(() => expect(view.getByRole("status").textContent).toBe("Code copied"));
+    expect(copy.textContent).toBe("");
+    expect(copy.getAttribute("title")).toBe("Copied");
+  });
+
+  test("chat and Gen UI Markdown pass optional fence filenames to the header", () => {
+    const content = ['```ts filename="src/example file.ts"', SOURCE, "```", "", "```sh", "bun test", "```"].join("\n");
+    const chat = render(<ChatMessageMarkdown content={content} id="filename" />);
+
+    expect(chat.getByRole("region", { name: "src/example file.ts code" })).toBeTruthy();
+    expect(chat.getByRole("region", { name: "Shell code" })).toBeTruthy();
+    expect(chat.getAllByText("src/example file.ts")).toHaveLength(1);
+    cleanup();
+
+    const genUi = render(<GenUIMarkdown>{content}</GenUIMarkdown>);
+    expect(genUi.getByText("src/example file.ts")).toBeTruthy();
+    expect(genUi.getByRole("region", { name: "Shell code" })).toBeTruthy();
+  });
+
+  test("blank filenames use the anonymous header", () => {
+    const view = block(SOURCE, "ts", { filename: "   " });
+
+    expect(view.getByRole("region", { name: "TypeScript code" })).toBeTruthy();
+    expect(view.getByText("TypeScript")).toBeTruthy();
   });
 
   test("a long block streaming in stays plain until it settles, then highlights", async () => {
@@ -138,7 +167,7 @@ describe("CodeBlock", () => {
     const view = block(SOURCE, "ts");
 
     fireEvent.click(view.getByRole("button", { name: "Copy code" }));
-    await waitFor(() => expect(view.getByText("Copy failed")).toBeTruthy());
+    await waitFor(() => expect(view.getByRole("status").textContent).toBe("Could not copy the code"));
   });
 
   test("wrap starts from the prop and the header toggles it", () => {

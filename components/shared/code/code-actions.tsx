@@ -26,6 +26,8 @@ type CodeCopyButtonProps = {
   disabled?: boolean;
   /** Keep the text label on a phone, where the icon alone is the default (a roomy toolbar). */
   showLabel?: boolean;
+  /** Use a single icon at every width, with a spoken label and status. */
+  iconOnly?: boolean;
 };
 
 const DEFAULT_ANNOUNCE = { copied: "Code copied", failed: "Could not copy the code" };
@@ -41,6 +43,7 @@ export function CodeCopyButton({
   announce = DEFAULT_ANNOUNCE,
   disabled = false,
   showLabel = false,
+  iconOnly = false,
 }: CodeCopyButtonProps) {
   const [state, setState] = useState<CopyState>("idle");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -62,12 +65,15 @@ export function CodeCopyButton({
     timer.current = setTimeout(() => setState("idle"), COPY_FEEDBACK_MS);
   }, [text]);
 
+  const statusLabel = state === "copied" ? "Copied" : state === "failed" ? "Copy failed" : label;
+
   return (
     <>
       <button
-        aria-label={state === "idle" ? ariaLabel : undefined}
-        className={cn(styles.action, styles.copy, "organic-focus")}
-        data-labelled={showLabel ? "" : undefined}
+        aria-label={iconOnly ? (ariaLabel ?? label) : state === "idle" ? ariaLabel : undefined}
+        className={cn(styles.action, !iconOnly && styles.copy, "organic-focus")}
+        data-labelled={showLabel && !iconOnly ? "" : undefined}
+        title={iconOnly ? statusLabel : undefined}
         disabled={disabled}
         type="button"
         onClick={() => void copy()}
@@ -79,9 +85,7 @@ export function CodeCopyButton({
         ) : (
           <Copy size={14} aria-hidden />
         )}
-        <span className={styles.copyLabel}>
-          {state === "copied" ? "Copied" : state === "failed" ? "Copy failed" : label}
-        </span>
+        {iconOnly ? null : <span className={styles.copyLabel}>{statusLabel}</span>}
       </button>
       <span aria-live="polite" className={styles.srOnly} role="status">
         {state === "copied" ? announce.copied : state === "failed" ? announce.failed : ""}

@@ -1,6 +1,6 @@
 import { marked } from "marked";
 import { createContext, memo, useContext, useMemo } from "react";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { type ExtraProps } from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import { MermaidDiagram } from "@/components/blog/mermaid-diagram";
@@ -19,12 +19,21 @@ function parseMarkdownIntoBlocks(markdown: string): string[] {
   return tokens.map((token) => token.raw);
 }
 
-function CodeBlockWrapper({ children, ...props }: React.ComponentPropsWithoutRef<"pre">) {
+function CodeBlockWrapper({
+  children,
+  node,
+  ...props
+}: React.ComponentPropsWithoutRef<"pre"> & ExtraProps) {
   const wrapCodeBlocks = useContext(WrapCodeBlocksContext);
+  // mdast-util-to-hast keeps the fence's info string on the inner code node.
+  const code = node?.children[0];
+  const meta = code?.type === "element" ? code.data?.meta : undefined;
+  const filename =
+    typeof meta === "string" ? /^filename=(?:"([^"]+)"|([^\s"']+))(?=\s|$)/.exec(meta) : null;
 
   return (
     <InBlockCodeContext.Provider value={true}>
-      <CodeBlock wrap={wrapCodeBlocks} {...props}>
+      <CodeBlock wrap={wrapCodeBlocks} filename={filename?.[1] ?? filename?.[2]} {...props}>
         {children}
       </CodeBlock>
     </InBlockCodeContext.Provider>
@@ -90,6 +99,7 @@ export const ChatMessageMarkdown = memo(
         {blocks.map((block, index) => {
           // Whole marker blocks only: fenced/inline code and ordinary UUID prose stay literal.
           const threadId = block.trim().startsWith("[thread:") ? parseThreadPointer(block) : null;
+
           return threadId ? (
             <div key={`${id}-block_${index}`} className="my-2">
               <ThreadReferenceCard id={threadId} />

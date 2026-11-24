@@ -118,7 +118,7 @@ export const LAB_CODE_PRESETS: ReadonlyArray<CodePreset> = [
     name: "Reference",
     intent:
       "A whole function you read top to bottom: line numbers, comments, types, indentation guides.",
-    markdown: `Here is the complete module:\n\n${demoCodeFence("ts", REFERENCE)}`,
+    markdown: `Here is the complete module:\n\n${demoCodeFence('ts filename="lib/subscribe.ts"', REFERENCE)}`,
   },
   {
     id: "command",

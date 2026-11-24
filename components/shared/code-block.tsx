@@ -38,6 +38,8 @@ export type CodeBlockProps = ComponentPropsWithoutRef<"pre"> & {
   wrap?: boolean;
   /** Applied to the outer wrapper (e.g. spacing in article body). */
   containerClassName?: string;
+  /** Optional display path for the snippet. It stays outside the source and clipboard. */
+  filename?: string;
 };
 
 /** Blocks at or above this many lines get a line-number gutter; short snippets stay clean. */
@@ -94,6 +96,7 @@ function extractCode(children: ReactNode): ExtractedCode | null {
 export function CodeBlock({
   wrap = false,
   containerClassName,
+  filename,
   children,
   className,
 }: CodeBlockProps) {
@@ -117,6 +120,8 @@ export function CodeBlock({
   const lineCount = countLines(rawCode);
   const large = exceedsHighlightLimits(rawCode);
   const label = codeLanguageLabel(extracted?.language);
+  const path = filename?.trim();
+  const codeLabel = path ? `${path} code` : `${label} code`;
   const settling = lineCount > HIGHLIGHT_EAGER_LINES && settledCode !== rawCode;
   const highlightLanguage = settling ? undefined : extracted?.language;
   const highlighted = !large && resolveHighlightLanguage(highlightLanguage) !== undefined;
@@ -124,6 +129,19 @@ export function CodeBlock({
   // Short snippets stay a glance with nothing to open; the reader starts where line numbers do.
   const readable = extracted !== null && lineCount >= LINE_NUMBER_THRESHOLD;
   const capped = readable && lineCount > GLANCE_LINES;
+
+  const identity = (
+    <span className={styles.identity}>
+      <FileCode2 size={14} aria-hidden />
+      <span className={styles.language}>{label}</span>
+      {lineCount > 1 && (
+        <span className={styles.meta}>
+          · {lineCount.toLocaleString("en-US")} lines
+          {large ? " · plain text, block too large to color" : ""}
+        </span>
+      )}
+    </span>
+  );
 
   return (
     <>
@@ -135,31 +153,28 @@ export function CodeBlock({
         {...surface}
       >
         <div className={styles.header}>
-          <span className={styles.identity}>
-            <FileCode2 size={14} aria-hidden />
-            <span className={styles.language}>{label}</span>
-            {lineCount > 1 && (
-              <span className={styles.meta}>
-                · {lineCount.toLocaleString("en-US")} lines
-                {large ? " · plain text, block too large to color" : ""}
-              </span>
-            )}
-          </span>
+          {path ? (
+            <div className="min-w-0 flex-1 py-inset-sm">
+              <div className="font-mono text-xs font-medium wrap-anywhere text-foreground">
+                {path}
+              </div>
+              {identity}
+            </div>
+          ) : (
+            identity
+          )}
           <div className={styles.headerActions}>
             <CodeActions>
               <CodeWrapButton wideOnly pressed={wrapped} onToggle={toggleWrap} />
               {readable ? (
-                <CodeExpandButton
-                  label={`Open ${label} code in the reader`}
-                  onClick={reader.show}
-                />
+                <CodeExpandButton label={`Open ${codeLabel} in the reader`} onClick={reader.show} />
               ) : null}
               <CodeActionDivider wideOnly={!readable} />
-              <CodeCopyButton ariaLabel="Copy code" disabled={!extracted} text={rawCode} />
+              <CodeCopyButton iconOnly ariaLabel="Copy code" disabled={!extracted} text={rawCode} />
             </CodeActions>
           </div>
         </div>
-        <CodeScroll digits={String(lineCount).length} focusable={!wrapped} label={`${label} code`}>
+        <CodeScroll digits={String(lineCount).length} focusable={!wrapped} label={codeLabel}>
           {extracted ? (
             <CodeLines
               code={rawCode}
@@ -179,14 +194,14 @@ export function CodeBlock({
       {readable ? (
         <CodeReader
           copy={
-            <CodeCopyButton showLabel ariaLabel="Copy code" disabled={!extracted} text={rawCode} />
+            <CodeCopyButton iconOnly ariaLabel="Copy code" disabled={!extracted} text={rawCode} />
           }
           digits={String(lineCount).length}
-          label={`${label} code`}
+          label={codeLabel}
           meta={`${lineCount.toLocaleString("en-US")} ${lineWord}`}
           open={reader.open}
           opener={reader.opener}
-          title={label}
+          title={path || label}
           onOpenChange={reader.setOpen}
         >
           <CodeLines code={rawCode} language={highlightLanguage} showLineNumbers />

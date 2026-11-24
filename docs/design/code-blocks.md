@@ -7,12 +7,15 @@ not kept as a fallback.
 ## What ships
 
 `components/shared/code-block.tsx` is the one fenced-code component. Chat markdown, gen-ui markdown,
-blog prose and the rabbit-hole article all use it. It owns its appearance; callers pass only
-`wrap` and `containerClassName` (spacing). Do not pass border, background or padding classes.
+blog prose and the rabbit-hole article all use it. It owns its appearance; callers can pass `wrap`,
+`containerClassName` (spacing), and an optional `filename` (display path). Do not pass border, background or padding classes.
 
 - **Header:** language label and line count on the left; wrap toggle and a copy control on the
-  right. The copy control reserves its width (`9em`) so Copy code / Copied / Copy failed never
-  shift the toolbar.
+  right. When a filename is supplied it sits above the language within the header. The snippet
+  copy button uses an icon at every width, with accessible feedback and a stable position.
+- **Fence metadata:** in chat and Gen UI Markdown, add `filename="src/index.ts"` after the
+  language in the opening fence. The filename is displayed as text and stays out of the source
+  and clipboard.
 - **Body:** 13px source at a 20.8px line height (1.6), Fira Code with a monospace fallback, subtle
   indentation guides, hanging indent when wrapped, a line-number gutter from five lines up.
 - **Palettes:** one light and one dark set in `code-block.module.css`. Dark follows the app's
