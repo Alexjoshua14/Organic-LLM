@@ -3,7 +3,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 
 import { after } from "next/server";
-import { generateText, Output, stepCountIs } from "ai";
+import { generateText, Output, stepCountIs, type ToolSet } from "ai";
 
 import { designerBlockShapes } from "./block-shapes";
 import { StageWorkerOutputSchema, type StageWorkerPiece } from "./worker-output";
@@ -138,13 +138,14 @@ export async function runStageSubagent(
         const instructions = mira
           ? `${plannerSubagent.instructions}\n\n${ERGON_AGENT_INSTRUCTIONS}\n\nYou are running as a Stage specialist, not Arcadia chat. ${stageOutput}`
           : `${system.replace("Arcadia multitask shell", "Stage")}\n${stageOutput}`;
-        const tools = {
-          ...ergonTools,
+        const tools: ToolSet = {
           ...(job.memory ? { search_memories: createMemorySearchTool(actor.ownerId) } : {}),
           ...(job.webSearch
             ? { web_search: createWebSearchTool({ maxNumResults: 3, sbUserId: actor.ownerId }) }
             : {}),
         };
+
+        Object.assign(tools, ergonTools);
         const budget = createLlmBudgetHooks({
           ownerId: actor.ownerId,
           clerkUserId: actor.clerkUserId,
