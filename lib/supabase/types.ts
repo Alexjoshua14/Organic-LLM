@@ -619,6 +619,50 @@ export type Database = {
           },
         ]
       }
+      jev_stage_turn_eval: {
+        Row: {
+          created_at: string
+          id: string
+          note_approved_at: string | null
+          note_ciphertext: string | null
+          revision: number
+          signal: string
+          turn_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          note_approved_at?: string | null
+          note_ciphertext?: string | null
+          revision?: number
+          signal: string
+          turn_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          note_approved_at?: string | null
+          note_ciphertext?: string | null
+          revision?: number
+          signal?: string
+          turn_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jev_stage_turn_eval_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       memory_quality_daily: {
         Row: {
           char_count_mean: number | null

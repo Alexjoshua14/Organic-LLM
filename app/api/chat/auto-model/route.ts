@@ -1,7 +1,8 @@
-import { generateObject } from "ai";
+import { generateObject, type LanguageModelUsage } from "ai";
 
 import { createAutoModelHandler } from "@/lib/api/auto-model-handler";
 import { requireLlmChatActor } from "@/lib/api/chat-llm-gate";
+import { defaultJevGenerate } from "@/lib/llm/jev";
 import {
   routeAutoModel,
   type AutoPickerGenerateFn,
@@ -10,8 +11,9 @@ import {
 import { budgetModelId, createAuthenticatedLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
 import { getPlanBudgetForUser } from "@/lib/plans/plan-budget";
 
-const GATE_MAX_OUTPUT_TOKENS = 120;
 const PICKER_MAX_OUTPUT_TOKENS = 160;
+/** Jev answers in well under a second; a hung gate should not hold the picker. */
+const JEV_GATE_TIMEOUT_MS = 2_500;
 
 /**
  * Live model calls for the router. The hooks re-check the plan budget before the call and write
@@ -19,21 +21,26 @@ const PICKER_MAX_OUTPUT_TOKENS = 160;
  * components import it.
  */
 const generateGate: JevGateGenerateFn = async (args) => {
-  const res = await generateObject({
-    ...(await createAuthenticatedLlmBudgetHooks({
-      modelId: budgetModelId(args.model),
-      operation: "auto-model-gate",
-      route: "/api/chat/auto-model",
-    })),
+  // Jev is a decision model: no generate* hooks apply, so check and record around the call.
+  const hooks = await createAuthenticatedLlmBudgetHooks({
+    modelId: args.model,
+    operation: "auto-model-gate",
+    route: "/api/chat/auto-model",
+  });
+  const res = await defaultJevGenerate({
     model: args.model,
-    instructions: args.system,
-    prompt: args.prompt,
-    schema: args.schema,
+    state: args.state,
+    questions: args.questions,
     providerOptions: args.providerOptions,
-    maxOutputTokens: GATE_MAX_OUTPUT_TOKENS,
+    abortSignal: AbortSignal.timeout(JEV_GATE_TIMEOUT_MS),
   });
 
-  return { object: res.object, usage: res.usage };
+  await hooks.onStepFinish({
+    usage: res.usage as LanguageModelUsage,
+    providerMetadata: res.providerMetadata,
+  });
+
+  return res;
 };
 
 const generatePicker: AutoPickerGenerateFn = async (args) => {

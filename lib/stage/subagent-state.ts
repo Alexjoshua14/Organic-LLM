@@ -29,11 +29,13 @@ export function assignStageSubagents(
         (assignment): StageSubagent => ({
           ...assignment,
           id: crypto.randomUUID(),
-          status: "queued",
+          // Arcadia-backed specialists are already working on a child thread.
+          status: assignment.backend === "arcadia" ? "working" : "queued",
           startedAt,
           result: null,
           memory: settings?.memory === true,
           webSearch: settings?.webSearch === true,
+          backend: assignment.backend ?? "stage",
         })
       ),
     ],

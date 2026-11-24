@@ -35,7 +35,8 @@ export function PrototypesSidebarContent() {
         Prototype gallery
       </Link>
 
-      <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+      {/* Rest gutter: scroll without hovering every row. */}
+      <div className="min-h-0 flex-1 overflow-y-auto pr-inset-md">
         <PrototypesSidebarNav prototypes={rankedPrototypes} />
       </div>
     </div>

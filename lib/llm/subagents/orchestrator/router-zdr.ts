@@ -48,8 +48,8 @@ export function assertJevRequiresZdr(model: ChatModel = JEV_CHAT_MODEL): void {
 }
 
 /**
- * The only sanctioned way to configure a Jev generate* call: model id + forced ZDR.
- * Spreading these into `generateObject` / `generateText` keeps ZDR on the request.
+ * The only sanctioned way to configure a Jev call: model id + forced ZDR. Jev is a decision
+ * model, so these go to `experimental_decide` (see `lib/llm/jev.ts`), never `generate*`.
  */
 export function jevRouterCallConfig(): {
   model: typeof JEV_GATEWAY_MODEL_ID;

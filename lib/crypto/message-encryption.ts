@@ -37,6 +37,9 @@ export type EncryptionFieldName =
   | "persona_sessions.log"
   | "persona_sessions.photo"
   | "stage.events"
+  | "jev-stage.bundle"
+  | "jev-stage.steering"
+  | "jev-stage.eval.note"
   | "continuity.interaction";
 
 export type EncryptionContext = {

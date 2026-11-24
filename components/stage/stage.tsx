@@ -1,12 +1,22 @@
 "use client";
 
 import "./stage.css";
+import type { AgentDotState } from "@/components/agents/agent-dot-grid-motion";
 import type { ContinuitySelection } from "@/lib/continuity/schema";
 import type { ChatModel } from "@/lib/schemas/chat";
 import type { ChatEffortLevel } from "@/lib/schemas/chat-effort";
 import type { StageTurnSettings, StageRect } from "@/lib/stage/schema";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
+import { createPortal } from "react-dom";
 import {
   AudioLines,
   Grid3X3,
@@ -89,10 +99,26 @@ export function Stage() {
 export function StageView({
   stage,
   scripted = false,
+  agentMessage,
+  agentState,
+  renderAgentStatus,
+  conversationRail,
+  defaultWebSearch = false,
+  extraTools,
+  stackPiecesOnMobile = false,
+  composerPlaceholder = "What’s on your mind?",
 }: {
   stage: StageController;
   /** A scripted stage has no real threads, calls, or voice session to attach to. */
   scripted?: boolean;
+  agentMessage?: ReactNode;
+  agentState?: AgentDotState;
+  renderAgentStatus?: (status: string) => ReactNode;
+  conversationRail?: HTMLElement | null;
+  defaultWebSearch?: boolean;
+  extraTools?: ReactNode;
+  stackPiecesOnMobile?: boolean;
+  composerPlaceholder?: string;
 }) {
   const liveVoice = useVoiceSessionOptional();
   const voice = scripted ? null : liveVoice;
@@ -120,7 +146,7 @@ export function StageView({
   }, [confirmingReset]);
   const modelRef = useRef<ChatModel>(DEFAULT_COMPOSER_MODEL);
   const effortRef = useRef<ChatEffortLevel>("auto");
-  const searchRef = useRef(false);
+  const searchRef = useRef(defaultWebSearch);
   const memoryRef = useRef(DEFAULT_COMPOSER_MEMORIES);
   const speechRef = useRef(false);
   const [composerError, setComposerError] = useState<Error | null>(null);
@@ -306,6 +332,17 @@ export function StageView({
     setPreview(null);
   }
 
+  const hasMobilePieces = stackPiecesOnMobile && frame.pieces.length > 0;
+  const pieces = (
+    <StagePieces
+      widgets={state?.widgets ?? []}
+      visible={frame.pieces}
+      selectedId={selectedId}
+      onArrange={arrangePiece}
+      onChange={mutate}
+    />
+  );
+
   return (
     <div
       ref={root}
@@ -331,9 +368,20 @@ export function StageView({
           <span className="stage-wordmark-slash">/</span>
           <span>stage</span>
         </div>
-        <nav aria-label="Stage controls" className="stage-tools">
+        <nav
+          aria-label="Stage controls"
+          className={extraTools ? "stage-tools max-md:relative" : "stage-tools"}
+        >
           {/* Hidden, not unmounted: the context picker keeps its selection while closed. */}
-          <div className="stage-tool-tray" hidden={!toolsOpen} id="stage-tool-tray">
+          <div
+            className={
+              extraTools
+                ? "stage-tool-tray max-md:absolute max-md:inset-e-0 max-md:top-full max-md:z-10 max-md:w-max max-md:rounded-lg max-md:border max-md:border-border max-md:bg-background"
+                : "stage-tool-tray"
+            }
+            hidden={!toolsOpen}
+            id="stage-tool-tray"
+          >
             {!scripted && (
               <ContextPicker
                 compact
@@ -435,42 +483,62 @@ export function StageView({
             <MessageCircle size={15} />
             <span>Conversation</span>
           </button>
+          {extraTools}
         </nav>
       </header>
 
       <section aria-label="Your 32 by 32 stage" className="stage-surface">
-        <StageAgent
-          status={
-            frame.tiny
-              ? sending
-                ? "Thinking"
-                : activeSubagents
-                  ? "Working together"
-                  : "Here, with you"
-              : status
-          }
-          rect={frame.parent}
-          hero={frame.hero}
-          state={sending ? "working" : loading || activeSubagents > 0 ? "waiting" : "idle"}
-          onFocus={() => {
-            chooseAuthor("organic");
-            composer.current?.querySelector("textarea")?.focus();
-          }}
-        />
-        <StageSubagents
-          agents={state?.subagents ?? []}
-          design={state?.design}
-          rects={frame.children}
-          onSelect={chooseAuthor}
-          onCancel={cancelSubagent}
-        />
-        <StagePieces
-          widgets={state?.widgets ?? []}
-          visible={frame.pieces}
-          selectedId={selectedId}
-          onArrange={arrangePiece}
-          onChange={mutate}
-        />
+        <div className={hasMobilePieces ? "contents max-md:hidden" : "contents"}>
+          <StageAgent
+            message={agentMessage}
+            renderStatus={renderAgentStatus}
+            status={
+              frame.tiny
+                ? sending
+                  ? "Thinking"
+                  : activeSubagents
+                    ? "Working together"
+                    : "Here, with you"
+                : status
+            }
+            rect={frame.parent}
+            hero={frame.hero}
+            state={
+              agentState ??
+              (sending ? "working" : loading || activeSubagents > 0 ? "waiting" : "idle")
+            }
+            onFocus={() => {
+              chooseAuthor("organic");
+              composer.current?.querySelector("textarea")?.focus();
+            }}
+          />
+          <StageSubagents
+            agents={state?.subagents ?? []}
+            design={state?.design}
+            rects={frame.children}
+            onSelect={chooseAuthor}
+            onCancel={cancelSubagent}
+          />
+        </div>
+        {stackPiecesOnMobile ? (
+          <div
+            className={
+              hasMobilePieces
+                ? "contents max-md:flex max-md:min-h-0 max-md:min-w-0 max-md:flex-col max-md:gap-4 max-md:overflow-y-auto max-md:overscroll-contain max-md:[&>.stage-piece:not([hidden])]:shrink-0 max-md:[&>.stage-piece]:max-h-full"
+                : "contents"
+            }
+            style={stageCellStyle({ ...frame.body, x: 0, w: frame.header.w })}
+          >
+            {hasMobilePieces && agentMessage && (
+              <div className="flex shrink-0 justify-center text-center md:hidden">
+                {agentMessage}
+              </div>
+            )}
+            {pieces}
+          </div>
+        ) : (
+          pieces
+        )}
       </section>
 
       {selected && (
@@ -485,9 +553,16 @@ export function StageView({
           onClose={closeArrangement}
         />
       )}
-      {panel && state && (
-        <StageHistory key={panel} mode={panel} state={state} onClose={() => setPanel(null)} />
-      )}
+      {panel &&
+        state &&
+        (panel === "conversation" && conversationRail ? (
+          createPortal(
+            <StageHistory recessed mode={panel} state={state} onClose={() => setPanel(null)} />,
+            conversationRail
+          )
+        ) : (
+          <StageHistory key={panel} mode={panel} state={state} onClose={() => setPanel(null)} />
+        ))}
 
       <footer className="stage-footer">
         {/* Organic's words belong to the home view (and to reading). With pieces showing, the
@@ -563,7 +638,7 @@ export function StageView({
                 useWebSearchRef={searchRef}
                 useMemoriesRef={memoryRef}
                 useSpeechFriendlyRef={speechRef}
-                defaultWebSearch={false}
+                defaultWebSearch={defaultWebSearch}
                 defaultMemories={DEFAULT_COMPOSER_MEMORIES}
                 disabled={!state}
                 status={sending ? "submitted" : "ready"}
@@ -573,7 +648,7 @@ export function StageView({
                 showContextBudget={false}
                 featureHints={false}
                 composerInject={composerInject}
-                placeholder={loading ? "Opening your space…" : "What’s on your mind?"}
+                placeholder={loading ? "Opening your space…" : composerPlaceholder}
                 sendMessage={async (message) => {
                   const text =
                     "text" in (message ?? {}) ? String((message as { text: string }).text) : "";

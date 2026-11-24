@@ -45,8 +45,10 @@ When a task matches a skill below, read its `SKILL.md` before working:
 - Know which other agents are running and claim paths and ports: [agent-radar](.agents/skills/agent-radar/SKILL.md).
 
 For files matching the `paths` in [design-backbone](.agents/rules/design-backbone.md) or
-[subagent-card-lab](.agents/rules/subagent-card-lab.md), read and follow the matching rules before editing. `.agents/rules/` is routed here explicitly; do not
-assume tools automatically discover it.
+[subagent-card-lab](.agents/rules/subagent-card-lab.md), read and follow the matching rules before editing.
+Always follow [host-preview-services](.agents/rules/host-preview-services.md) (systemd
+`:3000` / auto-update). `.agents/rules/` is routed here explicitly; do not assume tools
+automatically discover it.
 
 ## Commands
 
@@ -154,6 +156,11 @@ run; `-t "name"` filters by test name.
 
 **Never**
 
+- Stop, disable, restart, mask, kill, or rewrite `organic-llm.service`,
+  `organic-llm-update.timer` / `organic-llm-update.service`, or any other process that owns
+  **:3000**, without **two** explicit confirmations from the owner in the same thread. One
+  request is not enough — ask again and wait. See
+  [host-preview-services](.agents/rules/host-preview-services.md).
 - Commit secrets, or anything from `.handover/`, `.context/`, `.private/`, `.local-profile.md`.
   All are gitignored and hold material that must not reach a public repo.
 - Put strategy, roadmap, or competitive analysis in `docs/`. That belongs in `organic-llm-hub/`.

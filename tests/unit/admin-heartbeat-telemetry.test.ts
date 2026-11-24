@@ -138,7 +138,7 @@ describe("admin heartbeat telemetry", () => {
   test("Jev's accounting fallback charges only input at the supplied rate", () => {
     expect(
       computeUsageCostUsd("typesafe-ai/jev", { inputTokens: 1_000_000, outputTokens: 1_000_000 })
-    ).toBe(0.04);
+    ).toBe(0.042);
     expect(computeUsageCostUsd("typesafe-ai/jev", { inputTokens: 0, outputTokens: 10_000 })).toBe(
       0
     );

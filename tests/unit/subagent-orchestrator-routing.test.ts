@@ -150,17 +150,17 @@ describe("Jev catalog + thought routing", () => {
           },
         })).toBe(true);
 
+        expect(Object.keys(args.questions)).toEqual(["t0"]);
+        expect(Object.keys((args.questions.t0 as { criteria: object }).criteria)).toEqual([
+          "direct",
+          "w0",
+          "w1",
+          "new_subagent",
+        ]);
+
         return {
-          object: {
-            thoughts: [
-              {
-                text: "Can you clarify the scope of this sprint?",
-                disposition: {
-                  kind: "direct",
-                  reason: "clarification for orchestrator",
-                },
-              },
-            ],
+          answers: {
+            t0: { type: "choice", choice: "direct", probabilities: { direct: 0.88 } },
           },
         };
       },
@@ -259,18 +259,7 @@ describe("Jev catalog + thought routing", () => {
       workers,
       router: createJevThoughtRouter({
         generate: async () => ({
-          object: {
-            thoughts: [
-              {
-                text: "hey",
-                disposition: {
-                  kind: "new_subagent",
-                  suggestedRole: "generalist",
-                  reason: "wrongly spawned",
-                },
-              },
-            ],
-          },
+          answers: { t0: { type: "choice", choice: "new_subagent" } },
         }),
       }),
     });
@@ -312,23 +301,12 @@ describe("Jev catalog + thought routing", () => {
         generate: async (args) => {
           expect(args.model).toBe("typesafe-ai/jev");
           expect(args.providerOptions.gateway.zeroDataRetention).toBe(true);
+          expect("maxOutputTokens" in args).toBe(false);
 
           return {
-            object: {
-              thoughts: [
-                {
-                  text: "Thanks.",
-                  disposition: { kind: "direct", reason: "ack" },
-                },
-                {
-                  text: "Have Reed implement the Speak-to mint path.",
-                  disposition: {
-                    kind: "existing_subagent",
-                    agentId: "agent-coder",
-                    reason: "matched Reed",
-                  },
-                },
-              ],
+            answers: {
+              t0: { type: "choice", choice: "direct", probabilities: { direct: 0.9 } },
+              t1: { type: "choice", choice: "w1", probabilities: { w1: 0.83, w0: 0.1 } },
             },
           };
         },
@@ -339,6 +317,11 @@ describe("Jev catalog + thought routing", () => {
     expect(inbound.routing?.routerModelId).toBe("typesafe-ai/jev");
     expect(inbound.routing?.usedHeuristicFallback).toBe(false);
     expect(inbound.routing?.thoughts.length).toBe(2);
+    expect(inbound.routing?.thoughts[1]?.disposition).toEqual({
+      kind: "existing_subagent",
+      agentId: "agent-coder",
+      reason: "Jev p=0.83",
+    });
   });
 
   test("subagent-target delivers to that agent only and skips Jev split", async () => {
@@ -373,16 +356,7 @@ describe("Jev catalog + thought routing", () => {
         generate: async (args) => {
           expect(args.providerOptions.gateway.zeroDataRetention).toBe(true);
 
-          return {
-            object: {
-              thoughts: [
-                {
-                  text: "Can you confirm?",
-                  disposition: { kind: "direct", reason: "confirmation" },
-                },
-              ],
-            },
-          };
+          return { answers: { t0: { type: "choice", choice: "direct" } } };
         },
       }),
     });
@@ -404,21 +378,9 @@ describe("executeAssignedWorkers + model runs", () => {
       workers,
       router: createJevThoughtRouter({
         generate: async () => ({
-          object: {
-            thoughts: [
-              {
-                text: "Thanks.",
-                disposition: { kind: "direct", reason: "ack" },
-              },
-              {
-                text: "Have Reed implement the Speak-to mint path.",
-                disposition: {
-                  kind: "existing_subagent",
-                  agentId: "agent-coder",
-                  reason: "matched Reed",
-                },
-              },
-            ],
+          answers: {
+            t0: { type: "choice", choice: "direct" },
+            t1: { type: "choice", choice: "w1" },
           },
         }),
       }),
