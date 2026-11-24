@@ -100,7 +100,8 @@ describe("CodeBlock", () => {
     const view = block(SOURCE, "ts", { filename });
     const copy = view.getByRole("button", { name: "Copy code" });
 
-    expect(view.getByText(filename)).toBeTruthy();
+    expect(view.getByTitle(filename)).toBeTruthy();
+    expect(view.getByText("generate-text.ts")).toBeTruthy();
     expect(copy.textContent).toBe("");
     fireEvent.click(copy);
     await waitFor(() => expect(copyText).toHaveBeenCalledTimes(1));
@@ -116,11 +117,12 @@ describe("CodeBlock", () => {
 
     expect(chat.getByRole("region", { name: "src/example file.ts code" })).toBeTruthy();
     expect(chat.getByRole("region", { name: "Shell code" })).toBeTruthy();
-    expect(chat.getAllByText("src/example file.ts")).toHaveLength(1);
+    expect(chat.getByTitle("src/example file.ts")).toBeTruthy();
+    expect(chat.getByText("example file.ts")).toBeTruthy();
     cleanup();
 
     const genUi = render(<GenUIMarkdown>{content}</GenUIMarkdown>);
-    expect(genUi.getByText("src/example file.ts")).toBeTruthy();
+    expect(genUi.getByTitle("src/example file.ts")).toBeTruthy();
     expect(genUi.getByRole("region", { name: "Shell code" })).toBeTruthy();
   });
 

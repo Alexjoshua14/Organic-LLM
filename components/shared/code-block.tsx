@@ -121,6 +121,9 @@ export function CodeBlock({
   const large = exceedsHighlightLimits(rawCode);
   const label = codeLanguageLabel(extracted?.language);
   const path = filename?.trim();
+  const directoryEnd = path ? Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\")) + 1 : 0;
+  const directory = path?.slice(0, directoryEnd);
+  const basename = path?.slice(directoryEnd) || path;
   const codeLabel = path ? `${path} code` : `${label} code`;
   const settling = lineCount > HIGHLIGHT_EAGER_LINES && settledCode !== rawCode;
   const highlightLanguage = settling ? undefined : extracted?.language;
@@ -132,7 +135,7 @@ export function CodeBlock({
 
   const identity = (
     <span className={styles.identity}>
-      <FileCode2 size={14} aria-hidden />
+      {path ? null : <FileCode2 size={14} aria-hidden />}
       <span className={styles.language}>{label}</span>
       {lineCount > 1 && (
         <span className={styles.meta}>
@@ -154,9 +157,16 @@ export function CodeBlock({
       >
         <div className={styles.header}>
           {path ? (
-            <div className="min-w-0 flex-1 py-inset-sm">
-              <div className="font-mono text-xs font-medium wrap-anywhere text-foreground">
-                {path}
+            <div className="min-w-0 flex-1 space-y-stack-xs py-inset-sm">
+              <div className="flex min-w-0 items-baseline" title={path}>
+                {directory && basename !== path ? (
+                  <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">
+                    {directory}
+                  </span>
+                ) : null}
+                <span className="min-w-0 shrink-0 max-w-full font-mono text-sm font-semibold wrap-anywhere text-foreground">
+                  {basename}
+                </span>
               </div>
               {identity}
             </div>

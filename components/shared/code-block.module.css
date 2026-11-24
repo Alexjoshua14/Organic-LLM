@@ -24,10 +24,6 @@
 .identity svg {
   flex-shrink: 0;
 }
-.language {
-  color: var(--code-foreground);
-  font-weight: 500;
-}
 .meta {
   opacity: 0.75;
   white-space: nowrap;

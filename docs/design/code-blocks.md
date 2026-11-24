@@ -11,7 +11,8 @@ blog prose and the rabbit-hole article all use it. It owns its appearance; calle
 `containerClassName` (spacing), and an optional `filename` (display path). Do not pass border, background or padding classes.
 
 - **Header:** language label and line count on the left; wrap toggle and a copy control on the
-  right. When a filename is supplied it sits above the language within the header. The snippet
+  right. For named snippets, the basename leads the header, the directory stays muted, and the
+  language and line count sit on a quieter line below. The snippet
   copy button uses an icon at every width, with accessible feedback and a stable position.
 - **Fence metadata:** in chat and Gen UI Markdown, add `filename="src/index.ts"` after the
   language in the opening fence. The filename is displayed as text and stays out of the source
