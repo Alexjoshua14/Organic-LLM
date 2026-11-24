@@ -34,7 +34,7 @@ const ACTION_CRITERIA: Record<JevStageActionKind, string> = {
   captures: "File the user's ideas or notes as captures into a collection on the Stage",
   recall: "Refresh the Recall piece on the Stage with memories related to the message",
   clear_pieces:
-    "Clear generated pieces from the Stage so it is blank again (collections and Recall stay). Use for clear, reset, start over, or empty the stage — not when the user wants new content.",
+    "Clear generated pieces from the Stage so it is blank again (collections and Recall stay). Use only for an explicit request to empty the canvas. Undo, revert, restore, and requests to show earlier work do not authorize clearing.",
   designer_brief:
     "Present or rearrange material already supplied by the user or present on Stage. For a new guide or version-sensitive examples, use Respond or Orchestrate to prepare the material first. Prefer clear_pieces when the user only wants the Stage blank.",
   specialists: "Start a Stage specialist agent working on the user's goal in the background",

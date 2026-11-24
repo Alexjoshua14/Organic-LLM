@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { JevSteering } from "./steering";
+import { isExplicitStageClear } from "./validate-action";
 
 import { streamText, stepCountIs, tool, type ToolSet } from "ai";
 import { z } from "zod";
@@ -69,6 +70,7 @@ You have the same tools as Stage's central agent:
 - file_captures files distinct ideas, decisions, open questions or project facts from the newest message into collections, by exact collectionId from Stage knowledge, else a short durable collection title. Skip chit-chat and anything already filed.
 - clear_stage_pieces removes generated Stage pieces so the board is blank again (collections and Recall stay). Prefer this when the user asks to clear, reset, empty, or start over on the stage.
 - set_design_brief queues the designer to put substance on the stage as pieces. Keep distinct content groups in the brief (for example Projects, Preferences, Sources, or control mappings / status flow / example files). Include the actual facts, lists, code and source links — not a summary of a summary. For a presentation revision, say what should be regrouped and preserve the existing substance. When authoring an example, use descriptive names and follow the project formatter or the language’s established conventions. When a call or structured literal spans multiple lines, give each argument or field its own line where the language permits. Label pseudocode clearly and preserve verbatim source excerpts. Say whether it starts a new topic. To clear without new content, use clear_stage_pieces instead.
+- When the user asks to undo, revert, or bring back prior Stage work, switch to the existing piece only if it is still available. This prototype cannot restore an earlier canvas revision. If the requested work is missing, explain that and offer to reconstruct it. Do not clear, search, or queue a redesign as a substitute unless the user asks for reconstruction.
 - switch_view shows an existing view (organic, overview, an author, a piece) from space.availableViews. After queuing a design brief, switch to overview so the pieces are visible.
 - dispatch_specialists assigns up to two bounded goals to parallel specialists; use only for genuinely parallel or role-shaped work.
 - update_summary replaces the durable thread summary when enduring context changes.
@@ -127,6 +129,7 @@ export function createJevRespondTools(args: {
   state: StageState;
   settings?: StageTurnSettings;
   effects: JevRespondEffects;
+  message?: string;
   onSummary?: (summary: string) => void;
   onDesignBrief?: (brief: string) => void;
   /** Drop lookup tools the direct hop already satisfied (token-saving phrase path). */
@@ -150,9 +153,12 @@ export function createJevRespondTools(args: {
     }),
     clear_stage_pieces: tool({
       description:
-        "Clear generated Stage pieces so the board is blank. Collections and Recall stay. Prefer this over set_design_brief when the user only wants the stage cleared.",
+        "Clear generated pieces only when the user explicitly asks to empty the canvas. Collections and Recall stay. Undo and restore are not clear requests.",
       inputSchema: z.object({}),
       execute: async () => {
+        if (!args.message || !isExplicitStageClear(args.message)) {
+          return { ok: false, error: "Clearing requires an explicit request to empty the canvas." };
+        }
         effects.clearPieces = true;
 
         return { ok: true };
@@ -418,6 +424,7 @@ export async function streamJevRespond(args: {
     state: args.state,
     settings: args.settings,
     effects,
+    message: args.message,
     omitLookupTools: args.omitLookupTools,
     onSummary: args.onSummary,
     onDesignBrief: args.onDesignBrief,

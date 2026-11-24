@@ -5,6 +5,13 @@ import type { JevStageCandidate } from "./schema";
 import { StageSubagentAssignmentSchema } from "@/lib/stage/schema";
 import { StageViewSchema } from "@/lib/stage/view-schema";
 
+/** Only a direct request to empty the canvas authorizes a destructive clear. */
+export function isExplicitStageClear(message: string): boolean {
+  return /^(?:(?:can|could|would) you )?(?:please )?(?:clear|empty|wipe) (?:(?:all|the|my) )?(?:stage|canvas|board|pieces|stage pieces)(?: please)?[.!?]*$/i.test(
+    message.trim().replace(/\s+/g, " ")
+  );
+}
+
 /**
  * Returns null when the selected action has usable args; otherwise a fallback reason.
  * Invalid selections should fall through to Respond instead of a no-op “ok” turn.

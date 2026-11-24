@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { JevStageCandidate } from "./schema";
+import { isExplicitStageClear } from "./validate-action";
 import { leanPhraseContext, type JevPhraseOmitTool } from "./phrase";
 
 import { fileStageCaptures, placeStageRecall, type StageCapture } from "@/lib/stage/knowledge";
@@ -156,6 +157,12 @@ export async function executeJevDirectTool(args: {
       };
     }
     case "clear_pieces": {
+      if (!isExplicitStageClear(message)) {
+        return surfaceResult(
+          state,
+          "I can’t restore an earlier Stage revision here. The canvas was left as it was."
+        );
+      }
       const before = state.widgets.length;
       const widgets = state.widgets.filter(
         (widget) => widget.kind === "collection" || widget.kind === "recall"
