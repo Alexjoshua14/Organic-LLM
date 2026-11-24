@@ -29,10 +29,11 @@ short sentence and stop. No padding, process narration, or fill-silence follow-u
 and brevity requests stay minimal. Pacing changes are silent. A second sentence is only for
 task-needed detail.
 
-Connected Ergon requests use `read_ergon` (Organic `read` scope; `write` counts as read).
-Vague "check Ergon" calls `list_projects` immediately — never web preview. The tool rechecks
-the session owner's OAuth connection on each call and exposes only reads. Missing access
-points once to Settings → Connectors.
+Connected Ergon requests use `read_ergon`: projects/tickets need Organic `read` (or `write`);
+docs (`list_documents`, `get_document`, `get_clause`) need `agents`. Vague "check Ergon" calls
+`list_projects`; doc asks list then `get_document` for full text — never web preview. The tool
+rechecks the session owner's OAuth connection on each call. Missing access points once to
+Settings → Connectors.
 
 ## Per-tool defaults (starter)
 

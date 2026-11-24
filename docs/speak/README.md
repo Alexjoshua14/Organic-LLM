@@ -161,8 +161,9 @@ Factual gap analysis, not a plan. Roadmap is private.
 
 **Speak tools:** `update_display_text`, `render_gen_ui`, `refresh_component`, `upsert_ui_state`,
 `show_web_preview`, `search_memories`, `update_thread_title`, `summarize_thread`, plus
-`read_ergon` when the session owner has Ergon `read` (or `write`) scope. Vague Ergon asks call
-`list_projects` immediately. Credentials re-resolve on each tool call.
+`read_ergon` when the session owner has Ergon `read`/`write` (projects, tickets) and/or
+`agents` (vault docs). Vague Ergon asks call `list_projects`; docs use `list_documents` then
+`get_document` for body text. Credentials re-resolve on each tool call.
 
 **Chat tools** include `search_memories`, `web_search`, `manage_tasks`, `gather_restaurant`,
 `make_mermaid_diagram`, `render_gen_ui`, chat-history fetchers, and experience-gated sets

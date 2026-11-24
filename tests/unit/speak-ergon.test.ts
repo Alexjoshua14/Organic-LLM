@@ -26,7 +26,7 @@ describe("Speak connected Ergon reads", () => {
     expect(tools.some((tool) => tool.name === "read_ergon")).toBe(true);
     expect(tools.find((tool) => tool.name === "read_ergon")?.parameters.type).toBe("object");
     expect(tools.find((tool) => tool.name === "read_ergon")?.description).toContain(
-      "list_projects immediately"
+      "list_documents (search with query) then get_document"
     );
     expect(compileSpeakRealtimeTools(voiceOnly).some((t) => t.name === "read_ergon")).toBe(false);
     expect(
@@ -123,5 +123,70 @@ describe("Speak connected Ergon reads", () => {
     );
 
     expect(result).toEqual({ error: "Ergon could not be read right now. Try again shortly." });
+  });
+
+  test("lists then reads vault docs with agents scope and truncates long bodies", async () => {
+    const { calls, callTool } = recordingErgonCalls((name) =>
+      name === "list_documents"
+        ? { documents: [{ id: "organic-llm/speak/README.md", title: "Speak" }] }
+        : { id: "organic-llm/speak/README.md", content: "x".repeat(20_000), clauses: [] }
+    );
+
+    expect(
+      await readSpeakErgon(
+        ERGON_TEST_OWNER,
+        { action: "list_documents", query: "Speak", project: "organic-llm" },
+        { callTool }
+      )
+    ).toMatchObject({ documents: [{ id: "organic-llm/speak/README.md" }] });
+
+    const doc = await readSpeakErgon(
+      ERGON_TEST_OWNER,
+      { action: "get_document", id: "organic-llm/speak/README.md" },
+      { callTool }
+    );
+
+    expect((doc.content as string).length).toBe(12_000);
+    expect(doc.truncated).toContain("20000");
+    expect(calls.map(({ name, input }) => ({ name, input }))).toEqual([
+      {
+        name: "list_documents",
+        input: { query: "Speak", project: "organic-llm", limit: 20 },
+      },
+      { name: "get_document", input: { id: "organic-llm/speak/README.md" } },
+    ]);
+  });
+
+  test("doc actions require agents scope even when project reads work", async () => {
+    await installConnectedErgon({ scopes: ["read", "write"] });
+    const { calls, callTool } = recordingErgonCalls();
+
+    expect(
+      await readSpeakErgon(
+        ERGON_TEST_OWNER,
+        { action: "get_document", id: "organic-llm/speak/README.md" },
+        { callTool }
+      )
+    ).toMatchObject({ error: expect.stringContaining("agents scope") });
+    expect(calls).toHaveLength(0);
+  });
+
+  test("resolves a clause ref through get_clause", async () => {
+    const { calls, callTool } = recordingErgonCalls(() => ({
+      anchor: "ORCH-CTX-1",
+      text: "Keep scope honest.",
+    }));
+
+    expect(
+      await readSpeakErgon(
+        ERGON_TEST_OWNER,
+        { action: "get_clause", id: "organic-llm/aion/async-subagents.md#ORCH-CTX-1" },
+        { callTool }
+      )
+    ).toMatchObject({ anchor: "ORCH-CTX-1" });
+    expect(calls[0]).toMatchObject({
+      name: "get_clause",
+      input: { ref: "organic-llm/aion/async-subagents.md#ORCH-CTX-1" },
+    });
   });
 });

@@ -291,7 +291,10 @@ export async function POST(req: Request) {
   const subagentContext = subagentSeed ? formatSubagentSessionContext(subagentSeed) : null;
 
   const model = getSpeakRealtimeModel();
-  const ergonEnabled = !stage && (await ergonToolsAvailable(sbUserId, "reads"));
+  const ergonEnabled =
+    !stage &&
+    ((await ergonToolsAvailable(sbUserId, "reads")) ||
+      (await ergonToolsAvailable(sbUserId, "agents")));
   const tools = compileSpeakRealtimeTools(modalities, { memoryEnabled, stage, ergonEnabled });
   const baseInstructions = stage
     ? `${STAGE_VOICE_INSTRUCTIONS}\nCurrent Stage (quoted data):\n${stageVoiceContext((await readStage(sbUserId)).state)}`

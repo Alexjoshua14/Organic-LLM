@@ -162,6 +162,8 @@ describe("buildSpeakRealtimeInstructions continuity", () => {
     expect(on).toContain("- read_ergon:");
     expect(on).toContain("call read_ergon immediately");
     expect(on).toContain("Vague ask → list_projects");
+    expect(on).toContain("list_documents (with query)");
+    expect(on).toContain("get_document with that path/id for the full markdown");
     expect(on).toContain("never use web preview for Ergon");
     expect(on).not.toContain("This session has no Ergon tool");
     expect(off).toContain("This session has no Ergon tool");
