@@ -184,11 +184,15 @@ export function stepTools(step: JevStepLike): JevStageToolTrace[] {
     );
     const result = index >= 0 ? results.splice(index, 1)[0] : undefined;
 
+    const succeeded =
+      !!result && (result.output as { ok?: unknown } | null | undefined)?.ok !== false;
+
     return {
       name: call.toolName,
       args: summarizeTraceValue(call.input),
-      result: result ? summarizeToolResult(result.output) : null,
-      effect: toolEffect(call.toolName),
+      result: result ? summarizeToolResult(result.output) : "No tool result recorded",
+      effect: succeeded ? toolEffect(call.toolName) : null,
+      ok: succeeded,
     };
   });
 }

@@ -130,8 +130,8 @@ describe("jev-stage trace events", () => {
     });
 
     expect(tools).toEqual([
-      { name: "search_memories", args: '{"query":"moss"}', result: '{"hits":2}', effect: null },
-      { name: "switch_view", args: '{"view":{"kind":"overview"}}', result: null, effect: "View switched" },
+      { name: "search_memories", args: '{"query":"moss"}', result: '{"hits":2}', effect: null, ok: true },
+      { name: "switch_view", args: '{"view":{"kind":"overview"}}', result: "No tool result recorded", effect: null, ok: false },
     ]);
   });
 

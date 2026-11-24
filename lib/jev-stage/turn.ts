@@ -534,11 +534,10 @@ export async function runJevStageTurn(args: {
         args.emit({ type: "limit_error", message: streamed.limitError.message });
       }
 
-      const rawReply =
-        streamed.text.trim() ||
-        (streamed.limitError
-          ? streamed.limitError.message
-          : "I heard you — give me another beat and I’ll try again.");
+      const noOutput = "I couldn’t produce a reply or update the Stage. Please try again.";
+      const text = streamed.text.trim();
+      const rawReply = text || streamed.limitError?.message || "";
+      const previousStage = stage;
       // Prefer Stage pieces over a rigid long reply box under Organic.
       const presented = preferStagePresentation({
         message: args.message,
@@ -574,6 +573,31 @@ export async function runJevStageTurn(args: {
       });
 
       stage = applied.state;
+      const hasStageOutput =
+        stage.widgets !== previousStage.widgets ||
+        stage.viewCommand !== previousStage.viewCommand ||
+        stage.subagents !== previousStage.subagents ||
+        stage.design !== previousStage.design ||
+        stage.pendingDesigns !== previousStage.pendingDesigns;
+      if (!text && !streamed.limitError) {
+        const reply = hasStageOutput
+          ? (presented.designBrief ? "I’m preparing a Stage update." : "I’ve updated the Stage.")
+          : noOutput;
+
+        if (!hasStageOutput) {
+          outcome = "error";
+          outcomeDetail = applied.note ?? noOutput;
+          args.emit({ type: "error", message: outcomeDetail });
+        }
+        stage = {
+          ...stage,
+          messages: stage.messages.map((entry, index) =>
+            index === stage.messages.length - 1 && entry.role === "assistant"
+              ? { ...entry, text: reply }
+              : entry
+          ),
+        };
+      }
       if (applied.note) {
         const note = `\n\n${applied.note}`;
 
