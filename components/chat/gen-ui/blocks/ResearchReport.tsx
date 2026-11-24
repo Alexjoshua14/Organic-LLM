@@ -408,15 +408,204 @@ export function ResearchClaimCard({
   );
 }
 
-export function ResearchReport({
+type ClaimVerdict = "supported" | "partial" | "contested" | "unsupported";
+
+/** Verdict order and colours; amber matches the full card's "contradicts" evidence label. */
+const CLAIM_VERDICTS: readonly { key: ClaimVerdict; label: string; className: string }[] = [
+  { key: "supported", label: "Quotes match", className: "bg-accent" },
+  { key: "partial", label: "Partial sources", className: "bg-foreground/40" },
+  { key: "contested", label: "Contested", className: "bg-amber-500" },
+  { key: "unsupported", label: "Unsupported", className: "bg-muted-foreground/25" },
+];
+
+/** Same reading of `issues` the full card spells out under each finding. */
+function claimVerdict(claim: ResearchClaimView): ClaimVerdict {
+  if (
+    claim.issues.includes("contradictory_evidence") ||
+    claim.evidence.some((evidence) => evidence.relation === "contradicts")
+  )
+    return "contested";
+  if (
+    !claim.evidence.length ||
+    claim.issues.some(
+      (issue) =>
+        issue === "no_supporting_evidence" || issue === "missing_source" || issue === "quote_mismatch"
+    )
+  )
+    return "unsupported";
+
+  return claim.issues.length ? "partial" : "supported";
+}
+
+/** Source chips shown before the rest collapse into a "+N" chip. */
+const CONDENSED_SOURCES = 3;
+
+/**
+ * Condensed: header and summary, a verdict distribution bar over the findings, a numbered
+ * source strip and a limitations badge. Findings and limitations open behind one disclosure.
+ */
+function ResearchReportCondensed({
   block,
   partial,
 }: {
   block: ResearchReportBlock;
   partial?: boolean;
 }) {
+  const [revealed, setRevealed] = useState(false);
+  const counts = new Map<ClaimVerdict, number>();
+
+  for (const claim of block.claims) {
+    const verdict = claimVerdict(claim);
+
+    counts.set(verdict, (counts.get(verdict) ?? 0) + 1);
+  }
+
+  const verdicts = CLAIM_VERDICTS.filter(({ key }) => counts.get(key));
+  const shownSources = block.sources.slice(0, CONDENSED_SOURCES);
+  const moreSources = block.sources.length - shownSources.length;
+
+  return (
+    <section
+      className={cn("min-w-0 text-foreground", spacing.card.blockItems)}
+      aria-label={block.title}
+      data-research-spacing="condensed"
+    >
+      <header className={spacing.card.labelStack}>
+        <p className={labelClass}>Lyra · Research</p>
+        <h3 className="text-base font-semibold leading-snug tracking-tight">{block.title}</h3>
+        <GenUIMarkdown className="line-clamp-3 space-y-stack-xs text-sm leading-relaxed text-foreground/85">
+          {block.summary}
+        </GenUIMarkdown>
+      </header>
+
+      {verdicts.length ? (
+        <div className={spacing.card.labelStack}>
+          <div aria-hidden className="flex h-2 w-full gap-0.5 overflow-hidden rounded-full">
+            {/* One segment per finding (the schema caps claims at 6), grouped by verdict. */}
+            {verdicts.flatMap(({ key, className }) =>
+              Array.from({ length: counts.get(key) ?? 0 }, (_, i) => (
+                <span key={`${key}-${i}`} className={cn("flex-1", className)} />
+              ))
+            )}
+          </div>
+          <ul
+            aria-label="Findings by verdict"
+            className="flex flex-wrap gap-x-inline-md gap-y-stack-xs text-2xs text-muted-foreground"
+          >
+            {verdicts.map(({ key, label, className }) => (
+              <li key={key} className="inline-flex items-center gap-inline-xs">
+                <span aria-hidden className={cn("size-1.5 shrink-0 rounded-full", className)} />
+                {label}
+                <span className="font-medium tabular-nums text-foreground">{counts.get(key)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : (
+        <p className="text-2xs text-muted-foreground">
+          {partial ? "Findings are still arriving." : "No findings recorded."}
+        </p>
+      )}
+
+      <div className="flex flex-wrap items-center gap-inline-xs">
+        {shownSources.length ? (
+          <ul aria-label="Sources" className="flex min-w-0 flex-wrap items-center gap-inline-xs">
+            {shownSources.map((source, index) => (
+              <li key={source.id} className="min-w-0 max-w-full">
+                {/* Static chip: the sources stay reachable through the findings' evidence. */}
+                <span
+                  title={source.title || undefined}
+                  className="inline-flex max-w-full items-center gap-inline-xs rounded-md border border-border/50 py-0.5 pl-0.5 pr-inset-sm text-2xs text-muted-foreground"
+                >
+                  <span
+                    aria-hidden
+                    className="flex size-4 shrink-0 items-center justify-center rounded-sm bg-muted/50 font-mono"
+                  >
+                    {index + 1}
+                  </span>
+                  <span className="truncate">
+                    {new URL(source.url).hostname.replace(/^www\./, "")}
+                  </span>
+                </span>
+              </li>
+            ))}
+            {moreSources > 0 ? (
+              <li className="px-inset-sm text-2xs text-muted-foreground">+{moreSources}</li>
+            ) : null}
+          </ul>
+        ) : null}
+        {block.limitations.length ? (
+          <span className="rounded-full bg-amber-500/15 px-inset-sm py-0.5 text-2xs font-medium text-amber-700 dark:text-amber-300">
+            {block.limitations.length}{" "}
+            {block.limitations.length === 1 ? "limitation" : "limitations"}
+          </span>
+        ) : null}
+      </div>
+
+      {block.claims.length || block.limitations.length ? (
+        <details
+          className="group/condensed border-t border-border/40"
+          onToggle={(event) => {
+            if (event.currentTarget.open) setRevealed(true);
+          }}
+        >
+          <summary
+            className={cn(
+              controlFocus,
+              "flex min-h-11 cursor-pointer list-none items-center justify-between gap-inline-sm"
+            )}
+          >
+            <span>
+              Inspect findings
+              {block.limitations.length ? " & limitations" : ""}
+            </span>
+            <ChevronDown
+              className="size-4 shrink-0 text-muted-foreground group-open/condensed:rotate-180"
+              aria-hidden
+            />
+          </summary>
+          {revealed ? (
+            <div className={spacing.card.blockItems}>
+              <div className="divide-y divide-border/30">
+                {block.claims.map((claim) => (
+                  <ResearchClaimCard key={claim.id} claim={claim} />
+                ))}
+              </div>
+              {block.limitations.length ? (
+                <ul
+                  aria-label="Limitations and open questions"
+                  className={cn(
+                    "list-disc list-inside text-sm leading-relaxed text-muted-foreground",
+                    spacing.card.listItems
+                  )}
+                >
+                  {block.limitations.map((limitation, index) => (
+                    <li key={index}>{limitation}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
+        </details>
+      ) : null}
+    </section>
+  );
+}
+
+export function ResearchReport({
+  block,
+  partial,
+  condensed = false,
+}: {
+  block: ResearchReportBlock;
+  partial?: boolean;
+  condensed?: boolean;
+}) {
   const [inspections, setInspections] = useState<Record<string, number>>({});
   const sourcesLibraryRef = useRef<HTMLDetailsElement>(null);
+
+  if (condensed) return <ResearchReportCondensed block={block} partial={partial} />;
+
   const sourceNumbers = new Map(block.sources.map((source, index) => [source.id, index + 1]));
 
   const inspectSource = (sourceId: string) => {

@@ -8,6 +8,7 @@ import { useReducedMotion } from "framer-motion";
 import { X } from "lucide-react";
 
 import { RestaurantCardActions } from "./RestaurantCardActions";
+import { RestaurantCardCompact } from "./RestaurantCardCompact";
 import { RestaurantCardCondensed } from "./RestaurantCardCondensed";
 import { StarRating } from "./StarRating";
 import { RestaurantCardHours } from "./RestaurantCardHours";
@@ -213,9 +214,11 @@ function RestaurantCardExpanded({
 type RestaurantCardProps = {
   block: RestaurantCardBlock;
   partial?: boolean;
+  /** Static compact card (no expand) for dense layouts such as the Gen UI Lab's Condensed size. */
+  condensed?: boolean;
 };
 
-export function RestaurantCard({ block, partial }: RestaurantCardProps) {
+export function RestaurantCard({ block, partial, condensed = false }: RestaurantCardProps) {
   const isMobile = useIsMobile();
   const reducedMotion = useReducedMotion();
   const [expanded, setExpanded] = useState(false);
@@ -236,6 +239,8 @@ export function RestaurantCard({ block, partial }: RestaurantCardProps) {
   const handleClose = useCallback(() => {
     runViewTransition(() => setExpanded(false), { skip: reducedMotion === true });
   }, [reducedMotion]);
+
+  if (condensed) return <RestaurantCardCompact block={block} />;
 
   const showInlineExpanded = expanded && !isMobile;
 

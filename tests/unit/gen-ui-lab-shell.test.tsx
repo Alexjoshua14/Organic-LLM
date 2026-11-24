@@ -134,9 +134,11 @@ describe("Gen UI Lab shell", () => {
       target: { value: "condensed" },
     });
     expect(restaurant.getByRole("heading", { name: "State Bird Provisions" })).toBeTruthy();
-    expect(restaurant.getByText("4.5 / 5")).toBeTruthy();
-    expect(restaurant.getByText(/1529 Fillmore St/)).toBeTruthy();
-    expect(restaurant.queryByText(/3.8k reviews/)).toBeNull();
+    // Condensed stays visual: the photo and star rating lead, not a text summary.
+    expect(restaurant.getByText("Rated 4.5 out of 5")).toBeTruthy();
+    expect(
+      restaurant.getByRole("region", { name: "Component preview" }).querySelector("img"),
+    ).not.toBeNull();
 
     const decision = page("decision-matrix");
     const decisionSize = decision.getByRole<HTMLSelectElement>("combobox", {

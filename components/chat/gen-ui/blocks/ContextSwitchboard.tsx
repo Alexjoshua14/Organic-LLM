@@ -57,9 +57,11 @@ type ContextSwitchboardProps = {
    * Without it the board is preview-only.
    */
   onRerun?: (included: ContextSwitchItem[]) => void | Promise<void>;
+  /** Compact visual summary: inclusion meter plus a grid of toggle chips. Toggling still works. */
+  condensed?: boolean;
 };
 
-export function ContextSwitchboard({ block, onRerun }: ContextSwitchboardProps) {
+export function ContextSwitchboard({ block, onRerun, condensed = false }: ContextSwitchboardProps) {
   const [included, setIncluded] = useState(() =>
     Object.fromEntries(block.items.map((i) => [i.id, i.included]))
   );
@@ -110,6 +112,120 @@ export function ContextSwitchboard({ block, onRerun }: ContextSwitchboardProps) 
     }
   };
 
+  /** Segmented inclusion rail, one segment per item, kind-colored when on. Shared by both sizes. */
+  const inclusionRail = (
+    <div
+      className="flex h-1.5 overflow-hidden rounded-full bg-muted/60"
+      role="presentation"
+      aria-hidden
+    >
+      {block.items.map((item) => {
+        const on = Boolean(included[item.id]);
+        const meta = KIND_META[item.kind];
+
+        return (
+          <span
+            key={item.id}
+            title={`${item.label} · ${on ? "included" : "ignored"}`}
+            className={cn(
+              "min-w-0 flex-1 first:rounded-l-full last:rounded-r-full",
+              on ? meta.rail : "bg-transparent"
+            )}
+          />
+        );
+      })}
+    </div>
+  );
+
+  if (condensed) {
+    return (
+      <section className="w-full space-y-stack-sm rounded-2xl bg-muted/30 p-inset-sm">
+        <div className="flex items-center justify-between gap-inline-sm">
+          <h3 className="min-w-0 truncate text-sm font-medium text-foreground">{block.title}</h3>
+          <p
+            className="shrink-0 rounded-lg bg-muted/50 px-inset-sm py-0.5 font-mono text-xs tabular-nums text-foreground"
+            aria-label={`${includedCount} of ${total} included`}
+          >
+            {includedCount}
+            <span className="text-muted-foreground">/{total} on</span>
+          </p>
+        </div>
+
+        {inclusionRail}
+
+        {/* eslint-disable-next-line jsx-a11y/no-redundant-roles -- explicit role keeps list semantics in Safari/VoiceOver under list-style reset */}
+        <ul className="grid grid-cols-2 gap-inline-xs" role="list" aria-label="Context sources">
+          {block.items.map((item) => {
+            const on = Boolean(included[item.id]);
+            const meta = KIND_META[item.kind];
+            const { Icon } = meta;
+
+            return (
+              <li key={item.id} className="min-w-0">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={on}
+                  aria-label={`${item.label} (${meta.label})`}
+                  title={item.detail ?? item.label}
+                  onClick={() => toggle(item.id)}
+                  className={cn(
+                    "flex w-full min-w-0 items-center gap-inline-xs rounded-lg px-inset-sm py-1.5 text-left motion-safe:transition-colors",
+                    on ? meta.chip : "bg-muted/15 text-muted-foreground opacity-55",
+                    FOCUS
+                  )}
+                >
+                  <span
+                    aria-hidden
+                    className={cn(
+                      "flex size-5 shrink-0 items-center justify-center rounded-md",
+                      on ? meta.swatch : "bg-muted/50 text-muted-foreground"
+                    )}
+                  >
+                    <Icon className="size-3" />
+                  </span>
+                  <span className={cn("min-w-0 flex-1 truncate text-xs", !on && "line-through")}>
+                    {item.label}
+                  </span>
+                  <span
+                    aria-hidden
+                    className={cn(
+                      "size-1.5 shrink-0 rounded-full",
+                      on ? "bg-accent" : "bg-muted-foreground/25"
+                    )}
+                  />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+
+        {onRerun ? (
+          <div className="flex items-center justify-between gap-inline-sm">
+            <span role="status" className="text-2xs text-muted-foreground">
+              {status === "running" ? "Rerunning…" : null}
+              {status === "done" ? "Rerun complete." : null}
+              {status === "error" ? <span className="text-destructive">Rerun failed.</span> : null}
+              {status === "ready" ? `${excludedCount} off` : null}
+            </span>
+            <button
+              type="button"
+              disabled={status === "running" || includedCount === 0}
+              onClick={() => void rerun()}
+              className={cn(
+                "rounded-lg bg-accent px-inset-sm py-1.5 text-xs font-medium text-accent-foreground",
+                "disabled:opacity-40",
+                FOCUS
+              )}
+            >
+              Rerun
+            </button>
+          </div>
+        ) : null}
+      </section>
+    );
+  }
+
   return (
     <section className={cn("w-full rounded-2xl bg-muted/30 p-inset-md", spacing.card.section)}>
       <header className="space-y-stack-sm">
@@ -133,27 +249,7 @@ export function ContextSwitchboard({ block, onRerun }: ContextSwitchboardProps) 
         </div>
 
         {/* Inclusion rail — one segment per item, kind-colored when on. */}
-        <div
-          className="flex h-1.5 overflow-hidden rounded-full bg-muted/60"
-          role="presentation"
-          aria-hidden
-        >
-          {block.items.map((item) => {
-            const on = Boolean(included[item.id]);
-            const meta = KIND_META[item.kind];
-
-            return (
-              <span
-                key={item.id}
-                title={`${item.label} · ${on ? "included" : "ignored"}`}
-                className={cn(
-                  "min-w-0 flex-1 first:rounded-l-full last:rounded-r-full",
-                  on ? meta.rail : "bg-transparent"
-                )}
-              />
-            );
-          })}
-        </div>
+        {inclusionRail}
 
         {kindTally.length > 1 ? (
           <ul className="flex flex-wrap gap-1.5" aria-label="By kind">

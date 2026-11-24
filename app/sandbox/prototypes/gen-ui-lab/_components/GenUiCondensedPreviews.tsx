@@ -1,38 +1,30 @@
 import type { ReactNode } from "react";
-import type { GenUIBlock, RestaurantCardBlock } from "@/lib/schemas/gen-ui";
+import type { GenUIBlock } from "@/lib/schemas/gen-ui";
 
-import { Star } from "lucide-react";
 import { useState } from "react";
 
-import { GenUIMarkdown } from "@/components/chat/gen-ui/GenUIMarkdown";
+import { AnswerCard } from "@/components/chat/gen-ui/blocks/AnswerCard";
 import { AudioSnippet } from "@/components/chat/gen-ui/blocks/AudioSnippet";
-import { ShoppingList } from "@/components/chat/gen-ui/blocks/ShoppingList";
+import { AuditLine } from "@/components/chat/gen-ui/blocks/AuditLine";
+import { CodeDiff } from "@/components/chat/gen-ui/blocks/CodeDiff";
+import { ContextSwitchboard } from "@/components/chat/gen-ui/blocks/ContextSwitchboard";
+import { ErgonBoard } from "@/components/chat/gen-ui/blocks/ErgonBoard";
+import { ErgonProposal } from "@/components/chat/gen-ui/blocks/ErgonProposal";
+import { HypGraph } from "@/components/chat/gen-ui/blocks/HypGraph";
 import { PlanTimeline } from "@/components/chat/gen-ui/blocks/PlanTimeline";
+import { PreviewBlob } from "@/components/chat/gen-ui/blocks/PreviewBlob";
+import { ProfileMap } from "@/components/chat/gen-ui/blocks/ProfileMap";
+import { ProgressTrack } from "@/components/chat/gen-ui/blocks/ProgressTrack";
 import { PromptField } from "@/components/chat/gen-ui/blocks/PromptField";
-import { codeDiffTitle } from "@/lib/schemas/gen-ui/code-diff";
-import { recipeIngredientToText } from "@/lib/schemas/gen-ui/recipe-card";
+import { RecipeCard } from "@/components/chat/gen-ui/blocks/RecipeCard";
+import { ResearchReport } from "@/components/chat/gen-ui/blocks/ResearchReport";
+import { RestaurantCard } from "@/components/chat/gen-ui/blocks/restaurant-card/RestaurantCard";
+import { RipplePreview } from "@/components/chat/gen-ui/blocks/RipplePreview";
+import { ShoppingList } from "@/components/chat/gen-ui/blocks/ShoppingList";
+import { StateDiagram } from "@/components/chat/gen-ui/blocks/StateDiagram";
 import { MeasureView } from "@/components/chat/gen-ui/measure/MeasureView";
 
-function GenUiCondensedRestaurant({ block }: { block: RestaurantCardBlock }) {
-  return (
-    <article className="mx-auto w-full max-w-xs space-y-stack-xs">
-      <div className="flex items-baseline justify-between gap-inline-sm">
-        <h3 className="min-w-0 text-sm font-semibold wrap-anywhere">{block.name}</h3>
-        {block.rating ? (
-          <p className="inline-flex shrink-0 items-center gap-inline-xs text-xs tabular-nums text-muted-foreground">
-            <Star aria-hidden className="size-3" />
-            <span>{block.rating.average.toFixed(1)} / 5</span>
-          </p>
-        ) : null}
-      </div>
-      {block.address ? (
-        <p className="text-xs wrap-anywhere text-muted-foreground">{block.address}</p>
-      ) : null}
-    </article>
-  );
-}
-
-/** Common heading and reading width for text-led previews. Visualizations own their layout. */
+/** Common heading and reading width for the lab's demo-owned condensed views. */
 export function CondensedCard({ title, children }: { title: string; children: ReactNode }) {
   return (
     <article className="mx-auto w-full max-w-sm space-y-stack-sm text-sm wrap-anywhere">
@@ -59,33 +51,17 @@ export function CondensedDetail({ label, children }: { label: string; children: 
   );
 }
 
-function Lines({ items, more }: { items: readonly ReactNode[]; more: string }) {
-  function list(entries: readonly ReactNode[]) {
-    return (
-      <ul className="space-y-stack-xs text-xs">
-        {entries.map((entry, i) => (
-          <li key={i}>{entry}</li>
-        ))}
-      </ul>
-    );
-  }
-
-  return (
-    <>
-      {list(items.slice(0, 3))}
-      {items.length > 3 ? (
-        <CondensedDetail label={`${items.length - 3} more ${more}`}>
-          {list(items.slice(3))}
-        </CondensedDetail>
-      ) : null}
-    </>
-  );
+/** Reading width shared by every condensed block; each block owns its condensed visual. */
+function Condensed({ children }: { children: ReactNode }) {
+  return <div className="mx-auto w-full max-w-sm min-w-0">{children}</div>;
 }
 
-function StatusLine({ children }: { children: ReactNode }) {
-  return <p className="text-xs text-muted-foreground">{children}</p>;
-}
-
+/**
+ * Condensed is the same component at a glanceable size, never a text summary. Each block
+ * renders its own `condensed` view; `children` (the full block) is offered only where the
+ * condensed view drops content a reader may still want, and never where it would duplicate
+ * actions the condensed view keeps.
+ */
 export function GenUiCondensedBlock({
   block,
   children,
@@ -94,296 +70,127 @@ export function GenUiCondensedBlock({
   children?: ReactNode;
 }) {
   switch (block.type) {
-    case "restaurant-card":
-      return <GenUiCondensedRestaurant block={block} />;
-    case "measure":
-      return <MeasureView block={block} condensed />;
     case "decision-matrix":
       // The decision demo owns criterion selection.
       return children;
+    case "restaurant-card":
+      return (
+        <Condensed>
+          <RestaurantCard block={block} condensed />
+        </Condensed>
+      );
+    case "measure":
+      return <MeasureView block={block} condensed />;
     case "answer-card":
       return (
-        <CondensedCard title={block.title}>
-          <GenUIMarkdown>{block.tldr}</GenUIMarkdown>
-          <Lines items={block.keyPoints} more="key points" />
-          {block.footer && <StatusLine>Confidence: {block.footer.confidence}</StatusLine>}
-          {block.footer?.caveats?.length ? (
-            <CondensedDetail label="Caveats">
-              <Lines items={block.footer.caveats} more="caveats" />
-            </CondensedDetail>
-          ) : null}
-        </CondensedCard>
+        <Condensed>
+          <AnswerCard block={block} condensed />
+        </Condensed>
       );
     case "plan-timeline":
       return (
-        <div className="mx-auto w-full max-w-sm">
+        <Condensed>
           <PlanTimeline block={block} variant="condensed" />
-        </div>
+        </Condensed>
       );
     case "audio-snippet":
       return (
-        <div className="mx-auto w-full max-w-sm">
+        <Condensed>
           <AudioSnippet block={block} condensed />
-        </div>
+        </Condensed>
       );
     case "recipe-card":
       return (
-        <CondensedCard title={block.title}>
-          <StatusLine>
-            {[block.servings, block.duration || block.cookTime].filter(Boolean).join(" · ") ||
-              `${block.ingredients.length} ingredients`}
-          </StatusLine>
-          <CondensedDetail label={`Ingredients · ${block.ingredients.length}`}>
-            <Lines items={block.ingredients.map(recipeIngredientToText)} more="ingredients" />
-          </CondensedDetail>
-          <CondensedDetail label={`Method · ${block.steps.length} steps`}>
-            <ol className="list-inside list-decimal space-y-stack-xs text-xs">
-              {block.steps.map((step, i) => (
-                <li key={i}>{step}</li>
-              ))}
-            </ol>
-          </CondensedDetail>
-        </CondensedCard>
+        <Condensed>
+          <RecipeCard block={block} condensed />
+        </Condensed>
       );
     case "shopping-list":
       return (
-        <div className="mx-auto w-full max-w-sm">
+        <Condensed>
           <ShoppingList block={block} condensed />
-        </div>
+        </Condensed>
       );
     case "research-report":
       return (
-        <CondensedCard title={block.title}>
-          <GenUIMarkdown>{block.summary}</GenUIMarkdown>
-          <StatusLine>
-            {block.sources.length} sources · {block.claims.length} assessed claims
-          </StatusLine>
-          {block.limitations.length > 0 && (
-            <CondensedDetail label="Limitations">
-              <Lines items={block.limitations} more="limitations" />
-            </CondensedDetail>
-          )}
-          <CondensedDetail label="Inspect evidence">{children}</CondensedDetail>
-        </CondensedCard>
+        <Condensed>
+          <ResearchReport block={block} condensed />
+        </Condensed>
       );
     case "profile-map":
       return (
-        <CondensedCard title={block.title}>
-          <Lines
-            items={block.domains.map(({ id, label }) => {
-              const nodes = block.nodes.filter((node) => node.domain === id);
-
-              return (
-                <>
-                  <strong>{label}</strong>:{" "}
-                  {nodes
-                    .slice(0, 2)
-                    .map(({ title }) => title)
-                    .join(", ") || "No entries"}
-                  {nodes.length > 2 ? ` · +${nodes.length - 2}` : ""}
-                </>
-              );
-            })}
-            more="domains"
-          />
-          <CondensedDetail label="Explore relationships">{children}</CondensedDetail>
-        </CondensedCard>
+        <Condensed>
+          <ProfileMap block={block} condensed />
+        </Condensed>
       );
     case "ergon-board":
       return (
-        <CondensedCard title={block.title}>
-          <Lines
-            items={block.columns.map(({ id, label }) => {
-              const items = block.items.filter(({ stateType }) => stateType === id);
-
-              return (
-                <>
-                  <strong>
-                    {label} · {items.length}
-                  </strong>
-                  {items[0] ? `: ${items[0].title}` : ""}
-                </>
-              );
-            })}
-            more="statuses"
-          />
-          <CondensedDetail label="Open work items">{children}</CondensedDetail>
-        </CondensedCard>
+        <Condensed>
+          <ErgonBoard block={block} condensed />
+        </Condensed>
       );
     case "ergon-proposal":
       return (
-        <CondensedCard title={block.title}>
-          <StatusLine>
-            {block.changes.length} proposed {block.changes.length === 1 ? "change" : "changes"}
-          </StatusLine>
-          <Lines
-            items={block.changes.map(({ op, title, targetId }) => (
-              <>
-                <span className="capitalize">{op}</span> · {targetId ? `${targetId} · ` : ""}
-                {title}
-              </>
-            ))}
-            more="proposed changes"
-          />
-          <CondensedDetail label="Review proposed changes">{children}</CondensedDetail>
-        </CondensedCard>
+        <Condensed>
+          <ErgonProposal block={block} condensed />
+        </Condensed>
       );
-    case "state-diagram": {
-      const names = new Map(block.states.map(({ id, label }) => [id, label]));
-
+    case "state-diagram":
       return (
-        <CondensedCard title={block.title}>
-          <Lines
-            items={block.transitions.map(({ from, to, label }) => (
-              <>
-                {names.get(from)} → {names.get(to)}
-                {label ? ` · ${label}` : ""}
-              </>
-            ))}
-            more="transitions"
-          />
-          {block.transitions.length === 0 && (
-            <StatusLine>{block.states.map(({ label }) => label).join(", ")}</StatusLine>
-          )}
-        </CondensedCard>
+        <Condensed>
+          <StateDiagram block={block} condensed />
+        </Condensed>
       );
-    }
     case "prompt-field":
       return (
-        <div className="mx-auto w-full max-w-sm">
+        <Condensed>
           <PromptField block={block} condensed />
-        </div>
+        </Condensed>
       );
-    case "progress-track": {
-      const next = block.milestones
-        .filter(({ value }) => value > block.current)
-        .sort((a, b) => a.value - b.value)[0];
-
+    case "progress-track":
       return (
-        <CondensedCard title={block.title}>
-          <p className="font-mono tabular-nums">
-            {block.current} / {block.total}
-            {block.unit ? ` ${block.unit}` : ""}
-          </p>
-          <progress
-            aria-label={block.title}
-            value={block.current}
-            max={block.total}
-            className="block h-2 w-full accent-accent"
-          />
-          {next && (
-            <StatusLine>
-              Next: {next.label} at {next.value}
-            </StatusLine>
-          )}
-          {block.footnote && <StatusLine>{block.footnote}</StatusLine>}
-        </CondensedCard>
+        <Condensed>
+          <ProgressTrack block={block} condensed />
+        </Condensed>
       );
-    }
     case "context-switchboard":
       return (
-        <CondensedCard title={block.title}>
-          {block.question && <p>{block.question}</p>}
-          <StatusLine>
-            {block.items.filter(({ included }) => included).length} of {block.items.length} sources
-            included
-          </StatusLine>
-          <Lines
-            items={block.items.map(({ label, included }) => (
-              <>
-                {label} · {included ? "Included" : "Excluded"}
-              </>
-            ))}
-            more="sources"
-          />
-          <CondensedDetail label="Adjust context">{children}</CondensedDetail>
-        </CondensedCard>
+        <Condensed>
+          <ContextSwitchboard block={block} condensed />
+        </Condensed>
       );
     case "ripple-preview":
       return (
-        <CondensedCard title={block.title}>
-          <p>{block.change.summary}</p>
-          <Lines
-            items={block.ripples.map(({ label, kind }) => (
-              <>
-                <span className="capitalize">{kind}</span> · {label}
-              </>
-            ))}
-            more="effects"
-          />
-          <CondensedDetail label="Review effects">{children}</CondensedDetail>
-        </CondensedCard>
+        <Condensed>
+          <RipplePreview block={block} condensed />
+        </Condensed>
       );
-    case "hyp-graph": {
-      const names = new Map(block.nodes.map(({ id, label }) => [id, label]));
-
+    case "hyp-graph":
       return (
-        <CondensedCard title={block.title}>
-          <Lines
-            items={block.edges.map(({ from, to, label }) => (
-              <>
-                {names.get(from)} → {names.get(to)}
-                {label ? ` · ${label}` : ""}
-              </>
-            ))}
-            more="connections"
-          />
-          {block.edges.length === 0 && (
-            <StatusLine>{block.nodes.map(({ label }) => label).join(", ")}</StatusLine>
-          )}
-        </CondensedCard>
+        <Condensed>
+          <HypGraph block={block} condensed />
+        </Condensed>
       );
-    }
     case "audit-line":
       return (
-        <CondensedCard title={block.title}>
-          <Lines
-            items={block.events.map(({ time, actor, action, summary }) => (
-              <>
-                <strong>{action}</strong> · {actor} · {time}
-                <br />
-                {summary}
-              </>
-            ))}
-            more="events"
-          />
-        </CondensedCard>
+        <Condensed>
+          <AuditLine block={block} condensed />
+        </Condensed>
       );
     case "preview-blob":
       return (
-        <CondensedCard title={block.title}>
-          <a
-            className="organic-focus block"
-            href={block.svgURL ?? block.previewURL}
-            target="_blank"
-            rel="noreferrer"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element -- This is a schema-validated remote preview URL. */}
-            <img
-              src={block.previewURL}
-              alt={`Open ${block.title} preview`}
-              className="mx-auto max-h-32 max-w-full object-contain"
-              loading="lazy"
-            />
-          </a>
-          {block.costEstimate && <StatusLine>{block.costEstimate}</StatusLine>}
-        </CondensedCard>
+        <Condensed>
+          <PreviewBlob block={block} condensed />
+        </Condensed>
       );
     case "code-diff":
       return (
-        <CondensedCard title={codeDiffTitle(block)}>
-          {block.summary && <p>{block.summary}</p>}
-          <Lines
-            items={block.files.map(({ path, status }) => (
-              <>
-                <code className="wrap-anywhere">{path}</code>
-                {status ? ` · ${status}` : ""}
-              </>
-            ))}
-            more="files"
-          />
-          <CondensedDetail label="Read changed lines">{children}</CondensedDetail>
-        </CondensedCard>
+        <Condensed>
+          <CodeDiff block={block} condensed />
+          {children ? (
+            <CondensedDetail label="Read changed lines">{children}</CondensedDetail>
+          ) : null}
+        </Condensed>
       );
   }
 }

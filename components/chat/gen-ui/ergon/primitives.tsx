@@ -5,7 +5,8 @@ import type { ErgonStateType, ErgonWorkItem } from "@/lib/schemas/gen-ui";
 
 import { cn } from "@/lib/utils";
 
-const DOT: Record<ErgonStateType, string> = {
+/** Status fill per state type. Exported so condensed views can draw the same colours as bars. */
+export const DOT: Record<ErgonStateType, string> = {
   backlog: "bg-muted-foreground/30",
   ready: "bg-muted-foreground/60",
   active: "bg-accent",

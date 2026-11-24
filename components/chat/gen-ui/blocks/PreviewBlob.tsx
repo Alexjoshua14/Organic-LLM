@@ -15,9 +15,11 @@ type PreviewBlobProps = {
   partial?: boolean;
   /** Host commits to a full-fidelity render (e.g. agent sandbox job). */
   onCommit?: () => void | Promise<void>;
+  /** Compact thumbnail-forward card: image fills the card, title bar overlay, cost chip. */
+  condensed?: boolean;
 };
 
-export function PreviewBlob({ block, onCommit }: PreviewBlobProps) {
+export function PreviewBlob({ block, onCommit, condensed = false }: PreviewBlobProps) {
   const [expanded, setExpanded] = useState(false);
   const [status, setStatus] = useState<"ready" | "committing" | "done" | "error">("ready");
   const expandedSrc = block.svgURL ?? block.previewURL;
@@ -32,6 +34,64 @@ export function PreviewBlob({ block, onCommit }: PreviewBlobProps) {
       setStatus("error");
     }
   };
+
+  if (condensed) {
+    return (
+      <section className="w-full space-y-stack-xs">
+        <a
+          href={expandedSrc}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={`Open ${block.title} preview in a new tab`}
+          className={cn(
+            "relative block aspect-video w-full overflow-hidden rounded-2xl bg-muted/40",
+            FOCUS
+          )}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element -- remote preview URLs are model-supplied https */}
+          <img
+            src={block.previewURL}
+            alt={`${block.title} preview`}
+            loading="lazy"
+            className="absolute inset-0 size-full object-cover"
+          />
+          {block.costEstimate ? (
+            <span
+              className="absolute top-inset-sm right-inset-sm rounded-full bg-background/80 px-inset-sm py-0.5 font-mono text-2xs tabular-nums text-foreground backdrop-blur-sm"
+              aria-label={`Estimated cost ${block.costEstimate}`}
+            >
+              {block.costEstimate}
+            </span>
+          ) : null}
+          <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-background/90 to-transparent px-inset-sm pt-inset-md pb-inset-sm">
+            <span className="block truncate text-sm font-medium text-foreground">{block.title}</span>
+          </span>
+        </a>
+
+        {onCommit ? (
+          <div className="flex items-center justify-between gap-inline-sm">
+            <span role="status" className="text-2xs text-muted-foreground">
+              {status === "committing" ? "Starting full render…" : null}
+              {status === "done" ? "Full render requested." : null}
+              {status === "error" ? "Couldn’t start the full render." : null}
+            </span>
+            {status === "ready" ? (
+              <button
+                type="button"
+                onClick={() => void commit()}
+                className={cn(
+                  "rounded-lg bg-accent px-inset-sm py-1.5 text-xs font-medium text-accent-foreground",
+                  FOCUS
+                )}
+              >
+                Commit full render
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+      </section>
+    );
+  }
 
   return (
     <section className={cn("w-full rounded-2xl bg-muted/30 p-inset-md", spacing.card.section)}>
