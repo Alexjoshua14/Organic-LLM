@@ -19,6 +19,8 @@ let dbError: { message: string; code?: string } | null;
 let labMembership: Record<string, unknown> | null;
 let labError: { message: string; code?: string } | null;
 let dbThrows: boolean;
+let adminWait: Promise<void> | undefined;
+let labWait: Promise<void> | undefined;
 let restore: Array<() => void>;
 let table = "";
 const select = mock((_fields: string) => ({ eq }));
@@ -26,8 +28,11 @@ const eq = mock((_field: string, _value: string) => {
   const lab = table === "lab_access";
 
   return {
-    maybeSingle: async () =>
-      lab ? { data: labMembership, error: labError } : { data: membership, error: dbError },
+    maybeSingle: async () => {
+      await (lab ? labWait : adminWait);
+
+      return lab ? { data: labMembership, error: labError } : { data: membership, error: dbError };
+    },
   };
 });
 const from = mock((name: string) => {
@@ -44,6 +49,8 @@ beforeEach(() => {
   labMembership = null;
   labError = null;
   dbThrows = false;
+  adminWait = undefined;
+  labWait = undefined;
   from.mockClear();
   select.mockClear();
   eq.mockClear();
@@ -192,13 +199,56 @@ describe("fresh server authorization", () => {
 });
 
 describe("lab access", () => {
-  test("admins see labs without a lab_access read", async () => {
+  test("admins retain access when the concurrent lab read fails", async () => {
+    labError = { message: "unavailable" };
     expect(await requireLabAccess()).toEqual({
       clerkUserId: identity.userId,
       sbUserId: "profile_test",
     });
     expect(await canSeeLabs(identity.userId)).toBe(true);
-    expect(from.mock.calls.map(([name]) => name)).toEqual(["admin_access", "admin_access"]);
+    expect(from.mock.calls.filter(([name]) => name === "admin_access")).toHaveLength(2);
+    expect(from.mock.calls.filter(([name]) => name === "lab_access")).toHaveLength(2);
+  });
+
+  test("lab reads start before the admin lookup completes", async () => {
+    let release!: () => void;
+    adminWait = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    membership = null;
+    labMembership = { profile_id: "profile_test" };
+    const access = requireLabAccess();
+
+    try {
+      // Drain setup microtasks while leaving the admin database response pending.
+      for (let turn = 0; turn < 10; turn++) await Promise.resolve();
+      expect(from).toHaveBeenCalledWith("admin_access");
+      expect(from).toHaveBeenCalledWith("lab_access");
+    } finally {
+      release();
+    }
+    expect(await access).not.toBeNull();
+  });
+
+  test("admins do not wait for the lab lookup", async () => {
+    let release!: () => void;
+    labWait = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+
+    try {
+      expect(await requireLabAccess()).not.toBeNull();
+    } finally {
+      release();
+    }
+  });
+
+  test("lab revocation takes effect on the next server request", async () => {
+    membership = null;
+    labMembership = { profile_id: "profile_test" };
+    expect(await requireLabAccess()).not.toBeNull();
+    labMembership = null;
+    expect(await requireLabAccess()).toBeNull();
   });
 
   test("a lab_access row opens labs but never admin", async () => {

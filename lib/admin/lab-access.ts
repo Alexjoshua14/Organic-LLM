@@ -16,11 +16,21 @@ import { readLabAccess } from "@/lib/admin/read-lab-access";
  * Returns the profile id that grants access, or null. Throws when a membership read fails.
  */
 export async function readLabProfileId(clerkUserId: string): Promise<string | null> {
+  // Start both reads together so lab members don't wait for an admin denial first.
+  // Capture rejection immediately; an admin can return without waiting for the lab read.
+  const labResult = readLabAccess(clerkUserId).then(
+    (value) => ({ ok: true as const, value }),
+    (error: unknown) => ({ ok: false as const, error })
+  );
   const admin = await readAdminProfile(clerkUserId);
 
   if (admin?.admin) return admin.id;
 
-  return (await readLabAccess(clerkUserId))?.id ?? null;
+  const lab = await labResult;
+
+  if (!lab.ok) throw lab.error;
+
+  return lab.value?.id ?? null;
 }
 
 /** The signed-in account's lab context, or null. Fails closed. */

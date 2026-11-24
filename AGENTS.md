@@ -96,6 +96,11 @@ run; `-t "name"` filters by test name.
 
 - Match the surrounding file — its naming, comment density, and idioms — over any general
   convention. Read a neighbour before adding a pattern.
+- Reuse established application patterns and design principles before introducing another
+  solution to the same problem. Depart only for a concrete requirement the existing pattern
+  cannot satisfy, and explain why. When a limitation warrants a different approach, first
+  assess whether the shared pattern should be improved or reworked for all its consumers.
+  Avoid parallel implementations; follow the existing approval rules for architectural changes.
 - Timing and animation constants live next to the effect, not inline in components. Docs record
   the *why* and the approved range.
 - Tests use Bun's runner with the preloads already wired in `scripts/run-tests.ts`, which the
