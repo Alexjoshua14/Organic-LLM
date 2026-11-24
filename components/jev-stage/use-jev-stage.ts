@@ -454,9 +454,13 @@ export function useJevStage(): StageController & {
                   break;
                 case "hop.tool": {
                   const name = trace.tool.name.replaceAll("_", " ");
-                  const result = trace.tool.ok === false ? "failed" : trace.tool.result;
+                  const label = name.charAt(0).toUpperCase() + name.slice(1);
 
-                  setTurnStatus(result ? `${name} · ${result}` : name);
+                  setTurnStatus(
+                    trace.tool.ok === false
+                      ? `${label} failed`
+                      : (trace.tool.effect ?? `${label} complete`)
+                  );
                   break;
                 }
                 case "hop.end":
