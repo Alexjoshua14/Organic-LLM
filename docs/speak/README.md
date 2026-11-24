@@ -91,8 +91,9 @@ Verified against the session route and hook on 2026-09-17. Design rationale is i
    post-instructions window and 0.8 retention: old conversation items are dropped in batches
    while the instructions remain. Older details may fall out of the live model's context;
    persisted transcripts are unaffected. See [cost controls](./decisions/20261112-realtime-cost-controls.md).
-3. **Tools.** `compileSpeakRealtimeTools(modalities, { memoryEnabled })` — modality-gated
+3. **Tools.** `compileSpeakRealtimeTools(modalities, { memoryEnabled, ergonEnabled })` — modality-gated
    presentation tools, `search_memories` when the Memory toggle is on, and the two nanobots.
+   A connected Ergon workspace also enables read-only `read_ergon` project and ticket lookup.
 4. **Persistence.** The hook buffers completed transcript turns and posts them to
    `/transcript`, debounced after each reply, on every heartbeat, and once more on end.
    `persistSpeakVoiceTurns` writes them as ordinary `ui_message` rows tagged
@@ -149,7 +150,7 @@ Factual gap analysis, not a plan. Roadmap is private.
 
 | Dimension | Text chat | Speak Live today |
 |-----------|-----------|------------------|
-| Tools | ~20 via `compile-chat-tools.ts` | 8 via `compile-speak-tools.ts` |
+| Tools | ~20 via `compile-chat-tools.ts` | Modality-gated visuals, memory, nanobots and connected Ergon reads via `compile-speak-tools.ts` |
 | Memory | `search_memories`, context assembled before `streamText` | `search_memories`; summary + memories in instructions on resume; ingest after exchanges |
 | Persistence | Messages saved to the thread | Voice turns saved to a `speak` thread |
 | Resume | Open thread, full history | Latest Speak thread by default; summary and last turns in instructions; **+** for a fresh one |
@@ -159,14 +160,17 @@ Factual gap analysis, not a plan. Roadmap is private.
 | Visuals | Gen UI inline in the message | Optional side panel, gated by modality toggles |
 
 **Speak tools:** `update_display_text`, `render_gen_ui`, `refresh_component`, `upsert_ui_state`,
-`show_web_preview`, `search_memories`, `update_thread_title`, `summarize_thread`.
+`show_web_preview`, `search_memories`, `update_thread_title`, `summarize_thread`, plus
+`read_ergon` when the session owner has Ergon `read`/`write` (projects, tickets) and/or
+`agents` (vault docs). Vague Ergon asks call `list_projects`; docs use `list_documents` then
+`get_document` for body text. Credentials re-resolve on each tool call.
 
 **Chat tools** include `search_memories`, `web_search`, `manage_tasks`, `gather_restaurant`,
 `make_mermaid_diagram`, `render_gen_ui`, chat-history fetchers, and experience-gated sets
 (kanban, mise, recipes, Strata, Delphi, rabbit hole). See [chat tools](../chat-tools.md).
 
-**Two tools overlap: `render_gen_ui` and `search_memories`.** Web search, restaurants, tasks,
-diagrams, and chat-history retrieval are still not reachable from voice.
+**Shared capabilities include GenUI, memory and connected Ergon reads.** Web search,
+restaurants, personal tasks, diagrams, and chat-history retrieval are still not reachable from voice.
 
 ## Working on Speak
 

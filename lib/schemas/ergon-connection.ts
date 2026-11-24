@@ -75,7 +75,9 @@ export function ergonScopesInclude(
   scopes: readonly string[],
   required: ErgonConnectionScope
 ): boolean {
-  return scopes.includes(required);
+  if (scopes.includes(required)) return true;
+  // Write ticket access includes the read APIs Speak and list/get tools use.
+  return required === "read" && scopes.includes("write");
 }
 
 /**

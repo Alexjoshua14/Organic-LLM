@@ -37,7 +37,13 @@ export type ErgonConfig = {
   scopes: readonly ErgonConnectionScope[];
 };
 
-export type ErgonConfigPurpose = "tickets" | "agents";
+export type ErgonConfigPurpose = "tickets" | "agents" | "reads";
+
+function requiredScopeFor(purpose: ErgonConfigPurpose): ErgonConnectionScope {
+  if (purpose === "tickets") return "write";
+  if (purpose === "agents") return "agents";
+  return "read";
+}
 
 type RefreshResult =
   | {
@@ -292,7 +298,7 @@ export async function ergonToolsAvailable(
 ): Promise<boolean> {
   if (!sbUserId.trim()) return false;
 
-  const requiredScope: ErgonConnectionScope = purpose === "tickets" ? "write" : "agents";
+  const requiredScope = requiredScopeFor(purpose);
 
   try {
     const record = await (deps.connectionSnapshot ??
@@ -332,7 +338,7 @@ export async function ergonConfigForUser(
 ): Promise<ErgonConfig | null> {
   if (!sbUserId.trim()) return null;
 
-  const requiredScope: ErgonConnectionScope = purpose === "tickets" ? "write" : "agents";
+  const requiredScope = requiredScopeFor(purpose);
   const load =
     deps.loadConnection ?? ((id: string) => loadErgonConnectionRecord(id, deps.storeOptions));
 
