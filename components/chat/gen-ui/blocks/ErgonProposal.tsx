@@ -12,6 +12,7 @@ import { Check, MessageSquare, Pencil, Plus } from "lucide-react";
 import { ErgonProposalView } from "../ergon/ErgonProposalView";
 import { Chip } from "../ergon/primitives";
 
+import { genUiActionClass } from "@/components/chat/gen-ui/interaction";
 import { cn } from "@/lib/utils";
 
 type ErgonProposalProps = {
@@ -162,10 +163,7 @@ function ErgonProposalCondensed({
             <button
               type="button"
               onClick={() => void approve()}
-              className={cn(
-                "min-h-11 rounded-lg bg-accent-warm px-inset-md text-sm font-medium text-accent-foreground",
-                BUTTON_FOCUS
-              )}
+              className={cn(genUiActionClass(), BUTTON_FOCUS)}
             >
               Apply changes
             </button>

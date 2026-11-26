@@ -11,7 +11,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Brain, CircleHelp, FileText, Lightbulb } from "lucide-react";
 
 import { CompositionBar, CompositionBarDetail } from "@/components/design-system/composition-bar";
-import { glass, secondaryInteractive } from "@/components/design-system/primitives";
+import { genUiActionClass } from "@/components/chat/gen-ui/interaction";
+import { glass } from "@/components/design-system/primitives";
 import { Switch } from "@/components/design-system/switch";
 import { contextSegmentColor } from "@/lib/design/kelvin-color";
 import { spacing } from "@/lib/design-tokens/spacing";
@@ -184,10 +185,7 @@ export function ContextSwitchboard({ block, onRerun, condensed = false }: Contex
       type="button"
       disabled={status === "running" || includedCount === 0}
       onClick={() => void rerun()}
-      className={cn(
-        secondaryInteractive(),
-        "min-h-11 rounded-lg px-inset-md text-sm font-medium disabled:opacity-40"
-      )}
+      className={genUiActionClass()}
     >
       {condensed ? "Rerun" : "Rerun with selection"}
     </button>

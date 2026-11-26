@@ -5,6 +5,7 @@ import type { HypGraphBlock } from "@/lib/schemas/gen-ui";
 import { useMemo, useState } from "react";
 
 import { toneClass, toneFill } from "../measure/tone";
+
 import {
   GraphCounts,
   GraphSurface,
@@ -17,10 +18,8 @@ import {
 } from "./condensed-graph";
 
 import { spacing } from "@/lib/design-tokens/spacing";
+import { GEN_UI_FOCUS as FOCUS } from "@/components/chat/gen-ui/interaction";
 import { cn } from "@/lib/utils";
-
-const FOCUS =
-  "organic-focus focus-visible:outline-none focus-visible:bg-foreground focus-visible:text-background";
 
 type HypGraphProps = {
   block: HypGraphBlock;
@@ -92,7 +91,9 @@ export function HypGraph({ block, onSelectNode, condensed = false }: HypGraphPro
                     {outbound > 0 ? ` · ${outbound} out` : ""}
                   </span>
                   {node.detail ? (
-                    <span className="mt-stack-xs block text-xs text-muted-foreground">{node.detail}</span>
+                    <span className="mt-stack-xs block text-xs text-muted-foreground">
+                      {node.detail}
+                    </span>
                   ) : null}
                 </span>
               </button>
@@ -126,7 +127,9 @@ export function HypGraph({ block, onSelectNode, condensed = false }: HypGraphPro
                   <span className="font-medium">{to}</span>
                   <span className="font-mono text-xs text-muted-foreground">{weight}</span>
                   {edge.label ? (
-                    <span className="mt-stack-xs block text-xs text-muted-foreground">{edge.label}</span>
+                    <span className="mt-stack-xs block text-xs text-muted-foreground">
+                      {edge.label}
+                    </span>
                   ) : null}
                 </li>
               );

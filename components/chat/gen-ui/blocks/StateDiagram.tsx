@@ -15,10 +15,8 @@ import {
 } from "./condensed-graph";
 
 import { spacing } from "@/lib/design-tokens/spacing";
+import { GEN_UI_FOCUS as FOCUS } from "@/components/chat/gen-ui/interaction";
 import { cn } from "@/lib/utils";
-
-const FOCUS =
-  "organic-focus focus-visible:outline-none focus-visible:bg-foreground focus-visible:text-background";
 
 type StateDiagramProps = {
   block: StateDiagramBlock;

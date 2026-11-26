@@ -15,6 +15,7 @@ import {
   ResearchSourceSliceSchema,
 } from "@/lib/schemas/gen-ui/research-report";
 import { GenUIMarkdown } from "@/components/chat/gen-ui/GenUIMarkdown";
+import { CompositionBar } from "@/components/design-system/composition-bar";
 import { cn } from "@/lib/utils";
 
 /**
@@ -27,7 +28,8 @@ export const researchSpacing = {
   /** Divider rule + stack below it (mirrors spacing.card.section rhythm). */
   sectionAfterRule: "border-t border-border/40 pt-stack-lg sm:pt-stack-md",
   /** Header band height/padding — Findings, Limitations, Sources. */
-  sectionHeader: "flex min-h-11 w-full items-center justify-between gap-inline-sm px-inset-sm py-stack-sm",
+  sectionHeader:
+    "flex min-h-11 w-full items-center justify-between gap-inline-sm px-inset-sm py-stack-sm",
   /** Body under a section header — same inset as the header. */
   sectionBody: "px-inset-sm pt-stack-sm pb-stack-sm",
   /** Padded action controls (Inspect source, Open original, …). */
@@ -213,7 +215,12 @@ export function ResearchSourceCard({
         {source.takeaways.length ? (
           <div className={spacing.card.labelStack}>
             <p className={labelClass}>Lyra’s takeaways</p>
-            <ul className={cn("list-disc list-inside text-sm leading-relaxed text-foreground/90", spacing.card.blockItems)}>
+            <ul
+              className={cn(
+                "list-disc list-inside text-sm leading-relaxed text-foreground/90",
+                spacing.card.blockItems
+              )}
+            >
               {source.takeaways.map((takeaway, i) => (
                 <li key={i}>{takeaway}</li>
               ))}
@@ -262,7 +269,12 @@ export function ResearchSourceCard({
         {readText && threadId ? (
           <div className={spacing.card.block}>
             {source.pages.length ? (
-              <label className={cn("flex flex-wrap items-center text-xs text-muted-foreground", spacing.gap.sm)}>
+              <label
+                className={cn(
+                  "flex flex-wrap items-center text-xs text-muted-foreground",
+                  spacing.gap.sm
+                )}
+              >
                 Document page
                 <select
                   value={page}
@@ -349,7 +361,12 @@ export function ResearchClaimCard({
           <div className={cn("border-t border-border/30 pt-stack-sm", spacing.card.blockItems)}>
             {claim.evidence.map((evidence, index) => (
               <figure key={`${evidence.sourceId}-${index}`} className={spacing.card.labelStack}>
-                <figcaption className={cn("flex flex-wrap items-center text-xs text-muted-foreground", spacing.gap.sm)}>
+                <figcaption
+                  className={cn(
+                    "flex flex-wrap items-center text-xs text-muted-foreground",
+                    spacing.gap.sm
+                  )}
+                >
                   <span
                     className={cn(
                       "font-medium capitalize",
@@ -383,7 +400,10 @@ export function ResearchClaimCard({
       ) : null}
 
       {onInspectSource && sourceIds.length ? (
-        <div className={cn("flex flex-wrap items-center", spacing.gap.sm)} aria-label="Finding sources">
+        <div
+          className={cn("flex flex-wrap items-center", spacing.gap.sm)}
+          aria-label="Finding sources"
+        >
           {sourceIds.map((sourceId) => {
             const number = sourceNumbers?.get(sourceId);
 
@@ -410,12 +430,21 @@ export function ResearchClaimCard({
 
 type ClaimVerdict = "supported" | "partial" | "contested" | "unsupported";
 
-/** Verdict order and colours; amber matches the full card's "contradicts" evidence label. */
-const CLAIM_VERDICTS: readonly { key: ClaimVerdict; label: string; className: string }[] = [
-  { key: "supported", label: "Quotes match", className: "bg-accent" },
-  { key: "partial", label: "Partial sources", className: "bg-foreground/40" },
-  { key: "contested", label: "Contested", className: "bg-amber-500" },
-  { key: "unsupported", label: "Unsupported", className: "bg-muted-foreground/25" },
+/** Verdict order and colours: theme tokens, warm for contested, as everywhere in Gen UI. */
+/** Theme colours as CSS values: the verdict bar is the app's shared CompositionBar. */
+const CLAIM_VERDICTS: readonly { key: ClaimVerdict; label: string; color: string }[] = [
+  { key: "supported", label: "Quotes match", color: "var(--color-accent)" },
+  {
+    key: "partial",
+    label: "Partial sources",
+    color: "color-mix(in oklab, var(--foreground) 40%, transparent)",
+  },
+  { key: "contested", label: "Contested", color: "var(--color-accent-warm)" },
+  {
+    key: "unsupported",
+    label: "Unsupported",
+    color: "color-mix(in oklab, var(--muted-foreground) 35%, transparent)",
+  },
 ];
 
 /** Same reading of `issues` the full card spells out under each finding. */
@@ -429,7 +458,9 @@ function claimVerdict(claim: ResearchClaimView): ClaimVerdict {
     !claim.evidence.length ||
     claim.issues.some(
       (issue) =>
-        issue === "no_supporting_evidence" || issue === "missing_source" || issue === "quote_mismatch"
+        issue === "no_supporting_evidence" ||
+        issue === "missing_source" ||
+        issue === "quote_mismatch"
     )
   )
     return "unsupported";
@@ -452,6 +483,7 @@ function ResearchReportCondensed({
   partial?: boolean;
 }) {
   const [revealed, setRevealed] = useState(false);
+  const [verdictFocus, setVerdictFocus] = useState<string | null>(null);
   const counts = new Map<ClaimVerdict, number>();
 
   for (const claim of block.claims) {
@@ -480,23 +512,37 @@ function ResearchReportCondensed({
 
       {verdicts.length ? (
         <div className={spacing.card.labelStack}>
-          <div aria-hidden className="flex h-2 w-full gap-0.5 overflow-hidden rounded-full">
-            {/* One segment per finding (the schema caps claims at 6), grouped by verdict. */}
-            {verdicts.flatMap(({ key, className }) =>
-              Array.from({ length: counts.get(key) ?? 0 }, (_, i) => (
-                <span key={`${key}-${i}`} className={cn("flex-1", className)} />
-              ))
-            )}
-          </div>
+          {/* The app's one composition bar; tapping a segment lights its legend entry. */}
+          <CompositionBar
+            label="Findings by verdict"
+            selectedId={verdictFocus}
+            onSelectionChange={setVerdictFocus}
+            segments={verdicts.map(({ key, label, color }) => ({
+              id: key,
+              value: counts.get(key) ?? 0,
+              color,
+              ariaLabel: `${label}: ${counts.get(key) ?? 0}`,
+            }))}
+          />
           <ul
             aria-label="Findings by verdict"
             className="flex flex-wrap gap-x-inline-md gap-y-stack-xs text-2xs text-muted-foreground"
           >
-            {verdicts.map(({ key, label, className }) => (
-              <li key={key} className="inline-flex items-center gap-inline-xs">
-                <span aria-hidden className={cn("size-1.5 shrink-0 rounded-full", className)} />
+            {verdicts.map(({ key, label, color }) => (
+              <li
+                key={key}
+                className={cn(
+                  "inline-flex items-center gap-inline-xs",
+                  verdictFocus === key && "text-foreground"
+                )}
+              >
+                <span
+                  aria-hidden
+                  className="size-1.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: color }}
+                />
                 {label}
-                <span className="font-medium tabular-nums text-foreground">{counts.get(key)}</span>
+                <span className="font-mono tabular-nums text-foreground">{counts.get(key)}</span>
               </li>
             ))}
           </ul>
@@ -535,7 +581,7 @@ function ResearchReportCondensed({
           </ul>
         ) : null}
         {block.limitations.length ? (
-          <span className="rounded-full bg-amber-500/15 px-inset-sm py-0.5 text-2xs font-medium text-amber-700 dark:text-amber-300">
+          <span className="rounded-full bg-accent-warm/15 px-inset-sm py-0.5 text-2xs font-medium text-foreground">
             {block.limitations.length}{" "}
             {block.limitations.length === 1 ? "limitation" : "limitations"}
           </span>
@@ -704,10 +750,7 @@ export function ResearchReport({
         className={cn("group/sources", researchSpacing.sectionAfterRule)}
         data-research-section="sources"
       >
-        <summary
-          className={sectionHeaderInteractiveClass}
-          data-research-section-header="sources"
-        >
+        <summary className={sectionHeaderInteractiveClass} data-research-section-header="sources">
           <span className={labelClass}>Sources · {block.sources.length}</span>
           <ChevronDown
             className="size-4 shrink-0 text-muted-foreground group-open/sources:rotate-180"
@@ -736,7 +779,12 @@ export function ResearchReport({
         </div>
       </details>
 
-      <p className={cn(researchSpacing.sectionInset, "text-2xs leading-relaxed text-muted-foreground")}>
+      <p
+        className={cn(
+          researchSpacing.sectionInset,
+          "text-2xs leading-relaxed text-muted-foreground"
+        )}
+      >
         Matching quotations establish traceability, not truth or source independence. Assess the
         source and its methods yourself.
       </p>

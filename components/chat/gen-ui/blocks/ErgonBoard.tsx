@@ -2,9 +2,12 @@
 
 import type { ErgonBoardBlock as ErgonBoardBlockData } from "@/lib/schemas/gen-ui";
 
-import { ErgonBoardView } from "../ergon/ErgonBoardView";
-import { Chip, DOT, Dot, PriorityMark } from "../ergon/primitives";
+import { useState } from "react";
 
+import { ErgonBoardView } from "../ergon/ErgonBoardView";
+import { Chip, DOT_COLOR, Dot, PriorityMark } from "../ergon/primitives";
+
+import { CompositionBar } from "@/components/design-system/composition-bar";
 import { cn } from "@/lib/utils";
 
 type ErgonBoardProps = {
@@ -19,7 +22,7 @@ function ErgonBoardCondensed({ block }: { block: ErgonBoardBlockData }) {
     ...column,
     items: block.items.filter((item) => item.stateType === column.id),
   }));
-  const ordered = columns.flatMap((column) => column.items);
+  const [laneFocus, setLaneFocus] = useState<string | null>(null);
   const filled = columns.filter((column) => column.items.length > 0);
   const empty = columns.filter((column) => column.items.length === 0);
   const distribution = columns
@@ -36,16 +39,22 @@ function ErgonBoardCondensed({ block }: { block: ErgonBoardBlockData }) {
         </Chip>
       </header>
 
-      {/* One equal segment per item, so the bar is the status distribution without inline sizes. */}
-      <div
-        role="img"
-        aria-label={distribution ? `Status distribution: ${distribution}` : "No work items"}
-        className="flex h-1.5 overflow-hidden rounded-full bg-muted/40"
-      >
-        {ordered.map((item) => (
-          <span key={`${item.source}:${item.id}`} className={cn("flex-1", DOT[item.stateType])} />
-        ))}
-      </div>
+      {/* The app's one composition bar: status split; tapping a segment lights its lane row. */}
+      {filled.length ? (
+        <CompositionBar
+          label={`Status distribution: ${distribution}`}
+          selectedId={laneFocus}
+          onSelectionChange={setLaneFocus}
+          segments={filled.map((column) => ({
+            id: column.id,
+            value: column.items.length,
+            color: DOT_COLOR[column.id],
+            ariaLabel: `${column.label}: ${column.items.length}`,
+          }))}
+        />
+      ) : (
+        <p className="text-2xs text-muted-foreground">No work items</p>
+      )}
 
       {/* One row per lane: five columns side by side truncate every label at phone width. */}
       <ul className="space-y-stack-xs">
@@ -57,7 +66,10 @@ function ErgonBoardCondensed({ block }: { block: ErgonBoardBlockData }) {
           return (
             <li
               key={column.id}
-              className="flex min-w-0 items-center gap-inline-sm rounded-lg bg-muted/40 px-inset-sm py-1.5"
+              className={cn(
+                "flex min-w-0 items-center gap-inline-sm rounded-lg px-inset-sm py-1.5",
+                laneFocus === column.id ? "bg-muted" : "bg-muted/40"
+              )}
             >
               <Dot type={column.id} />
               <span className="w-20 shrink-0 truncate text-2xs text-muted-foreground">

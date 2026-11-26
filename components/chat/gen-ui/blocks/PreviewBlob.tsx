@@ -6,10 +6,8 @@ import { useId, useState, type MouseEvent } from "react";
 
 import { spacing } from "@/lib/design-tokens/spacing";
 import { useDiagramTakeoverOptional } from "@/lib/mermaid/diagram-takeover-context";
+import { GEN_UI_FOCUS as FOCUS, genUiActionClass } from "@/components/chat/gen-ui/interaction";
 import { cn } from "@/lib/utils";
-
-const FOCUS =
-  "organic-focus focus-visible:outline-none focus-visible:bg-foreground focus-visible:text-background";
 
 type PreviewBlobProps = {
   block: PreviewBlobBlock;
@@ -104,10 +102,7 @@ export function PreviewBlob({ block, onCommit, condensed = false }: PreviewBlobP
               <button
                 type="button"
                 onClick={() => void commit()}
-                className={cn(
-                  "rounded-lg bg-accent px-inset-sm py-1.5 text-xs font-medium text-accent-foreground",
-                  FOCUS
-                )}
+                className={cn(genUiActionClass("sm"), FOCUS)}
               >
                 Commit full render
               </button>
@@ -170,10 +165,7 @@ export function PreviewBlob({ block, onCommit, condensed = false }: PreviewBlobP
         <button
           type="button"
           onClick={() => void commit()}
-          className={cn(
-            "min-h-11 rounded-lg bg-accent px-inset-md text-sm font-medium text-accent-foreground",
-            FOCUS
-          )}
+          className={cn(genUiActionClass(), FOCUS)}
         >
           Commit full render
         </button>

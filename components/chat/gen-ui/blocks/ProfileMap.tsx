@@ -19,6 +19,7 @@ import {
   type MiniGraphNode,
 } from "./condensed-graph";
 
+import { GEN_UI_FOCUS as FOCUS } from "@/components/chat/gen-ui/interaction";
 import { cn } from "@/lib/utils";
 
 type ProfileMapProps = {
@@ -50,9 +51,6 @@ const CONDENSED_HUBS = 3;
 const CONDENSED_PICKS = 6;
 /** Opacity factor for nodes outside the focused domain or the selected node's neighbourhood. */
 const DIMMED = 0.2;
-
-const FOCUS =
-  "organic-focus focus-visible:outline-none focus-visible:bg-foreground focus-visible:text-background";
 
 function chipClass(pressed: boolean) {
   return cn(

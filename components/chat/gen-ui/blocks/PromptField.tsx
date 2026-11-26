@@ -5,10 +5,8 @@ import type { PromptFieldBlock, PromptSuggestion } from "@/lib/schemas/gen-ui";
 import { useEffect, useState } from "react";
 
 import { spacing } from "@/lib/design-tokens/spacing";
+import { GEN_UI_FOCUS as FOCUS, genUiActionClass } from "@/components/chat/gen-ui/interaction";
 import { cn } from "@/lib/utils";
-
-const FOCUS =
-  "organic-focus focus-visible:outline-none focus-visible:bg-foreground focus-visible:text-background";
 
 type PromptFieldProps = {
   block: PromptFieldBlock;
@@ -115,11 +113,7 @@ export function PromptField({ block, onUse, condensed = false }: PromptFieldProp
           type="button"
           disabled={!value.trim()}
           onClick={() => onUse(value)}
-          className={cn(
-            "min-h-11 rounded-lg bg-accent px-inset-md text-sm font-medium text-accent-foreground",
-            "disabled:opacity-40",
-            FOCUS
-          )}
+          className={cn(genUiActionClass(), "disabled:opacity-40", FOCUS)}
         >
           Use prompt
         </button>

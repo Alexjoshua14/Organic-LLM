@@ -5,6 +5,7 @@ import type { ErgonProposalBlock } from "@/lib/schemas/gen-ui";
 import { useRef, useState } from "react";
 
 import { spacing } from "@/lib/design-tokens/spacing";
+import { genUiActionClass } from "@/components/chat/gen-ui/interaction";
 import { cn } from "@/lib/utils";
 
 type Apply = () => Promise<void>;
@@ -23,9 +24,9 @@ type ErgonProposalViewProps = {
 };
 
 export function ErgonProposalView({ block, apply }: ErgonProposalViewProps) {
-  const [status, setStatus] = useState<
-    "ready" | "applying" | "applied" | "dismissed" | "error"
-  >("ready");
+  const [status, setStatus] = useState<"ready" | "applying" | "applied" | "dismissed" | "error">(
+    "ready"
+  );
   const inFlight = useRef(false);
 
   async function approve() {
@@ -86,9 +87,7 @@ export function ErgonProposalView({ block, apply }: ErgonProposalViewProps) {
       <div role="status" className="text-sm text-muted-foreground">
         {status === "applying" ? "Applying…" : null}
         {status === "applied" ? "Applied." : null}
-        {status === "error"
-          ? "Couldn’t confirm the result. Refresh Ergon before retrying."
-          : null}
+        {status === "error" ? "Couldn’t confirm the result. Refresh Ergon before retrying." : null}
         {status === "ready" && !apply ? "Preview only. No changes will be written." : null}
       </div>
 
@@ -98,10 +97,7 @@ export function ErgonProposalView({ block, apply }: ErgonProposalViewProps) {
             <button
               type="button"
               onClick={() => void approve()}
-              className={cn(
-                "min-h-11 rounded-lg bg-accent-warm px-inset-md text-sm font-medium text-accent-foreground",
-                BUTTON_FOCUS
-              )}
+              className={cn(genUiActionClass(), BUTTON_FOCUS)}
             >
               Apply changes
             </button>

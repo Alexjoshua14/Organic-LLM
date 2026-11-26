@@ -14,6 +14,8 @@ import {
 import { toneClass } from "@/components/chat/gen-ui/measure/tone";
 import { deriveDependents } from "@/lib/schemas/gen-ui/profile-map";
 import { spacing } from "@/lib/design-tokens/spacing";
+import { genUiActionClass } from "@/components/chat/gen-ui/interaction";
+import { CompositionStroke } from "@/components/design-system/composition-bar";
 import { cn } from "@/lib/utils";
 
 type ProfileMapViewProps = {
@@ -38,10 +40,7 @@ const Pips = ({ n }: { n: number }) => (
     {[1, 2, 3, 4, 5].map((i) => (
       <span
         key={i}
-        className={cn(
-          "size-1.5 rounded-full",
-          i <= n ? "bg-foreground" : "bg-muted-foreground/30"
-        )}
+        className={cn("size-1.5 rounded-full", i <= n ? "bg-foreground" : "bg-muted-foreground/30")}
       />
     ))}
   </span>
@@ -83,9 +82,7 @@ export function ProfileMapView({ block, onEdit, onDelete }: ProfileMapViewProps)
 
   const chips = (ids: string[]) =>
     ids.length ? (
-      ids.map((id) => (
-        <Chip key={id} label={byId.get(id)?.title ?? id} onClick={() => jump(id)} />
-      ))
+      ids.map((id) => <Chip key={id} label={byId.get(id)?.title ?? id} onClick={() => jump(id)} />)
     ) : (
       <span className="text-xs text-muted-foreground/60">none</span>
     );
@@ -102,9 +99,7 @@ export function ProfileMapView({ block, onEdit, onDelete }: ProfileMapViewProps)
             onClick={() => setKind(k)}
             className={cn(
               "shrink-0 rounded-full px-inset-md py-1 text-xs",
-              kind === k
-                ? "bg-accent text-accent-foreground"
-                : "bg-muted/60 text-muted-foreground",
+              kind === k ? "bg-accent text-accent-foreground" : "bg-muted/60 text-muted-foreground",
               FILTER_FOCUS
             )}
           >
@@ -149,7 +144,9 @@ export function ProfileMapView({ block, onEdit, onDelete }: ProfileMapViewProps)
                       >
                         <Orb cls={toneClass[domain.tone]} />
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm text-foreground">{node.title}</span>
+                          <span className="block truncate text-sm text-foreground">
+                            {node.title}
+                          </span>
                           <span className="font-mono text-xs text-muted-foreground">
                             {node.kind} · {node.status} · needs {node.dependencies.length} · feeds{" "}
                             {feeds.length}
@@ -165,9 +162,7 @@ export function ProfileMapView({ block, onEdit, onDelete }: ProfileMapViewProps)
                             animate={{ height: "auto", opacity: 1 }}
                             exit={reduceMotion ? undefined : { height: 0, opacity: 0 }}
                             transition={
-                              reduceMotion
-                                ? PROFILE_MAP_PANEL_REDUCED
-                                : PROFILE_MAP_PANEL_SPRING
+                              reduceMotion ? PROFILE_MAP_PANEL_REDUCED : PROFILE_MAP_PANEL_SPRING
                             }
                             className="overflow-hidden"
                           >
@@ -196,11 +191,17 @@ export function ProfileMapView({ block, onEdit, onDelete }: ProfileMapViewProps)
                                   <span>confidence</span>
                                   <span>{Math.round(node.confidence * 100)}%</span>
                                 </div>
-                                <div className="h-1 rounded-full bg-muted/60">
+                                {/* The app's one bar stroke, on the shared 4px rail. */}
+                                <div className="relative h-1 rounded-full bg-muted/40">
                                   <div
-                                    className="h-full rounded-full bg-accent"
+                                    className="absolute inset-y-0 left-0"
                                     style={{ width: `${node.confidence * 100}%` }}
-                                  />
+                                  >
+                                    <CompositionStroke
+                                      className="w-full"
+                                      color="var(--color-accent)"
+                                    />
+                                  </div>
                                 </div>
                               </div>
 
@@ -223,10 +224,7 @@ export function ProfileMapView({ block, onEdit, onDelete }: ProfileMapViewProps)
                                     <button
                                       type="button"
                                       onClick={() => onEdit(node)}
-                                      className={cn(
-                                        "rounded-lg bg-accent-warm px-inset-md py-1.5 text-xs font-medium text-accent-foreground",
-                                        FILTER_FOCUS
-                                      )}
+                                      className={cn(genUiActionClass("sm"), FILTER_FOCUS)}
                                     >
                                       Edit
                                     </button>

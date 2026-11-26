@@ -14,6 +14,15 @@ export const DOT: Record<ErgonStateType, string> = {
   done: "bg-accent/40",
 };
 
+/** `DOT` as CSS colour values, for the shared CompositionBar (keep the two maps in step). */
+export const DOT_COLOR: Record<ErgonStateType, string> = {
+  backlog: "color-mix(in oklab, var(--muted-foreground) 30%, transparent)",
+  ready: "color-mix(in oklab, var(--muted-foreground) 60%, transparent)",
+  active: "var(--color-accent)",
+  review: "var(--color-accent-warm)",
+  done: "color-mix(in oklab, var(--accent) 40%, transparent)",
+};
+
 export const Dot = ({ type }: { type: ErgonStateType }) => (
   <span className={cn("size-2.5 shrink-0 rounded-full", DOT[type])} aria-hidden />
 );
@@ -66,13 +75,7 @@ export function dueInfo(due?: string) {
   today.setHours(0, 0, 0, 0);
   const days = Math.round((+new Date(`${due}T00:00:00`) - +today) / 864e5);
   const text =
-    days === 0
-      ? "today"
-      : days === 1
-        ? "tomorrow"
-        : days < 0
-          ? `${-days}d late`
-          : `in ${days}d`;
+    days === 0 ? "today" : days === 1 ? "tomorrow" : days < 0 ? `${-days}d late` : `in ${days}d`;
 
   return { text, late: days < 0 };
 }

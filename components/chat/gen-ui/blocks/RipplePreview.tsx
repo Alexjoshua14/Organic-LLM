@@ -1,15 +1,15 @@
 "use client";
 
+import type { ReactNode } from "react";
 import type { RipplePreviewBlock } from "@/lib/schemas/gen-ui";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { spacing } from "@/lib/design-tokens/spacing";
+import { GEN_UI_FOCUS as FOCUS, genUiActionClass } from "@/components/chat/gen-ui/interaction";
+import { Switch } from "@/components/design-system/switch";
 import { cn } from "@/lib/utils";
-
-const FOCUS =
-  "organic-focus focus-visible:outline-none focus-visible:bg-foreground focus-visible:text-background";
 
 const KIND_TONE: Record<RipplePreviewBlock["ripples"][number]["kind"], string> = {
   blocked: "bg-accent-warm",
@@ -362,28 +362,15 @@ export function RipplePreview({ block, onApply, condensed = false }: RipplePrevi
                   {ripple.detail ? (
                     <p className="text-xs text-muted-foreground">{ripple.detail}</p>
                   ) : null}
-                  <button
-                    type="button"
-                    role="checkbox"
-                    aria-checked={on}
-                    onClick={() =>
-                      setApproved((prev) => ({ ...prev, [ripple.id]: !prev[ripple.id] }))
-                    }
-                    className={cn(
-                      "flex min-h-11 items-center gap-inline-sm text-xs",
-                      on ? "text-foreground" : "text-muted-foreground",
-                      FOCUS
-                    )}
+                  <EffectSwitch
+                    ripple={ripple}
+                    on={on}
+                    onChange={(next) => setApproved((prev) => ({ ...prev, [ripple.id]: next }))}
                   >
-                    <span
-                      aria-hidden
-                      className={cn(
-                        "size-3 shrink-0 rounded-full border",
-                        on ? cn("border-transparent", KIND_TONE[ripple.kind]) : "border-border"
-                      )}
-                    />
-                    {on ? "Included" : "Skipped"} · tap to {on ? "skip" : "include"}
-                  </button>
+                    <span className="text-xs text-muted-foreground">
+                      {on ? "Included in apply" : "Skipped"}
+                    </span>
+                  </EffectSwitch>
                 </div>
               );
             })}
@@ -402,33 +389,19 @@ export function RipplePreview({ block, onApply, condensed = false }: RipplePrevi
 
               return (
                 <li key={ripple.id}>
-                  <button
-                    type="button"
-                    role="checkbox"
-                    aria-checked={on}
-                    onClick={() =>
-                      setApproved((prev) => ({ ...prev, [ripple.id]: !prev[ripple.id] }))
-                    }
-                    className={cn(
-                      "flex min-h-11 w-full items-center gap-inline-sm rounded-xl px-inset-sm text-left",
-                      on ? "bg-muted/40" : "bg-muted/20 opacity-70",
-                      FOCUS
-                    )}
+                  <EffectSwitch
+                    row
+                    ripple={ripple}
+                    on={on}
+                    onChange={(next) => setApproved((prev) => ({ ...prev, [ripple.id]: next }))}
                   >
-                    <span
-                      aria-hidden
-                      className={cn(
-                        "size-2.5 shrink-0 rounded-full",
-                        on ? KIND_TONE[ripple.kind] : "border border-border"
-                      )}
-                    />
                     <span className="min-w-0 flex-1 truncate text-xs text-foreground">
                       {ripple.label}
                     </span>
                     <span className="shrink-0 font-mono text-2xs text-muted-foreground">
                       {on ? ripple.kind : "skipped"}
                     </span>
-                  </button>
+                  </EffectSwitch>
                 </li>
               );
             })}
@@ -448,10 +421,7 @@ export function RipplePreview({ block, onApply, condensed = false }: RipplePrevi
               <button
                 type="button"
                 onClick={() => void apply()}
-                className={cn(
-                  "min-h-11 rounded-lg bg-accent-warm px-inset-md text-sm font-medium text-accent-foreground",
-                  FOCUS
-                )}
+                className={cn(genUiActionClass(), FOCUS)}
               >
                 Apply {approvedIds.length} approved
               </button>
@@ -491,24 +461,13 @@ export function RipplePreview({ block, onApply, condensed = false }: RipplePrevi
 
           return (
             <li key={ripple.id}>
-              <button
-                type="button"
-                role="checkbox"
-                aria-checked={on}
-                onClick={() => setApproved((prev) => ({ ...prev, [ripple.id]: !prev[ripple.id] }))}
-                className={cn(
-                  "flex w-full items-start gap-inline-md rounded-xl p-inset-md text-left",
-                  on ? "bg-muted/40" : "bg-muted/20 opacity-70",
-                  FOCUS
-                )}
+              <EffectSwitch
+                row
+                roomy
+                ripple={ripple}
+                on={on}
+                onChange={(next) => setApproved((prev) => ({ ...prev, [ripple.id]: next }))}
               >
-                <span
-                  className={cn(
-                    "mt-stack-xs size-2.5 shrink-0 rounded-full",
-                    KIND_TONE[ripple.kind]
-                  )}
-                  aria-hidden
-                />
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm text-foreground">{ripple.label}</span>
                   <span className="block font-mono text-xs text-muted-foreground">
@@ -521,7 +480,7 @@ export function RipplePreview({ block, onApply, condensed = false }: RipplePrevi
                     </span>
                   ) : null}
                 </span>
-              </button>
+              </EffectSwitch>
             </li>
           );
         })}
@@ -543,10 +502,7 @@ export function RipplePreview({ block, onApply, condensed = false }: RipplePrevi
             <button
               type="button"
               onClick={() => void apply()}
-              className={cn(
-                "min-h-11 rounded-lg bg-accent-warm px-inset-md text-sm font-medium text-accent-foreground",
-                FOCUS
-              )}
+              className={cn(genUiActionClass(), FOCUS)}
             >
               Apply approved
             </button>
@@ -566,5 +522,55 @@ export function RipplePreview({ block, onApply, condensed = false }: RipplePrevi
 
       {block.footnote ? <p className="text-xs text-muted-foreground">{block.footnote}</p> : null}
     </section>
+  );
+}
+
+/**
+ * Include or skip one effect with the design-system glass switch. As a `row`, the whole row is
+ * the switch's label (tap anywhere), led by the effect's kind dot; otherwise it is a compact
+ * labelled switch.
+ */
+function EffectSwitch({
+  ripple,
+  on,
+  onChange,
+  row = false,
+  roomy = false,
+  children,
+}: {
+  ripple: RipplePreviewBlock["ripples"][number];
+  on: boolean;
+  onChange: (on: boolean) => void;
+  row?: boolean;
+  roomy?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <Switch
+      isSelected={on}
+      onValueChange={onChange}
+      aria-label={`Include ${ripple.label}`}
+      classNames={{
+        base: cn(
+          "flex max-w-none flex-row-reverse items-center gap-inline-md",
+          row && "w-full justify-between rounded-xl",
+          row && (roomy ? "p-inset-md" : "px-inset-sm"),
+          row && (on ? "bg-muted/40" : "bg-muted/15")
+        ),
+        label: "ms-0 flex min-w-0 flex-1 items-center gap-inline-sm",
+      }}
+    >
+      {row ? (
+        <span
+          aria-hidden
+          className={cn(
+            "size-2.5 shrink-0 rounded-full",
+            KIND_TONE[ripple.kind],
+            !on && "opacity-40"
+          )}
+        />
+      ) : null}
+      {children}
+    </Switch>
   );
 }
