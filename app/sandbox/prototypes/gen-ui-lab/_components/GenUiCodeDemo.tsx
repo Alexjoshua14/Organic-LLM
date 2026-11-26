@@ -3,6 +3,8 @@
 import type { ReactNode } from "react";
 import type { CodeDiffBlock, GenUIBlock } from "@/lib/schemas/gen-ui";
 
+import { useId, useState } from "react";
+
 import {
   useGenUiArrangementCycle,
   type GenUiArrangement,
@@ -10,7 +12,7 @@ import {
 import { useGenUiLanguageRotation } from "../_hooks/use-gen-ui-language-rotation";
 
 import { GenUiArrangementPauseZone, GenUiArrangementToolbar } from "./GenUiArrangementToolbar";
-import { CondensedCard, CondensedDetail, GenUiCondensedBlock } from "./GenUiCondensedPreviews";
+import { CondensedCard, GenUiCondensedBlock } from "./GenUiCondensedPreviews";
 import { GenUiLanguageControls } from "./GenUiLanguageControls";
 import {
   buildLanguageDiffBlock,
@@ -287,36 +289,64 @@ function CondensedCodeDemo({
 }) {
   if (diff) return <GenUiCondensedBlock block={diff}>{fullPreview}</GenUiCondensedBlock>;
 
-  const lines = source.split("\n");
-  const excerpt = lines.slice(0, 4);
-
   return (
     <CondensedCard title={preset.name}>
       {source ? (
-        // organic-code scopes the shared token palette (styles/CodePalette.css).
-        <pre
-          className={cn(
-            "organic-code overflow-hidden rounded-lg bg-muted/40 p-inset-sm font-mono text-xs",
-            fontMono.variable
-          )}
-        >
-          {excerpt.map((line, index) => (
-            <span key={index} className="block truncate whitespace-pre">
-              {line ? <HighlightedText language={language} text={line} /> : " "}
-            </span>
-          ))}
-        </pre>
+        // Keyed by source so a new slide or language starts collapsed again.
+        <CondensedCode key={source} language={language} source={source} />
       ) : (
         <p className="text-xs text-muted-foreground">{preset.intent}</p>
       )}
-      {lines.length > excerpt.length ? (
-        <p className="text-xs text-muted-foreground">
-          First {excerpt.length} of {lines.length} lines
-        </p>
-      ) : null}
-      <CondensedDetail label={preset.kind === "fixture" ? "Review diff" : "Read full example"}>
-        {fullPreview}
-      </CondensedDetail>
     </CondensedCard>
+  );
+}
+
+/** Lines shown before the block is expanded in place. */
+const CONDENSED_CODE_LINES = 4;
+
+/**
+ * One code surface that grows in place: the first few lines, then the rest under the same
+ * header-less block when the reader asks. No second copy of the code below it.
+ */
+function CondensedCode({ source, language }: { source: string; language: string | undefined }) {
+  const [expanded, setExpanded] = useState(false);
+  const regionId = useId();
+  const lines = source.split("\n");
+  const hidden = lines.length - CONDENSED_CODE_LINES;
+  const shown = expanded ? lines : lines.slice(0, CONDENSED_CODE_LINES);
+
+  return (
+    // organic-code scopes the shared token palette (styles/CodePalette.css).
+    <div
+      className={cn(
+        "organic-code overflow-hidden rounded-lg bg-muted/40 font-mono text-xs",
+        fontMono.variable
+      )}
+    >
+      <pre
+        id={regionId}
+        className={cn("p-inset-sm", expanded ? "overflow-x-auto" : "overflow-hidden")}
+      >
+        {shown.map((line, index) => (
+          <span key={index} className={cn("block whitespace-pre", !expanded && "truncate")}>
+            {line ? <HighlightedText language={language} text={line} /> : " "}
+          </span>
+        ))}
+      </pre>
+      {hidden > 0 ? (
+        <button
+          type="button"
+          aria-controls={regionId}
+          aria-expanded={expanded}
+          onClick={() => setExpanded((v) => !v)}
+          className="organic-focus flex min-h-11 w-full items-center justify-between gap-inline-sm border-t border-border/50 px-inset-sm font-sans text-muted-foreground focus-visible:text-foreground focus-visible:outline-none"
+        >
+          <span>{expanded ? "Show less" : `Show all ${lines.length} lines`}</span>
+          <span className="tabular-nums text-muted-foreground/70">
+            {expanded ? `${lines.length} lines` : `+${hidden}`}
+          </span>
+        </button>
+      ) : null}
+    </div>
   );
 }

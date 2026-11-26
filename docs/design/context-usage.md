@@ -40,3 +40,10 @@ outcome name, poll count, and share. Both use `CompositionBarDetail` to keep the
 32px tall and clear it on pointer exit or blur. Callers supply category colors,
 accessible labels, and units; poll outcomes do not inherit token-source meanings. Both
 variants normalize segments against the displayed composition and omit zero-value segments.
+
+The stroke itself is `CompositionStroke`, exported from the same file, and it is the app's
+only bar material. Bars that are not compositions draw with it too: Gen UI measure spans and
+progress-track fills use the glow variant on a 4px `bg-muted/40` rail, in full and condensed
+views alike. Their rails are not clipped, so the glow shows, and point marks (a measure's
+estimate, a progress milestone) stand above and below the stroke. Do not add another bar style;
+pass a colour to the stroke instead.

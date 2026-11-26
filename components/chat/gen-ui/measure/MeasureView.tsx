@@ -59,7 +59,7 @@ export function MeasureView({
               condensed={condensed}
               estimate={estimate}
             >
-              <Track domain={domain} ticks={ticks} thin={condensed}>
+              <Track domain={domain} ticks={ticks}>
                 {row.range ? (
                   <>
                     <Span
@@ -68,7 +68,6 @@ export function MeasureView({
                       domain={domain}
                       tone={row.tone}
                       delay={delay}
-                      glass={condensed}
                     />
                     {row.value !== undefined ? <Pin at={row.value} domain={domain} /> : null}
                   </>
@@ -79,7 +78,6 @@ export function MeasureView({
                     domain={domain}
                     tone={row.tone}
                     delay={delay}
-                    glass={condensed}
                   />
                 )}
               </Track>

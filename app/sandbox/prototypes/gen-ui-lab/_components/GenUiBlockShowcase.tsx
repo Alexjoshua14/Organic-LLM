@@ -36,11 +36,7 @@ export function GenUiBlockShowcaseToolbar({ showcase }: { showcase: BlockShowcas
   if (showcase.count <= 1) return null;
 
   return (
-    <GenUiArrangementToolbar
-      cycle={showcase.cycle}
-      groupLabel="Component states"
-      noun="state"
-    />
+    <GenUiArrangementToolbar cycle={showcase.cycle} groupLabel="Component states" noun="state" />
   );
 }
 

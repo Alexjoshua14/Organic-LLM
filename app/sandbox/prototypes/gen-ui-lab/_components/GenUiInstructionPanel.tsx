@@ -1,9 +1,12 @@
 "use client";
 
+import type {
+  LabInstructionDoc,
+  LabInstructionSection,
+} from "@/lib/sandbox/gen-ui-lab-instructions";
+
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
-
-import type { LabInstructionDoc, LabInstructionSection } from "@/lib/sandbox/gen-ui-lab-instructions";
 
 import { ChatMessageMarkdown } from "@/components/chat/chat-message-markdown";
 import { glass } from "@/components/design-system/primitives";
@@ -14,8 +17,7 @@ import {
 } from "@/components/third-party/ui/collapsible";
 import { cn } from "@/lib/utils";
 
-const FOCUS =
-  "organic-focus outline-none focus-visible:bg-muted/40 focus-visible:outline-none";
+const FOCUS = "organic-focus outline-none focus-visible:bg-muted/40 focus-visible:outline-none";
 
 const PROSE_BODY = cn(
   "prose prose-sm max-w-none dark:prose-invert",
@@ -27,13 +29,7 @@ const PROSE_BODY = cn(
   "prose-code:text-foreground prose-pre:bg-muted/50"
 );
 
-function InstructionSection({
-  section,
-  docId,
-}: {
-  section: LabInstructionSection;
-  docId: string;
-}) {
+function InstructionSection({ section, docId }: { section: LabInstructionSection; docId: string }) {
   const [open, setOpen] = useState(section.defaultOpen ?? false);
 
   return (

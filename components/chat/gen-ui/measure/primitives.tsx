@@ -7,8 +7,9 @@ import { motion, useReducedMotion } from "framer-motion";
 
 import { MEASURE_SPAN_REDUCED, MEASURE_SPAN_SPRING } from "./measure-timing";
 import { type Domain, toPct } from "./measure-math";
-import { toneClass, toneGlassClass } from "./tone";
+import { toneFill } from "./tone";
 
+import { CompositionStroke } from "@/components/design-system/composition-bar";
 import { formatMeasureValue } from "@/lib/schemas/gen-ui/measure";
 import { cn } from "@/lib/utils";
 
@@ -16,23 +17,21 @@ export type { Domain } from "./measure-math";
 export { makeTicks, toPct } from "./measure-math";
 export { toneClass } from "./tone";
 
-/** Shared axis surface with gridlines. Children are absolutely positioned layers. */
+/**
+ * Shared axis with gridlines, the same height as the app's bar stroke. Not clipped, so a span's
+ * glow can spill past it. Children are absolutely positioned layers.
+ */
 export function Track({
   domain,
   ticks,
-  thin = false,
   children,
 }: {
   domain: Domain;
   ticks: number[];
-  /** Condensed: a hairline bar, so the rows read as one compact chart. */
-  thin?: boolean;
   children?: ReactNode;
 }) {
   return (
-    <div
-      className={cn("relative overflow-hidden rounded-full bg-muted/40", thin ? "h-1.5" : "h-3")}
-    >
+    <div className="relative h-1 rounded-full bg-muted/40">
       {ticks.slice(1, -1).map((t) => (
         <span
           key={t}
@@ -45,7 +44,10 @@ export function Track({
   );
 }
 
-/** Animated span between two domain values. */
+/**
+ * Animated span between two domain values, drawn with the app's one bar stroke (the context
+ * usage bar's glow material), so measure bars match every other bar in the app.
+ */
 export function Span({
   from,
   to,
@@ -53,7 +55,6 @@ export function Span({
   tone,
   delay = 0,
   soft = false,
-  glass = false,
 }: {
   from: number;
   to: number;
@@ -61,8 +62,6 @@ export function Span({
   tone: MeasureTone;
   delay?: number;
   soft?: boolean;
-  /** Translucent tinted body with a rim instead of a solid fill (condensed). */
-  glass?: boolean;
 }) {
   const reduceMotion = useReducedMotion();
   const left = toPct(from, domain);
@@ -70,24 +69,22 @@ export function Span({
 
   return (
     <motion.span
-      className={cn(
-        "absolute inset-y-0 rounded-full",
-        glass ? toneGlassClass[tone] : toneClass[tone],
-        soft && "opacity-40"
-      )}
+      className={cn("absolute inset-y-0", soft && "opacity-40")}
       style={{ left: `${left}%` }}
       initial={reduceMotion ? false : { width: 0 }}
       animate={{ width: `${width}%` }}
       transition={reduceMotion ? MEASURE_SPAN_REDUCED : { ...MEASURE_SPAN_SPRING, delay }}
-    />
+    >
+      <CompositionStroke className="w-full" color={toneFill[tone]} />
+    </motion.span>
   );
 }
 
-/** Point marker on the track. */
+/** Point estimate inside a range: a short upright mark that stands proud of the stroke. */
 export function Pin({ at, domain }: { at: number; domain: Domain }) {
   return (
     <span
-      className="absolute inset-y-0 w-0.5 bg-foreground"
+      className="absolute -inset-y-1 w-0.5 -translate-x-1/2 rounded-full bg-foreground"
       style={{ left: `${toPct(at, domain)}%` }}
     />
   );

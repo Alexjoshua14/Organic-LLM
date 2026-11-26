@@ -78,12 +78,15 @@ function CodeDiffCondensed({
   summary,
   moreFiles,
   totals,
+  onGrow,
 }: {
   files: readonly ResolvedFile[];
   title: string;
   summary: string | null;
   moreFiles?: number;
   totals: { added: number; removed: number } | null;
+  /** Grow into the full diff in place; absent when there are no changed lines to show. */
+  onGrow?: () => void;
 }) {
   const visible = files.slice(0, CONDENSED_FILES);
   const more = files.length - visible.length + (moreFiles ?? 0);
@@ -166,6 +169,8 @@ function CodeDiffCondensed({
           ))}
         </figure>
       ) : null}
+
+      {onGrow ? <GrowToggle expanded={false} label="Show all changes" onToggle={onGrow} /> : null}
     </div>
   );
 }
@@ -187,6 +192,8 @@ export function CodeDiff({ block, partial, condensed = false }: CodeDiffProps) {
   const { wrapped, surface, toggle: toggleWrap } = useCodeWrap();
   const [focusKey, setFocusKey] = useState<string | null>(null);
   const toggles = useRef(new Map<string, HTMLElement | null>());
+  /** Condensed only: the reader grew the summary into the full diff in place. */
+  const [grown, setGrown] = useState(false);
 
   const isOpen = useCallback(
     (file: ResolvedFile, index: number) => chosen[file.key] ?? defaults[index] ?? false,
@@ -212,7 +219,7 @@ export function CodeDiff({ block, partial, condensed = false }: CodeDiffProps) {
   const title = block.title ? displayText(block.title) : null;
   const summary = block.summary ? displayText(block.summary) : null;
 
-  if (condensed) {
+  if (condensed && !grown) {
     return (
       <CodeDiffCondensed
         files={files}
@@ -220,6 +227,7 @@ export function CodeDiff({ block, partial, condensed = false }: CodeDiffProps) {
         summary={summary}
         title={displayText(codeDiffTitle(block))}
         totals={totals}
+        onGrow={bodied.length > 0 ? () => setGrown(true) : undefined}
       />
     );
   }
@@ -288,6 +296,35 @@ export function CodeDiff({ block, partial, condensed = false }: CodeDiffProps) {
           );
         })}
       </div>
+
+      {condensed ? (
+        <GrowToggle expanded label="Show less" onToggle={() => setGrown(false)} />
+      ) : null}
     </div>
+  );
+}
+
+/**
+ * The condensed diff grows into the full one in place, and back, from the same block: no second
+ * copy of the diff mounted beneath it.
+ */
+function GrowToggle({
+  expanded,
+  label,
+  onToggle,
+}: {
+  expanded: boolean;
+  label: string;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-expanded={expanded}
+      onClick={onToggle}
+      className="organic-focus flex min-h-11 w-full items-center justify-between gap-inline-sm border-t border-border/50 text-xs text-muted-foreground focus-visible:text-foreground focus-visible:outline-none"
+    >
+      {label}
+    </button>
   );
 }

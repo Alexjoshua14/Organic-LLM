@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import type { ProgressTrackBlock } from "@/lib/schemas/gen-ui";
 
 import { useReducedMotion } from "framer-motion";
@@ -9,6 +10,7 @@ import {
   PROGRESS_TRACK_FILL_MS,
 } from "../progress-track/progress-track-timing";
 
+import { CompositionStroke } from "@/components/design-system/composition-bar";
 import { spacing } from "@/lib/design-tokens/spacing";
 import { cn } from "@/lib/utils";
 
@@ -21,6 +23,20 @@ type ProgressTrackProps = {
 
 function percentOf(value: number, total: number) {
   return Math.min(100, Math.max(0, (value / total) * 100));
+}
+
+/** Same rail as measure bars: stroke height, not clipped, so the fill's glow can show. */
+const TRACK = "relative h-1 w-full rounded-full bg-muted/40";
+/** Milestones stand proud of the stroke so they read on a 4px line. */
+const TICK = "absolute -inset-y-1 -translate-x-1/2 rounded-full";
+
+/** The filled share, drawn with the app's one bar stroke (context usage's glow material). */
+function ProgressFill({ style }: { style: CSSProperties }) {
+  return (
+    <div className="absolute inset-y-0 left-0" style={style}>
+      <CompositionStroke className="w-full" color="var(--color-accent)" />
+    </div>
+  );
 }
 
 export function ProgressTrack({ block, condensed = false }: ProgressTrackProps) {
@@ -67,23 +83,18 @@ export function ProgressTrack({ block, condensed = false }: ProgressTrackProps) 
           aria-valuemax={block.total}
           aria-valuenow={block.current}
           aria-valuetext={`${block.current}${unit} of ${block.total}${unit}`}
-          className="relative h-2 w-full overflow-hidden rounded-full bg-muted/50"
+          className={TRACK}
         >
-          <div className="absolute inset-y-0 left-0 rounded-full bg-accent" style={fillStyle} />
+          <ProgressFill style={fillStyle} />
           {block.milestones.map((m) => {
             const isNext = m === next;
-            const isReached = m.value <= block.current;
 
             return (
               <span
                 key={`${m.label}:${m.value}`}
                 aria-hidden
                 title={`${m.label} (${m.value}${unit})`}
-                className={cn(
-                  "absolute inset-y-0",
-                  isNext ? "w-0.5 bg-accent-warm" : "w-px",
-                  !isNext && (isReached ? "bg-background/80" : "bg-foreground/60")
-                )}
+                className={cn(TICK, isNext ? "w-0.5 bg-accent-warm" : "w-px bg-foreground/50")}
                 style={{ left: `${percentOf(m.value, block.total)}%` }}
               />
             );
@@ -133,8 +144,8 @@ export function ProgressTrack({ block, condensed = false }: ProgressTrackProps) 
         </span>
       </div>
 
-      <div className="relative h-3 w-full overflow-hidden rounded-full bg-muted/50">
-        <div className="absolute inset-y-0 left-0 rounded-full bg-accent" style={fillStyle} />
+      <div className={TRACK}>
+        <ProgressFill style={fillStyle} />
         {block.milestones.map((m) => {
           const left = percentOf(m.value, block.total);
 
@@ -143,7 +154,7 @@ export function ProgressTrack({ block, condensed = false }: ProgressTrackProps) 
               key={`${m.label}:${m.value}`}
               title={`${m.label} (${m.value}${unit})`}
               aria-label={`${m.label} at ${m.value}${unit}`}
-              className="absolute top-0 bottom-0 w-px bg-foreground/80"
+              className={cn(TICK, "w-px bg-foreground/50")}
               style={{ left: `${left}%` }}
             />
           );

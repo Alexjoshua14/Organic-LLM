@@ -1,8 +1,6 @@
 import type { ReactNode } from "react";
 import type { GenUIBlock } from "@/lib/schemas/gen-ui";
 
-import { useState } from "react";
-
 import { AnswerCard } from "@/components/chat/gen-ui/blocks/AnswerCard";
 import { AudioSnippet } from "@/components/chat/gen-ui/blocks/AudioSnippet";
 import { AuditLine } from "@/components/chat/gen-ui/blocks/AuditLine";
@@ -31,23 +29,6 @@ export function CondensedCard({ title, children }: { title: string; children: Re
       <h3 className="font-semibold">{title}</h3>
       {children}
     </article>
-  );
-}
-
-/** Keeps the primary result visible and mounts secondary content when the reader opens it. */
-export function CondensedDetail({ label, children }: { label: string; children: ReactNode }) {
-  const [revealed, setRevealed] = useState(false);
-
-  return (
-    <details
-      className="border-t border-border/60 pt-inset-sm"
-      onToggle={(event) => {
-        if (event.currentTarget.open) setRevealed(true);
-      }}
-    >
-      <summary className="organic-focus cursor-pointer text-xs font-medium">{label}</summary>
-      {revealed ? <div className="mt-stack-sm min-w-0">{children}</div> : null}
-    </details>
   );
 }
 
@@ -185,11 +166,9 @@ export function GenUiCondensedBlock({
       );
     case "code-diff":
       return (
+        // The diff grows into its full view in place, so no second copy is offered here.
         <Condensed>
           <CodeDiff block={block} condensed />
-          {children ? (
-            <CondensedDetail label="Read changed lines">{children}</CondensedDetail>
-          ) : null}
         </Condensed>
       );
   }
