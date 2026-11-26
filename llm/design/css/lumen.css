@@ -1,0 +1,437 @@
+/*
+ * @coalescence-labs/design — Lumen
+ *
+ * Lumen is how a surface shows depth. Dark theme: warm natural light that comes up from behind
+ * and around the surface (a blurred rim). Light theme: the absence of that light, a soft shadow
+ * in the dark theme's background colour. Every variant below provides both.
+ *
+ * Requirements:
+ * - Class-based dark mode: an ancestor (usually <html>) carries `.dark`.
+ * - With Tailwind v4, import this file after `@import "tailwindcss"` so `@layer components`
+ *   joins Tailwind's layer order.
+ *
+ * Inputs an app may set (all optional; defaults below):
+ * - --cl-lumen-surface-dark   the dark theme's background; the light-mode shadow colour
+ * - --cl-lumen-orb-size       diameter of `.lumen-orb`
+ * - --cl-lumen-orb-color      colour of one orb (e.g. a Kelvin colour)
+ *
+ * Set by the rim hooks (`@coalescence-labs/design/lumen`) from the measured surface:
+ * - --cl-lumen-inset / -outset / -band / -blur / -bleed
+ * - --cl-lumen-chip-radius, --cl-lumen-shell-radius
+ */
+
+/* ---------------------------------------------------------------- Tokens */
+
+:root {
+  /*
+   * Lumen — canonical UI light source (~3000K blackbody family).
+   * RGB channels for glows/shadows (rgb(var(--cl-lumen) / α)); oklch for solid fills.
+   * Kelvin reference: rim 3200K · base 3000K · deep 2800K.
+   */
+  --cl-lumen-surface-dark: oklch(0.141 0.005 285.823);
+  /* Light mode has no rim (it washes out); surfaces lift with a soft shadow of the dark surface. */
+  --cl-lumen-shadow-rest: 0 2px 8px -2px
+    color-mix(in oklch, var(--cl-lumen-surface-dark) 14%, transparent);
+  --cl-lumen-shadow-hover: 0 2px 8px -2px
+    color-mix(in oklch, var(--cl-lumen-surface-dark) 24%, transparent);
+  --cl-lumen-rim: 255 188 115;
+  --cl-lumen: 255 178 102;
+  --cl-lumen-deep: 255 168 92;
+  --cl-lumen-rim-oklch: oklch(0.835 0.07 68);
+  --cl-lumen-oklch: oklch(0.805 0.075 65);
+  --cl-lumen-deep-oklch: oklch(0.78 0.08 62);
+  /* Lumen's fade, shared by the rim, the light-mode shadow and their demos. */
+  --cl-lumen-duration: 200ms;
+  --cl-lumen-ease: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --cl-lumen-orb-size: 2rem;
+}
+
+/* ------------------------------------------------------------ Chip rim */
+/* DOM: .composer-tool-chip-host (bleed) › .composer-tool-chip-stage › .lumen-rim-backlight + button.composer-tool-chip */
+
+/* Host — bleed room for outer extent + blur spread. */
+.dark .composer-tool-chip-host {
+  overflow: visible;
+  padding: var(--cl-lumen-bleed, 6px);
+  margin: calc(-1 * var(--cl-lumen-bleed, 6px));
+}
+
+/* Stage shrink-wraps the button. */
+.dark .composer-tool-chip-stage {
+  overflow: visible;
+}
+
+/*
+ * Lumen rim backlight — geometry from useLumenRim.
+ * Rounded-rect border ring (−3% to +10% band); not an ellipse gradient.
+ */
+.dark .lumen-rim-backlight,
+.dark .organic-lumen-interactive::before {
+  position: absolute;
+  inset: calc(-1 * var(--cl-lumen-outset, 4px));
+  z-index: 0;
+  box-sizing: border-box;
+  border: var(--cl-lumen-band, 5px) solid rgb(var(--cl-lumen) / 0.19);
+  border-radius: var(--cl-lumen-chip-radius, 0.3125rem);
+  background: transparent;
+  pointer-events: none;
+  transition: opacity 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  filter: blur(var(--cl-lumen-blur, 3px));
+}
+
+.dark .lumen-rim-backlight--on {
+  opacity: 0.36;
+}
+
+.dark .composer-tool-chip-host:hover .lumen-rim-backlight--on {
+  opacity: 0.18;
+}
+
+/* ~50% intensity peek on hover — inactive toggles only. */
+.dark .lumen-rim-backlight--hover {
+  opacity: 0;
+}
+
+.dark .composer-tool-chip-host:hover .lumen-rim-backlight--hover {
+  opacity: 0.18;
+}
+
+.dark .lumen-rim-backlight--pulse.lumen-rim-backlight--on {
+  animation: lumen-rim-breathe 2.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
+}
+
+/*
+ * Light mode: the warm rim does not read on a light surface, so the chips lift with a gentle
+ * shadow of the dark theme's background (--cl-lumen-shadow-*) instead of a glow.
+ */
+:root:not(.dark) .composer-tool-chip-stage > .lumen-rim-backlight {
+  display: none;
+}
+:root:not(.dark) .composer-tool-chip {
+  transition:
+    color var(--cl-lumen-duration) var(--cl-lumen-ease),
+    opacity var(--cl-lumen-duration) var(--cl-lumen-ease),
+    box-shadow var(--cl-lumen-duration) var(--cl-lumen-ease);
+}
+:root:not(.dark) .composer-tool-chip-active {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.22),
+    var(--cl-lumen-shadow-rest);
+}
+:root:not(.dark) .composer-tool-chip-host:hover .composer-tool-chip:not(:disabled) {
+  box-shadow: var(--cl-lumen-shadow-hover);
+}
+:root:not(.dark) .composer-tool-chip-host:hover .composer-tool-chip-active:not(:disabled) {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.22),
+    var(--cl-lumen-shadow-hover);
+}
+
+@keyframes lumen-rim-breathe {
+  0%,
+  100% {
+    opacity: 0.36;
+  }
+
+  50% {
+    opacity: 0.26;
+  }
+}
+
+/* ----------------------------------------------------------- Shell rim */
+/* DOM (LumenShell): .home-composer-lumen-host › .home-composer-lumen-stage › .home-composer-lumen-rim + content */
+
+.home-composer-lumen-host {
+  overflow: visible;
+  width: 100%;
+}
+
+.home-composer-lumen-stage {
+  overflow: visible;
+}
+
+/* Layout defaults for LumenShell; layered so an app's utility classes can override them. */
+@layer components {
+  .home-composer-lumen-host {
+    display: flex;
+  }
+
+  .home-composer-lumen-stage {
+    position: relative;
+    width: 100%;
+  }
+
+  .home-composer-lumen-content {
+    position: relative;
+    z-index: 10;
+    width: 100%;
+  }
+}
+
+.home-composer-lumen-rim {
+  position: absolute;
+  inset: calc(-1 * var(--cl-lumen-outset, 6px));
+  z-index: 0;
+  box-sizing: border-box;
+  border: var(--cl-lumen-band, 7px) solid rgb(var(--cl-lumen) / 0.16);
+  border-radius: var(--cl-lumen-shell-radius, 0.75rem);
+  pointer-events: none;
+  filter: blur(var(--cl-lumen-blur, 5px));
+  opacity: 0.22;
+  animation: home-composer-lumen-breathe 4.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
+  transition: opacity 320ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.dark .home-composer-lumen-rim {
+  border-color: rgb(var(--cl-lumen) / 0.19);
+  opacity: 0.3;
+  animation-name: home-composer-lumen-breathe-dark;
+}
+
+.home-composer-lumen-host:focus-within .home-composer-lumen-rim {
+  animation-play-state: paused;
+  opacity: 0.34;
+}
+
+.dark .home-composer-lumen-host:focus-within .home-composer-lumen-rim {
+  opacity: 0.42;
+}
+
+/* Hover/press micro-interactions for lumen-shell action buttons. */
+.home-composer-lumen-host--interactive .home-composer-lumen-stage {
+  transition: transform 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.home-composer-lumen-host--interactive:not(:has(:disabled)):hover .home-composer-lumen-stage {
+  transform: translateY(-1px);
+}
+
+.home-composer-lumen-host--interactive:not(:has(:disabled)):active .home-composer-lumen-stage {
+  transform: translateY(0) scale(0.97);
+  transition-duration: 100ms;
+}
+
+.home-composer-lumen-host--interactive:not(:has(:disabled)):hover .home-composer-lumen-rim {
+  animation-play-state: paused;
+  opacity: 0.34;
+}
+
+.dark .home-composer-lumen-host--interactive:not(:has(:disabled)):hover .home-composer-lumen-rim {
+  opacity: 0.42;
+}
+
+@keyframes home-composer-lumen-breathe {
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@keyframes home-composer-lumen-breathe-dark {
+  0%,
+  100% {
+    opacity: 0.28;
+  }
+
+  50% {
+    opacity: 0.38;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-composer-lumen-rim {
+    animation: none;
+  }
+
+  .home-composer-lumen-host--interactive .home-composer-lumen-stage {
+    transition: none;
+    transform: none;
+  }
+}
+
+/* ------------------------------------------------------------ Card rim */
+/* DOM: .chat-style-card-host › .chat-style-card-stage › .chat-style-lumen-rim + .chat-style-card */
+
+.chat-style-card-host {
+  overflow: visible;
+  /* Fixed bleed on every card so selection does not reflow the grid. */
+  padding: 10px;
+  margin: -10px;
+}
+
+.dark .chat-style-card-stage {
+  overflow: visible;
+}
+
+.chat-style-lumen-rim {
+  position: absolute;
+  inset: calc(-1 * var(--cl-lumen-outset, 4px));
+  z-index: 0;
+  box-sizing: border-box;
+  border: var(--cl-lumen-band, 5px) solid rgb(var(--cl-lumen) / 0.16);
+  border-radius: var(--cl-lumen-chip-radius, 0.75rem);
+  background: transparent;
+  pointer-events: none;
+  filter: blur(var(--cl-lumen-blur, 3px));
+  opacity: 0.26;
+}
+
+.dark .chat-style-lumen-rim {
+  border-color: rgb(var(--cl-lumen) / 0.19);
+  opacity: 0.36;
+}
+
+/* ----------------------------------------------------------------- Orb */
+/*
+ * Lumen shown on its own (Kelvin swatches, demos): a point of light with a bright core and a soft
+ * halo, never a solid fill. Set --cl-lumen-orb-color to a Kelvin colour; it defaults to the base
+ * Lumen. Dark surfaces only; it breathes on the shell rim's 4.2s rhythm.
+ */
+.lumen-orb {
+  display: inline-block;
+  width: var(--cl-lumen-orb-size);
+  height: var(--cl-lumen-orb-size);
+  border-radius: 9999px;
+  background: radial-gradient(
+    circle,
+    color-mix(in oklab, var(--cl-lumen-orb-color, rgb(var(--cl-lumen))) 85%, transparent) 0%,
+    color-mix(in oklab, var(--cl-lumen-orb-color, rgb(var(--cl-lumen))) 32%, transparent) 38%,
+    transparent 70%
+  );
+  filter: blur(var(--cl-lumen-blur, 1.5px));
+  animation: lumen-orb-breathe 4.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
+}
+
+@keyframes lumen-orb-breathe {
+  0%,
+  100% {
+    opacity: 0.78;
+    transform: scale(0.96);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lumen-orb {
+    animation: none;
+  }
+}
+
+/* -------------------------------------------- Light mode: rims become shadows */
+/*
+ * The warm glow does not read on a light surface, so each rim-style variant hides its rim and the
+ * surface lifts with a gentle shadow of the dark theme's background instead.
+ */
+:root:not(.dark) .home-composer-lumen-rim,
+:root:not(.dark) .chat-style-lumen-rim {
+  display: none;
+}
+
+/* Prompt shell: a shadow at rest, deeper while focused or hovered. */
+:root:not(.dark) .home-composer-lumen-stage:has(> .home-composer-lumen-rim) {
+  border-radius: var(--cl-lumen-shell-radius, 0.75rem);
+  box-shadow: var(--cl-lumen-shadow-rest);
+  transition: box-shadow 320ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+:root:not(.dark)
+  .home-composer-lumen-host:focus-within
+  .home-composer-lumen-stage:has(> .home-composer-lumen-rim),
+:root:not(.dark)
+  .home-composer-lumen-host--interactive:not(:has(:disabled)):hover
+  .home-composer-lumen-stage:has(> .home-composer-lumen-rim) {
+  box-shadow: var(--cl-lumen-shadow-hover);
+}
+
+:root:not(.dark)
+  .home-composer-lumen-host--interactive
+  .home-composer-lumen-stage:has(> .home-composer-lumen-rim) {
+  transition:
+    box-shadow 320ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    transform 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* Selected cards. */
+:root:not(.dark) .chat-style-card-stage:has(> .chat-style-lumen-rim) {
+  border-radius: var(--cl-lumen-chip-radius, 0.75rem);
+  box-shadow: var(--cl-lumen-shadow-hover);
+}
+
+/*
+ * The card's own edge. Dark: a lit card has a warm Kelvin edge and a top highlight, and an unlit
+ * card's edge warms on hover. Light: the edge stays neutral; a lit card lifts with the shadow
+ * above, and an unlit one with the resting shadow on hover.
+ */
+.dark .chat-style-card-stage:has(> .chat-style-lumen-rim) .chat-style-card {
+  border-color: rgb(var(--cl-lumen-rim) / 0.28);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.14);
+}
+
+.dark .chat-style-card-stage:not(:has(> .chat-style-lumen-rim)) button.chat-style-card:hover {
+  border-color: rgb(var(--cl-lumen-rim) / 0.2);
+}
+
+:root:not(.dark)
+  .chat-style-card-stage:not(:has(> .chat-style-lumen-rim))
+  button.chat-style-card:hover {
+  box-shadow: var(--cl-lumen-shadow-rest);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not(.dark) .home-composer-lumen-stage:has(> .home-composer-lumen-rim) {
+    transition: none;
+  }
+}
+
+/* ------------------------------------------------- Interactive controls */
+/* Shared neutral controls: dark rim (the ::before above), light shadow; keyboard focus stays distinct. */
+
+@layer components {
+  .organic-lumen-interactive {
+    position: relative;
+    isolation: isolate;
+  }
+}
+.dark .organic-lumen-interactive::before {
+  content: "";
+  z-index: -1;
+  border-radius: inherit;
+  opacity: 0;
+}
+.dark
+  .organic-lumen-interactive:not(:disabled):is(
+    :hover,
+    :active,
+    [aria-expanded="true"],
+    [data-highlighted],
+    [data-state="open"]
+  )::before {
+  opacity: 0.18;
+}
+:root:not(.dark)
+  .organic-lumen-interactive:not(:disabled):not(:focus-visible):is(
+    :hover,
+    :active,
+    [aria-expanded="true"],
+    [data-highlighted],
+    [data-state="open"]
+  ) {
+  box-shadow: var(--cl-lumen-shadow-hover);
+}
+@media (prefers-reduced-motion: reduce) {
+  .organic-lumen-interactive::before {
+    transition: none;
+  }
+}
+/* Composer chips already own a measured rim layer. */
+.dark .composer-tool-chip.organic-lumen-interactive::before {
+  display: none;
+}

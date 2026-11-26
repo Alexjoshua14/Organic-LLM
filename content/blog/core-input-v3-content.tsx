@@ -99,7 +99,7 @@ function Caption({ badge, children }: { badge?: "v2" | "v3"; children: ReactNode
             "shrink-0 rounded-full border px-inset-sm text-2xs font-medium uppercase tracking-wider",
             badge === "v2"
               ? "border-border text-muted-foreground"
-              : "border-[color:rgb(var(--lumen-rim)/0.4)] text-foreground"
+              : "border-[color:rgb(var(--cl-lumen-rim)/0.4)] text-foreground"
           )}
         >
           {badge}
@@ -343,7 +343,7 @@ function WhatIsLumen() {
                 <span
                   aria-hidden
                   className="lumen-orb"
-                  style={{ "--lumen-orb-color": kelvinToCss(kelvin) } as CSSProperties}
+                  style={{ "--cl-lumen-orb-color": kelvinToCss(kelvin) } as CSSProperties}
                 />
                 <span className="text-2xs text-foreground/80">{label}</span>
                 <span className="text-2xs text-muted-foreground">{kelvin.toLocaleString()}K</span>

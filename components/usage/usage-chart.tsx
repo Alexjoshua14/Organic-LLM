@@ -68,12 +68,12 @@ export function UsageChart({ daily, className }: UsageChartProps) {
       <div
         className={cn(
           "relative rounded-xl border border-border/50 bg-muted/15 p-2",
-          "[--usage-chart-line:var(--lumen-oklch)]",
-          "[--usage-chart-fill-0:color-mix(in_oklch,var(--lumen-oklch)_32%,transparent)]",
-          "[--usage-chart-fill-1:color-mix(in_oklch,var(--lumen-oklch)_6%,transparent)]",
-          "dark:[--usage-chart-line:var(--lumen-rim-oklch)]",
-          "dark:[--usage-chart-fill-0:color-mix(in_oklch,var(--lumen-rim-oklch)_35%,transparent)]",
-          "dark:[--usage-chart-fill-1:color-mix(in_oklch,var(--lumen-rim-oklch)_2%,transparent)]"
+          "[--usage-chart-line:var(--cl-lumen-oklch)]",
+          "[--usage-chart-fill-0:color-mix(in_oklch,var(--cl-lumen-oklch)_32%,transparent)]",
+          "[--usage-chart-fill-1:color-mix(in_oklch,var(--cl-lumen-oklch)_6%,transparent)]",
+          "dark:[--usage-chart-line:var(--cl-lumen-rim-oklch)]",
+          "dark:[--usage-chart-fill-0:color-mix(in_oklch,var(--cl-lumen-rim-oklch)_35%,transparent)]",
+          "dark:[--usage-chart-fill-1:color-mix(in_oklch,var(--cl-lumen-rim-oklch)_2%,transparent)]"
         )}
       >
         <svg

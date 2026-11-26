@@ -1,0 +1,9 @@
+/*
+ * @coalescence-labs/design — Tailwind v4 colour utilities for Lumen.
+ * Import after `@coalescence-labs/design/lumen.css`. Adds text-lumen, bg-lumen-rim, etc.
+ */
+@theme inline {
+  --color-lumen: var(--cl-lumen-oklch);
+  --color-lumen-rim: var(--cl-lumen-rim-oklch);
+  --color-lumen-deep: var(--cl-lumen-deep-oklch);
+}

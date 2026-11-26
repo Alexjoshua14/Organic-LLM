@@ -129,10 +129,10 @@
  */
 .core-input-options-panel:focus-visible {
   outline: none;
-  box-shadow: var(--lumen-shadow-hover);
+  box-shadow: var(--cl-lumen-shadow-hover);
 }
 .dark .core-input-options-panel:focus-visible {
-  box-shadow: 0 0 var(--spacing-inset-lg) rgb(var(--lumen) / 0.16);
+  box-shadow: 0 0 var(--spacing-inset-lg) rgb(var(--cl-lumen) / 0.16);
 }
 /* The model & effort selector on the left, context usage in line with it on the right. */
 .core-input-options-model-row {

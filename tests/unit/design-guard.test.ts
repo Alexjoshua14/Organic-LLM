@@ -180,7 +180,7 @@ describe("colors, hover, focus and shadows", () => {
     const f = audit([added("a.module.css", ".a { box-shadow: 0 2px 8px rgba(0,0,0,.2); }")], ctx());
     expect(f.map((x) => x.rule)).toEqual(["color-literal", "shadow-literal"]);
     expect(f.find((x) => x.rule === "shadow-literal")!.ask).toBe(true);
-    expect(rulesOf([added("a.module.css", ".a { box-shadow: var(--lumen-shadow-rest); }")])).toEqual([]);
+    expect(rulesOf([added("a.module.css", ".a { box-shadow: var(--cl-lumen-shadow-rest); }")])).toEqual([]);
   });
 
   test("timing literals are warnings outside timing homes", () => {

@@ -104,7 +104,7 @@
   width: 0.1875rem;
   height: 0.1875rem;
   border-radius: 9999px;
-  background: rgb(var(--lumen-deep));
+  background: rgb(var(--cl-lumen-deep));
 }
 
 .metaItem {
@@ -193,7 +193,7 @@
 /* Where you are: the text brightens and a Lumen thread marks the line. No motion. */
 .tocLink[aria-current="true"] {
   color: var(--foreground);
-  border-inline-start-color: rgb(var(--lumen-deep));
+  border-inline-start-color: rgb(var(--cl-lumen-deep));
 }
 
 /* ---------- page glow ---------- */
@@ -212,7 +212,7 @@
   pointer-events: none;
   background: radial-gradient(
     55% 70% at 18% 0%,
-    rgb(var(--lumen) / 0.09),
+    rgb(var(--cl-lumen) / 0.09),
     transparent 70%
   );
 }

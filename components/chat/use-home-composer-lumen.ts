@@ -5,59 +5,20 @@
  * (see use-composer-chip-lumen.ts), measured against the prompt input shell.
  */
 
-import { useLayoutEffect, useRef, type RefObject } from "react";
+import type { RefObject } from "react";
 
-const LUMEN_INSET_RATIO = 0.03;
-const LUMEN_OUTSET_RATIO = 0.1;
-const LUMEN_BLUR_RATIO = 0.11;
+import { useLumenRim, useLumenRimHostRef } from "@coalescence-labs/design/lumen";
 
 export function useHomeComposerLumenHostRef() {
-  return useRef<HTMLSpanElement>(null);
+  return useLumenRimHostRef();
 }
 
 export function useHomeComposerLumen(hostRef: RefObject<HTMLSpanElement | null>, enabled = true) {
-  useLayoutEffect(() => {
-    const host = hostRef.current;
-
-    if (!host || !enabled) return;
-
-    // The rim is sized from the shell's resting height. A composer that grows while you type
-    // would otherwise widen and blur its glow into a smudge (the band scales with size).
-    let restingHeight = Infinity;
-
-    const sync = () => {
-      const shell = host.querySelector<HTMLElement>("[data-prompt-input-shell]");
-
-      if (!shell) return;
-
-      const { width, height } = shell.getBoundingClientRect();
-
-      if (width < 1 || height < 1) return;
-      if (restingHeight === Infinity) restingHeight = height;
-
-      const min = Math.min(width, height, restingHeight);
-      const inset = min * LUMEN_INSET_RATIO;
-      const outset = min * LUMEN_OUTSET_RATIO;
-      const blur = min * LUMEN_BLUR_RATIO;
-
-      host.style.setProperty("--composer-radius", getComputedStyle(shell).borderRadius);
-      host.style.setProperty("--lumen-inset", `${inset}px`);
-      host.style.setProperty("--lumen-outset", `${outset}px`);
-      host.style.setProperty("--lumen-band", `${inset + outset}px`);
-      host.style.setProperty("--lumen-blur", `${blur}px`);
-      host.style.setProperty("--lumen-bleed", `${outset + blur}px`);
-    };
-
-    sync();
-
-    const shell = host.querySelector<HTMLElement>("[data-prompt-input-shell]");
-
-    if (!shell) return;
-
-    const observer = new ResizeObserver(sync);
-
-    observer.observe(shell);
-
-    return () => observer.disconnect();
-  }, [hostRef, enabled]);
+  // Sized from the shell's resting height, so a composer that grows while you type keeps its glow.
+  useLumenRim(hostRef, {
+    target: "[data-prompt-input-shell]",
+    radius: "shell",
+    enabled,
+    holdRestingHeight: true,
+  });
 }

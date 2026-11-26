@@ -18,7 +18,7 @@ export const STATUS_TONE: Record<KanbanStatus, string> = {
 export const STATUS_DOT: Record<KanbanStatus, string> = {
   backlog: "bg-foreground/20",
   todo: "bg-foreground/30",
-  active: "bg-[rgb(var(--lumen))] shadow-[0_0_6px_rgb(var(--lumen)/0.9)]",
+  active: "bg-[rgb(var(--cl-lumen))] shadow-[0_0_6px_rgb(var(--cl-lumen)/0.9)]",
   in_review: "bg-foreground/45",
   blocked: "bg-rose-500 shadow-[0_0_6px_rgb(244_63_94/0.55)]",
   done: "bg-accent",

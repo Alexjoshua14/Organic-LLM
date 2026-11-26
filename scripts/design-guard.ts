@@ -125,7 +125,7 @@ function escapeRe(s: string): string {
 // Rules
 
 const TOKEN_DEFINITION_FILES = [/^styles\/globals\.css$/, /^lib\/design-tokens\//];
-const TIMING_HOMES = /(timing|motion|reflow|physics|design-tokens|^styles\/)/i;
+const TIMING_HOMES = /(timing|motion|reflow|physics|design-tokens|^styles\/|^llm\/design\/css\/)/i;
 const UI_FILE = /\.(tsx|css)$/;
 const SKIP_PATH = /(^|\/)(tests?|node_modules|\.next|docs|public)\//;
 const SKIP_FILE = /\.(test|spec|stories)\.[jt]sx?$/;
@@ -147,7 +147,7 @@ const OUTLINE_OFF = /\b(?:(?:focus|focus-visible):)?outline-(?:none|hidden)\b|\b
 const STYLE_PROP_NUMBER =
   /\b(?:width|height|minWidth|minHeight|maxWidth|maxHeight|padding(?:Top|Right|Bottom|Left|Inline|Block)?|margin(?:Top|Right|Bottom|Left|Inline|Block)?|gap|rowGap|columnGap|top|left|right|bottom|inset|fontSize|letterSpacing|borderRadius|flexBasis)\s*:\s*(-?\d*\.?\d+)\s*[,}]/;
 const KEEP_FEEDBACK =
-  /organic-focus-scope|organic-focus|organic-lumen-interactive|chat-style-lumen-rim|lumen-rim-backlight|--lumen-shadow-\w+|--lumen\b/g;
+  /organic-focus-scope|organic-focus|organic-lumen-interactive|chat-style-lumen-rim|lumen-rim-backlight|--cl-lumen-shadow-\w+|--cl-lumen\b/g;
 
 /** System colors only appear in a forced-colors fallback, which focus-feedback.md mandates. */
 const SYSTEM_COLOR = /\b(?:Highlight|HighlightText|CanvasText|Canvas|ButtonText|ButtonFace|LinkText|GrayText)\b/;
@@ -333,8 +333,8 @@ function auditAddedLine(
   if (OUTLINE_OFF.test(s) && !/organic-focus/.test(s)) {
     push({ rule: "focus-removed", severity: "warn", hint: "removing an outline needs a visible replacement on the same element (`organic-focus` or a clear surface/text cue)" });
   }
-  if (/box-shadow\s*:[^;]*\d(?:px|rem|em)|\bshadow-\[|drop-shadow\([^)]*\d/.test(s) && !/--lumen/.test(s)) {
-    push({ rule: "shadow-literal", severity: "warn", hint: "light-mode Lumen is `--lumen-shadow-rest`/`-hover`; a new depth step needs the owner's decision (docs/design/lumen.md rule 4)", ask: true });
+  if (/box-shadow\s*:[^;]*\d(?:px|rem|em)|\bshadow-\[|drop-shadow\([^)]*\d/.test(s) && !/--cl-lumen/.test(s)) {
+    push({ rule: "shadow-literal", severity: "warn", hint: "light-mode Lumen is `--cl-lumen-shadow-rest`/`-hover`; a new depth step needs the owner's decision (docs/design/lumen.md rule 4)", ask: true });
   }
 
   // 5. Timing.

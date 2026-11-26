@@ -26,7 +26,7 @@ import { cn } from "@/lib/utils";
 
 /** Field: standing light pooled under lanes whose status means something. */
 const POOL_TONE: Partial<Record<KanbanStatus, string>> = {
-  active: "rgb(var(--lumen) / 0.5)",
+  active: "rgb(var(--cl-lumen) / 0.5)",
   blocked: "rgb(244 63 94 / 0.26)",
   done: "color-mix(in oklch, var(--accent) 34%, transparent)",
 };
@@ -152,7 +152,7 @@ export function LivingLane({
           <span
             ref={flashRef}
             aria-hidden
-            className="pointer-events-none absolute inset-0 rounded-xl bg-[rgb(var(--lumen)/0.14)] opacity-0"
+            className="pointer-events-none absolute inset-0 rounded-xl bg-[rgb(var(--cl-lumen)/0.14)] opacity-0"
           />
         ) : null}
         {lane.items.map((item) => (

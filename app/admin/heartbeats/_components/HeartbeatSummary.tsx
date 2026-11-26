@@ -19,7 +19,7 @@ type HeartbeatStatus = HeartbeatDashboardData["statuses"][number]["status"];
 
 const outcomes: Record<HeartbeatStatus, { label: string; color: string }> = {
   unchanged: { label: "Unchanged", color: "var(--muted-foreground)" },
-  notable: { label: "Notable", color: "var(--lumen-deep-oklch)" },
+  notable: { label: "Notable", color: "var(--cl-lumen-deep-oklch)" },
   quiet: { label: "Quiet", color: "var(--chart-2)" },
   error: { label: "Error", color: "var(--destructive)" },
   "no-subagents": { label: "No subagents", color: "var(--chart-3)" },
