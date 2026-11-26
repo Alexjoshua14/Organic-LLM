@@ -48,24 +48,35 @@ function NodeView({ node, condensed }: { node: CompositionNode; condensed: boole
       return <p className="whitespace-pre-line text-sm leading-relaxed">{node.text}</p>;
     case "list": {
       const List = node.ordered ? "ol" : "ul";
+      // A status list's marks are its bullets: no number or disc beside them, and the status word
+      // only for assistive tech, since the mark's shape already says it. Order stays in the markup.
+      const hasStatus = node.items.some((item) => item.status);
+      const gap = condensed ? spacing.card.listItems : spacing.card.blockItems;
+
+      if (hasStatus) {
+        return (
+          <List className={cn("list-none ps-0", gap)}>
+            {node.items.map(({ label, status, detail }, index) => (
+              <li key={index} className="flex items-start gap-inline-sm">
+                <span className="flex h-lh shrink-0 items-center">
+                  {status ? <PlanStatusMark status={status} /> : null}
+                </span>
+                <span className="min-w-0">
+                  {status ? <PlanStatusWord hidden status={status} /> : null}
+                  <span>{label}</span>
+                  {detail ? <p className="text-sm text-muted-foreground">{detail}</p> : null}
+                </span>
+              </li>
+            ))}
+          </List>
+        );
+      }
 
       return (
-        <List
-          className={cn(
-            "ps-inset-lg",
-            node.ordered ? "list-decimal" : "list-disc",
-            condensed ? spacing.card.listItems : spacing.card.blockItems
-          )}
-        >
-          {node.items.map(({ label, status, detail }, index) => (
+        <List className={cn("ps-inset-lg", node.ordered ? "list-decimal" : "list-disc", gap)}>
+          {node.items.map(({ label, detail }, index) => (
             <li key={index}>
-              {status ? (
-                <span className="me-inline-sm inline-flex items-center gap-inline-xs align-middle">
-                  <PlanStatusMark status={status} />
-                  <PlanStatusWord status={status} />
-                </span>
-              ) : null}
-              <span className="align-middle">{label}</span>
+              {label}
               {detail ? <p className="text-sm text-muted-foreground">{detail}</p> : null}
             </li>
           ))}
