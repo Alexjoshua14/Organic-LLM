@@ -22,6 +22,9 @@ import {
 
 import { ChatMessageMarkdown } from "@/components/chat/chat-message-markdown";
 import { GenUIRenderer } from "@/components/chat/gen-ui/GenUIRenderer";
+import { HighlightedText } from "@/components/shared/code-highlight";
+import { fontMono } from "@/config/fonts";
+import { cn } from "@/lib/utils";
 
 /**
  * The Code page: the code diff block's page, now covering both ways code reaches chat. They share
@@ -212,10 +215,12 @@ export function GenUiCodeDemo({
   const sample = sampleFor(demo.rotation.language ?? DEFAULT_LANGUAGE);
 
   const diff = preset.kind === "diff" ? buildLanguageDiffBlock(sample) : null;
-  const source =
-    preset.kind === "snippet"
-      ? sample.code
-      : (preset.markdown?.match(/```[^\n]*\n([\s\S]*?)\n```/)?.[1] ?? "");
+  // The first fence of the slide's message: its info string names the language, as in chat.
+  const fence = (
+    preset.kind === "snippet" ? snippetMarkdown(sample) : (preset.markdown ?? "")
+  ).match(/```([^\n]*)\n([\s\S]*?)\n```/);
+  const source = preset.kind === "snippet" ? sample.code : (fence?.[2] ?? "");
+  const language = fence?.[1]?.trim().split(/\s+/)[0] || undefined;
   const fullPreview = diff ? (
     // Keyed by language so each step remounts, as a new message would.
     <GenUIRenderer
@@ -255,6 +260,7 @@ export function GenUiCodeDemo({
         <CondensedCodeDemo
           preset={preset}
           source={source}
+          language={language}
           diff={preset.kind === "fixture" && fixture.type === "code-diff" ? fixture : diff}
           fullPreview={fullPreview}
         />
@@ -268,11 +274,14 @@ export function GenUiCodeDemo({
 function CondensedCodeDemo({
   preset,
   source,
+  language,
   diff,
   fullPreview,
 }: {
   preset: CodePreset;
   source: string;
+  /** Fence language; unknown or missing renders plain, as in chat. */
+  language: string | undefined;
   diff: CodeDiffBlock | null;
   fullPreview: ReactNode;
 }) {
@@ -284,8 +293,18 @@ function CondensedCodeDemo({
   return (
     <CondensedCard title={preset.name}>
       {source ? (
-        <pre className="whitespace-pre-wrap font-mono text-xs wrap-anywhere">
-          {excerpt.join("\n")}
+        // organic-code scopes the shared token palette (styles/CodePalette.css).
+        <pre
+          className={cn(
+            "organic-code overflow-hidden rounded-lg bg-muted/40 p-inset-sm font-mono text-xs",
+            fontMono.variable
+          )}
+        >
+          {excerpt.map((line, index) => (
+            <span key={index} className="block truncate whitespace-pre">
+              {line ? <HighlightedText language={language} text={line} /> : " "}
+            </span>
+          ))}
         </pre>
       ) : (
         <p className="text-xs text-muted-foreground">{preset.intent}</p>

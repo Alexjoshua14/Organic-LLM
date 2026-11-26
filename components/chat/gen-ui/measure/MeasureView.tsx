@@ -39,7 +39,9 @@ export function MeasureView({
         {block.subtitle ? <p className="text-xs text-muted-foreground">{block.subtitle}</p> : null}
       </header>
 
-      <ul className={condensed ? "space-y-stack-xs" : spacing.card.blockItems}>
+      {/* Condensed: label sits stack-xs above its bar, rows sit stack-md apart, so each label
+          groups with its own bar rather than floating between two. */}
+      <ul className={condensed ? "space-y-stack-md" : spacing.card.blockItems}>
         {block.rows.map((row, i) => {
           const delay = i * MEASURE_ROW_STAGGER_S;
           const label = measureRowValueLabel(row, unit);
@@ -57,7 +59,7 @@ export function MeasureView({
               condensed={condensed}
               estimate={estimate}
             >
-              <Track domain={domain} ticks={ticks}>
+              <Track domain={domain} ticks={ticks} thin={condensed}>
                 {row.range ? (
                   <>
                     <Span
@@ -66,6 +68,7 @@ export function MeasureView({
                       domain={domain}
                       tone={row.tone}
                       delay={delay}
+                      glass={condensed}
                     />
                     {row.value !== undefined ? <Pin at={row.value} domain={domain} /> : null}
                   </>
@@ -76,6 +79,7 @@ export function MeasureView({
                     domain={domain}
                     tone={row.tone}
                     delay={delay}
+                    glass={condensed}
                   />
                 )}
               </Track>

@@ -10,22 +10,9 @@ import { cn } from "@/lib/utils";
 type ErgonBoardProps = {
   block: ErgonBoardBlockData;
   partial?: boolean;
-  /** Mini kanban: status columns side by side with counts, a top card and stacked slivers. */
+  /** Status distribution bar, then one row per lane: label, its top item, and "+N" for the rest. */
   condensed?: boolean;
 };
-
-/** Literal class names so Tailwind generates them; the schema allows one to five columns. */
-const GRID_COLS = [
-  "grid-cols-1",
-  "grid-cols-1",
-  "grid-cols-2",
-  "grid-cols-3",
-  "grid-cols-4",
-  "grid-cols-5",
-] as const;
-
-/** Cards drawn as slivers under the top card before the rest collapse into "+N". */
-const MAX_SLIVERS = 3;
 
 function ErgonBoardCondensed({ block }: { block: ErgonBoardBlockData }) {
   const columns = block.columns.map((column) => ({
@@ -33,6 +20,8 @@ function ErgonBoardCondensed({ block }: { block: ErgonBoardBlockData }) {
     items: block.items.filter((item) => item.stateType === column.id),
   }));
   const ordered = columns.flatMap((column) => column.items);
+  const filled = columns.filter((column) => column.items.length > 0);
+  const empty = columns.filter((column) => column.items.length === 0);
   const distribution = columns
     .filter((column) => column.items.length > 0)
     .map((column) => `${column.items.length} ${column.label}`)
@@ -58,51 +47,42 @@ function ErgonBoardCondensed({ block }: { block: ErgonBoardBlockData }) {
         ))}
       </div>
 
-      <ul className={cn("grid gap-inline-xs", GRID_COLS[block.columns.length])}>
-        {columns.map((column) => {
+      {/* One row per lane: five columns side by side truncate every label at phone width. */}
+      <ul className="space-y-stack-xs">
+        {filled.map((column) => {
           const [top, ...rest] = column.items;
-          const slivers = rest.slice(0, MAX_SLIVERS);
-          const more = rest.length - slivers.length;
+
+          if (!top) return null;
 
           return (
             <li
               key={column.id}
-              className="min-w-0 space-y-stack-xs rounded-xl bg-muted/40 p-inset-sm"
-              aria-label={`${column.label}: ${column.items.length}`}
+              className="flex min-w-0 items-center gap-inline-sm rounded-lg bg-muted/40 px-inset-sm py-1.5"
             >
-              <div className="flex items-center gap-inline-xs">
-                <Dot type={column.id} />
-                <span className="min-w-0 flex-1 truncate text-2xs text-muted-foreground">
-                  {column.label}
+              <Dot type={column.id} />
+              <span className="w-20 shrink-0 truncate text-2xs text-muted-foreground">
+                {column.label}
+              </span>
+              <span className="flex min-w-0 flex-1 items-center gap-inline-xs">
+                <PriorityMark p={top.priority} />
+                <span className="min-w-0 truncate text-xs text-foreground">{top.title}</span>
+              </span>
+              <span className="shrink-0 font-mono text-2xs tabular-nums text-muted-foreground">
+                {rest.length > 0 ? `+${rest.length}` : null}
+                <span className="sr-only">
+                  , {column.items.length} {column.items.length === 1 ? "item" : "items"}
                 </span>
-                <span className="text-xs font-medium tabular-nums text-foreground">
-                  {column.items.length}
-                </span>
-              </div>
-
-              {top ? (
-                <div className="space-y-stack-xs rounded-md bg-muted/60 px-inset-sm py-0.5">
-                  <PriorityMark p={top.priority} />
-                  <p className="line-clamp-2 break-words text-2xs text-foreground">{top.title}</p>
-                </div>
-              ) : (
-                <div aria-hidden className="h-1.5 rounded-full border border-dashed border-border/60" />
-              )}
-
-              {slivers.map((item) => (
-                <span
-                  key={`${item.source}:${item.id}`}
-                  aria-hidden
-                  className="block h-1.5 rounded-full bg-muted-foreground/20"
-                />
-              ))}
-              {more > 0 ? (
-                <p className="text-2xs tabular-nums text-muted-foreground">+{more}</p>
-              ) : null}
+              </span>
             </li>
           );
         })}
       </ul>
+
+      {empty.length ? (
+        <p className="truncate text-2xs text-muted-foreground/70">
+          Empty: {empty.map((column) => column.label).join(" · ")}
+        </p>
+      ) : null}
 
       {block.footnote ? <p className="text-2xs text-muted-foreground">{block.footnote}</p> : null}
     </section>

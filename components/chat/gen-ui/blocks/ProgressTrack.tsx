@@ -39,21 +39,24 @@ export function ProgressTrack({ block, condensed = false }: ProgressTrackProps) 
       .filter((m) => m.value > block.current)
       .sort((a, b) => a.value - b.value)[0];
     const reached = block.milestones.filter((m) => m.value <= block.current).length;
+    // A percent track already says its share; "/ 100%" and a "100%" chip would only repeat it.
+    const isPercent = unit.trim() === "%" && block.total === 100;
+    const done = block.current >= block.total;
 
     return (
       <section className="w-full space-y-stack-sm rounded-2xl bg-muted/30 p-inset-sm">
-        <div className="flex items-end justify-between gap-inline-sm">
+        <div className="flex items-baseline justify-between gap-inline-sm">
           <h3 className="min-w-0 truncate text-sm font-medium text-foreground">{block.title}</h3>
-          <p className="shrink-0 font-mono tabular-nums">
-            <span className="text-xl font-semibold text-foreground">
-              {block.current}
-              {unit}
-            </span>
-            <span className="text-xs text-muted-foreground">
-              {" "}
-              / {block.total}
-              {unit}
-            </span>
+          <p className="shrink-0 font-mono text-sm tabular-nums text-foreground">
+            {block.current}
+            {unit}
+            {isPercent ? null : (
+              <span className="text-xs text-muted-foreground">
+                {" "}
+                / {block.total}
+                {unit}
+              </span>
+            )}
           </p>
         </div>
 
@@ -88,10 +91,16 @@ export function ProgressTrack({ block, condensed = false }: ProgressTrackProps) 
         </div>
 
         <div className="flex flex-wrap items-center gap-inline-xs text-2xs">
-          <span className="rounded-full bg-accent/15 px-inset-sm py-0.5 font-mono tabular-nums text-foreground">
-            {Math.round(pct)}%
-          </span>
-          {block.milestones.length > 0 ? (
+          {done ? (
+            <span className="rounded-full bg-accent/15 px-inset-sm py-0.5 text-foreground">
+              Complete
+            </span>
+          ) : isPercent ? null : (
+            <span className="rounded-full bg-accent/15 px-inset-sm py-0.5 font-mono tabular-nums text-foreground">
+              {Math.round(pct)}%
+            </span>
+          )}
+          {block.milestones.length > 0 && !done ? (
             <span
               className="rounded-full bg-muted/60 px-inset-sm py-0.5 tabular-nums text-muted-foreground"
               aria-label={`${reached} of ${block.milestones.length} milestones reached`}

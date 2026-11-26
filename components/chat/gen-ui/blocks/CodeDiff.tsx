@@ -13,6 +13,7 @@ import { DiffFileIndex } from "../diff/DiffFileIndex";
 import { DiffStatStrip } from "../diff/DiffStatStrip";
 import styles from "../diff/Diff.module.css";
 
+import { HighlightedText, languageForPath } from "@/components/shared/code-highlight";
 import { useCodeWrap } from "@/components/shared/code/use-code-wrap";
 import { fontMono } from "@/config/fonts";
 import { resolveCodeDiffFiles, type ResolvedFile } from "@/lib/diff/resolve-file";
@@ -61,7 +62,11 @@ function firstExcerpt(files: readonly ResolvedFile[]) {
     const firstChange = hunk.lines.findIndex((line) => line.kind !== "context");
     const start = Math.max(0, firstChange - 1);
 
-    return { file, lines: hunk.lines.slice(start, start + EXCERPT_LINES) };
+    return {
+      file,
+      language: languageForPath(file.path),
+      lines: hunk.lines.slice(start, start + EXCERPT_LINES),
+    };
   }
 
   return null;
@@ -90,9 +95,7 @@ function CodeDiffCondensed({
     <div className={cn(styles.root, "organic-code mx-auto w-full max-w-sm", fontMono.variable)}>
       <header className="space-y-stack-xs">
         <h3 className="truncate text-sm font-semibold">{title}</h3>
-        {summary ? (
-          <p className="line-clamp-2 text-xs text-muted-foreground">{summary}</p>
-        ) : null}
+        {summary ? <p className="line-clamp-2 text-xs text-muted-foreground">{summary}</p> : null}
         <div className={styles.strip}>
           <span>
             {fileCount} {fileCount === 1 ? "file" : "files"} changed
@@ -157,7 +160,7 @@ function CodeDiffCondensed({
                 {line.kind === "add" ? "Added: " : line.kind === "del" ? "Removed: " : ""}
               </span>
               <span className="min-w-0 overflow-hidden text-ellipsis whitespace-pre">
-                {displayText(line.text)}
+                <HighlightedText language={excerpt.language} text={displayText(line.text)} />
               </span>
             </div>
           ))}

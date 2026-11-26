@@ -7,7 +7,7 @@ import { motion, useReducedMotion } from "framer-motion";
 
 import { MEASURE_SPAN_REDUCED, MEASURE_SPAN_SPRING } from "./measure-timing";
 import { type Domain, toPct } from "./measure-math";
-import { toneClass } from "./tone";
+import { toneClass, toneGlassClass } from "./tone";
 
 import { formatMeasureValue } from "@/lib/schemas/gen-ui/measure";
 import { cn } from "@/lib/utils";
@@ -20,14 +20,19 @@ export { toneClass } from "./tone";
 export function Track({
   domain,
   ticks,
+  thin = false,
   children,
 }: {
   domain: Domain;
   ticks: number[];
+  /** Condensed: a hairline bar, so the rows read as one compact chart. */
+  thin?: boolean;
   children?: ReactNode;
 }) {
   return (
-    <div className="relative h-3 overflow-hidden rounded-full bg-muted/40">
+    <div
+      className={cn("relative overflow-hidden rounded-full bg-muted/40", thin ? "h-1.5" : "h-3")}
+    >
       {ticks.slice(1, -1).map((t) => (
         <span
           key={t}
@@ -48,6 +53,7 @@ export function Span({
   tone,
   delay = 0,
   soft = false,
+  glass = false,
 }: {
   from: number;
   to: number;
@@ -55,6 +61,8 @@ export function Span({
   tone: MeasureTone;
   delay?: number;
   soft?: boolean;
+  /** Translucent tinted body with a rim instead of a solid fill (condensed). */
+  glass?: boolean;
 }) {
   const reduceMotion = useReducedMotion();
   const left = toPct(from, domain);
@@ -62,7 +70,11 @@ export function Span({
 
   return (
     <motion.span
-      className={cn("absolute inset-y-0 rounded-full", toneClass[tone], soft && "opacity-40")}
+      className={cn(
+        "absolute inset-y-0 rounded-full",
+        glass ? toneGlassClass[tone] : toneClass[tone],
+        soft && "opacity-40"
+      )}
       style={{ left: `${left}%` }}
       initial={reduceMotion ? false : { width: 0 }}
       animate={{ width: `${width}%` }}

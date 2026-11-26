@@ -42,93 +42,84 @@ export function StateDiagram({ block, onSelectState, condensed = false }: StateD
     return block.transitions.filter((t) => t.from === active || t.to === active);
   }, [active, block.transitions]);
 
+  const select = (id: string) => {
+    setActive(id);
+    onSelectState?.(id);
+  };
+
   if (condensed) {
-    return (
-      <StateDiagramCondensed
-        block={block}
-        active={active}
-        onSelect={(id) => {
-          setActive(id);
-          onSelectState?.(id);
-        }}
-      />
-    );
+    return <StateDiagramCondensed block={block} active={active} onSelect={select} />;
   }
 
   return (
     <section className={cn("w-full rounded-2xl bg-muted/30 p-inset-md", spacing.card.section)}>
       <h3 className="text-sm font-medium text-foreground">{block.title}</h3>
 
+      {}
+      {/* One tappable row per state; transitions touching the selected state light up in accent,
+          including the ones arriving from other rows. */}
       {/* eslint-disable-next-line jsx-a11y/no-redundant-roles -- explicit role keeps list semantics in Safari/VoiceOver under list-style reset */}
-      <ul className={spacing.card.blockItems} role="list">
+      <ul className="space-y-stack-xs" role="list">
         {block.states.map((state) => {
           const selected = active === state.id;
           const outbound = block.transitions.filter((t) => t.from === state.id);
 
           return (
-            <li key={state.id} className="flex items-start gap-inline-md">
+            <li
+              key={state.id}
+              className={cn("rounded-xl", selected ? "bg-accent/15" : "bg-muted/30")}
+            >
               <button
                 type="button"
                 aria-pressed={selected}
-                onClick={() => {
-                  setActive(state.id);
-                  onSelectState?.(state.id);
-                }}
+                onClick={() => select(state.id)}
                 className={cn(
-                  "mt-0.5 size-8 shrink-0 rounded-full border",
-                  selected
-                    ? "border-accent bg-accent/30"
-                    : "border-border/60 bg-muted/50",
+                  "block w-full rounded-xl px-inset-sm py-stack-sm text-left text-sm font-medium",
+                  selected ? "text-foreground" : "text-foreground/85",
                   FOCUS
                 )}
-                aria-label={state.label}
-              />
-              <div className="min-w-0 flex-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActive(state.id);
-                    onSelectState?.(state.id);
-                  }}
-                  className={cn(
-                    "text-left text-sm font-medium text-foreground underline-offset-2 hover:underline",
-                    FOCUS
-                  )}
-                >
-                  {state.label}
-                </button>
-                {outbound.length > 0 ? (
-                  <ul className="mt-stack-xs space-y-0.5">
-                    {outbound.map((t, i) => (
-                      <li key={`${t.from}-${t.to}-${i}`} className="text-xs text-muted-foreground">
-                        <span aria-hidden>→ </span>
+              >
+                {state.label}
+              </button>
+              {outbound.length > 0 ? (
+                <ul className="space-y-stack-xs px-inset-sm pb-stack-sm">
+                  {outbound.map((t, i) => {
+                    const lit = related.includes(t);
+
+                    return (
+                      <li
+                        key={`${t.from}-${t.to}-${i}`}
+                        className="flex min-w-0 items-baseline justify-between gap-inline-md text-xs"
+                      >
                         <button
                           type="button"
-                          className={cn("underline-offset-2 hover:underline", FOCUS)}
-                          onClick={() => {
-                            setActive(t.to);
-                            onSelectState?.(t.to);
-                          }}
+                          onClick={() => select(t.to)}
+                          className={cn(
+                            "flex min-w-0 items-baseline gap-inline-xs text-left underline-offset-2 hover:underline",
+                            lit ? "text-foreground" : "text-muted-foreground",
+                            FOCUS
+                          )}
                         >
-                          {byId.get(t.to)?.label ?? t.to}
+                          <span aria-hidden className={lit ? "text-accent" : undefined}>
+                            →
+                          </span>
+                          <span className="sr-only">Goes to </span>
+                          <span className="truncate">{byId.get(t.to)?.label ?? t.to}</span>
                         </button>
-                        {t.label ? <span className="text-muted-foreground/80"> · {t.label}</span> : null}
+                        {t.label ? (
+                          <span className="shrink-0 text-2xs text-muted-foreground/80">
+                            {t.label}
+                          </span>
+                        ) : null}
                       </li>
-                    ))}
-                  </ul>
-                ) : null}
-              </div>
+                    );
+                  })}
+                </ul>
+              ) : null}
             </li>
           );
         })}
       </ul>
-
-      {active && related.length > 0 ? (
-        <p className="text-xs text-muted-foreground">
-          {related.length} transition{related.length === 1 ? "" : "s"} touch{" "}
-          {byId.get(active)?.label ?? active}.
-        </p>
-      ) : null}
 
       {block.footnote ? <p className="text-xs text-muted-foreground">{block.footnote}</p> : null}
     </section>
