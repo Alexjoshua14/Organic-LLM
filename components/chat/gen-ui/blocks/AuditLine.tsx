@@ -2,6 +2,9 @@
 
 import type { AuditLineBlock, AuditLineEvent } from "@/lib/schemas/gen-ui";
 
+import { useState } from "react";
+
+import { GrowToggle } from "@/components/chat/gen-ui/GrowToggle";
 import { spacing } from "@/lib/design-tokens/spacing";
 import { cn } from "@/lib/utils";
 
@@ -75,6 +78,8 @@ function CondensedRail({
 }
 
 export function AuditLine({ block, condensed = false }: AuditLineProps) {
+  const [showEarlier, setShowEarlier] = useState(false);
+
   if (condensed) {
     const dotFor = actorDotFor(block.events);
     const splitAt = Math.max(0, block.events.length - CONDENSED_VISIBLE_EVENTS);
@@ -93,18 +98,20 @@ export function AuditLine({ block, condensed = false }: AuditLineProps) {
           </span>
         </div>
 
+        {/* Earlier events extend the same rail upward, in place: one continuous timeline. */}
         {earlier.length > 0 ? (
-          <details>
-            <summary className="organic-focus cursor-pointer text-2xs font-medium text-muted-foreground">
-              +{earlier.length} earlier
-            </summary>
-            <div className="mt-stack-xs">
-              <CondensedRail events={earlier} dotFor={dotFor} startIndex={0} />
-            </div>
-          </details>
+          <GrowToggle
+            expanded={showEarlier}
+            label={`Show ${earlier.length} earlier`}
+            onToggle={() => setShowEarlier((v) => !v)}
+          />
         ) : null}
 
-        <CondensedRail events={latest} dotFor={dotFor} startIndex={splitAt} />
+        <CondensedRail
+          events={showEarlier ? block.events : latest}
+          dotFor={dotFor}
+          startIndex={showEarlier ? 0 : splitAt}
+        />
       </section>
     );
   }

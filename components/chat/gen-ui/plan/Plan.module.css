@@ -149,16 +149,10 @@
   gap: calc(var(--spacing) * 0.5); /* hairline between segments, below the token scale on purpose */
 }
 
+/* Each segment holds a CompositionStroke (the app's one bar material), which draws the colour. */
 .segment {
   flex: 1 1 0;
   min-width: 3px;
-  height: 4px;
-  border-radius: 999px;
-  background: var(--plan-tone);
-}
-
-.segment[data-status="next"] {
-  background: color-mix(in oklab, var(--muted-foreground) 28%, transparent);
 }
 
 /* ── Status marks and words ─────────────────────────────── */

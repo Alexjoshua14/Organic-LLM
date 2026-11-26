@@ -114,19 +114,13 @@
   gap: calc(var(--spacing) * 0.5);
 }
 
+/* Each block holds a CompositionStroke (the app's one bar material), which draws the colour. */
+.bar {
+  align-items: center;
+}
+
 .barBlock {
   width: 0.5rem;
-  height: 0.5rem;
-  border-radius: 1px;
-  background: color-mix(in oklab, var(--muted-foreground) 30%, transparent);
-}
-
-.barBlock[data-tone="add"] {
-  background: var(--accent);
-}
-
-.barBlock[data-tone="del"] {
-  background: var(--destructive);
 }
 
 .tools {

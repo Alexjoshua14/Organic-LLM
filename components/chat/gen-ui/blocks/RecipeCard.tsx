@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import type { RecipeCardBlock } from "@/lib/schemas/gen-ui";
 
+import { useState } from "react";
 import {
   Beef,
   ChefHat,
@@ -19,6 +20,7 @@ import {
 
 import { recipeIngredientToText, RECIPE_COMPLEXITY_LABEL } from "@/lib/schemas/gen-ui";
 import { GenUIMarkdown } from "@/components/chat/gen-ui/GenUIMarkdown";
+import { GrowToggle } from "@/components/chat/gen-ui/GrowToggle";
 import { cn } from "@/lib/utils";
 
 type RecipeCardProps = {
@@ -59,6 +61,7 @@ function RecipeCardCondensed({ block, partial }: Omit<RecipeCardProps, "condense
   if (block.cuisine)
     meta.push({ key: "cuisine", icon: <Globe className="size-3" />, label: block.cuisine });
 
+  const [showAll, setShowAll] = useState(false);
   const shown = block.ingredients.slice(0, CONDENSED_INGREDIENTS);
   const more = block.ingredients.length - shown.length;
 
@@ -102,27 +105,9 @@ function RecipeCardCondensed({ block, partial }: Omit<RecipeCardProps, "condense
         />
       </dl>
 
-      <ul className="flex flex-wrap gap-inline-xs" aria-label="Main ingredients">
-        {shown.map((ing, i) => (
-          <li
-            key={i}
-            className="max-w-full rounded-full bg-muted/40 px-inset-sm py-0.5 text-xs text-foreground wrap-anywhere"
-          >
-            {ing.name}
-          </li>
-        ))}
-        {more > 0 ? (
-          <li className="rounded-full px-inset-sm py-0.5 text-xs text-muted-foreground">
-            +{more} more
-          </li>
-        ) : null}
-      </ul>
-
-      <details>
-        <summary className="organic-focus w-fit cursor-pointer text-xs font-medium text-muted-foreground">
-          Ingredients & method
-        </summary>
-        <div className="mt-stack-sm space-y-stack-sm">
+      {/* The chips grow in place into the full ingredients and method: no separate block. */}
+      {showAll ? (
+        <div className="space-y-stack-sm">
           <ul className="space-y-stack-xs text-xs text-foreground" aria-label="Ingredients">
             {block.ingredients.map((ing, i) => (
               <li key={i} className="flex gap-inline-sm">
@@ -144,7 +129,28 @@ function RecipeCardCondensed({ block, partial }: Omit<RecipeCardProps, "condense
             ))}
           </ol>
         </div>
-      </details>
+      ) : (
+        <ul className="flex flex-wrap gap-inline-xs" aria-label="Main ingredients">
+          {shown.map((ing, i) => (
+            <li
+              key={i}
+              className="max-w-full rounded-full bg-muted/40 px-inset-sm py-0.5 text-xs text-foreground wrap-anywhere"
+            >
+              {ing.name}
+            </li>
+          ))}
+          {more > 0 ? (
+            <li className="rounded-full px-inset-sm py-0.5 text-xs text-muted-foreground">
+              +{more} more
+            </li>
+          ) : null}
+        </ul>
+      )}
+      <GrowToggle
+        expanded={showAll}
+        label="Show ingredients & method"
+        onToggle={() => setShowAll((v) => !v)}
+      />
 
       {partial ? <div className="h-3 w-1/2 animate-pulse rounded bg-muted/40" /> : null}
     </div>

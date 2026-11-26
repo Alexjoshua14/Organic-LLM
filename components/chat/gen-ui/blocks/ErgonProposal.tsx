@@ -12,6 +12,7 @@ import { Check, MessageSquare, Pencil, Plus } from "lucide-react";
 import { ErgonProposalView } from "../ergon/ErgonProposalView";
 import { Chip } from "../ergon/primitives";
 
+import { GrowToggle } from "@/components/chat/gen-ui/GrowToggle";
 import { genUiActionClass } from "@/components/chat/gen-ui/interaction";
 import { cn } from "@/lib/utils";
 
@@ -79,6 +80,7 @@ function ErgonProposalCondensed({
     "ready"
   );
   const inFlight = useRef(false);
+  const [showAll, setShowAll] = useState(false);
 
   async function approve() {
     if (!apply || status !== "ready" || inFlight.current) return;
@@ -131,24 +133,21 @@ function ErgonProposalCondensed({
         </ul>
       </header>
 
-      <ul className="space-y-stack-xs">
-        {visible.map((change) => (
-          <ChangeRow key={change.id} change={change} />
-        ))}
-      </ul>
-
-      {hidden.length > 0 ? (
-        <details>
-          <summary className="organic-focus cursor-pointer text-xs text-muted-foreground">
-            +{hidden.length} more {hidden.length === 1 ? "change" : "changes"}
-          </summary>
-          <ul className="mt-stack-xs space-y-stack-xs">
-            {hidden.map((change) => (
-              <ChangeRow key={change.id} change={change} />
-            ))}
-          </ul>
-        </details>
-      ) : null}
+      {/* Hidden changes continue the same list, in place. */}
+      <div>
+        <ul className="space-y-stack-xs">
+          {(showAll ? [...visible, ...hidden] : visible).map((change) => (
+            <ChangeRow key={change.id} change={change} />
+          ))}
+        </ul>
+        {hidden.length > 0 ? (
+          <GrowToggle
+            expanded={showAll}
+            more={hidden.length}
+            onToggle={() => setShowAll((v) => !v)}
+          />
+        ) : null}
+      </div>
 
       <div role="status" className="text-xs text-muted-foreground">
         {status === "applying" ? "Applying…" : null}

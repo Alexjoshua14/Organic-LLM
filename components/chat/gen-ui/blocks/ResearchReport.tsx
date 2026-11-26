@@ -15,6 +15,7 @@ import {
   ResearchSourceSliceSchema,
 } from "@/lib/schemas/gen-ui/research-report";
 import { GenUIMarkdown } from "@/components/chat/gen-ui/GenUIMarkdown";
+import { GrowToggle } from "@/components/chat/gen-ui/GrowToggle";
 import { CompositionBar } from "@/components/design-system/composition-bar";
 import { cn } from "@/lib/utils";
 
@@ -589,27 +590,8 @@ function ResearchReportCondensed({
       </div>
 
       {block.claims.length || block.limitations.length ? (
-        <details
-          className="group/condensed border-t border-border/40"
-          onToggle={(event) => {
-            if (event.currentTarget.open) setRevealed(true);
-          }}
-        >
-          <summary
-            className={cn(
-              controlFocus,
-              "flex min-h-11 cursor-pointer list-none items-center justify-between gap-inline-sm"
-            )}
-          >
-            <span>
-              Inspect findings
-              {block.limitations.length ? " & limitations" : ""}
-            </span>
-            <ChevronDown
-              className="size-4 shrink-0 text-muted-foreground group-open/condensed:rotate-180"
-              aria-hidden
-            />
-          </summary>
+        // Findings grow in place under the verdict bar: no chevron, no separate block.
+        <div>
           {revealed ? (
             <div className={spacing.card.blockItems}>
               <div className="divide-y divide-border/30">
@@ -632,7 +614,12 @@ function ResearchReportCondensed({
               ) : null}
             </div>
           ) : null}
-        </details>
+          <GrowToggle
+            expanded={revealed}
+            label={`Show findings${block.limitations.length ? " & limitations" : ""}`}
+            onToggle={() => setRevealed((v) => !v)}
+          />
+        </div>
       ) : null}
     </section>
   );

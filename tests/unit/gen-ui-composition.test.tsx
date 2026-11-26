@@ -112,12 +112,14 @@ describe("Gen UI composition chat rendering", () => {
 
   test("Condensed keeps the scale and folds evidence the reader can open", () => {
     const view = render(<GenUIRenderer data={{ block: population }} compositionDensity="condensed" />);
-    const details = view.container.querySelector("details");
+    const toggle = view.getByRole("button", { name: "Show how to read the estimate" });
 
     expect(view.getByText("20–25%")).toBeTruthy();
-    expect(details?.open).toBe(false);
-    fireEvent.click(view.getByText("How to read the estimate"));
-    expect(details?.open).toBe(true);
+    // Folded: the section heading stays, its content grows in place on request.
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(view.queryByRole("link", { name: "Example source" })).toBeNull();
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
     expect(view.getByRole("link", { name: "Example source" }).getAttribute("href")).toBe("https://example.com/population");
   });
 
@@ -126,7 +128,8 @@ describe("Gen UI composition chat rendering", () => {
 
     expect(view.getByText("Browser coverage")).toBeTruthy();
     expect(view.getAllByRole("list").length).toBe(3);
-    expect(view.container.querySelector("details")?.open).toBe(true);
+    // Full shows disclosure content as a plain section: no toggle, nothing folded.
+    expect(view.queryByRole("button", { name: /^Show / })).toBeNull();
     expect(view.getByText("QA agent prepared the mobile review.")).toBeTruthy();
   });
 

@@ -2,6 +2,9 @@
 
 import type { CompositionBlock, CompositionNode } from "@/lib/schemas/gen-ui/composition";
 
+import { useState } from "react";
+
+import { GrowToggle } from "./GrowToggle";
 import { MeasureView } from "./measure/MeasureView";
 import { PlanStatusMark, PlanStatusWord } from "./plan/plan-status";
 
@@ -101,17 +104,41 @@ function NodeView({ node, condensed }: { node: CompositionNode; condensed: boole
         </a>
       );
     case "disclosure":
-      return (
-        <details open={!condensed}>
-          <summary className="organic-focus min-h-11 cursor-pointer content-center font-medium">
-            {node.label}
-          </summary>
-          <div className={spacing.card.blockItems}>
-            {node.children.map((child, index) => (
-              <NodeView key={index} node={child} condensed={condensed} />
-            ))}
-          </div>
-        </details>
-      );
+      return <DisclosureNode node={node} condensed={condensed} />;
   }
+}
+
+/**
+ * A disclosure node reads as part of the composition, not a detached block: its label is a
+ * section heading and its content follows directly. Condensed starts it closed and grows it in
+ * place with the shared text toggle (no disclosure triangle or chevron).
+ */
+function DisclosureNode({
+  node,
+  condensed,
+}: {
+  node: Extract<CompositionNode, { kind: "disclosure" }>;
+  condensed: boolean;
+}) {
+  const [open, setOpen] = useState(!condensed);
+
+  return (
+    <section className={spacing.card.labelStack}>
+      <h4 className="text-xs font-medium text-muted-foreground">{node.label}</h4>
+      {open ? (
+        <div className={spacing.card.blockItems}>
+          {node.children.map((child, index) => (
+            <NodeView key={index} node={child} condensed={condensed} />
+          ))}
+        </div>
+      ) : null}
+      {condensed ? (
+        <GrowToggle
+          expanded={open}
+          label={`Show ${node.label.toLowerCase()}`}
+          onToggle={() => setOpen((v) => !v)}
+        />
+      ) : null}
+    </section>
+  );
 }

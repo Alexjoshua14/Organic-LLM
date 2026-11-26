@@ -8,6 +8,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { spacing } from "@/lib/design-tokens/spacing";
 import { GEN_UI_FOCUS as FOCUS, genUiActionClass } from "@/components/chat/gen-ui/interaction";
+import { GrowToggle } from "@/components/chat/gen-ui/GrowToggle";
 import { Switch } from "@/components/design-system/switch";
 import { cn } from "@/lib/utils";
 
@@ -208,6 +209,7 @@ export function RipplePreview({ block, onApply, condensed = false }: RipplePrevi
   const inFlight = useRef(false);
   /** Condensed: the effect shown in the inspector (defaults to the most urgent). */
   const [focusId, setFocusId] = useState<string | null>(null);
+  const [showAllEffects, setShowAllEffects] = useState(false);
 
   useEffect(() => {
     setApproved(Object.fromEntries(block.ripples.map((r) => [r.id, r.approved])));
@@ -377,13 +379,10 @@ export function RipplePreview({ block, onApply, condensed = false }: RipplePrevi
           </div>
         ) : null}
 
-        <details>
-          <summary className="organic-focus cursor-pointer text-xs text-muted-foreground">
-            Review {block.ripples.length} {block.ripples.length === 1 ? "effect" : "effects"} ·{" "}
-            {approvedIds.length} selected
-          </summary>
-          {/* eslint-disable-next-line jsx-a11y/no-redundant-roles -- explicit role keeps list semantics in Safari/VoiceOver under list-style reset */}
-          <ul className="mt-stack-xs space-y-stack-xs" role="list">
+        {/* Every effect at once, grown in place under the inspector: no separate block. */}
+        {showAllEffects ? (
+          // eslint-disable-next-line jsx-a11y/no-redundant-roles -- explicit role keeps list semantics in Safari/VoiceOver under list-style reset
+          <ul className="space-y-stack-xs" role="list">
             {block.ripples.map((ripple) => {
               const on = Boolean(approved[ripple.id]);
 
@@ -406,7 +405,12 @@ export function RipplePreview({ block, onApply, condensed = false }: RipplePrevi
               );
             })}
           </ul>
-        </details>
+        ) : null}
+        <GrowToggle
+          expanded={showAllEffects}
+          label={`Show all ${block.ripples.length} ${block.ripples.length === 1 ? "effect" : "effects"} · ${approvedIds.length} selected`}
+          onToggle={() => setShowAllEffects((v) => !v)}
+        />
 
         <div role="status" className="text-xs text-muted-foreground">
           {status === "applying" ? "Applying…" : null}

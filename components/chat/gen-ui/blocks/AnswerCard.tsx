@@ -2,7 +2,10 @@
 
 import type { AnswerCardBlock } from "@/lib/schemas/gen-ui";
 
+import { useState } from "react";
+
 import { GenUIMarkdown } from "@/components/chat/gen-ui/GenUIMarkdown";
+import { GrowToggle } from "@/components/chat/gen-ui/GrowToggle";
 import { spacing } from "@/lib/design-tokens/spacing";
 import { cn } from "@/lib/utils";
 
@@ -70,6 +73,8 @@ function AnswerCardCondensed({ block, partial }: Omit<AnswerCardProps, "condense
   const caveats = footer?.caveats ?? [];
   const visible = block.keyPoints.slice(0, CONDENSED_POINTS);
   const rest = block.keyPoints.slice(CONDENSED_POINTS);
+  const [showAllPoints, setShowAllPoints] = useState(false);
+  const [showFooter, setShowFooter] = useState(false);
   const footerSummary = [
     sources.length ? `${sources.length} ${sources.length === 1 ? "source" : "sources"}` : null,
     caveats.length ? `${caveats.length} ${caveats.length === 1 ? "caveat" : "caveats"}` : null,
@@ -78,7 +83,9 @@ function AnswerCardCondensed({ block, partial }: Omit<AnswerCardProps, "condense
     .join(" · ");
 
   return (
-    <div className={cn("text-sm leading-snug text-foreground break-words", spacing.card.blockItems)}>
+    <div
+      className={cn("text-sm leading-snug text-foreground break-words", spacing.card.blockItems)}
+    >
       <div className={spacing.card.labelStack}>
         {typeof block.title === "string" && block.title ? (
           <h3 className="text-xs font-semibold text-muted-foreground">
@@ -94,52 +101,63 @@ function AnswerCardCondensed({ block, partial }: Omit<AnswerCardProps, "condense
         )}
       </div>
 
-      {visible.length ? <KeyPointPills points={visible} start={0} /> : null}
-      {rest.length ? (
-        <details>
-          <summary className="organic-focus w-fit cursor-pointer text-xs font-medium text-muted-foreground">
-            +{rest.length} more key {rest.length === 1 ? "point" : "points"}
-          </summary>
-          <div className="mt-stack-xs">
-            <KeyPointPills points={rest} start={CONDENSED_POINTS} />
-          </div>
-        </details>
+      {visible.length ? (
+        <div>
+          {/* More points continue the same numbered list, in place. */}
+          <KeyPointPills points={showAllPoints ? block.keyPoints : visible} start={0} />
+          {rest.length ? (
+            <GrowToggle
+              expanded={showAllPoints}
+              more={rest.length}
+              onToggle={() => setShowAllPoints((v) => !v)}
+            />
+          ) : null}
+        </div>
       ) : null}
 
       {footer ? (
-        <div className="flex flex-wrap items-center gap-x-inline-md gap-y-stack-xs text-xs text-muted-foreground">
+        <div className="text-xs text-muted-foreground">
           <ConfidenceMeter confidence={footer.confidence} />
           {footerSummary ? (
-            <details className="min-w-0">
-              <summary className="organic-focus cursor-pointer">{footerSummary}</summary>
-              <div className={cn("mt-stack-xs", spacing.card.listItems)}>
-                {sources.length ? (
-                  <ul className="flex flex-wrap gap-x-inline-sm gap-y-stack-xs" aria-label="Sources">
-                    {sources.map((src, i) => (
-                      <li key={i}>
-                        {src.url ? (
-                          <a
-                            href={src.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="organic-focus text-accent underline underline-offset-2"
-                          >
-                            {src.label}
-                          </a>
-                        ) : (
-                          src.label
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-                {caveats.map((c, i) => (
-                  <p key={i}>
-                    <GenUIMarkdown inline>{c}</GenUIMarkdown>
-                  </p>
-                ))}
-              </div>
-            </details>
+            <>
+              {showFooter ? (
+                <div className={cn("mt-stack-sm", spacing.card.listItems)}>
+                  {sources.length ? (
+                    <ul
+                      className="flex flex-wrap gap-x-inline-sm gap-y-stack-xs"
+                      aria-label="Sources"
+                    >
+                      {sources.map((src, i) => (
+                        <li key={i}>
+                          {src.url ? (
+                            <a
+                              href={src.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="organic-focus text-accent underline underline-offset-2"
+                            >
+                              {src.label}
+                            </a>
+                          ) : (
+                            src.label
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  {caveats.map((c, i) => (
+                    <p key={i}>
+                      <GenUIMarkdown inline>{c}</GenUIMarkdown>
+                    </p>
+                  ))}
+                </div>
+              ) : null}
+              <GrowToggle
+                expanded={showFooter}
+                label={`Show ${footerSummary}`}
+                onToggle={() => setShowFooter((v) => !v)}
+              />
+            </>
           ) : null}
         </div>
       ) : null}
