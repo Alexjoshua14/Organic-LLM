@@ -113,21 +113,43 @@ export function AuditLine({ block, condensed = false }: AuditLineProps) {
     <section className={cn("w-full rounded-2xl bg-muted/30 p-inset-md", spacing.card.section)}>
       <h3 className="text-sm font-medium text-foreground">{block.title}</h3>
 
-      <ol className={spacing.card.blockItems}>
-        {block.events.map((event, index) => (
-          <li key={`${event.time}-${event.action}-${index}`} className="flex items-start gap-inline-md">
-            <span className="mt-1.5 size-2 shrink-0 rounded-full bg-accent" aria-hidden />
-            <div className="min-w-0 flex-1">
-              <p className="font-mono text-xs text-muted-foreground">{event.time}</p>
-              <p className="text-sm text-foreground">
-                <span className="font-medium">{event.actor}</span>
-                <span className="text-muted-foreground"> · </span>
-                <span className="font-mono text-xs">{event.action}</span>
-              </p>
-              <p className="text-sm text-muted-foreground">{event.summary}</p>
-            </div>
-          </li>
-        ))}
+      {/* A rail joins the events; space inside an event (stack-xs) is smaller than between
+          events (stack-md, as padding so the rail runs through the gap). */}
+      <ol>
+        {block.events.map((event, index) => {
+          const last = index === block.events.length - 1;
+
+          return (
+            <li
+              key={`${event.time}-${event.action}-${index}`}
+              className={cn("flex items-stretch gap-inline-md", !last && "pb-stack-md")}
+            >
+              <span aria-hidden className="flex w-2 shrink-0 flex-col items-center">
+                <span
+                  className={cn(
+                    "mt-1.5 size-2 shrink-0 rounded-full",
+                    last ? "bg-accent" : "bg-muted-foreground/50"
+                  )}
+                />
+                {!last ? <span className="mt-stack-xs w-px flex-1 bg-border/60" /> : null}
+              </span>
+              <div className={cn("min-w-0 flex-1", spacing.card.labelStack)}>
+                <p className="flex min-w-0 items-baseline gap-inline-sm">
+                  <span className="min-w-0 truncate text-sm font-medium text-foreground">
+                    {event.actor}
+                  </span>
+                  <span className="shrink-0 rounded-md bg-muted/60 px-inset-sm font-mono text-2xs text-muted-foreground">
+                    {event.action}
+                  </span>
+                  <time className="ml-auto shrink-0 font-mono text-2xs tabular-nums text-muted-foreground/70">
+                    {event.time}
+                  </time>
+                </p>
+                <p className="text-sm text-muted-foreground">{event.summary}</p>
+              </div>
+            </li>
+          );
+        })}
       </ol>
 
       {block.footnote ? <p className="text-xs text-muted-foreground">{block.footnote}</p> : null}

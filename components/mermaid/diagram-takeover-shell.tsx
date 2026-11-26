@@ -16,7 +16,7 @@ export function DiagramTakeoverShell() {
   const { takeover, closeTakeover, isDetailedView } = useDiagramTakeover();
   const prefersReducedMotion = useReducedMotion();
   const reduce = prefersReducedMotion === true;
-  const { setOpen, setOpenMobile, isMobile } = useSidebar();
+  const { open, openMobile, setOpen, setOpenMobile, isMobile } = useSidebar();
 
   const stageRef = useRef<HTMLDivElement>(null);
   const startGhostRef = useRef<HTMLDivElement>(null);
@@ -31,19 +31,26 @@ export function DiagramTakeoverShell() {
 
     startRectRef.current = takeover.startRect;
 
+    // Remember whether the sidebar was actually open, so closing restores it only then. Recording
+    // `true` unconditionally made every close open a sidebar the reader never had open.
     if (sidebarWasOpenRef.current === null) {
-      sidebarWasOpenRef.current = true;
-      if (isMobile) setOpenMobile(false);
-      else setOpen(false);
+      const wasOpen = isMobile ? openMobile : open;
+
+      sidebarWasOpenRef.current = wasOpen;
+      if (wasOpen) {
+        if (isMobile) setOpenMobile(false);
+        else setOpen(false);
+      }
     }
+    // Only a new takeover should take this snapshot, not the sidebar closing it causes.
   }, [takeover, isMobile, setOpen, setOpenMobile]);
 
   const handleClose = useCallback(() => {
     if (sidebarWasOpenRef.current) {
       if (isMobile) setOpenMobile(true);
       else setOpen(true);
-      sidebarWasOpenRef.current = null;
     }
+    sidebarWasOpenRef.current = null;
     closeTakeover();
   }, [closeTakeover, isMobile, setOpen, setOpenMobile]);
 
@@ -85,7 +92,7 @@ export function DiagramTakeoverShell() {
 
   if (!takeover) return null;
 
-  const activeCode = isDetailedView ? takeover.detailedCode : takeover.overviewCode;
+  const isImage = takeover.kind === "image";
 
   // Portaled to <body>: mounted inside the chat it sat in an `overflow-hidden` shell with its own
   // stacking context, where the app chrome could cover the close control and leave no way out.
@@ -99,7 +106,9 @@ export function DiagramTakeoverShell() {
       {/* viewport-fit=cover draws under the notch and home bar, so both edges pad by the safe area. */}
       <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border/50 pb-2 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] pt-[max(0.5rem,env(safe-area-inset-top))]">
         <div className="min-w-0">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Diagram</p>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">
+            {isImage ? "Preview" : "Diagram"}
+          </p>
           {takeover.title ? (
             <h2 className="truncate text-sm font-medium text-foreground">{takeover.title}</h2>
           ) : null}
@@ -145,16 +154,21 @@ export function DiagramTakeoverShell() {
             "bg-background-tertiary/20 ring-1 ring-inset ring-border/40"
           )}
         >
-          <MermaidDiagram
-            code={activeCode}
-            density={takeover.density}
-            detailedCode={takeover.detailedCode}
-            diagramId={takeover.diagramId}
-            interactive
-            overviewCode={takeover.overviewCode}
-            title={takeover.title}
-            variant="takeover"
-          />
+          {takeover.kind === "image" ? (
+            // eslint-disable-next-line @next/next/no-img-element -- model-supplied https preview URLs
+            <img alt={takeover.alt} className="size-full object-contain" src={takeover.src} />
+          ) : (
+            <MermaidDiagram
+              code={isDetailedView ? takeover.detailedCode : takeover.overviewCode}
+              density={takeover.density}
+              detailedCode={takeover.detailedCode}
+              diagramId={takeover.diagramId}
+              interactive
+              overviewCode={takeover.overviewCode}
+              title={takeover.title}
+              variant="takeover"
+            />
+          )}
         </div>
       </div>
 

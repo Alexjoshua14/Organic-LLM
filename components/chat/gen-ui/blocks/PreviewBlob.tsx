@@ -2,9 +2,10 @@
 
 import type { PreviewBlobBlock } from "@/lib/schemas/gen-ui";
 
-import { useState } from "react";
+import { useId, useState, type MouseEvent } from "react";
 
 import { spacing } from "@/lib/design-tokens/spacing";
+import { useDiagramTakeoverOptional } from "@/lib/mermaid/diagram-takeover-context";
 import { cn } from "@/lib/utils";
 
 const FOCUS =
@@ -23,6 +24,23 @@ export function PreviewBlob({ block, onCommit, condensed = false }: PreviewBlobP
   const [expanded, setExpanded] = useState(false);
   const [status, setStatus] = useState<"ready" | "committing" | "done" | "error">("ready");
   const expandedSrc = block.svgURL ?? block.previewURL;
+  const diagramId = useId();
+  // The same full-screen takeover diagrams use; without a host provider, fall back to inline.
+  const takeover = useDiagramTakeoverOptional();
+
+  const openFull = (event: MouseEvent<HTMLElement>) => {
+    if (!takeover) return false;
+    takeover.openTakeover({
+      kind: "image",
+      diagramId,
+      title: block.title,
+      src: expandedSrc,
+      alt: `${block.title} preview`,
+      startRect: event.currentTarget.getBoundingClientRect(),
+    });
+
+    return true;
+  };
 
   const commit = async () => {
     if (!onCommit || status === "committing") return;
@@ -42,7 +60,12 @@ export function PreviewBlob({ block, onCommit, condensed = false }: PreviewBlobP
           href={expandedSrc}
           target="_blank"
           rel="noreferrer"
-          aria-label={`Open ${block.title} preview in a new tab`}
+          aria-label={
+            takeover ? `Open ${block.title} preview` : `Open ${block.title} preview in a new tab`
+          }
+          onClick={(event) => {
+            if (openFull(event)) event.preventDefault();
+          }}
           className={cn(
             "relative block aspect-video w-full overflow-hidden rounded-2xl bg-muted/40",
             FOCUS
@@ -64,7 +87,9 @@ export function PreviewBlob({ block, onCommit, condensed = false }: PreviewBlobP
             </span>
           ) : null}
           <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-background/90 to-transparent px-inset-sm pt-inset-md pb-inset-sm">
-            <span className="block truncate text-sm font-medium text-foreground">{block.title}</span>
+            <span className="block truncate text-sm font-medium text-foreground">
+              {block.title}
+            </span>
           </span>
         </a>
 
@@ -104,24 +129,24 @@ export function PreviewBlob({ block, onCommit, condensed = false }: PreviewBlobP
 
       <button
         type="button"
-        aria-expanded={expanded}
-        onClick={() => setExpanded((v) => !v)}
-        className={cn(
-          "block w-full overflow-hidden rounded-xl bg-muted/40 text-left",
-          FOCUS
-        )}
+        aria-expanded={takeover ? undefined : expanded}
+        onClick={(event) => {
+          if (!openFull(event)) setExpanded((v) => !v);
+        }}
+        className={cn("block w-full overflow-hidden rounded-xl bg-muted/40 text-left", FOCUS)}
       >
         {/* eslint-disable-next-line @next/next/no-img-element -- remote preview URLs are model-supplied https */}
         <img
           src={expanded ? expandedSrc : block.previewURL}
           alt={expanded ? `${block.title} expanded preview` : `${block.title} preview`}
-          className={cn(
-            "mx-auto max-h-48 w-auto object-contain",
-            expanded && "max-h-96"
-          )}
+          className={cn("mx-auto max-h-48 w-auto object-contain", expanded && "max-h-96")}
         />
         <span className="block px-inset-md py-inset-sm text-xs text-muted-foreground">
-          {expanded ? "Tap to collapse" : "Tap to expand preview"}
+          {takeover
+            ? "Tap to open full screen"
+            : expanded
+              ? "Tap to collapse"
+              : "Tap to expand preview"}
         </span>
       </button>
 

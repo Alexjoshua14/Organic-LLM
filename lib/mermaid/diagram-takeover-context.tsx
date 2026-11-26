@@ -13,7 +13,25 @@ import {
   type ReactNode,
 } from "react";
 
-export type DiagramTakeoverState = {
+/**
+ * What the takeover shows: a Mermaid diagram (the default), or a rendered image such as a
+ * preview-blob sketch. One shell serves both, so every full-screen visual opens, morphs and
+ * closes the same way.
+ */
+export type DiagramTakeoverState = MermaidTakeoverState | ImageTakeoverState;
+
+export type ImageTakeoverState = {
+  kind: "image";
+  diagramId: string;
+  title?: string;
+  src: string;
+  alt: string;
+  /** Measured inline rect at open time (viewport coords). */
+  startRect: DOMRect;
+};
+
+export type MermaidTakeoverState = {
+  kind?: "mermaid";
   diagramId: string;
   title?: string;
   density: MermaidDiagramDensity;
@@ -44,7 +62,9 @@ export function DiagramTakeoverProvider({ children }: { children: ReactNode }) {
 
   const openTakeover = useCallback((state: DiagramTakeoverState) => {
     setTakeover(state);
-    setDetailedView(state.mode !== "expand" || state.density === "detailed");
+    setDetailedView(
+      state.kind !== "image" && (state.mode !== "expand" || state.density === "detailed")
+    );
 
     if (typeof window !== "undefined" && !historyPushedRef.current) {
       const url = new URL(window.location.href);
