@@ -123,6 +123,14 @@ describe("Gen UI composition chat rendering", () => {
     expect(view.getByRole("link", { name: "Example source" }).getAttribute("href")).toBe("https://example.com/population");
   });
 
+  test("Condensed names an action-worded disclosure once, without a duplicate heading", () => {
+    const view = render(<GenUIRenderer data={{ block: release }} compositionDensity="condensed" />);
+
+    expect(view.getAllByText(/activity/i)).toHaveLength(1);
+    expect(view.getByRole("button", { name: "Show activity" })).toBeTruthy();
+    expect(view.queryByText(/show show/i)).toBeNull();
+  });
+
   test("Full renders an assembled plan, its numeric rows and open activity", () => {
     const view = render(<GenUIRenderer data={{ block: release }} compositionDensity="full" />);
 

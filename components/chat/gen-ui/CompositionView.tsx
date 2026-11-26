@@ -121,24 +121,43 @@ function DisclosureNode({
   condensed: boolean;
 }) {
   const [open, setOpen] = useState(!condensed);
+  // Models often write the label as an action ("Show activity"). The toggle uses it as is; the
+  // full view's heading drops the verb so it names the section ("Activity").
+  const isAction = /^show\b/i.test(node.label);
+  const heading = isAction ? capitalize(node.label.replace(/^show\s+/i, "")) : node.label;
+  const toggleLabel = isAction ? node.label : `Show ${lowerFirst(node.label)}`;
+
+  const content = open ? (
+    <div className={spacing.card.blockItems}>
+      {node.children.map((child, index) => (
+        <NodeView key={index} node={child} condensed={condensed} />
+      ))}
+    </div>
+  ) : null;
+
+  // Condensed: the toggle alone names the section, so there is no heading to repeat it.
+  if (condensed) {
+    return (
+      <section aria-label={heading}>
+        {content}
+        <GrowToggle expanded={open} label={toggleLabel} onToggle={() => setOpen((v) => !v)} />
+      </section>
+    );
+  }
 
   return (
     <section className={spacing.card.labelStack}>
-      <h4 className="text-xs font-medium text-muted-foreground">{node.label}</h4>
-      {open ? (
-        <div className={spacing.card.blockItems}>
-          {node.children.map((child, index) => (
-            <NodeView key={index} node={child} condensed={condensed} />
-          ))}
-        </div>
-      ) : null}
-      {condensed ? (
-        <GrowToggle
-          expanded={open}
-          label={`Show ${node.label.toLowerCase()}`}
-          onToggle={() => setOpen((v) => !v)}
-        />
-      ) : null}
+      <h4 className="text-xs font-medium text-muted-foreground">{heading}</h4>
+      {content}
     </section>
   );
+}
+
+function capitalize(text: string) {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/** Lower-cases the first letter only, so acronyms and names inside a label keep their case. */
+function lowerFirst(text: string) {
+  return text.charAt(0).toLowerCase() + text.slice(1);
 }
