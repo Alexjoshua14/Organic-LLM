@@ -29,4 +29,6 @@ jobs:
           bun install --frozen-lockfile
           bun run typecheck
           bun run build
+          # The hooks are client components; Next.js needs the directive on the bundle's first line.
+          head -n 1 dist/lumen.js | grep -qx '"use client";'
           npm pack --dry-run
